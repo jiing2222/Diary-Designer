@@ -32,6 +32,18 @@ export const GRAB: Mm = 1.6;
 export const HANDLE_GRAB: Mm = 2.2;
 export const HANDLE_SIZE: Mm = 1.8;
 
+/**
+ * 이만큼 움직이기 전까지는 끈 것이 아니라 **누른 것**이다.
+ *
+ * 고르려고 누르는 순간에도 손은 미세하게 떨린다. 그 떨림을 이동으로 받으면,
+ * 격자를 벗어나 있던 것이 클릭만 해도 제자리로 튄다 — 도착지를 격자에 맞추므로
+ * 아주 조금만 움직여도 최대 반 칸이 밀린다. 누른 것과 끈 것을 여기서 가른다.
+ *
+ * 붙는 자리를 정하는 스냅에는 여전히 문턱값이 없다. 이것은 **몸짓을 가르는**
+ * 문턱이지 좌표를 정하는 문턱이 아니다.
+ */
+export const DRAG_START: Mm = 1;
+
 /** 지금 입력 중인 글자 상자. 확정하기 전까지는 객체가 아니다. */
 export type Editing = { box: Box; text: string; style: TextStyle; id?: string };
 
@@ -55,8 +67,23 @@ export type Drag =
   | { kind: 'draw'; from: Point; to: Point }
   | { kind: 'textbox'; from: Point; to: Point }
   | { kind: 'marquee'; from: Point; to: Point }
-  /** `free` — ⌘(Ctrl)을 누른 채 끄는 중. 격자를 벗어난 자리에 놓인다. */
-  | { kind: 'move'; origin: Point; dx: Mm; dy: Mm; hitId: string | null; free: boolean }
+  /**
+   * 고른 것을 통째로 옮기는 중.
+   *
+   * `anchor` — 고른 것 전체를 감싸는 네모의 왼쪽 위. **이 점이 격자에 앉는다.**
+   * `free`   — ⌘(Ctrl)을 누른 채라 격자를 벗어난 자리에 놓인다.
+   * `moved`  — DRAG_START를 넘겼다. 넘기기 전까지는 누른 것으로 본다.
+   */
+  | {
+      kind: 'move';
+      origin: Point;
+      anchor: Point;
+      dx: Mm;
+      dy: Mm;
+      hitId: string | null;
+      free: boolean;
+      moved: boolean;
+    }
   | { kind: 'handle'; id: string; end: 1 | 2; to: Point };
 
 export function rectOf(a: Point, b: Point) {

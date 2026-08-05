@@ -12,6 +12,23 @@
   font-display: block;
 }
 
+/*
+ * 굵게는 **진짜 Bold 파일**로 그린다.
+ *
+ * 이 선언이 없으면 브라우저가 Regular의 획을 부풀려 굵은 척을 한다(synthetic bold).
+ * 그런데 PDF를 만드는 pdf-lib에는 그 기능이 없어서, 화면만 굵고 인쇄물은 보통
+ * 굵기로 나온다. 두 뷰가 같은 파일을 봐야 결과가 같다.
+ *
+ * 굵은 글자를 쓸 때만 받아오도록 font-display를 swap으로 둔다 — 이 파일이
+ * 도착하기 전에도 보통 굵기로 먼저 보이는 편이 낫다.
+ */
+@font-face {
+  font-family: 'Pretendard';
+  src: url('/fonts/Pretendard-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
 :root {
   --bg: #f4f4f2;
   --panel: #ffffff;
@@ -231,6 +248,25 @@ button.ghost:disabled {
 .stylebar select {
   width: auto;
   min-width: 74px;
+}
+
+/* 굵게 토글. 눌린 상태가 한눈에 보여야 해서 도구 버튼과 같은 방식으로 칠한다. */
+.bold-btn {
+  width: 28px;
+  padding: 4px 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+}
+
+.bold-btn.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
 
 /* 속성 막대에서 직접 치는 숫자 칸(글자 크기·줄 간격).

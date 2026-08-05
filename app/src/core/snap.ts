@@ -46,32 +46,52 @@ export function snapToLattice(
 }
 
 /**
+ * 격자의 위상 — 첫 점과 간격.
+ *
+ * 격자점 **목록**(Lattice)이 아니라 이 둘로 판단한다. 목록은 여백 앞에서 끝나는데,
+ * 그 끝에 맞춰버리면 지금 가능한 "여백 쪽으로 밀어내기"가 막힌다. 위상만 쓰면
+ * 목록 바깥으로 나가도 같은 간격으로 이어진다.
+ */
+export interface GridPhase {
+  x0: Mm;
+  y0: Mm;
+  spacing: Mm;
+}
+
+/** 격자 위상에 맞춘 값. 목록의 범위를 벗어나도 같은 간격으로 이어진다. */
+function toPhase(v: Mm, origin: Mm, spacing: Mm): Mm {
+  return origin + Math.round((v - origin) / spacing) * spacing;
+}
+
+/**
  * 끌어서 옮긴 거리.
  *
- * **객체를 다시 스냅하지 않고 이동량만 격자 칸 단위로 맞춘다.** 그래서 선의
- * 길이와 각도가 한 치도 변하지 않고, 격자를 벗어난 자리에 있던 것도 그 상대적인
- * 자리를 지키며 함께 움직인다. 여러 개를 함께 끌 때 서로의 간격이 무너지지 않는
- * 이유이기도 하다.
+ * **고른 것 전체가 이 거리만큼 함께 움직인다.** 객체를 하나씩 다시 스냅하지 않으므로
+ * 선의 길이와 각도가 한 치도 변하지 않고, 여러 개를 함께 끌어도 서로의 간격이
+ * 무너지지 않는다.
  *
- * **`free`면 반올림하지 않는다.** 격자와 격자 사이에 놓고 싶을 때가 있다 —
- * 칸 한가운데에 제목을 얹는다든지. 이때도 0.01mm로는 정리한다. 부동소수점 꼬리가
- * 그대로 저장 파일에 들어가면 사람이 읽을 수 없고, 0.01mm는 어떤 프린터도
- * 구별하지 못하는 크기라 잃는 것이 없다.
+ * 격자에 맞추는 방식이 요점이다. **이동량이 아니라 `anchor`가 도착할 자리를 맞춘다.**
+ * 이동량만 칸 단위로 반올림하면, 한 번 격자를 벗어난 것은 어긋난 만큼을 영원히
+ * 달고 다닌다 — 몇 번을 옮겨도 칸에 돌아오지 못한다. 도착지를 맞추면 ⌘ 없이 한 번
+ * 끄는 것만으로 제자리를 찾는다. anchor가 이미 격자 위라면 돌아갈 어긋남이 0이라
+ * 이동량을 반올림하던 예전과 결과가 정확히 같다.
+ *
+ * `grid`가 `null`이면 격자를 푼 것이다(⌘를 누른 채 끄는 중). 끈 만큼 그대로 가되
+ * 0.01mm로는 정리한다 — 부동소수점 꼬리가 그대로 저장 파일에 들어가면 사람이 읽을
+ * 수 없고, 0.01mm는 어떤 프린터도 구별하지 못하는 크기라 잃는 것이 없다.
  */
 export function moveDelta(
-  origin: { x: Mm; y: Mm },
+  from: { x: Mm; y: Mm },
   to: { x: Mm; y: Mm },
-  spacing: Mm,
-  free = false,
+  anchor: { x: Mm; y: Mm },
+  grid: GridPhase | null,
 ): { dx: Mm; dy: Mm } {
-  const dx = to.x - origin.x;
-  const dy = to.y - origin.y;
-  if (free) return { dx: roundMm(dx), dy: roundMm(dy) };
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  if (!grid || grid.spacing <= 0) return { dx: roundMm(dx), dy: roundMm(dy) };
 
-  // 격자가 없으면(간격이 0이면) 1mm 단위로 물러난다. 아무 데나 놓이는 것보다는 낫다.
-  const step = spacing || 1;
   return {
-    dx: Math.round(dx / step) * step,
-    dy: Math.round(dy / step) * step,
+    dx: roundMm(toPhase(anchor.x + dx, grid.x0, grid.spacing) - anchor.x),
+    dy: roundMm(toPhase(anchor.y + dy, grid.y0, grid.spacing) - anchor.y),
   };
 }

@@ -3,6 +3,7 @@ import { cellAt, gridArea, gridLattice } from '../core/grid';
 import { moveDelta, snapToLattice } from '../core/snap';
 import { canRedo, canUndo } from '../core/history';
 import {
+  boundsOfObjects,
   boxOf,
   cleanStyle,
   distanceToSegment,
@@ -14,7 +15,7 @@ import {
   type DiaryObject,
   type TextStyle,
 } from '../core/objects';
-import { SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
+import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm } from '../core/units';
 import { newTextStyle } from '../core/text';
 import { useStore } from '../store';
@@ -32,6 +33,7 @@ import {
   segProps,
   sizeLabelOf,
   toggleId,
+  DRAG_START,
   GRAB,
   HANDLE_GRAB,
   HANDLE_SIZE,
@@ -102,6 +104,12 @@ export function EditorTab() {
   const lattice = gridLattice(gridArea(insert, grid, insert.punch.safeZoneWidth), grid.spacing);
   const scale = (zoom / 100) * PX_PER_MM_AT_100;
   const noGrid = lattice.xs.length === 0 || lattice.ys.length === 0;
+
+  // 옮길 때 격자에 앉히는 기준. 격자점 목록이 아니라 첫 점과 간격만 넘긴다 —
+  // 목록은 여백 앞에서 끝나므로, 그것에 맞추면 여백 쪽으로 밀어낼 수 없게 된다.
+  const gridPhase = noGrid
+    ? null
+    : { x0: lattice.xs[0], y0: lattice.ys[0], spacing: grid.spacing };
 
   // 격자점 사이 칸 개수. 도트든 그리드든 줄이든 모양과 무관하게 같은 격자에서 나온다.
   const cellCols = Math.max(0, lattice.xs.length - 1);
@@ -176,9 +184,21 @@ export function EditorTab() {
         e.preventDefault();
         deleteSelected();
       }
-      // 손이 키보드에 있을 때 도구를 바꾼다.
+      /*
+       * 도구 단축키는 **글쇠 하나로만** 받는다.
+       *
+       * 여기서 수정키를 보지 않던 탓에 `⌘V`(붙여넣기)·`⌘T`(새 탭)·`⌘L`(주소창)에도
+       * 함께 반응해서, 브라우저 단축키를 쓸 때마다 도구가 멋대로 바뀌었다.
+       * 크롬이 우리 것을 뺏어간 게 아니라 우리가 크롬 것에 끼어든 쪽이었다.
+       *
+       * 맨 글자는 브라우저가 쓰지 않으므로 부딪히지 않는다. `⌘⇧T`(닫은 탭 열기)
+       * 같은 조합으로 옮기는 것은 답이 아니다 — 그것도 크롬이 쓰고, 게다가
+       * ⌘T·⌘N·⌘W는 웹페이지가 preventDefault로 막을 수도 없다.
+       */
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // 왼손만으로 셋 다 닿는 자리에 둔다. L은 오른손 끝이라 멀어서 D로 옮겼다.
       if (e.key.toLowerCase() === 'v') setTool('select');
-      if (e.key.toLowerCase() === 'l') setTool('draw');
+      if (e.key.toLowerCase() === 'd') setTool('draw');
       if (e.key.toLowerCase() === 't') setTool('text');
     }
     window.addEventListener('keydown', onKey);
@@ -300,7 +320,20 @@ export function EditorTab() {
       }
       // 이미 고른 것 중 하나면 선택을 그대로 두고 함께 끈다.
       if (!selectedIds.includes(hit.id)) select([hit.id]);
-      setDragBoth({ kind: 'move', origin: raw, dx: 0, dy: 0, hitId: hit.id, free: false });
+      // 격자에 앉힐 기준점 — 함께 옮길 것들을 감싸는 네모의 왼쪽 위.
+      // select()는 다음 렌더에나 반영되므로 지금 고른 것을 여기서 직접 센다.
+      const ids = selectedIds.includes(hit.id) ? selectedIds : [hit.id];
+      const box = boundsOfObjects(objects.filter((o) => ids.includes(o.id)));
+      setDragBoth({
+        kind: 'move',
+        origin: raw,
+        anchor: box ? { x: box.x, y: box.y } : raw,
+        dx: 0,
+        dy: 0,
+        hitId: hit.id,
+        free: false,
+        moved: false,
+      });
       return;
     }
     if (!e.shiftKey) select([]);
@@ -319,10 +352,19 @@ export function EditorTab() {
     } else if (d.kind === 'marquee') {
       setDragBoth({ ...d, to: raw });
     } else {
+      // 손떨림으로 옮겨지지 않게, 한 번 넘기기 전까지는 누른 것으로 둔다.
+      const moved = d.moved || Math.hypot(raw.x - d.origin.x, raw.y - d.origin.y) > DRAG_START;
       // ⌘(윈도우는 Ctrl)을 누른 채 끌면 격자를 벗어나 원하는 자리에 놓을 수 있다.
       // 끄는 도중에 눌러도 되고 떼도 된다 — 매번 다시 계산하므로 즉시 바뀐다.
       const free = e.metaKey || e.ctrlKey;
-      setDragBoth({ ...d, free, ...moveDelta(d.origin, raw, grid.spacing, free) });
+      setDragBoth({
+        ...d,
+        free,
+        moved,
+        ...(moved
+          ? moveDelta(d.origin, raw, d.anchor, free ? null : gridPhase)
+          : { dx: 0, dy: 0 }),
+      });
     }
   }
 
@@ -338,7 +380,11 @@ export function EditorTab() {
       // 끌지 않고 그냥 눌렀다 뗐으면, 여럿 중 그 하나만 남긴다.
       // 여러 개를 함께 끌 수 있으려면 누를 때는 선택을 줄이지 않아야 하므로
       // 판단이 여기로 온다.
-      if (d.dx === 0 && d.dy === 0) {
+      //
+      // 이동량이 0인지가 아니라 **손이 움직였는지**로 가른다. 격자를 벗어나 있던
+      // 것은 제자리로 돌아오느라 이동량이 0이 아니어서, 그걸로 재면 클릭만 해도
+      // 옮겨진 것으로 친다.
+      if (!d.moved) {
         if (d.hitId) select([d.hitId]);
       } else {
         moveSelected(d.dx, d.dy);
@@ -415,7 +461,7 @@ export function EditorTab() {
           <ToolBtn on={tool === 'select'} onClick={() => setTool('select')} title="고르기 (V)">
             <CursorIcon />
           </ToolBtn>
-          <ToolBtn on={tool === 'draw'} onClick={() => setTool('draw')} title="그리기 (L)">
+          <ToolBtn on={tool === 'draw'} onClick={() => setTool('draw')} title="그리기 (D)">
             <LineIcon />
           </ToolBtn>
           <ToolBtn on={tool === 'text'} onClick={() => setTool('text')} title="글자 (T)">
@@ -660,7 +706,12 @@ export function EditorTab() {
               // 칸 하나만 누르고 길게 써도 매번 손으로 늘릴 필요가 없다 — 실제로
               // 필요한 크기를 재서 모자라면 격자 칸 단위로 키운다. 왼쪽 위는 그대로다.
               const size = editing.style.size ?? TEXT_SIZE;
-              const required = measureTextBox(text, size, editing.style.lineHeight ?? size);
+              const required = measureTextBox(
+                text,
+                size,
+                editing.style.lineHeight ?? size,
+                editing.style.bold,
+              );
               const box = growBox(editing.box, grid.spacing, required, insert.width, insert.height);
               setEditing({ ...editing, text, box });
             }}
@@ -755,6 +806,7 @@ function TextInput({
         width: box.width * scale,
         height: box.height * scale,
         fontSize: size * scale,
+        fontWeight: editing.style.bold ? FONT_WEIGHT.bold : FONT_WEIGHT.regular,
         // 이 글자에 새겨둔 줄 간격을 그대로 쓴다 — 타이핑 중과 커밋 후가
         // 같은 자리로 보여야 한다.
         lineHeight: `${(editing.style.lineHeight ?? size) * scale}px`,

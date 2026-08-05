@@ -3,6 +3,7 @@ import {
   anchorX,
   baselineY,
   blockHeight,
+  boldOf,
   effectiveLineHeight,
   leftOf,
   lineBaselines,
@@ -85,6 +86,23 @@ describe('만들 때 정해지는 줄 간격', () => {
   it('간격이 글꼴보다 좁으면 겹치지 않을 만큼만 확보한다', () => {
     // 2mm 도트에 이 크기 글자를 쓰면 줄이 겹친다 — 글꼴 높이로 물러난다.
     expect(effectiveLineHeight(size, 2)).toBeCloseTo(natural, 9);
+  });
+});
+
+describe('굵게', () => {
+  it('정하지 않았으면 보통 굵기다', () => {
+    expect(boldOf({})).toBe(false);
+  });
+
+  it('정했으면 그것을 쓴다', () => {
+    expect(boldOf({ bold: true })).toBe(true);
+    // 명시적으로 false를 담아둔 경우도 보통 굵기다.
+    expect(boldOf({ bold: false })).toBe(false);
+  });
+
+  it('앞으로 쓸 글자에도 이어진다', () => {
+    // 크기·색과 같은 규칙이다. 한 번 굵게로 바꾸면 다음 글자도 굵다.
+    expect(newTextStyle({ bold: true }, 5).bold).toBe(true);
   });
 });
 

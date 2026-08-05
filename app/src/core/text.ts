@@ -27,6 +27,11 @@ export function valignOf(t: TextObject): VAlign {
   return t.valign ?? 'middle';
 }
 
+/** 굵게 쓸 것인가. 정하지 않았으면 보통 굵기. */
+export function boldOf(t: { bold?: boolean }): boolean {
+  return t.bold ?? false;
+}
+
 /**
  * 글자가 걸리는 가로 기준점.
  *

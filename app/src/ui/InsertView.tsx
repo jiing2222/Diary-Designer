@@ -4,6 +4,7 @@ import {
   CONTENT_COLOR,
   DEFAULT_FONT_FAMILY,
   DOT_SIZE,
+  FONT_WEIGHT,
   GRID_LINE_WIDTH,
   OBJECT_LINE_CAP,
   SCREEN_DOT_SIZE,
@@ -15,6 +16,7 @@ import { colorOf, dashPattern, widthOf } from '../core/line';
 import {
   alignOf,
   anchorX,
+  boldOf,
   lineBaselines,
   lineHeightOf,
   sizeOf,
@@ -131,6 +133,9 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
             data-id={t.id}
             x={x}
             fontSize={size}
+            // 400/700은 @font-face 선언과 같은 값이라 진짜 Bold 파일이 쓰인다.
+            // 가짜 굵게(synthetic bold)로 그리면 PDF와 글자 폭이 어긋난다.
+            fontWeight={boldOf(t) ? FONT_WEIGHT.bold : FONT_WEIGHT.regular}
             fill={t.color ?? TEXT_COLOR}
             textAnchor={align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start'}
             // 감추되 좌표는 남긴다 — visibility는 getBBox를 그대로 두므로 클릭 판정이 산다.

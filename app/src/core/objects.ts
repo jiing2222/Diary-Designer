@@ -64,6 +64,14 @@ export interface TextObject {
   valign?: VAlign;
   color?: string;
   /**
+   * 굵게.
+   *
+   * **가짜 굵게가 아니라 Bold 글꼴 파일을 쓴다.** 브라우저는 획을 부풀려 굵은
+   * 척을 할 수 있지만 pdf-lib에는 그런 기능이 없다. 화면만 굵고 인쇄물은 그대로
+   * 나오는 사고를 막으려면 양쪽이 같은 파일을 봐야 한다.
+   */
+  bold?: boolean;
+  /**
    * 줄 간격 (⇧Enter로 나뉜 줄 사이 거리).
    *
    * **만들 때의 도트 간격을 여기에 새겨둔다.** 그리는 순간마다 현재 도트 간격을
@@ -95,7 +103,7 @@ export type LineStyle = Partial<Pick<LineObject, 'width' | 'color' | 'dash'>>;
  * 똑같이 객체에 새겨져 따라다닌다.
  */
 export type TextStyle = Partial<
-  Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight'>
+  Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight' | 'bold'>
 >;
 
 /**

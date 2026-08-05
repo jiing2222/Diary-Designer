@@ -13,7 +13,7 @@ import {
   TEXT_COLOR,
   TEXT_SIZE,
 } from '../core/style';
-import { naturalLineHeight } from '../core/text';
+import { boldOf, naturalLineHeight } from '../core/text';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
 import { useStore } from '../store';
 import type { Editing } from './gestures';
@@ -250,8 +250,22 @@ function TextControls({
     ? null
     : roundMm(items[0].lineHeight ?? naturalLineHeight(sizeMm ?? TEXT_SIZE), 2);
 
+  // 하나라도 보통 굵기면 눌렀을 때 전부 굵어진다. 여러 개가 섞여 있을 때
+  // 무엇이 될지 예측하기 쉬운 쪽이다.
+  const allBold = !mixed('bold') && boldOf(items[0]);
+
   return (
     <>
+      <button
+        type="button"
+        className={`bold-btn ${allBold ? 'on' : ''}`}
+        // 보통 굵기로 되돌릴 때는 값을 아예 지운다. 그래야 기본값을 따라간다.
+        onClick={() => pick({ bold: allBold ? undefined : true })}
+        title="굵게"
+      >
+        가
+      </button>
+
       <NumField
         value={sizePt}
         unit="pt"

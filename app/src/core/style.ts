@@ -116,9 +116,22 @@ export const TEXT_DESCENT = 0.24;
  * 한가운데에서 위쪽으로 밀리지 않는다. 자세한 이유는 그 함수의 주석에 있다.
  */
 
-/** 화면에 담아둔 기본 글꼴. PDF에도 같은 파일을 심는다. */
+/**
+ * 화면에 담아둔 기본 글꼴. PDF에도 **같은 파일**을 심는다.
+ *
+ * 굵기마다 파일이 따로다. 브라우저는 Regular만 주면 획을 부풀려 굵은 척을 해주지만
+ * (synthetic bold) pdf-lib에는 그런 기능이 없다 — 그대로 두면 화면만 굵고 인쇄물은
+ * 보통 굵기로 나온다. 그래서 Bold도 함께 담는다.
+ *
+ * 파일 하나에 2.7MB라 필요한 것만 받는다. Bold는 굵은 글자가 실제로 있을 때만
+ * 내려받고, PDF에도 그때만 심는다.
+ */
 export const DEFAULT_FONT_FAMILY = 'Pretendard';
 export const DEFAULT_FONT_URL = `${import.meta.env.BASE_URL}fonts/Pretendard-Regular.ttf`;
+export const BOLD_FONT_URL = `${import.meta.env.BASE_URL}fonts/Pretendard-Bold.ttf`;
+
+/** 화면(CSS)과 PDF가 함께 쓰는 굵기 값. @font-face 선언과 반드시 같아야 한다. */
+export const FONT_WEIGHT = { regular: 400, bold: 700 } as const;
 
 /** 재단선·십자 마크. 인쇄되지만 자르고 나면 대부분 사라진다. */
 export const CROP_COLOR = '#8fb8de';

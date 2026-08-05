@@ -197,6 +197,28 @@ describe('도트 격자 인쇄', () => {
     expect(withText.byteLength).toBe(empty.byteLength);
   });
 
+  it('굵은 글자가 없으면 Bold 글꼴을 심지 않는다', async () => {
+    // 굵기마다 파일이 2.7MB다. 쓰지도 않을 것을 심으면 PDF가 그만큼 무거워진다.
+    // 망가진 바이트를 줘도 터지지 않아야 한다 — 아예 손대지 않는다는 뜻이다.
+    const plain = {
+      id: 't1',
+      type: 'text' as const,
+      x: 10,
+      y: 10,
+      width: 40,
+      height: 20,
+      text: '보통 굵기',
+    };
+    const given = await buildPdf({
+      ...base,
+      dotGrid: noGrid,
+      objects: [plain],
+      boldFontBytes: new Uint8Array([1, 2, 3]),
+    });
+    const not = await buildPdf({ ...base, dotGrid: noGrid, objects: [plain] });
+    expect(given.byteLength).toBe(not.byteLength);
+  });
+
   it('속지가 누워도 도트가 벡터로 들어간다', async () => {
     const bytes = await buildPdf({
       ...base,

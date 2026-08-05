@@ -1,5 +1,5 @@
 import { blockHeight, splitLines } from '../core/text';
-import { DEFAULT_FONT_FAMILY } from '../core/style';
+import { DEFAULT_FONT_FAMILY, FONT_WEIGHT } from '../core/style';
 import type { Mm } from '../core/units';
 import { PX_PER_MM_AT_100 } from './pixels';
 
@@ -24,9 +24,13 @@ export function measureTextBox(
   text: string,
   size: Mm,
   lineHeight: Mm,
+  bold = false,
 ): { width: Mm; height: Mm } {
   const c = getCtx();
-  c.font = `${size * PX_PER_MM_AT_100}px ${DEFAULT_FONT_FAMILY}, sans-serif`;
+  // 굵기까지 넣어야 한다. Bold는 획이 두꺼운 만큼 폭도 넓어서, 보통 굵기로 재면
+  // 상자가 모자라게 잡힌다.
+  const weight = bold ? FONT_WEIGHT.bold : FONT_WEIGHT.regular;
+  c.font = `${weight} ${size * PX_PER_MM_AT_100}px ${DEFAULT_FONT_FAMILY}, sans-serif`;
 
   const lines = splitLines(text);
   const widthPx = Math.max(0, ...lines.map((l) => c.measureText(l).width));

@@ -4,7 +4,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { PaperPreview } from './PaperPreview';
 import { EditorTab } from './EditorTab';
 import { buildPdf, downloadPdf } from '../pdf/export';
-import { loadBodyFont } from '../fonts/load';
+import { loadBodyFont, loadBoldFont } from '../fonts/load';
 
 type Tab = 'edit' | 'print';
 
@@ -25,9 +25,11 @@ export function App() {
   async function exportPdf() {
     setBusy(true);
     try {
-      // 글자가 있을 때만 글꼴을 받는다. 2.7MB짜리라 괜히 받을 이유가 없다.
-      const hasText = s.objects.present.some((o) => o.type === 'text');
-      const fontBytes = hasText ? await loadBodyFont() : undefined;
+      // 글자가 있을 때만 글꼴을 받는다. 하나에 2.7MB짜리라 괜히 받을 이유가 없다.
+      // 굵기마다 파일이 따로라 Bold도 굵은 글자가 실제로 있을 때만 받는다.
+      const texts = s.objects.present.filter((o) => o.type === 'text');
+      const fontBytes = texts.length > 0 ? await loadBodyFont() : undefined;
+      const boldFontBytes = texts.some((t) => t.bold) ? await loadBoldFont() : undefined;
 
       const bytes = await buildPdf({
         paperWidth: width,
@@ -36,6 +38,7 @@ export function App() {
         dotGrid: s.dotGrid,
         objects: s.objects.present,
         fontBytes,
+        boldFontBytes,
         safeZoneWidth: s.insert.punch.safeZoneWidth,
         cropMark: s.cropMark,
         showRuler: s.showRuler,
