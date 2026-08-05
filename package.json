@@ -1,0 +1,10 @@
+{
+  "name": "system-diary-designer-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix app run dev",
+    "build": "npm --prefix app run build",
+    "test": "npm --prefix app run test",
+    "typecheck": "npm --prefix app exec tsc -- --noEmit"
+  }
+}

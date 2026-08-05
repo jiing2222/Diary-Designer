@@ -1,0 +1,705 @@
+/*
+ * 속지에 쓰는 글꼴.
+ *
+ * PDF에 심는 것과 **똑같은 파일**을 화면에도 쓴다. 다른 글꼴로 보여주면
+ * 글자 폭이 달라져서 화면에서 칸에 맞춰놓은 것이 인쇄물에서 넘친다.
+ * Pretendard · SIL Open Font License (public/fonts/Pretendard-LICENSE.txt)
+ */
+@font-face {
+  font-family: 'Pretendard';
+  src: url('/fonts/Pretendard-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: block;
+}
+
+:root {
+  --bg: #f4f4f2;
+  --panel: #ffffff;
+  --ink: #1c1c1a;
+  --muted: #7a7a74;
+  --line: #dededa;
+  --accent: #2f6f4f;
+  --warn: #b04a2f;
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard',
+    'Malgun Gothic', sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ─────────────────────────── 상단 ─────────────────────────── */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.stage {
+  font-size: 12px;
+  color: var(--muted);
+  margin-right: auto;
+}
+
+button {
+  padding: 7px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #c2c2bd;
+  cursor: default;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.tab {
+  padding: 5px 12px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.tab.on {
+  background: #eceee9;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+button.ghost {
+  padding: 4px 9px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+button.ghost:disabled {
+  background: transparent;
+  color: #c2c2bd;
+}
+
+/* ─────────────────────────── 편집 화면 ─────────────────────────── */
+
+.editor {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.editor-bar select {
+  width: auto;
+}
+
+.editor-hint {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.editor-canvas {
+  /* 글자 입력칸을 속지 위에 겹쳐 놓기 위한 기준 */
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+  overflow: auto;
+}
+
+.tools {
+  display: flex;
+  gap: 2px;
+  padding-right: 8px;
+  margin-right: 4px;
+  border-right: 1px solid var(--line);
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tool-btn:hover {
+  background: #f0f1ee;
+  color: var(--ink);
+}
+
+.tool-btn.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.insert-sheet {
+  flex-shrink: 0;
+  touch-action: none;
+  filter: drop-shadow(0 2px 10px rgb(0 0 0 / 0.13));
+  /*
+   * 편집 화면에서는 속지 경계를 넘은 것도 그냥 보여준다 — 선 길이 표시나 넘친
+   * 글자를 숨기면 얼마나 넘쳤는지 가늠할 수 없다. 브라우저는 svg 기본값이
+   * overflow: hidden이라(뷰박스 밖은 원래 안 보인다) 명시적으로 풀어준다.
+   * 실제로 잘리는 건 InsertView가 'print' 모드일 때와 PDF뿐이다.
+   */
+  overflow: visible;
+}
+
+.insert-sheet.draw {
+  cursor: crosshair;
+}
+
+.insert-sheet.select {
+  cursor: default;
+}
+
+.insert-sheet.text {
+  cursor: text;
+}
+
+/* 고른 선. 실제 굵기와 무관하게 눈에 띄어야 한다. */
+.picked line {
+  stroke: #2f6f4f;
+  stroke-width: 0.7;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+/* 끝점 손잡이. 실제 굵기와 무관하게 잡기 쉬워야 한다. */
+.handles rect {
+  fill: #fff;
+  stroke: #2f6f4f;
+  stroke-width: 0.3;
+}
+
+.stylebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+
+.stylebar select {
+  width: auto;
+  min-width: 74px;
+}
+
+.picked-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.picked-count.muted-label {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.size-readout {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* 커서 옆 치수. 격자 위에서도 읽혀야 하므로 흰 테두리를 두른다.
+   테두리 굵기는 글자 크기에 맞춰야 해서 컴포넌트에서 정한다. */
+.size-label {
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-linejoin: round;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* 고른 글자 상자 */
+.picked rect {
+  fill: none;
+  stroke: #2f6f4f;
+  stroke-width: 0.3;
+  stroke-dasharray: 1.2 0.8;
+}
+
+/*
+ * 글자 도구의 파란색 계열.
+ * 그리기 도구는 초록(#2f6f4f)이라 커서만 보고도 지금 어느 도구인지 구분된다.
+ */
+.editing-box {
+  fill: #3568c9;
+  fill-opacity: 0.06;
+  stroke: #3568c9;
+  stroke-width: 0.25;
+}
+
+/* 글자 도구로 칸 위에 마우스를 올렸을 때. 어느 칸에 쓰일지 미리 보여준다. */
+.text-hover {
+  fill: #3568c9;
+  fill-opacity: 0.05;
+  stroke: #3568c9;
+  stroke-width: 0.2;
+  stroke-dasharray: 1 0.8;
+  pointer-events: none;
+}
+
+/* 여러 칸을 끌어 상자를 만드는 중. */
+.text-drag {
+  fill: #3568c9;
+  fill-opacity: 0.08;
+  stroke: #3568c9;
+  stroke-width: 0.25;
+  pointer-events: none;
+}
+
+/*
+ * 글자 입력칸.
+ * 상자와 같은 자리에 겹쳐 놓고, 결과와 같아 보이게 글꼴·크기를 맞춘다.
+ * 여러 줄을 쓸 수 있어 textarea를 쓴다 — 자동으로 넓어지는 상자 안에서
+ * 줄바꿈 없이 옆으로 흐르게 white-space: pre로 둔다.
+ */
+.text-input {
+  position: absolute;
+  z-index: 5;
+  padding: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  font-family: 'Pretendard', sans-serif;
+  color: #3a3a3a;
+  white-space: pre;
+}
+
+.marquee {
+  fill: #2f6f4f;
+  fill-opacity: 0.07;
+  stroke: #2f6f4f;
+  stroke-width: 0.2;
+  stroke-dasharray: 1.2 1;
+}
+
+.insert-sheet .sheet-bg {
+  fill: #fff;
+}
+
+.editor-foot {
+  display: flex;
+  gap: 18px;
+  padding: 6px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* ─────────────────────────── 본문 ─────────────────────────── */
+
+main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ─────────────────────────── 도구 막대 ─────────────────────────── */
+
+.rail-wrap {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 52px;
+  height: 100%;
+  padding: 8px 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+.rail-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin: 0 auto;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.rail-btn:hover {
+  background: #f0f1ee;
+  color: var(--ink);
+}
+
+.rail-btn.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* 그 안내가 지금 화면에 보이는 중이라는 표시 */
+.rail-mark {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.rail-btn.on .rail-mark {
+  background: #fff;
+}
+
+/* ─────────────────────────── 말풍선 ─────────────────────────── */
+
+.popover {
+  position: absolute;
+  left: 100%;
+  margin-left: 9px;
+  width: 264px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  box-shadow: 0 6px 26px rgb(0 0 0 / 0.13);
+}
+
+.popover-arrow {
+  position: absolute;
+  top: 13px;
+  left: -5px;
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg);
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.popover h2 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.popover .note {
+  margin: -2px 0 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.divider {
+  height: 1px;
+  margin: 12px 0 10px;
+  background: var(--line);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+}
+
+.row-label {
+  width: 68px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.row-field {
+  flex: 1;
+  min-width: 0;
+}
+
+select,
+.num input {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+}
+
+.num {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.num span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.check input {
+  margin: 0;
+}
+
+.readout {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  background: #f0f2ef;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.readout .muted {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.readout-warn {
+  background: #fbeee9;
+  color: var(--warn);
+}
+
+/* ─────────────────────────── 미리보기 ─────────────────────────── */
+
+.print-tab {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 양식 만들기의 .editor-bar와 같은 자리·같은 생김새다. */
+.print-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.stage-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: auto;
+}
+
+/*
+ * 용지 그림과 우측 하단 작은 안내문을 같이 묶는 기준점.
+ *
+ * 높이를 여기서 못 박고(뷰포트 기준), 가로폭은 App.tsx가 인라인으로 주는
+ * aspect-ratio(용지 가로:세로)로 정해지게 한다. SVG는 그 안을 100%로 채우기만
+ * 한다 — SVG 자체는 내재 크기가 없는 요소라 부모 크기가 애매하면(예: 이 래퍼가
+ * 그냥 block이고 플렉스 자식일 때) 0×0으로 쪼그라들 수 있다. 크기를 명시적으로
+ * 확정해두면 그럴 일이 없다.
+ */
+.preview-wrap {
+  position: relative;
+  height: calc(100vh - 260px);
+}
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 560px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.notice span {
+  color: var(--muted);
+}
+
+/* 인쇄 미리보기 위에 작게 얹는 판. 실제 모습을 가리지 않도록 구석에, 작게. */
+.notice-corner {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  max-width: 210px;
+  padding: 6px 9px;
+  gap: 1px;
+  font-size: 10px;
+  line-height: 1.4;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+}
+
+.empty {
+  margin-top: 60px;
+  color: var(--muted);
+}
+
+.preview-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.preview-toggle-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 10px rgb(0 0 0 / 0.13));
+}
+
+.preview .paper {
+  fill: #fff;
+}
+
+.preview .print-margin {
+  fill: none;
+  stroke: #e2e2dd;
+  stroke-width: 0.3;
+  stroke-dasharray: 2 2;
+}
+
+.preview .insert {
+  fill: #fcfcfb;
+  stroke: #c9c9c3;
+  stroke-width: 0.25;
+}
+
+.preview .unprintable rect {
+  fill: none;
+  stroke: #5a5a5a;
+  opacity: 0.2;
+}
+
+.preview .unprintable-edge {
+  stroke-width: 0.25;
+  stroke-dasharray: 2 1.5;
+  opacity: 0.55;
+}
+
+/* 타공 안내. 편집 화면과 인쇄 미리보기가 같이 쓰므로 부모에 매이지 않는다. */
+.safe-zone {
+  fill: #e8462c;
+  opacity: 0.07;
+}
+
+.safe-zone-edge {
+  stroke: #e8462c;
+  stroke-width: 0.2;
+  stroke-dasharray: 1.5 1.5;
+  opacity: 0.5;
+}
+
+.hole {
+  fill: none;
+  stroke: #9aa0a6;
+  stroke-width: 0.3;
+}
+
+/* 절취선의 색과 굵기는 core/style.ts가 정한다. PDF와 같은 값을 써야 하므로
+   여기에 적지 않고 PaperPreview가 직접 넣는다. */
+
+/* 눈금자의 색과 굵기도 core/style.ts가 정한다. PaperPreview가 직접 넣는다. */
+
+/* ─────────────────────────── 하단 ─────────────────────────── */
+
+footer {
+  display: flex;
+  gap: 18px;
+  padding: 8px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+footer b {
+  color: var(--ink);
+}
