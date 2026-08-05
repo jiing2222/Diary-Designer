@@ -1,0 +1,388 @@
+import { useEffect, useRef, useState } from 'react';
+import {
+  boundsOfObjects,
+  isLine,
+  isText,
+  type LineObject,
+  type LineStyle,
+  type TextStyle,
+} from '../core/objects';
+import {
+  OBJECT_LINE_COLOR,
+  OBJECT_LINE_WIDTH,
+  TEXT_COLOR,
+  TEXT_SIZE,
+} from '../core/style';
+import { naturalLineHeight } from '../core/text';
+import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
+import { useStore } from '../store';
+import type { Editing } from './gestures';
+
+/**
+ * 편집 화면 위쪽의 속성 막대.
+ *
+ * 지금 고른 것(또는 앞으로 만들 것)의 굵기·색·크기를 보여주고 바꾼다.
+ * 무엇을 보여줄지 고르는 것이 StyleBar, 실제 조작칸이 LineControls·TextControls다.
+ *
+ * EditorTab에서 떼어냈다. 이 막대는 store와 props로만 이야기하고 캔버스의
+ * 몸짓·좌표를 전혀 모르기 때문에 따로 두는 편이 읽기 쉽다.
+ */
+
+const WIDTHS: Mm[] = [0.1, 0.15, 0.2, 0.3, 0.4, 0.6, 0.8];
+const COLORS: { id: string; label: string }[] = [
+  { id: '#cfcfcf', label: '아주 연하게' },
+  { id: '#9e9e9e', label: '연하게' },
+  { id: '#6e6e6e', label: '중간' },
+  { id: '#3a3a3a', label: '진하게' },
+  { id: '#000000', label: '검정' },
+];
+
+/**
+ * 굵기·색·모양.
+ *
+ * 셋 중 하나를 보여준다.
+ *   1. 지금 입력 중인 글자가 있으면 — 그 상자 자체의 스타일. 즉시 반영된다
+ *   2. 고른 것이 있으면 — 그것들의 값
+ *   3. 아무것도 없으면 — **앞으로 그릴/쓸 것**의 기본 모양. 도구가 선이면 선,
+ *      글자면 글자다. 만들기 전에 무엇이 나올지 보이는 편이 낫다
+ *
+ * **`기본`이라는 선택지는 두지 않는다.** 목록에서 기본값에 해당하는 항목이 그냥
+ * 처음부터 골라져 있다. 값을 정하지 않았다는 사실은 사용자가 알 필요가 없고,
+ * `기본 0.2mm`와 `0.2mm`가 나란히 있으면 무엇이 다른지 되묻게 된다. 안에서는
+ * 여전히 값을 비워두므로 나중에 기본값을 바꾸면 손대지 않은 것들이 같이 따라온다.
+ *
+ * 여러 개를 골랐는데 값이 서로 다르면 `—`로 두고, 고르면 전부에 적용한다.
+ */
+export function StyleBar({
+  editing,
+  setEditingStyle,
+  draftStyle,
+  refocusText,
+}: {
+  editing: Editing | null;
+  setEditingStyle: (patch: TextStyle) => void;
+  /** 앞으로 쓸 글자에 실제로 붙을 값. 줄 간격까지 이미 정해져 있다. */
+  draftStyle: TextStyle;
+  refocusText: () => void;
+}) {
+  const objects = useStore((s) => s.objects.present);
+  const selectedIds = useStore((s) => s.selectedIds);
+  const styleSelected = useStore((s) => s.styleSelected);
+  const styleText = useStore((s) => s.styleText);
+  const drawStyle = useStore((s) => s.drawStyle);
+  const setDrawStyle = useStore((s) => s.setDrawStyle);
+  const setTextDraftStyle = useStore((s) => s.setTextDraftStyle);
+  const tool = useStore((s) => s.tool);
+
+  // 입력 중인 상자가 있으면 그것부터 — 지금 쓰고 있는 글자를 고치는 게 우선이다.
+  if (editing) {
+    return (
+      <div className="stylebar">
+        <span className="picked-count">쓰는 중</span>
+        <span className="size-readout">
+          {roundMm(editing.box.width, 1)} × {roundMm(editing.box.height, 1)}mm
+        </span>
+        <TextControls items={[editing.style]} apply={setEditingStyle} afterPick={refocusText} />
+      </div>
+    );
+  }
+
+  const picked = objects.filter((o) => selectedIds.includes(o.id));
+  const pickedLines = picked.filter(isLine);
+  const pickedTexts = picked.filter(isText);
+  const size = boundsOfObjects(picked);
+
+  // 글자를 골랐거나 글자 도구를 쓰는 중이면 글자 속성을, 아니면 선 속성을 보여준다.
+  const showText = tool === 'text' || (pickedTexts.length > 0 && pickedLines.length === 0);
+
+  return (
+    <div className="stylebar">
+      {picked.length > 0 ? (
+        <>
+          <span className="picked-count">{picked.length}개</span>
+          {size && (
+            <span className="size-readout">
+              {roundMm(size.width, 1)} × {roundMm(size.height, 1)}mm
+            </span>
+          )}
+        </>
+      ) : (
+        <span className="picked-count muted-label">{tool === 'text' ? '쓸 글자' : '그릴 선'}</span>
+      )}
+
+      {showText ? (
+        <TextControls
+          items={pickedTexts.length > 0 ? pickedTexts : [draftStyle]}
+          apply={pickedTexts.length > 0 ? styleText : setTextDraftStyle}
+        />
+      ) : (
+        <LineControls
+          lines={pickedLines}
+          draft={picked.length === 0 ? drawStyle : null}
+          apply={picked.length > 0 ? styleSelected : setDrawStyle}
+        />
+      )}
+    </div>
+  );
+}
+
+/** 선의 굵기·색·모양. 고른 것이 없으면 앞으로 그을 선의 값이다. */
+function LineControls({
+  lines,
+  draft,
+  apply,
+}: {
+  lines: LineObject[];
+  draft: LineStyle | null;
+  apply: (patch: LineStyle) => void;
+}) {
+  const editing = lines.length > 0;
+  const mixed = (key: 'width' | 'color' | 'dash') =>
+    editing && !lines.every((o) => o[key] === lines[0][key]);
+  /**
+   * 드롭다운에 보일 값.
+   *
+   * **기본값과 같으면 빈 문자열로 돌린다.** 목록에서 기본값에 해당하는 항목의 value가
+   * 빈 문자열이기 때문이다 — `기본 0.2mm`라는 항목을 따로 두지 않고 목록의 `0.2mm`가
+   * 곧 기본값이다. 예전에 0.2mm를 직접 골라둔 선도 같은 항목에 표시된다.
+   */
+  const val = (key: 'width' | 'color' | 'dash', dflt: string | number) => {
+    if (mixed(key)) return 'mixed';
+    const v = (editing ? lines[0][key] : draft?.[key]) ?? dflt;
+    return v === dflt ? '' : String(v);
+  };
+
+  return (
+    <>
+      <select
+        value={val('width', OBJECT_LINE_WIDTH)}
+        onChange={(e) => apply({ width: e.target.value ? Number(e.target.value) : undefined })}
+        title="굵기"
+      >
+        {mixed('width') && <option value="mixed">—</option>}
+        {WIDTHS.map((w) => (
+          <option key={w} value={w === OBJECT_LINE_WIDTH ? '' : w}>
+            {w}mm
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={val('color', OBJECT_LINE_COLOR)}
+        onChange={(e) => apply({ color: e.target.value || undefined })}
+        title="색"
+      >
+        {mixed('color') && <option value="mixed">—</option>}
+        {COLORS.map((c) => (
+          <option key={c.id} value={c.id === OBJECT_LINE_COLOR ? '' : c.id}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={val('dash', 'solid')}
+        onChange={(e) => apply({ dash: (e.target.value || undefined) as never })}
+        title="모양"
+      >
+        {mixed('dash') && <option value="mixed">—</option>}
+        <option value="">실선</option>
+        <option value="dashed">파선</option>
+        <option value="dotted">점선</option>
+      </select>
+    </>
+  );
+}
+
+/** 목록에서 고르지 않고 직접 치는 값들의 한계. 잘못 친 값이 그대로 들어가지 않게 막는다. */
+const MIN_TEXT_PT = 1;
+const MAX_TEXT_PT = 300;
+const MIN_LINE_MM: Mm = 0.5;
+const MAX_LINE_MM: Mm = 200;
+
+/** 기본 글자 크기를 pt로. 크기 칸에 아무것도 정하지 않았을 때 보이는 값이다. */
+const DEFAULT_PT = Math.round(mmToPt(TEXT_SIZE) * 10) / 10;
+
+/**
+ * 글자의 크기·줄 간격·정렬·색.
+ *
+ * `items`는 지금 값을 읽어올 대상들이다 — 고른 글자 여럿, 입력 중인 상자 하나,
+ * 혹은 앞으로 쓸 글자의 값 하나. 무엇이든 굵기·색·모양과 같은 모양(TextStyle)
+ * 이라 이 컴포넌트 하나로 다 다룬다.
+ *
+ * **크기와 줄 간격은 목록이 아니라 직접 치는 칸이다.** 고를 수 있는 몇 개로 묶어두면
+ * 6.5pt나 4.2mm 같은 값을 쓸 수 없다. 손바닥만 한 속지에서는 0.5pt 차이가 한 줄을
+ * 더 넣느냐 마느냐를 가른다. 도트 간격을 설정에서 직접 치는 것과 같은 방식이다.
+ *
+ * 크기만 pt로 주고받는다. 문서 프로그램에서 쓰던 단위라 감이 있기 때문이고,
+ * 저장은 mm로 한다 — 모든 좌표는 mm라는 규칙을 지키기 위해서다.
+ *
+ * `afterPick`은 드롭다운을 고른 **뒤**에 부른다. 글자를 치는 중이었다면 다시
+ * 입력칸으로 돌아가기 위해서다. 직접 치는 칸에서는 부르지 않는다 — 한 글자 칠
+ * 때마다 포커스를 빼앗아가면 값을 끝까지 칠 수 없다.
+ */
+function TextControls({
+  items,
+  apply,
+  afterPick,
+}: {
+  items: TextStyle[];
+  apply: (patch: TextStyle) => void;
+  afterPick?: () => void;
+}) {
+  const mixed = (key: keyof TextStyle) => !items.every((o) => o[key] === items[0][key]);
+  /** 드롭다운에 보일 값. 기본값과 같으면 빈 문자열 — LineControls의 val과 같은 규칙이다. */
+  const val = (key: 'align' | 'valign' | 'color', dflt: string) => {
+    if (mixed(key)) return 'mixed';
+    const v = items[0][key] ?? dflt;
+    return v === dflt ? '' : v;
+  };
+
+  function pick(patch: TextStyle) {
+    apply(patch);
+    afterPick?.();
+  }
+
+  const sizeMm = mixed('size') ? null : (items[0].size ?? TEXT_SIZE);
+  const sizePt = sizeMm === null ? null : Math.round(mmToPt(sizeMm) * 10) / 10;
+  // 줄 간격은 만들 때 새겨지므로 대개 값이 있다. 없으면 글꼴 자체 높이가 쓰인다.
+  const lineMm = mixed('lineHeight')
+    ? null
+    : roundMm(items[0].lineHeight ?? naturalLineHeight(sizeMm ?? TEXT_SIZE), 2);
+
+  return (
+    <>
+      <NumField
+        value={sizePt}
+        unit="pt"
+        title="글자 크기"
+        min={MIN_TEXT_PT}
+        max={MAX_TEXT_PT}
+        step={0.5}
+        onCommit={afterPick}
+        // 기본값을 그대로 쳤으면 값을 비운다. 그래야 나중에 기본 크기를 바꿀 때
+        // 손대지 않은 글자들이 같이 따라온다.
+        onChange={(pt) => apply({ size: pt === DEFAULT_PT ? undefined : ptToMm(pt) })}
+      />
+
+      <NumField
+        value={lineMm}
+        unit="mm"
+        title="줄 간격 (⇧Enter로 나뉜 줄 사이)"
+        min={MIN_LINE_MM}
+        max={MAX_LINE_MM}
+        step={0.5}
+        onCommit={afterPick}
+        onChange={(mm) => apply({ lineHeight: mm })}
+      />
+
+      <select
+        value={val('align', 'left')}
+        onChange={(e) => pick({ align: (e.target.value || undefined) as never })}
+        title="가로 정렬"
+      >
+        {mixed('align') && <option value="mixed">—</option>}
+        <option value="">왼쪽</option>
+        <option value="center">가운데</option>
+        <option value="right">오른쪽</option>
+      </select>
+
+      <select
+        value={val('valign', 'middle')}
+        onChange={(e) => pick({ valign: (e.target.value || undefined) as never })}
+        title="세로 정렬"
+      >
+        {mixed('valign') && <option value="mixed">—</option>}
+        <option value="top">상단</option>
+        <option value="">중단</option>
+        <option value="bottom">하단</option>
+      </select>
+
+      <select
+        value={val('color', TEXT_COLOR)}
+        onChange={(e) => pick({ color: e.target.value || undefined })}
+        title="색"
+      >
+        {mixed('color') && <option value="mixed">—</option>}
+        {COLORS.map((c) => (
+          <option key={c.id} value={c.id === TEXT_COLOR ? '' : c.id}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+    </>
+  );
+}
+
+/**
+ * 직접 치는 숫자 칸.
+ *
+ * 치는 도중에는 `1.`이나 빈 칸처럼 **아직 숫자가 아닌 상태**를 반드시 거친다.
+ * 그 순간의 값을 그대로 위로 올리면 크기가 0이 되거나 NaN이 새어나간다. 그래서
+ * 화면에 보이는 글자는 여기서 따로 들고 있고, **읽을 수 있는 값이 됐을 때만**
+ * 위로 올린다. 손을 떼면 실제로 반영된 값으로 되돌린다 — 칸에 남은 `1.`이
+ * 적용된 것처럼 보이면 안 된다.
+ *
+ * 값이 밖에서 바뀌면(다른 글자를 골랐다든지) 따라 바뀌지만, **치는 중일 때는
+ * 건드리지 않는다.** 손이 올라가 있는 칸의 글자가 저절로 바뀌면 칠 수가 없다.
+ *
+ * `value`가 `null`이면 여러 개를 골랐는데 값이 서로 다르다는 뜻이다. 빈 칸에
+ * `—`만 띄우고, 무언가 치면 그때 전부에 적용된다.
+ */
+function NumField({
+  value,
+  unit,
+  title,
+  min,
+  max,
+  step,
+  onChange,
+  onCommit,
+}: {
+  value: number | null;
+  unit: string;
+  title: string;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+  onCommit?: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const shown = value === null ? '' : String(value);
+  const [draft, setDraft] = useState(shown);
+
+  useEffect(() => {
+    if (document.activeElement === ref.current) return;
+    setDraft(shown);
+  }, [shown]);
+
+  return (
+    <label className="numfield" title={title}>
+      <input
+        ref={ref}
+        type="number"
+        value={draft}
+        step={step}
+        min={min}
+        max={max}
+        placeholder={value === null ? '—' : ''}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const v = Number(e.target.value);
+          if (e.target.value !== '' && Number.isFinite(v) && v >= min && v <= max) onChange(v);
+        }}
+        onKeyDown={(e) => {
+          // Enter는 값을 확정한다는 뜻이다. 글자를 치던 중이었다면 그리로 돌아간다.
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            setDraft(shown);
+            onCommit?.();
+          }
+        }}
+        onBlur={() => setDraft(shown)}
+      />
+      <span>{unit}</span>
+    </label>
+  );
+}

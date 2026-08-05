@@ -6,13 +6,12 @@ import {
   DOT_SIZE,
   GRID_LINE_WIDTH,
   OBJECT_LINE_CAP,
-  OBJECT_LINE_COLOR,
-  OBJECT_LINE_WIDTH,
   SCREEN_DOT_SIZE,
   SCREEN_GRID_COLOR,
   SCREEN_GRID_LINE_WIDTH,
   TEXT_COLOR,
 } from '../core/style';
+import { colorOf, dashPattern, widthOf } from '../core/line';
 import {
   alignOf,
   anchorX,
@@ -231,28 +230,19 @@ function DotGridLayer({
 function ObjectLayer({ objects }: { objects: LineObject[] }) {
   return (
     <g strokeLinecap={OBJECT_LINE_CAP}>
-      {objects.map((o) => {
-        const w = o.width ?? OBJECT_LINE_WIDTH;
-        return (
-          <line
-            key={o.id}
-            x1={o.x1}
-            y1={o.y1}
-            x2={o.x2}
-            y2={o.y2}
-            stroke={o.color ?? OBJECT_LINE_COLOR}
-            strokeWidth={w}
-            strokeDasharray={dashPattern(o.dash, w)}
-          />
-        );
-      })}
+      {objects.map((o) => (
+        <line
+          key={o.id}
+          x1={o.x1}
+          y1={o.y1}
+          x2={o.x2}
+          y2={o.y2}
+          stroke={colorOf(o)}
+          strokeWidth={widthOf(o)}
+          // core가 mm로 돌려준다. viewBox가 mm라 그대로 이어 붙이면 된다.
+          strokeDasharray={dashPattern(o)?.join(' ')}
+        />
+      ))}
     </g>
   );
-}
-
-/** 점선 간격은 굵기에 비례해야 어느 굵기에서나 비슷해 보인다. */
-export function dashPattern(dash: LineObject['dash'], width: Mm): string | undefined {
-  if (dash === 'dashed') return `${width * 6} ${width * 4}`;
-  if (dash === 'dotted') return `${width} ${width * 3}`;
-  return undefined;
 }

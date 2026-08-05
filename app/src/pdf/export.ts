@@ -28,6 +28,7 @@ import type { Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import { insertSizeOf, placeSlot } from '../core/place';
+import { colorOf, dashPattern, widthOf } from '../core/line';
 import {
   CONTENT_COLOR,
   CROP_COLOR,
@@ -35,8 +36,6 @@ import {
   DOT_SIZE,
   GRID_LINE_WIDTH,
   OBJECT_LINE_CAP,
-  OBJECT_LINE_COLOR,
-  OBJECT_LINE_WIDTH,
   RULER_COLOR,
   RULER_WIDTH,
   TEXT_COLOR,
@@ -82,7 +81,6 @@ const CROP = color(CROP_COLOR);
 const RULER = color(RULER_COLOR);
 const DOT = color(CONTENT_COLOR.dot);
 const GRID_LINE = color(CONTENT_COLOR.line);
-const OBJECT_LINE = color(OBJECT_LINE_COLOR);
 const TEXT = color(TEXT_COLOR);
 
 export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
@@ -261,26 +259,19 @@ function drawObjects(
     for (const o of objects) {
       const a = place.map(o.x1, o.y1);
       const b = place.map(o.x2, o.y2);
-      const width = o.width ?? OBJECT_LINE_WIDTH;
+      // 굵기·색·모양은 core/line이 정한다. 화면(ui/InsertView)도 같은 함수를 부르므로
+      // 한쪽만 달라질 수 없다. mm로 받아서 여기서 pt로 바꾼다.
       page.drawLine({
         start: { x: mmToPt(a.x), y: mmToPt(flipY(a.y)) },
         end: { x: mmToPt(b.x), y: mmToPt(flipY(b.y)) },
-        thickness: mmToPt(width),
-        // 값이 있을 때만 그것을 쓰고 없으면 기본값을 따른다. 화면과 같은 규칙이다.
-        color: o.color ? color(o.color) : OBJECT_LINE,
-        dashArray: dashArray(o.dash, width),
-        // 화면(ui/InsertView)과 같은 값을 쓴다. 자세한 이유는 core/style에 있다.
+        thickness: mmToPt(widthOf(o)),
+        color: color(colorOf(o)),
+        dashArray: dashPattern(o)?.map(mmToPt),
+        // 끝 처리도 같은 값을 쓴다. 자세한 이유는 core/style에 있다.
         lineCap: OBJECT_LINE_CAP === 'round' ? LineCapStyle.Round : LineCapStyle.Butt,
       });
     }
   }
-}
-
-/** 점선 간격. 화면(ui/InsertView)과 같은 비율을 쓴다. */
-function dashArray(dash: LineObject['dash'], width: Mm): number[] | undefined {
-  if (dash === 'dashed') return [mmToPt(width * 6), mmToPt(width * 4)];
-  if (dash === 'dotted') return [mmToPt(width), mmToPt(width * 3)];
-  return undefined;
 }
 
 /**

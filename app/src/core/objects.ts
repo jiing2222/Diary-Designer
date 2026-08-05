@@ -17,6 +17,8 @@ export interface LineSeg {
   y2: Mm;
 }
 
+export type Dash = 'solid' | 'dashed' | 'dotted';
+
 export interface LineObject extends LineSeg {
   id: string;
   type: 'line';
@@ -25,10 +27,13 @@ export interface LineObject extends LineSeg {
    *
    * **값이 없으면 core/style의 기본값을 따른다.** 손대지 않은 선은 값을 갖지 않으므로,
    * 나중에 기본값을 바꾸면 전부 같이 따라온다. 따로 정한 선만 자기 값을 지닌다.
+   *
+   * 실제로 쓰이는 값을 꺼낼 때는 core/line의 `widthOf`·`colorOf`·`dashOf`를 쓴다.
+   * 화면과 PDF가 각자 `?? 기본값`을 적으면 언젠가 한쪽만 바뀐다.
    */
   width?: Mm;
   color?: string;
-  dash?: 'solid' | 'dashed' | 'dotted';
+  dash?: Dash;
 }
 
 export type Align = 'left' | 'center' | 'right';
