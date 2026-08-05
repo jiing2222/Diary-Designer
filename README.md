@@ -2,6 +2,8 @@
 
 시스템 다이어리 속지를 만들어 인쇄하는 프로그램. 설계는 [설계문서.md](설계문서.md) 참고.
 
+저장소: https://github.com/jiing2222/Diary-Designer
+
 ## 실행
 
 ```bash
