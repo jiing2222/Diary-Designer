@@ -7,10 +7,11 @@ import {
   leftOf,
   lineBaselines,
   lineHeightOf,
+  newTextStyle,
   splitLines,
 } from './text';
 import type { TextObject } from './objects';
-import { TEXT_ASCENT, TEXT_DESCENT } from './style';
+import { TEXT_ASCENT, TEXT_DESCENT, TEXT_SIZE } from './style';
 
 const box = { x: 20, y: 40, width: 30, height: 10 };
 const size = 4;
@@ -84,6 +85,33 @@ describe('만들 때 정해지는 줄 간격', () => {
   it('간격이 글꼴보다 좁으면 겹치지 않을 만큼만 확보한다', () => {
     // 2mm 도트에 이 크기 글자를 쓰면 줄이 겹친다 — 글꼴 높이로 물러난다.
     expect(effectiveLineHeight(size, 2)).toBeCloseTo(natural, 9);
+  });
+});
+
+describe('앞으로 쓸 글자의 스타일', () => {
+  it('줄 간격을 정해두지 않았으면 지금 도트 간격이 새겨진다', () => {
+    expect(newTextStyle({}, 5).lineHeight).toBe(5);
+  });
+
+  it('글자가 도트 간격보다 크면 겹치지 않을 만큼 벌린다', () => {
+    // 2mm 도트에 24pt 글자. 도트를 그대로 따르면 줄이 서로 겹친다.
+    const big = { size: 24 / (72 / 25.4) };
+    expect(newTextStyle(big, 2).lineHeight).toBeCloseTo(effectiveLineHeight(big.size, 2), 9);
+  });
+
+  it('직접 정해둔 줄 간격은 도트 간격이 덮어쓰지 않는다', () => {
+    // 속성 막대에서 한 번 고쳐두면 크기·색과 마찬가지로 다음 글자로 이어져야 한다.
+    expect(newTextStyle({ lineHeight: 8 }, 5).lineHeight).toBe(8);
+  });
+
+  it('크기를 정하지 않았으면 기본 크기로 줄 간격을 잰다', () => {
+    // 촘촘한 격자에서 기본 9pt 글자를 쓰는 흔한 경우.
+    expect(newTextStyle({}, 1).lineHeight).toBeCloseTo(effectiveLineHeight(TEXT_SIZE, 1), 9);
+  });
+
+  it('나머지 값은 그대로 물려받는다', () => {
+    const draft = { size: 4, align: 'center' as const, color: '#000000' };
+    expect(newTextStyle(draft, 5)).toEqual({ ...draft, lineHeight: 5 });
   });
 });
 

@@ -233,6 +233,30 @@ button.ghost:disabled {
   min-width: 74px;
 }
 
+/* 속성 막대에서 직접 치는 숫자 칸(글자 크기·줄 간격).
+   설정 패널의 `.num`과 달리 칸을 다 채우지 않고 숫자만큼만 차지한다. */
+.numfield {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.numfield input {
+  width: 54px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+}
+
+.numfield span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .picked-count {
   font-size: 12px;
   font-weight: 600;

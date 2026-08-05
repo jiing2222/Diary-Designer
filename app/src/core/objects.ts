@@ -85,9 +85,9 @@ export type LineStyle = Partial<Pick<LineObject, 'width' | 'color' | 'dash'>>;
 /**
  * 글자마다 따로 정할 수 있는 것들.
  *
- * `lineHeight`는 속성 막대에 노출되지 않는다 — 만들 때 도트 간격에서 자동으로
- * 정해지고 그 뒤로는 그대로 따라다니는 값이다. 그래도 여기 포함시키는 이유는
- * 입력 중인 상자(Editing.style)와 커밋된 객체가 같은 모양이어야 하기 때문이다.
+ * `lineHeight`는 만들 때 도트 간격에서 자동으로 정해지지만(core/text의
+ * `newTextStyle`), 속성 막대에서 손으로 고칠 수도 있다. 고친 값은 다른 값들과
+ * 똑같이 객체에 새겨져 따라다닌다.
  */
 export type TextStyle = Partial<
   Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight'>

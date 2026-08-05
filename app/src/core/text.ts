@@ -1,4 +1,4 @@
-import type { Align, TextObject, VAlign } from './objects';
+import { cleanStyle, type Align, type TextObject, type TextStyle, type VAlign } from './objects';
 import { TEXT_ASCENT, TEXT_DESCENT, TEXT_SIZE } from './style';
 import type { Mm } from './units';
 
@@ -76,6 +76,25 @@ export function effectiveLineHeight(size: Mm, spacing: Mm): Mm {
 /** 이 글자가 실제로 쓰는 줄 간격. 새겨둔 값이 없으면 글꼴 자체 높이. */
 export function lineHeightOf(t: TextObject): Mm {
   return t.lineHeight ?? naturalLineHeight(sizeOf(t));
+}
+
+/**
+ * 앞으로 쓸 글자에 새겨둘 스타일.
+ *
+ * 줄 간격은 **직접 정해둔 값이 있으면 그것을 그대로 쓰고**, 없을 때만 지금 도트
+ * 간격에서 뽑아낸다. 속성 막대에서 줄 간격을 한 번 고쳐두면 크기·색과 마찬가지로
+ * 다음에 쓰는 글자로 이어져야 하기 때문이다 — 고쳐놓아도 매번 도트 간격으로
+ * 되돌아가면 고칠 이유가 없다.
+ *
+ * 어느 쪽이든 **만들 때 한 번만** 정해서 객체에 새긴다. 그리는 순간마다 다시
+ * 계산하면 나중에 도트 간격을 바꿀 때 이미 써둔 글이 소급해서 움직인다.
+ */
+export function newTextStyle(draft: TextStyle, spacing: Mm): TextStyle {
+  const size = draft.size ?? TEXT_SIZE;
+  return cleanStyle({
+    ...draft,
+    lineHeight: draft.lineHeight ?? effectiveLineHeight(size, spacing),
+  });
 }
 
 /**
