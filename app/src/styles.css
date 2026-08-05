@@ -366,6 +366,12 @@ button.ghost:disabled {
   color: var(--muted);
 }
 
+/* 격자를 푼 채 옮기는 중. 평소와 다른 상태라 눈에 띄어야 한다. */
+.editor-foot .accent {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ─────────────────────────── 본문 ─────────────────────────── */
 
 main {

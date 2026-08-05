@@ -55,7 +55,8 @@ export type Drag =
   | { kind: 'draw'; from: Point; to: Point }
   | { kind: 'textbox'; from: Point; to: Point }
   | { kind: 'marquee'; from: Point; to: Point }
-  | { kind: 'move'; origin: Point; dx: Mm; dy: Mm; hitId: string | null }
+  /** `free` — ⌘(Ctrl)을 누른 채 끄는 중. 격자를 벗어난 자리에 놓인다. */
+  | { kind: 'move'; origin: Point; dx: Mm; dy: Mm; hitId: string | null; free: boolean }
   | { kind: 'handle'; id: string; end: 1 | 2; to: Point };
 
 export function rectOf(a: Point, b: Point) {

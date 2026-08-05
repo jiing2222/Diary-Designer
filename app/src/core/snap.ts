@@ -1,5 +1,5 @@
 import type { Lattice } from './grid';
-import type { Mm } from './units';
+import { roundMm, type Mm } from './units';
 
 /**
  * 스냅 — 마우스 위치를 격자점으로 끌어당긴다.
@@ -43,4 +43,35 @@ export function snapToLattice(
   const sy = nearest(lattice.ys, y);
   if (sx === null || sy === null) return null;
   return { x: sx, y: sy };
+}
+
+/**
+ * 끌어서 옮긴 거리.
+ *
+ * **객체를 다시 스냅하지 않고 이동량만 격자 칸 단위로 맞춘다.** 그래서 선의
+ * 길이와 각도가 한 치도 변하지 않고, 격자를 벗어난 자리에 있던 것도 그 상대적인
+ * 자리를 지키며 함께 움직인다. 여러 개를 함께 끌 때 서로의 간격이 무너지지 않는
+ * 이유이기도 하다.
+ *
+ * **`free`면 반올림하지 않는다.** 격자와 격자 사이에 놓고 싶을 때가 있다 —
+ * 칸 한가운데에 제목을 얹는다든지. 이때도 0.01mm로는 정리한다. 부동소수점 꼬리가
+ * 그대로 저장 파일에 들어가면 사람이 읽을 수 없고, 0.01mm는 어떤 프린터도
+ * 구별하지 못하는 크기라 잃는 것이 없다.
+ */
+export function moveDelta(
+  origin: { x: Mm; y: Mm },
+  to: { x: Mm; y: Mm },
+  spacing: Mm,
+  free = false,
+): { dx: Mm; dy: Mm } {
+  const dx = to.x - origin.x;
+  const dy = to.y - origin.y;
+  if (free) return { dx: roundMm(dx), dy: roundMm(dy) };
+
+  // 격자가 없으면(간격이 0이면) 1mm 단위로 물러난다. 아무 데나 놓이는 것보다는 낫다.
+  const step = spacing || 1;
+  return {
+    dx: Math.round(dx / step) * step,
+    dy: Math.round(dy / step) * step,
+  };
 }

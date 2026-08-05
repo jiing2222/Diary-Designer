@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cellAt, gridArea, gridLattice } from '../core/grid';
-import { snapToLattice } from '../core/snap';
+import { moveDelta, snapToLattice } from '../core/snap';
 import { canRedo, canUndo } from '../core/history';
 import {
   boxOf,
@@ -15,6 +15,7 @@ import {
   type TextStyle,
 } from '../core/objects';
 import { SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
+import { roundMm } from '../core/units';
 import { newTextStyle } from '../core/text';
 import { useStore } from '../store';
 import { InsertView } from './InsertView';
@@ -299,7 +300,7 @@ export function EditorTab() {
       }
       // 이미 고른 것 중 하나면 선택을 그대로 두고 함께 끈다.
       if (!selectedIds.includes(hit.id)) select([hit.id]);
-      setDragBoth({ kind: 'move', origin: raw, dx: 0, dy: 0, hitId: hit.id });
+      setDragBoth({ kind: 'move', origin: raw, dx: 0, dy: 0, hitId: hit.id, free: false });
       return;
     }
     if (!e.shiftKey) select([]);
@@ -318,14 +319,10 @@ export function EditorTab() {
     } else if (d.kind === 'marquee') {
       setDragBoth({ ...d, to: raw });
     } else {
-      // 이동량을 격자 칸 단위로 맞춘다. 선 자체를 다시 스냅하지 않으므로
-      // 길이와 각도가 한 치도 변하지 않는다.
-      const step = grid.spacing || 1;
-      setDragBoth({
-        ...d,
-        dx: Math.round((raw.x - d.origin.x) / step) * step,
-        dy: Math.round((raw.y - d.origin.y) / step) * step,
-      });
+      // ⌘(윈도우는 Ctrl)을 누른 채 끌면 격자를 벗어나 원하는 자리에 놓을 수 있다.
+      // 끄는 도중에 눌러도 되고 떼도 된다 — 매번 다시 계산하므로 즉시 바뀐다.
+      const free = e.metaKey || e.ctrlKey;
+      setDragBoth({ ...d, free, ...moveDelta(d.origin, raw, grid.spacing, free) });
     }
   }
 
@@ -681,10 +678,21 @@ export function EditorTab() {
         </span>
         <span>그린 것 {objects.length}개</span>
         {selectedIds.length > 0 && <span>고른 것 {selectedIds.length}개</span>}
-        {hover && (
-          <span>
-            {hover.x} , {hover.y} mm
+        {/*
+          옮기는 중이면 얼마나 옮겼는지 띄운다. ⌘로 격자를 푸는 기능은 눌러보기
+          전에는 있는지조차 알 수 없으므로, 여기서 지금 어느 쪽인지 알려준다.
+        */}
+        {nudge ? (
+          <span className={nudge.free ? 'accent' : undefined}>
+            옮김 {roundMm(nudge.dx, 2)} , {roundMm(nudge.dy, 2)} mm
+            {nudge.free ? ' · 격자 해제' : ' · ⌘로 격자 해제'}
           </span>
+        ) : (
+          hover && (
+            <span>
+              {hover.x} , {hover.y} mm
+            </span>
+          )
         )}
       </div>
     </div>
