@@ -595,18 +595,6 @@ select,
 }
 
 /* 인쇄 미리보기 위에 작게 얹는 판. 실제 모습을 가리지 않도록 구석에, 작게. */
-.notice-corner {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  max-width: 210px;
-  padding: 6px 9px;
-  gap: 1px;
-  font-size: 10px;
-  line-height: 1.4;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
-}
-
 .empty {
   margin-top: 60px;
   color: var(--muted);
@@ -702,4 +690,10 @@ footer {
 
 footer b {
   color: var(--ink);
+}
+
+/* 인쇄 안내. 치수 표시들과 구분되게 오른쪽 끝으로 민다. */
+.print-hint {
+  margin-left: auto;
+  text-align: right;
 }

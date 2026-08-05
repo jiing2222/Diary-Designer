@@ -15,7 +15,15 @@ import {
 } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { mmToPt, ptToMm, type Mm } from '../core/units';
-import { alignOf, leftOf, lineBaselines, sizeOf, splitLines, valignOf } from '../core/text';
+import {
+  alignOf,
+  leftOf,
+  lineBaselines,
+  lineHeightOf,
+  sizeOf,
+  splitLines,
+  valignOf,
+} from '../core/text';
 import type { Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
@@ -107,7 +115,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     drawDotGrid(page, input.layout, input.dotGrid, input.safeZoneWidth, flipY);
   }
   drawObjects(page, input.layout, input.objects.filter(isLine), flipY);
-  if (bodyFont) drawTexts(page, input.layout, texts, bodyFont, input.dotGrid.spacing, flipY);
+  if (bodyFont) drawTexts(page, input.layout, texts, bodyFont, flipY);
 
   for (const s of cropSegments(input.layout, input.paperWidth, input.paperHeight, input.cropMark)) {
     page.drawLine({
@@ -191,7 +199,6 @@ function drawTexts(
   layout: Layout,
   texts: TextObject[],
   font: PDFFont,
-  spacing: Mm,
   flipY: (y: Mm) => Mm,
 ) {
   if (texts.length === 0) return;
@@ -221,7 +228,7 @@ function drawTexts(
     for (const t of texts) {
       const size = sizeOf(t);
       const lines = splitLines(t.text);
-      const baselines = lineBaselines(t, size, valignOf(t), lines.length, spacing);
+      const baselines = lineBaselines(t, size, valignOf(t), lines.length, lineHeightOf(t));
 
       lines.forEach((line, i) => {
         if (line === '') return;

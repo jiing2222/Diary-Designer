@@ -58,6 +58,16 @@ export interface TextObject {
   align?: Align;
   valign?: VAlign;
   color?: string;
+  /**
+   * 줄 간격 (⇧Enter로 나뉜 줄 사이 거리).
+   *
+   * **만들 때의 도트 간격을 여기에 새겨둔다.** 그리는 순간마다 현재 도트 간격을
+   * 읽어오면, 20mm 도트에서 쓴 글이 5mm로 바꾸는 순간 줄이 소급해서 좁아진다 —
+   * 이미 만들어둔 양식이 설정 하나에 무너지는 셈이다.
+   *
+   * 다른 값들과 같은 규칙이다. 값이 있으면 그것을 쓰고, 없으면 기본값을 따른다.
+   */
+  lineHeight?: Mm;
 }
 
 export type DiaryObject = LineObject | TextObject;
@@ -72,8 +82,16 @@ export function isText(o: DiaryObject): o is TextObject {
 
 /** 선마다 따로 정할 수 있는 것들. 키가 있고 값이 undefined면 기본값을 따른다. */
 export type LineStyle = Partial<Pick<LineObject, 'width' | 'color' | 'dash'>>;
-/** 글자마다 따로 정할 수 있는 것들. */
-export type TextStyle = Partial<Pick<TextObject, 'size' | 'align' | 'valign' | 'color'>>;
+/**
+ * 글자마다 따로 정할 수 있는 것들.
+ *
+ * `lineHeight`는 속성 막대에 노출되지 않는다 — 만들 때 도트 간격에서 자동으로
+ * 정해지고 그 뒤로는 그대로 따라다니는 값이다. 그래도 여기 포함시키는 이유는
+ * 입력 중인 상자(Editing.style)와 커밋된 객체가 같은 모양이어야 하기 때문이다.
+ */
+export type TextStyle = Partial<
+  Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight'>
+>;
 
 /**
  * undefined인 키를 걷어낸다. 객체에 값이 없어야 기본값을 따라간다.

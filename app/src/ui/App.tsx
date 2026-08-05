@@ -104,11 +104,6 @@ export function App() {
                     unprintable={s.unprintable}
                     mode={printPreview ? 'print' : 'edit'}
                   />
-
-                  <div className="notice notice-corner">
-                    <b>“실제 크기 / 100%”로 인쇄하세요.</b>
-                    <span>“페이지에 맞춤”은 96~97%로 축소됩니다.</span>
-                  </div>
                 </div>
               )}
             </div>
@@ -127,6 +122,17 @@ export function App() {
           한 장에 <b>{layout.count}개</b> ({layout.cols} × {layout.rows})
           {layout.rotated && ' · 90도 회전'}
         </span>
+
+        {/*
+          인쇄 안내. 인쇄하기 탭에서만 띄운다 — 양식 만들기 중에는 상관없는 이야기다.
+          맨 아래 줄에 두는 이유는 미리보기를 가리지 않기 위해서다.
+        */}
+        {tab === 'print' && (
+          <span className="print-hint">
+            인쇄 대화상자에서 <b>실제 크기 / 100%</b>를 고르세요 — “페이지에 맞춤”은 96~97%로
+            축소됩니다
+          </span>
+        )}
       </footer>
     </div>
   );

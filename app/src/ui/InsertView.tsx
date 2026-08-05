@@ -13,7 +13,15 @@ import {
   SCREEN_GRID_LINE_WIDTH,
   TEXT_COLOR,
 } from '../core/style';
-import { alignOf, anchorX, lineBaselines, sizeOf, splitLines, valignOf } from '../core/text';
+import {
+  alignOf,
+  anchorX,
+  lineBaselines,
+  lineHeightOf,
+  sizeOf,
+  splitLines,
+  valignOf,
+} from '../core/text';
 import {
   isLine,
   isText,
@@ -44,12 +52,21 @@ export function InsertView({
   objects,
   safeZoneWidth,
   mode = 'edit',
+  hiddenId,
 }: {
   insert: { width: Mm; height: Mm };
   grid: DotGrid;
   objects: DiaryObject[];
   safeZoneWidth: Mm;
   mode?: ViewMode;
+  /**
+   * 화면에서만 감출 글자 하나. 지금 고치는 중인 글자에 쓴다 — 입력칸이 같은
+   * 자리에 겹쳐 있어서 둘 다 보이면 어느 게 지금 치는 내용인지 헷갈린다.
+   *
+   * **목록에서 빼지 않고 감추기만 한다.** 빼버리면 DOM에서 사라지는데, 클릭
+   * 판정이 DOM의 `<text>`를 훑어 찾으므로 편집 중인 글자를 영영 집을 수 없게 된다.
+   */
+  hiddenId?: string;
 }) {
   const clipId = useId();
   // 'print' 모드는 인쇄 여부(grid.print)를 따르고, 'edit'는 작업 중 표시 여부(grid.showOnScreen)를 따른다.
@@ -75,7 +92,7 @@ export function InsertView({
         <rect x={0} y={0} width={insert.width} height={insert.height} />
       </clipPath>
       <g clipPath={mode === 'print' ? `url(#${clipId})` : undefined}>
-        <TextLayer objects={objects.filter(isText)} spacing={grid.spacing} />
+        <TextLayer objects={objects.filter(isText)} hiddenId={hiddenId} />
       </g>
     </>
   );
@@ -90,7 +107,7 @@ export function InsertView({
  * `data-id`는 화면이 글자의 실제 크기를 재서 클릭 판정에 쓰기 위한 표시다.
  * 글자가 차지하는 크기는 글꼴이 정하므로 core가 알 수 없다.
  */
-function TextLayer({ objects, spacing }: { objects: TextObject[]; spacing: Mm }) {
+function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: string }) {
   return (
     /*
      * 커닝과 합자를 끈다.
@@ -107,7 +124,7 @@ function TextLayer({ objects, spacing }: { objects: TextObject[]; spacing: Mm })
         const size = sizeOf(t);
         const align = alignOf(t);
         const lines = splitLines(t.text);
-        const baselines = lineBaselines(t, size, valignOf(t), lines.length, spacing);
+        const baselines = lineBaselines(t, size, valignOf(t), lines.length, lineHeightOf(t));
         const x = anchorX(t, align);
         return (
           <text
@@ -117,6 +134,8 @@ function TextLayer({ objects, spacing }: { objects: TextObject[]; spacing: Mm })
             fontSize={size}
             fill={t.color ?? TEXT_COLOR}
             textAnchor={align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start'}
+            // 감추되 좌표는 남긴다 — visibility는 getBBox를 그대로 두므로 클릭 판정이 산다.
+            visibility={t.id === hiddenId ? 'hidden' : undefined}
           >
             {lines.map((line, i) => (
               <tspan key={i} x={x} y={baselines[i]}>

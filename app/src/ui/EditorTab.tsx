@@ -105,6 +105,9 @@ export function EditorTab() {
   const cellCols = Math.max(0, lattice.xs.length - 1);
   const cellRows = Math.max(0, lattice.ys.length - 1);
 
+  // 새로 쓸 글자에 붙일 스타일. 지금 도트 간격이 줄 간격으로 새겨진다.
+  const newTextStyle = newTextStyleFrom(textDraftStyle, textDraftStyle.size ?? TEXT_SIZE, grid.spacing);
+
   function setDragBoth(d: Drag | null) {
     dragRef.current = d;
     setDrag(d);
@@ -351,7 +354,7 @@ export function EditorTab() {
             width: Math.abs(d.to.x - d.from.x),
             height: Math.abs(d.to.y - d.from.y),
           };
-      if (box) setEditing({ box, text: '', style: cleanStyle(textDraftStyle) });
+      if (box) setEditing({ box, text: '', style: newTextStyle });
       return;
     }
 
@@ -486,7 +489,7 @@ export function EditorTab() {
               if (!cell) return;
               skipToolResetRef.current = true;
               setTool('text');
-              setEditing({ box: cell, text: '', style: cleanStyle(textDraftStyle) });
+              setEditing({ box: cell, text: '', style: newTextStyle });
             }
           }}
         >
@@ -495,10 +498,12 @@ export function EditorTab() {
           <InsertView
             insert={insert}
             grid={grid}
-            // 고치는 중인 글자는 감춘다. 입력칸이 같은 자리에 겹쳐 있어서, 둘 다
-            // 보이면 어느 게 지금 치는 내용인지 헷갈린다.
-            objects={editing?.id ? objects.filter((o) => o.id !== editing.id) : objects}
+            objects={objects}
             safeZoneWidth={insert.punch.safeZoneWidth}
+            // 고치는 중인 글자는 감춘다. 입력칸이 같은 자리에 겹쳐 있어서, 둘 다
+            // 보이면 어느 게 지금 치는 내용인지 헷갈린다. 목록에서 빼지 않고
+            // 감추기만 하는 이유는 InsertView의 hiddenId 주석에 있다.
+            hiddenId={editing?.id}
           />
 
           <PunchGuide height={insert.height} punch={insert.punch} />
@@ -636,13 +641,12 @@ export function EditorTab() {
           <TextInput
             editing={editing}
             scale={scale}
-            spacing={grid.spacing}
             svg={svgRef.current}
             onChange={(text) => {
               // 칸 하나만 누르고 길게 써도 매번 손으로 늘릴 필요가 없다 — 실제로
               // 필요한 크기를 재서 모자라면 격자 칸 단위로 키운다. 왼쪽 위는 그대로다.
               const size = editing.style.size ?? TEXT_SIZE;
-              const required = measureTextBox(text, size, grid.spacing);
+              const required = measureTextBox(text, size, editing.style.lineHeight ?? size);
               const box = growBox(editing.box, grid.spacing, required, insert.width, insert.height);
               setEditing({ ...editing, text, box });
             }}
@@ -684,14 +688,12 @@ export function EditorTab() {
 function TextInput({
   editing,
   scale,
-  spacing,
   svg,
   onChange,
   onDone,
 }: {
   editing: Editing;
   scale: number;
-  spacing: Mm;
   svg: SVGSVGElement | null;
   onChange: (text: string) => void;
   onDone: () => void;
@@ -726,9 +728,9 @@ function TextInput({
         width: box.width * scale,
         height: box.height * scale,
         fontSize: size * scale,
-        // 도트 간격을 그대로 줄 간격으로 쓴다 — core/text의 effectiveLineHeight와
-        // 같은 규칙이라야 타이핑 중과 커밋 후가 같은 자리로 보인다.
-        lineHeight: `${effectiveLineHeight(size, spacing) * scale}px`,
+        // 이 글자에 새겨둔 줄 간격을 그대로 쓴다 — 타이핑 중과 커밋 후가
+        // 같은 자리로 보여야 한다.
+        lineHeight: `${(editing.style.lineHeight ?? size) * scale}px`,
       }}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={(e) => {
@@ -990,12 +992,29 @@ function TextControls({
 /** 지금 입력 중인 글자 상자. 확정하기 전까지는 객체가 아니다. */
 type Editing = { box: Box; text: string; style: TextStyle; id?: string };
 
+/**
+ * 새로 쓸 글자의 스타일.
+ *
+ * **지금 도트 간격을 줄 간격으로 새겨둔다.** 그래야 나중에 도트 간격을 바꿔도
+ * 이미 써둔 글의 줄이 소급해서 움직이지 않는다. 자세한 이유는 TextObject의
+ * lineHeight 주석에 있다.
+ */
+function newTextStyleFrom(draft: TextStyle, size: Mm, spacing: Mm): TextStyle {
+  return cleanStyle({ ...draft, lineHeight: effectiveLineHeight(size, spacing) });
+}
+
 /** 있는 글자를 고치기 시작할 때, 그 글자의 스타일을 그대로 물려받는다. */
 function editingFor(t: TextObject): Editing {
   return {
     box: boxOf(t),
     text: t.text,
-    style: cleanStyle({ size: t.size, align: t.align, valign: t.valign, color: t.color }),
+    style: cleanStyle({
+      size: t.size,
+      align: t.align,
+      valign: t.valign,
+      color: t.color,
+      lineHeight: t.lineHeight,
+    }),
     id: t.id,
   };
 }

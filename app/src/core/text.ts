@@ -52,27 +52,41 @@ export function splitLines(text: string): string[] {
   return text.split('\n');
 }
 
+/** 글꼴 자체가 세로로 차지하는 높이. 줄 간격의 하한이다. */
+export function naturalLineHeight(size: Mm): Mm {
+  return size * (TEXT_ASCENT + TEXT_DESCENT);
+}
+
 /**
- * 실제로 쓰이는 줄 간격.
+ * 글자를 **새로 만들 때** 줄 간격으로 새겨둘 값.
  *
- * **도트 간격을 그대로 따른다.** 5mm 도트 위에서 여러 줄을 쓰면, 각 줄이 정확히
- * 다음 도트 줄에 앉아야 칸 한가운데가 아니라 위쪽으로 자꾸 밀리는 일이 없다.
- * 글자가 도트 간격보다 커서 겹칠 것 같으면(예: 2mm 도트에 24pt 글자) 그때만
- * 글꼴이 실제로 차지하는 높이로 물러난다 — 겹쳐서 안 보이는 것보단 낫다.
+ * **도트 간격을 그대로 따른다.** 5mm 도트 위에서 여러 줄을 쓰면 각 줄이 정확히
+ * 다음 도트 줄에 앉아야, 줄이 늘수록 칸 한가운데에서 위쪽으로 밀리지 않는다.
+ * 다만 글자가 도트 간격보다 커서 줄이 겹칠 상황이면(예: 2mm 도트에 24pt 글자)
+ * 글꼴 자체 높이로 물러난다 — 겹쳐서 못 읽는 것보단 낫다.
+ *
+ * 이 값은 **만들 때 한 번만** 계산해서 객체에 저장한다(TextObject.lineHeight).
+ * 그리는 순간마다 다시 계산하면 나중에 도트 간격을 바꿀 때 이미 만든 글이
+ * 소급해서 움직인다.
  */
 export function effectiveLineHeight(size: Mm, spacing: Mm): Mm {
-  return Math.max(spacing, size * (TEXT_ASCENT + TEXT_DESCENT));
+  return Math.max(spacing, naturalLineHeight(size));
+}
+
+/** 이 글자가 실제로 쓰는 줄 간격. 새겨둔 값이 없으면 글꼴 자체 높이. */
+export function lineHeightOf(t: TextObject): Mm {
+  return t.lineHeight ?? naturalLineHeight(sizeOf(t));
 }
 
 /**
  * 여러 줄 글자 블록이 실제로 차지하는 높이.
  *
- * 첫 줄은 글꼴의 윗선·아랫선만큼, 그 아래 줄은 줄 간격(도트 간격)만큼씩 보탠다.
- * 한 줄일 때는 spacing이 결과에 끼어들지 않는다 — 그래야 지금까지의
+ * 첫 줄은 글꼴의 윗선·아랫선만큼, 그 아래 줄은 줄 간격만큼씩 보탠다.
+ * 한 줄일 때는 줄 간격이 결과에 끼어들지 않는다 — 그래야 지금까지의
  * 한 줄 계산과 정확히 같은 값이 나온다.
  */
-export function blockHeight(size: Mm, lineCount: number, spacing: Mm): Mm {
-  return (lineCount - 1) * effectiveLineHeight(size, spacing) + size * (TEXT_ASCENT + TEXT_DESCENT);
+export function blockHeight(size: Mm, lineCount: number, lineHeight: Mm): Mm {
+  return (lineCount - 1) * lineHeight + naturalLineHeight(size);
 }
 
 /**
@@ -87,11 +101,10 @@ export function lineBaselines(
   size: Mm,
   valign: VAlign,
   lineCount: number,
-  spacing: Mm,
+  lineHeight: Mm,
 ): Mm[] {
   const asc = size * TEXT_ASCENT;
-  const lineHeight = effectiveLineHeight(size, spacing);
-  const total = blockHeight(size, lineCount, spacing);
+  const total = blockHeight(size, lineCount, lineHeight);
 
   let inkTop: Mm;
   if (valign === 'top') inkTop = box.y;
@@ -104,8 +117,8 @@ export function lineBaselines(
 /**
  * 글자가 앉는 밑선(baseline)의 세로 좌표. 한 줄짜리 글자를 위한 지름길이다.
  *
- * 한 줄이면 줄 간격이 결과에 곱해지지 않으므로(`i`가 항상 0) spacing에
- * 아무 값이나 넣어도 된다 — 여기서는 0을 쓴다.
+ * 한 줄이면 줄 간격이 결과에 곱해지지 않으므로(`i`가 항상 0) 아무 값이나
+ * 넣어도 된다 — 여기서는 0을 쓴다.
  */
 export function baselineY(box: { y: Mm; height: Mm }, size: Mm, valign: VAlign): Mm {
   return lineBaselines(box, size, valign, 1, 0)[0];

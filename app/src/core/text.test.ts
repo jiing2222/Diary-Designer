@@ -6,8 +6,10 @@ import {
   effectiveLineHeight,
   leftOf,
   lineBaselines,
+  lineHeightOf,
   splitLines,
 } from './text';
+import type { TextObject } from './objects';
 import { TEXT_ASCENT, TEXT_DESCENT } from './style';
 
 const box = { x: 20, y: 40, width: 30, height: 10 };
@@ -71,7 +73,7 @@ describe('줄바꿈', () => {
   });
 });
 
-describe('줄 간격은 도트 간격을 따른다', () => {
+describe('만들 때 정해지는 줄 간격', () => {
   // size=4일 때 글꼴 자체 높이(윗선+아랫선)는 4다.
   const natural = size * (TEXT_ASCENT + TEXT_DESCENT);
 
@@ -85,37 +87,73 @@ describe('줄 간격은 도트 간격을 따른다', () => {
   });
 });
 
+describe('글자에 새겨둔 줄 간격', () => {
+  const at = (extra: Partial<TextObject> = {}): TextObject => ({
+    id: 't1',
+    type: 'text',
+    x: 20,
+    y: 40,
+    width: 30,
+    height: 10,
+    text: '첫 줄\n둘째 줄',
+    size,
+    ...extra,
+  });
+
+  it('새겨둔 값이 있으면 그것을 쓴다', () => {
+    expect(lineHeightOf(at({ lineHeight: 20 }))).toBe(20);
+  });
+
+  it('없으면 글꼴 자체 높이로 돌아간다', () => {
+    expect(lineHeightOf(at())).toBeCloseTo(size * (TEXT_ASCENT + TEXT_DESCENT), 9);
+  });
+
+  it('도트 간격을 바꿔도 이미 쓴 글의 줄 위치는 그대로다', () => {
+    // 이 프로그램에서 실제로 났던 문제. 20mm 도트에서 쓴 글을 5mm로 바꾸면
+    // 줄이 소급해서 좁아졌다 — 만들어둔 양식이 설정 하나에 무너지는 셈이었다.
+    // 줄 간격을 객체에 새겨두므로 이제 바깥 설정과 무관하다.
+    const t = at({ lineHeight: effectiveLineHeight(size, 20) });
+    const before = lineBaselines(t, size, 'middle', 2, lineHeightOf(t));
+
+    // 도트 간격이 5mm로 바뀐 상황을 흉내 낸다. 객체는 손대지 않았다.
+    const after = lineBaselines(t, size, 'middle', 2, lineHeightOf(t));
+
+    expect(after).toEqual(before);
+    expect(after[1] - after[0]).toBe(20);
+  });
+});
+
 describe('여러 줄 블록', () => {
-  const spacing = 5;
+  const lineHeight = 5;
 
   it('한 줄일 때는 줄 간격이 끼어들지 않는다', () => {
     // spacing이 섞이면 지금까지의 한 줄 계산과 어긋난다.
-    expect(blockHeight(size, 1, spacing)).toBeCloseTo(size * (TEXT_ASCENT + TEXT_DESCENT), 9);
+    expect(blockHeight(size, 1, lineHeight)).toBeCloseTo(size * (TEXT_ASCENT + TEXT_DESCENT), 9);
   });
 
-  it('줄이 늘 때마다 도트 간격만큼 늘어난다', () => {
-    const one = blockHeight(size, 1, spacing);
-    const three = blockHeight(size, 3, spacing);
-    expect(three - one).toBeCloseTo(2 * spacing, 9);
+  it('줄이 늘 때마다 줄 간격만큼 늘어난다', () => {
+    const one = blockHeight(size, 1, lineHeight);
+    const three = blockHeight(size, 3, lineHeight);
+    expect(three - one).toBeCloseTo(2 * lineHeight, 9);
   });
 
   it('한 줄이면 baselineY와 정확히 같다', () => {
     // baselineY가 lineBaselines(...,1,0)에 위임하므로 항상 같아야 한다.
     for (const valign of ['top', 'middle', 'bottom'] as const) {
-      expect(lineBaselines(box, size, valign, 1, spacing)[0]).toBe(baselineY(box, size, valign));
+      expect(lineBaselines(box, size, valign, 1, lineHeight)[0]).toBe(baselineY(box, size, valign));
     }
   });
 
-  it('줄마다 정확히 도트 간격만큼 떨어진다', () => {
+  it('줄마다 정확히 줄 간격만큼 떨어진다', () => {
     // 5mm 도트 위에서 여러 줄을 쓰면 각 줄이 정확히 다음 도트 줄에 앉는다.
-    const lines = lineBaselines(box, size, 'top', 4, spacing);
+    const lines = lineBaselines(box, size, 'top', 4, lineHeight);
     for (let i = 1; i < lines.length; i++) {
-      expect(lines[i] - lines[i - 1]).toBeCloseTo(spacing, 9);
+      expect(lines[i] - lines[i - 1]).toBeCloseTo(lineHeight, 9);
     }
   });
 
   it('가운데 정렬은 블록 전체를 칸 한가운데에 놓는다', () => {
-    const lines = lineBaselines(box, size, 'middle', 3, spacing);
+    const lines = lineBaselines(box, size, 'middle', 3, lineHeight);
     const top = lines[0] - size * TEXT_ASCENT;
     const bottom = lines[lines.length - 1] + size * TEXT_DESCENT;
     // 위 여백과 아래 여백이 같아야 진짜 가운데다.

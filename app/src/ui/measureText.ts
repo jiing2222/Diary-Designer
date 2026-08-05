@@ -23,7 +23,7 @@ function getCtx(): CanvasRenderingContext2D {
 export function measureTextBox(
   text: string,
   size: Mm,
-  spacing: Mm,
+  lineHeight: Mm,
 ): { width: Mm; height: Mm } {
   const c = getCtx();
   c.font = `${size * PX_PER_MM_AT_100}px ${DEFAULT_FONT_FAMILY}, sans-serif`;
@@ -33,7 +33,7 @@ export function measureTextBox(
 
   return {
     width: widthPx / PX_PER_MM_AT_100,
-    // 줄 간격은 도트 간격을 따른다 — core/text의 effectiveLineHeight와 같은 규칙이다.
-    height: blockHeight(size, lines.length, spacing),
+    // 줄 간격은 그 글자에 새겨둔 값을 그대로 쓴다(core/text의 lineHeightOf).
+    height: blockHeight(size, lines.length, lineHeight),
   };
 }
