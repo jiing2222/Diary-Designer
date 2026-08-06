@@ -255,3 +255,101 @@ describe('도트 격자 인쇄', () => {
     expect(bytes.byteLength).toBeGreaterThan(empty.byteLength);
   });
 });
+
+describe('낱장 조합 — 칸마다 다른 양식', () => {
+  // 가로로 두 칸이 들어가는 배치. 왼쪽 칸(0)과 오른쪽 칸(1)에 다른 내용을 넣어본다.
+  const twoUpLayout = computeLayout({
+    paperWidth: 170,
+    paperHeight: 130,
+    insertWidth: 80,
+    insertHeight: 125,
+    gap: 5,
+    printMargin: 2.5,
+    allowRotate: false,
+    align: 'center',
+  });
+
+  const base = {
+    paperWidth: 170,
+    paperHeight: 130,
+    layout: twoUpLayout,
+    dotGrid: noGrid,
+    objects: [],
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+
+  it('두 칸짜리 배치를 전제로 한다', () => {
+    expect(twoUpLayout.count).toBe(2);
+  });
+
+  it('지정하지 않은 칸은 기본값을 쓴다 — 지금까지의 동작과 같다', async () => {
+    const withoutOverrides = await buildPdf(base);
+    const withEmptyMap = await buildPdf({ ...base, slotOverrides: new Map() });
+    expect(withEmptyMap).toEqual(withoutOverrides);
+  });
+
+  it('지정한 칸만 다른 내용이 그려진다', async () => {
+    const line = { id: 'l1', type: 'line' as const, x1: 10, y1: 10, x2: 70, y2: 10 };
+    const overridden = await buildPdf({
+      ...base,
+      slotOverrides: new Map([[1, { dotGrid: noGrid, objects: [line], safeZoneWidth: 10 }]]),
+    });
+    // 두 칸 다 비어 있던 것보다 커야 한다 — 칸 1에 선이 하나 늘었다.
+    expect(overridden.byteLength).toBeGreaterThan((await buildPdf(base)).byteLength);
+  });
+
+  it('칸마다 인쇄 여부가 따로 논다', async () => {
+    // 낱장 조합에서 어떤 양식은 격자를 켜고 어떤 양식은 끄고 쓸 수 있다.
+    const bothOff = await buildPdf(base);
+    const oneOn = await buildPdf({
+      ...base,
+      slotOverrides: new Map([[0, { dotGrid: DEFAULT_DOT_GRID, objects: [], safeZoneWidth: 10 }]]),
+    });
+    expect(oneOn.byteLength).toBeGreaterThan(bothOff.byteLength);
+  });
+
+  it('override 칸에 글자가 있어도 글꼴 없이는 안전하게 건너뛴다', async () => {
+    // 기본 동작(글꼴 없이도 여러 줄 글자를 안전하게 건너뛴다)이 override 칸에도
+    // 그대로 적용돼야 한다.
+    const text = {
+      id: 't1',
+      type: 'text' as const,
+      x: 10,
+      y: 10,
+      width: 40,
+      height: 20,
+      text: '오른쪽 칸',
+    };
+    const withText = await buildPdf({
+      ...base,
+      slotOverrides: new Map([[1, { dotGrid: noGrid, objects: [text], safeZoneWidth: 10 }]]),
+    });
+    const withoutText = await buildPdf(base);
+    expect(withText).toEqual(withoutText);
+  });
+
+  it('기본값에는 글자가 없고 override 칸에만 있어도 글꼴을 심으려 한다', async () => {
+    // 기본 칸(objects: [])만 봤다면 글자가 없다고 판단해 글꼴을 건드리지 않는다.
+    // override까지 합쳐서 봐야 이 칸의 글자를 알아챌 수 있다.
+    const text = {
+      id: 't1',
+      type: 'text' as const,
+      x: 10,
+      y: 10,
+      width: 40,
+      height: 20,
+      text: '오른쪽 칸',
+    };
+    // 망가진 폰트 바이트라 embedFont가 시도되면 던진다 — 즉 이 예외 자체가
+    // override의 글자를 알아챘다는 증거다. 안 던지면 무시했다는 뜻이다.
+    await expect(
+      buildPdf({
+        ...base,
+        fontBytes: new Uint8Array([1, 2, 3]),
+        slotOverrides: new Map([[1, { dotGrid: noGrid, objects: [text], safeZoneWidth: 10 }]]),
+      }),
+    ).rejects.toThrow();
+  });
+});

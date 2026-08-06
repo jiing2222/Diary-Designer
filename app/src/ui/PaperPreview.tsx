@@ -9,6 +9,13 @@ import type { Layout } from '../core/layout';
 import type { InsertSetting, PaperState, UnprintableSetting } from '../store';
 import type { Mm } from '../core/units';
 
+/** 칸 하나에 실제로 들어가는 내용. PDF의 SlotContent와 같은 역할이다. */
+export interface PreviewSlotContent {
+  insert: InsertSetting;
+  dotGrid: DotGrid;
+  objects: DiaryObject[];
+}
+
 interface Props {
   paper: PaperState & { width: Mm; height: Mm };
   insert: InsertSetting;
@@ -18,6 +25,14 @@ interface Props {
   cropMark: CropMode;
   showRuler: boolean;
   unprintable: UnprintableSetting;
+  /**
+   * 낱장 조합 — 칸마다 다른 양식을 넣을 때, **기본값과 다른 칸만** 채운다.
+   *
+   * 키는 슬롯 번호. 여기 없는 칸은 위의 `insert`·`dotGrid`·`objects`를 그대로
+   * 쓴다. pdf/export의 `slotOverrides`와 같은 생각이다 — 두 뷰가 같은 자리에서
+   * 나온 값을 그린다(store의 `resolveSlotTemplates`).
+   */
+  slotOverrides?: Map<number, PreviewSlotContent>;
   /**
    * 'edit'(기본) — 지금 켜둔 화면 표시 설정을 그대로 보여준다.
    * 'print' — 설정과 무관하게 실제로 인쇄될 모습만 보여준다. 타공 안내는 아예
@@ -41,10 +56,10 @@ export function PaperPreview({
   cropMark,
   showRuler,
   unprintable,
+  slotOverrides,
   mode = 'edit',
 }: Props) {
   const { width: pw, height: ph } = paper;
-  const punch = insert.punch;
 
   // 회전 배치면 속지 안의 타공도 함께 돌아야 한다.
   const rotated = layout.rotated;
@@ -63,36 +78,41 @@ export function PaperPreview({
         />
       )}
 
-      {layout.slots.map((s, i) => (
-        <g key={i}>
-          {/*
-            칸 경계선. 작업할 땐 어디가 한 장인지 보여주는 안내선이지만, 실제
-            인쇄물에는 없는 선이다 — 'print' 모드에서는 그리지 않는다.
-          */}
-          {mode === 'edit' && (
-            <rect x={s.x} y={s.y} width={s.width} height={s.height} className="insert" />
-          )}
+      {layout.slots.map((s, i) => {
+        // 낱장 조합에서 이 칸만 다른 양식을 넣었으면 그것을, 아니면 기본값을 쓴다.
+        const content = slotOverrides?.get(i) ?? { insert, dotGrid, objects };
+        const punch = content.insert.punch;
+        return (
+          <g key={i}>
+            {/*
+              칸 경계선. 작업할 땐 어디가 한 장인지 보여주는 안내선이지만, 실제
+              인쇄물에는 없는 선이다 — 'print' 모드에서는 그리지 않는다.
+            */}
+            {mode === 'edit' && (
+              <rect x={s.x} y={s.y} width={s.width} height={s.height} className="insert" />
+            )}
 
-          {/*
-            속지 안에 들어가는 것들. 좌표는 속지 왼쪽 위가 원점이고,
-            칸으로 옮기는 일(회전 포함)은 core/place가 한다. PDF도 같은 변환을 쓴다.
+            {/*
+              속지 안에 들어가는 것들. 좌표는 속지 왼쪽 위가 원점이고,
+              칸으로 옮기는 일(회전 포함)은 core/place가 한다. PDF도 같은 변환을 쓴다.
 
-            그리는 순서가 곧 층이다. 도트 → 선 → 글자. 타공 안내는 인쇄되지
-            않는 화면 표시라 맨 위에 얹는다 — 'print' 모드에서는 아예 그리지 않는다.
-          */}
-          <g transform={placeSlot(s, rotated).svg}>
-            <InsertView
-              insert={insert}
-              grid={dotGrid}
-              objects={objects}
-              safeZoneWidth={punch.safeZoneWidth}
-              mode={mode}
-            />
+              그리는 순서가 곧 층이다. 도트 → 선 → 글자. 타공 안내는 인쇄되지
+              않는 화면 표시라 맨 위에 얹는다 — 'print' 모드에서는 아예 그리지 않는다.
+            */}
+            <g transform={placeSlot(s, rotated).svg}>
+              <InsertView
+                insert={content.insert}
+                grid={content.dotGrid}
+                objects={content.objects}
+                safeZoneWidth={punch.safeZoneWidth}
+                mode={mode}
+              />
 
-            {mode === 'edit' && <PunchGuide height={insert.height} punch={punch} />}
+              {mode === 'edit' && <PunchGuide height={content.insert.height} punch={punch} />}
+            </g>
           </g>
-        </g>
-      ))}
+        );
+      })}
 
       <CropMarks layout={layout} paperWidth={pw} paperHeight={ph} mode={cropMark} />
 

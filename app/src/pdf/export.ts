@@ -42,13 +42,7 @@ import {
   TEXT_COLOR,
   hexToRgb,
 } from '../core/style';
-import {
-  isLine,
-  isText,
-  type DiaryObject,
-  type LineObject,
-  type TextObject,
-} from '../core/objects';
+import { isLine, isText, type DiaryObject, type TextObject } from '../core/objects';
 
 /**
  * PDF 생성.
@@ -57,6 +51,13 @@ import {
  * 캔버스를 이미지로 떠서 넣는 방식은 절대 쓰지 않는다. 그러면 실제 치수가
  * 어긋나고 인쇄 품질이 무너진다.
  */
+
+/** 칸 하나에 실제로 그려지는 내용. */
+export interface SlotContent {
+  dotGrid: DotGrid;
+  objects: DiaryObject[];
+  safeZoneWidth: Mm;
+}
 
 interface ExportInput {
   paperWidth: Mm;
@@ -78,6 +79,18 @@ interface ExportInput {
   userFonts?: Map<string, ArrayBuffer | Uint8Array>;
   /** 타공 안전영역 폭. 격자가 이 영역을 피할지는 dotGrid가 정한다. */
   safeZoneWidth: Mm;
+  /**
+   * 낱장 조합 — 칸마다 다른 양식을 넣을 때, **기본값과 다른 칸만** 채운다.
+   *
+   * 키는 슬롯 번호(0부터, `layout.slots`와 같은 순서). 여기 없는 칸은 위의
+   * `dotGrid`·`objects`·`safeZoneWidth`를 그대로 쓴다 — 지금까지의 "모든 칸이
+   * 같은 양식"이라는 동작이 곧 이 맵이 비어 있는 경우다.
+   *
+   * 글꼴은 문서 전체에 한 번만 심는다. 칸마다 다른 양식이라도 텍스트가 있는
+   * 칸이 하나라도 있으면 같은 글꼴로 전부 그린다 — 칸마다 다른 글꼴 파일을
+   * 심으면 문서가 그만큼 무거워지고, 등록한 글꼴이 칸마다 다를 이유도 없다.
+   */
+  slotOverrides?: Map<number, SlotContent>;
   cropMark: CropMode;
   showRuler: boolean;
 }
@@ -97,14 +110,28 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
 
+  /** 칸 하나의 내용. 낱장 조합에서 정한 칸만 기본값을 벗어난다. */
+  const resolveSlot = (i: number): SlotContent =>
+    input.slotOverrides?.get(i) ?? {
+      dotGrid: input.dotGrid,
+      objects: input.objects,
+      safeZoneWidth: input.safeZoneWidth,
+    };
+
   /*
    * 속지 글꼴은 필요할 때만 심는다. 글자가 하나도 없으면 1.2MB를 넣을 이유가 없다.
    *
    * **서브셋을 쓰지 않는다.** pdf-lib의 서브셋 기능은 한글 글꼴에서 글리프를
    * 빠뜨린다 — "2027년 3월 셋째 주"가 "3월"로 나온다. 5KB와 1.2MB의 차이지만
    * 맞는 쪽을 택한다. 글꼴은 문서에 한 번만 들어가므로 쪽수가 늘어도 그대로다.
+   *
+   * 낱장 조합이면 기본값과 모든 override의 글자를 함께 본다 — 어느 칸에
+   * 텍스트가 있든 글꼴은 문서 전체에 한 번만 심는다.
    */
-  const texts = input.objects.filter(isText);
+  const allObjects = input.slotOverrides
+    ? [input.objects, ...[...input.slotOverrides.values()].map((c) => c.objects)]
+    : [input.objects];
+  const texts = allObjects.flatMap((list) => list.filter(isText));
   let bodyFont: PDFFont | null = null;
   let boldFont: PDFFont | null = null;
   const userFonts = new Map<string, PDFFont>();
@@ -131,12 +158,11 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
 
   // 층 순서가 화면과 같아야 한다. 도트 → 선 → 글자.
   // 재단선과 눈금자는 속지 내용이 아니라 용지 위의 표시라 그 위에 얹는다.
-  if (input.dotGrid.print) {
-    drawDotGrid(page, input.layout, input.dotGrid, input.safeZoneWidth, flipY);
-  }
-  drawObjects(page, input.layout, input.objects.filter(isLine), flipY);
+  // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
+  drawDotGrid(page, input.layout, resolveSlot, flipY);
+  drawObjects(page, input.layout, resolveSlot, flipY);
   if (bodyFont) {
-    drawTexts(page, input.layout, texts, { regular: bodyFont, bold: boldFont, user: userFonts }, flipY);
+    drawTexts(page, input.layout, resolveSlot, { regular: bodyFont, bold: boldFont, user: userFonts }, flipY);
   }
 
   for (const s of cropSegments(input.layout, input.paperWidth, input.paperHeight, input.cropMark)) {
@@ -164,11 +190,14 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
 function drawDotGrid(
   page: PDFPage,
   layout: Layout,
-  grid: DotGrid,
-  safeZoneWidth: Mm,
+  resolveSlot: (i: number) => SlotContent,
   flipY: (y: Mm) => Mm,
 ) {
-  for (const slot of layout.slots) {
+  layout.slots.forEach((slot, i) => {
+    const { dotGrid: grid, safeZoneWidth } = resolveSlot(i);
+    // 인쇄 여부는 칸마다 다를 수 있다 — 낱장 조합에서 어떤 양식은 격자를 끄고 쓴다.
+    if (!grid.print) return;
+
     const insert = insertSizeOf(slot, layout.rotated);
     const place = placeSlot(slot, layout.rotated);
 
@@ -201,7 +230,7 @@ function drawDotGrid(
         lineCap: grid.dash === 'dotted' ? LineCapStyle.Round : LineCapStyle.Butt,
       });
     }
-  }
+  });
 }
 
 /**
@@ -243,14 +272,15 @@ function fontFor(t: TextObject, fonts: Fonts): PDFFont {
 function drawTexts(
   page: PDFPage,
   layout: Layout,
-  texts: TextObject[],
+  resolveSlot: (i: number) => SlotContent,
   /** 심어둔 글꼴들. `bold`가 없으면 굵은 글자가 없어서 심지 않은 것이다. */
   fonts: Fonts,
   flipY: (y: Mm) => Mm,
 ) {
-  if (texts.length === 0) return;
+  layout.slots.forEach((slot, i) => {
+    const texts = resolveSlot(i).objects.filter(isText);
+    if (texts.length === 0) return;
 
-  for (const slot of layout.slots) {
     const insert = insertSizeOf(slot, layout.rotated);
     const place = placeSlot(slot, layout.rotated);
 
@@ -295,18 +325,19 @@ function drawTexts(
     }
 
     page.pushOperators(popGraphicsState());
-  }
+  });
 }
 
 function drawObjects(
   page: PDFPage,
   layout: Layout,
-  objects: LineObject[],
+  resolveSlot: (i: number) => SlotContent,
   flipY: (y: Mm) => Mm,
 ) {
-  if (objects.length === 0) return;
+  layout.slots.forEach((slot, i) => {
+    const objects = resolveSlot(i).objects.filter(isLine);
+    if (objects.length === 0) return;
 
-  for (const slot of layout.slots) {
     const place = placeSlot(slot, layout.rotated);
     for (const o of objects) {
       const a = place.map(o.x1, o.y1);
@@ -323,7 +354,7 @@ function drawObjects(
         lineCap: OBJECT_LINE_CAP === 'round' ? LineCapStyle.Round : LineCapStyle.Butt,
       });
     }
-  }
+  });
 }
 
 /**

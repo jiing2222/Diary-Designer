@@ -10,6 +10,7 @@ import {
   duplicateTemplate,
   insertFromPreset,
   newTemplate,
+  sameSize,
   uniqueName,
   type InsertSetting,
   type Template,
@@ -104,6 +105,18 @@ interface Settings {
   cropMark: CropMode;
   showRuler: boolean;
   unprintable: UnprintableSetting;
+  /**
+   * 낱장 조합 — 인쇄할 용지의 칸마다 어느 양식을 넣을지.
+   *
+   * 키는 슬롯 번호(0부터, 왼쪽 위에서 가로로). 값을 정하지 않은 칸은 **지금
+   * 고른 양식(activeId)**을 쓴다 — 지금까지의 동작 그대로다.
+   *
+   * **같은 규격의 양식만 섞을 수 있다.** 배치 계산(칸 크기·개수)이 한 규격을
+   * 기준으로 한 번만 일어나기 때문이다(설계문서 8장, "두 가지 작업" 중
+   * 낱장 조합). 규격이 다른 양식을 가리키는 값은 조용히 무시하고 기본값으로
+   * 돌아간다 — `resolveSlotTemplates`가 그 판단을 한다.
+   */
+  slotAssignment: Record<number, string>;
 }
 
 interface Store extends Settings {
@@ -121,6 +134,8 @@ interface Store extends Settings {
   copyTemplate: (id: string, insert?: InsertSetting) => void;
   renameTemplate: (id: string, name: string) => void;
   removeTemplate: (id: string) => void;
+  /** 낱장 조합에서 이 칸에 넣을 양식. `null`이면 배정을 지우고 기본값(activeId)으로 돌린다. */
+  assignSlot: (index: number, templateId: string | null) => void;
   setTool: (t: Tool) => void;
   /** 그으면 생기고 이미 있으면 지워진다. 선 하나든 면의 네 변이든 한 번으로 친다. */
   drawLines: (segs: LineSeg[]) => void;
@@ -212,6 +227,34 @@ function activeObjects(s: Pick<Settings, 'templates' | 'activeId'>): DiaryObject
   return activeTemplate(s)?.objects.present ?? [];
 }
 
+/** 더 이상 존재하지 않는 양식을 가리키는 칸 배정을 걷어낸다. */
+function pruneSlotAssignment(
+  templates: Template[],
+  assignment: Record<number, string>,
+): Record<number, string> {
+  const ids = new Set(templates.map((t) => t.id));
+  return Object.fromEntries(Object.entries(assignment).filter(([, id]) => ids.has(id)));
+}
+
+/**
+ * 인쇄할 용지의 칸마다 실제로 쓸 양식.
+ *
+ * `count`개(레이아웃의 슬롯 수)를 채워서 돌려준다 — 배정이 없거나, 배정된
+ * 양식이 지워졌거나, **규격이 지금 양식과 다르면** 전부 지금 양식(activeId)으로
+ * 대신한다. 규격이 다른 양식을 섞으면 배치 계산(칸 크기)이 성립하지 않는다.
+ */
+export function resolveSlotTemplates(s: Settings, count: number): Template[] {
+  const base = activeTemplate(s);
+  if (!base) return [];
+  const out: Template[] = [];
+  for (let i = 0; i < count; i++) {
+    const id = s.slotAssignment[i];
+    const t = id ? s.templates.find((x) => x.id === id) : undefined;
+    out.push(t && sameSize(t.insert, base.insert) ? t : base);
+  }
+  return out;
+}
+
 const firstPaper = PAPER_PRESETS[0];
 
 export const useStore = create<Store>((set) => ({
@@ -243,6 +286,7 @@ export const useStore = create<Store>((set) => ({
   // 잴 필요는 없으니 기본은 꺼둔다. 필요하면 배치 설정에서 언제든 켤 수 있다.
   showRuler: false,
   unprintable: { show: true, width: 3 },
+  slotAssignment: {},
 
   setPaperPreset: (id) =>
     set((s) => {
@@ -326,7 +370,21 @@ export const useStore = create<Store>((set) => ({
       const activeId = templates.some((t) => t.id === s.activeId)
         ? s.activeId
         : (templates[0]?.id ?? '');
-      return { templates, activeId, selectedIds: [] };
+      return {
+        templates,
+        activeId,
+        selectedIds: [],
+        // 지워진 양식을 가리키던 칸 배정도 함께 걷어낸다.
+        slotAssignment: pruneSlotAssignment(templates, s.slotAssignment),
+      };
+    }),
+
+  assignSlot: (index, templateId) =>
+    set((s) => {
+      const next = { ...s.slotAssignment };
+      if (templateId) next[index] = templateId;
+      else delete next[index];
+      return { slotAssignment: next };
     }),
 
   // 도구를 바꾸면 고른 것을 놓는다. 그리기 중에 선택 테두리가 남아 있으면 헷갈린다.
@@ -391,14 +449,18 @@ export const useStore = create<Store>((set) => ({
       // 그때까지 그 글자들은 기본 글꼴로 보인다(fonts/registry의 familyOf).
       const fonts = p.fonts ?? [];
       reserveIds(fonts.map((f) => f.id));
+      const print = p.print as Partial<Settings>;
       return {
         templates,
         activeId: templates[0]?.id ?? '',
         selectedIds: [],
         userFonts: fonts.map((f) => ({ ...f, family: `user-font-${f.id}` })),
         // 용지·배치는 저장된 것이 있으면 덮어쓰고, 없는 값은 지금 것을 지킨다.
-        ...(p.print as Partial<Settings>),
+        ...print,
         paper: { ...s.paper, ...((p.print as { paper?: PaperState }).paper ?? {}) },
+        // 칸 배정도 저장돼 있으면 함께 돌아온다. id는 양식과 함께 저장되므로
+        // 대개 그대로 맞지만, 혹시 어긋난 것이 있으면 걷어낸다.
+        slotAssignment: pruneSlotAssignment(templates, print.slotAssignment ?? {}),
       };
     }),
 
@@ -482,8 +544,9 @@ export function paperSize(paper: PaperState): { width: Mm; height: Mm } {
 /**
  * 배치 계산.
  *
- * 칸 크기는 **지금 양식의 속지**에서 나온다. 칸마다 다른 양식을 넣는 것은 5c의
- * 일이고, 그때도 한 용지 안에서는 규격이 같아야 하므로 이 계산은 그대로다.
+ * 칸 크기는 **지금 양식의 속지**에서 나온다. 낱장 조합으로 칸마다 다른 양식을
+ * 넣어도(`resolveSlotTemplates`) 한 용지 안에서는 규격이 같아야 하므로 이
+ * 계산은 그대로다 — 배치는 규격 하나로 한 번만 일어난다.
  */
 export function selectLayout(s: Settings): Layout {
   const { width, height } = paperSize(s.paper);

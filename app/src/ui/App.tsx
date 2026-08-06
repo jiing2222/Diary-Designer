@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { activeTemplate, paperSize, selectLayout, useStore } from '../store';
+import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore } from '../store';
 import { SettingsPanel } from './SettingsPanel';
-import { PaperPreview } from './PaperPreview';
+import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
 import { EditorTab } from './EditorTab';
 import { GalleryTab } from './GalleryTab';
 import { ProjectFile } from './ProjectFile';
-import { buildPdf, downloadPdf } from '../pdf/export';
+import { SlotAssign } from './SlotAssign';
+import { buildPdf, downloadPdf, type SlotContent } from '../pdf/export';
 import { loadBodyFont, loadBoldFont } from '../fonts/load';
 import { fontBytes as fontBytes_ } from '../fonts/registry';
+import type { TextObject } from '../core/objects';
 
 type Tab = 'gallery' | 'edit' | 'print';
 
@@ -25,24 +27,52 @@ export function App() {
 
   const { width, height } = paperSize(s.paper);
   const layout = selectLayout(s);
-  // 속지·격자·그린 것은 이제 양식 안에 있다. 인쇄는 지금 보고 있는 양식을
-  // 모든 칸에 넣는다 — 칸마다 다른 양식을 넣는 것은 5c의 일이다.
   const active = activeTemplate(s);
+
+  /*
+   * 낱장 조합 — 칸마다 다른 양식.
+   *
+   * `resolveSlotTemplates`가 칸마다 실제로 쓸 양식을 정해준다(배정이 없거나
+   * 규격이 다르면 지금 양식으로 대신한다). 화면 미리보기와 PDF가 **같은 배열을
+   * 함께 본다** — 둘이 따로 계산하면 언젠가 어긋난다.
+   *
+   * 지금 양식과 같은 칸은 굳이 override에 넣지 않는다. 대부분의 칸이 지금
+   * 양식을 그대로 쓰므로, 다른 칸만 골라내는 편이 다루기 쉽다.
+   */
+  const slotTemplates = active ? resolveSlotTemplates(s, layout.count) : [];
+  const previewOverrides = new Map<number, PreviewSlotContent>();
+  const pdfOverrides = new Map<number, SlotContent>();
+  slotTemplates.forEach((t, i) => {
+    if (!active || t.id === active.id) return;
+    previewOverrides.set(i, { insert: t.insert, dotGrid: t.dotGrid, objects: t.objects.present });
+    pdfOverrides.set(i, {
+      dotGrid: t.dotGrid,
+      objects: t.objects.present,
+      safeZoneWidth: t.insert.punch.safeZoneWidth,
+    });
+  });
 
   async function exportPdf() {
     if (!active) return;
     setBusy(true);
     try {
+      // 배정된 모든 칸(기본 + 낱장 조합)의 글자를 함께 본다. 어느 칸에 글꼴이
+      // 필요한지는 core/pdf의 slotOverrides가 알아서 합쳐 보지만, 어떤 글꼴
+      // 파일을 받아와야 하는지는 여기서 먼저 정해야 한다.
+      const uniqueTemplates = [...new Map(slotTemplates.map((t) => [t.id, t])).values()];
+      const allTexts: TextObject[] = uniqueTemplates.flatMap(
+        (t) => t.objects.present.filter((o): o is TextObject => o.type === 'text'),
+      );
+
       // 글자가 있을 때만 글꼴을 받는다. 하나에 2.7MB짜리라 괜히 받을 이유가 없다.
       // 굵기마다 파일이 따로라 Bold도 굵은 글자가 실제로 있을 때만 받는다.
-      const texts = active.objects.present.filter((o) => o.type === 'text');
-      const fontBytes = texts.length > 0 ? await loadBodyFont() : undefined;
-      const boldFontBytes = texts.some((t) => t.bold) ? await loadBoldFont() : undefined;
+      const fontBytes = allTexts.length > 0 ? await loadBodyFont() : undefined;
+      const boldFontBytes = allTexts.some((t) => t.bold) ? await loadBoldFont() : undefined;
 
       // 등록 글꼴은 실제로 쓰이는 것만 모은다. 등록소에 없는 id(새로고침 뒤에
       // 남은 글자)는 그냥 빠지고, PDF에서도 기본 글꼴로 그려진다.
       const userFonts = new Map<string, ArrayBuffer>();
-      for (const t of texts) {
+      for (const t of allTexts) {
         const b = t.font ? fontBytes_(t.font) : undefined;
         if (t.font && b) userFonts.set(t.font, b);
       }
@@ -53,6 +83,7 @@ export function App() {
         layout,
         dotGrid: active.dotGrid,
         objects: active.objects.present,
+        slotOverrides: pdfOverrides.size > 0 ? pdfOverrides : undefined,
         fontBytes,
         boldFontBytes,
         userFonts,
@@ -128,6 +159,8 @@ export function App() {
               </label>
             </div>
 
+            <SlotAssign layout={layout} />
+
             <div className="stage-area">
               {layout.count === 0 ? (
                 <div className="empty">속지가 용지보다 큽니다. 용지를 키우거나 속지를 줄이세요.</div>
@@ -138,6 +171,7 @@ export function App() {
                     insert={active.insert}
                     dotGrid={active.dotGrid}
                     objects={active.objects.present}
+                    slotOverrides={previewOverrides.size > 0 ? previewOverrides : undefined}
                     layout={layout}
                     cropMark={s.cropMark}
                     showRuler={s.showRuler}

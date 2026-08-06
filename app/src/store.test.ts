@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { activeTemplate, useStore } from './store';
+import { activeTemplate, resolveSlotTemplates, useStore } from './store';
 import { insertFromPreset } from './core/template';
 import { DEFAULT_DOT_GRID } from './core/grid';
 
@@ -248,5 +248,69 @@ describe('저장 파일 불러오기', () => {
     });
 
     expect(s().userFonts).toEqual([{ id: 'f3', name: '내글꼴', family: 'user-font-f3' }]);
+  });
+});
+
+describe('낱장 조합 — 칸 배정', () => {
+  it('배정이 없으면 모든 칸이 지금 양식이다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    expect(resolveSlotTemplates(s(), 3).every((t) => t.id === s().activeId)).toBe(true);
+  });
+
+  it('같은 규격으로 배정하면 그 칸만 바뀐다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    s().selectTemplate(first);
+
+    s().assignSlot(1, second);
+    const slots = resolveSlotTemplates(s(), 3);
+    expect(slots[0].id).toBe(first);
+    expect(slots[1].id).toBe(second);
+    expect(slots[2].id).toBe(first);
+  });
+
+  it('규격이 다른 양식을 배정하면 무시하고 지금 양식으로 돌아간다', () => {
+    // 배치 계산(칸 크기)이 한 규격으로 한 번만 일어나기 때문이다.
+    s().addTemplate(insertFromPreset('M6'));
+    const m6 = s().activeId;
+    s().addTemplate(insertFromPreset('M5'));
+    const m5 = s().activeId;
+    s().selectTemplate(m6);
+
+    s().assignSlot(0, m5);
+    expect(resolveSlotTemplates(s(), 1)[0].id).toBe(m6);
+  });
+
+  it('null로 배정을 지우면 다시 기본값이다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    s().selectTemplate(first);
+
+    s().assignSlot(0, second);
+    expect(resolveSlotTemplates(s(), 1)[0].id).toBe(second);
+
+    s().assignSlot(0, null);
+    expect(resolveSlotTemplates(s(), 1)[0].id).toBe(first);
+  });
+
+  it('배정된 양식을 지우면 그 칸도 기본값으로 돌아간다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    s().selectTemplate(first);
+    s().assignSlot(0, second);
+
+    s().removeTemplate(second);
+    expect(s().slotAssignment[0]).toBeUndefined();
+    expect(resolveSlotTemplates(s(), 1)[0].id).toBe(first);
+  });
+
+  it('양식이 하나도 없으면 빈 배열이다', () => {
+    expect(resolveSlotTemplates(s(), 4)).toEqual([]);
   });
 });
