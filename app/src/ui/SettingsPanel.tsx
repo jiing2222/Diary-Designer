@@ -10,7 +10,7 @@ import {
 } from '../store';
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
 import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
-import { sheetsNeeded } from '../core/template';
+import { capacityPerSheet, sheetsNeeded } from '../core/template';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
 import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon, RepeatIcon } from './icons';
@@ -228,8 +228,9 @@ function RepeatGroup() {
           </Row>
           <div className="readout">
             <span>
-              한 장에 <b>{layout.count}칸</b>이니 <b>{sheetsNeeded(count, layout.count)}장</b>이
-              필요합니다.
+              한 장에 <b>{layout.count}칸</b>
+              {s.duplex && <>(양면이라 앞뒤 {layout.count * 2}칸)</>}이니{' '}
+              <b>{sheetsNeeded(count, capacityPerSheet(layout.count, s.duplex))}장</b>이 필요합니다.
             </span>
             <span className="muted">
               마지막 장에서 모자라는 칸은 비웁니다. 속지를 필요한 만큼만 뽑기 위해서입니다.
@@ -407,6 +408,9 @@ function LayoutGroup() {
           onChange={(showRuler) => s.patch({ showRuler })}
           label="50mm 검증 눈금"
         />
+      </Row>
+      <Row label="양면" hint="뒷면이 없는 양식은 그 칸만 빈 채로 찍힙니다">
+        <Check checked={s.duplex} onChange={(duplex) => s.patch({ duplex })} label="양면 인쇄" />
       </Row>
     </>
   );

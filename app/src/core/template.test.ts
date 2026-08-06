@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  capacityPerSheet,
   defaultName,
   duplicateTemplate,
+  frontBackFilled,
   groupBySize,
   insertFromPreset,
   newBack,
@@ -240,6 +242,46 @@ describe('필요한 용지 장수', () => {
 
   it('칸 수보다 적게 필요해도 한 장은 있어야 한다', () => {
     expect(sheetsNeeded(1, 4)).toBe(1);
+  });
+});
+
+describe('양면 인쇄 — 장수·칸 채우기', () => {
+  it('한 장의 용량은 단면이면 그대로, 양면이면 두 배다', () => {
+    expect(capacityPerSheet(4, false)).toBe(4);
+    expect(capacityPerSheet(4, true)).toBe(8);
+  });
+
+  it('단면이면 sheetsNeeded와 같은 장수가 나온다', () => {
+    // 예: 53쪽 · 한 장에 4칸 → 단면 14장 (설계문서 8장 예시)
+    expect(sheetsNeeded(53, capacityPerSheet(4, false))).toBe(14);
+  });
+
+  it('양면이면 앞뒤를 합친 용량으로 장수가 줄어든다', () => {
+    // 같은 예시가 양면이면 7장
+    expect(sheetsNeeded(53, capacityPerSheet(4, true))).toBe(7);
+  });
+
+  it('단면이면 뒤는 항상 0이다', () => {
+    expect(frontBackFilled(0, 10, 4, false)).toEqual({ front: 4, back: 0 });
+    expect(frontBackFilled(2, 10, 4, false)).toEqual({ front: 2, back: 0 });
+  });
+
+  it('양면 — 앞을 다 채운 뒤 뒤를 채운다', () => {
+    // 한 장 용량 8(=4×2). 총 5장이면 앞 4 + 뒤 1.
+    expect(frontBackFilled(0, 5, 4, true)).toEqual({ front: 4, back: 1 });
+  });
+
+  it('양면 — 앞도 다 못 채우면 뒤는 0이다', () => {
+    expect(frontBackFilled(0, 3, 4, true)).toEqual({ front: 3, back: 0 });
+  });
+
+  it('양면 — 앞뒤를 딱 채우고 끝나면 남는 장이 없다', () => {
+    expect(frontBackFilled(0, 8, 4, true)).toEqual({ front: 4, back: 4 });
+  });
+
+  it('양면 — 다음 장은 다시 앞부터 채운다', () => {
+    // 한 장 용량 8. 총 13장 → 0번 장(8칸: 앞4+뒤4), 1번 장(5칸: 앞4+뒤1)
+    expect(frontBackFilled(1, 13, 4, true)).toEqual({ front: 4, back: 1 });
   });
 });
 

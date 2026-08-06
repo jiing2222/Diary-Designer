@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout } from './layout';
+import { computeLayout, mirrorLayout } from './layout';
 import { holeCentersY, suggestGroupGap, type PunchSetting } from './punch';
 import { INSERT_PRESETS } from './presets';
 
@@ -126,6 +126,61 @@ describe('자동 배치', () => {
     const fixed = computeLayout({ ...base, ...size, allowRotate: false, gap: 10 });
     const free = computeLayout({ ...base, ...size, allowRotate: true, gap: 10 });
     expect(free.count).toBeGreaterThan(fixed.count);
+  });
+});
+
+describe('양면 배치 — 칸 뒤집기', () => {
+  const base = { gap: 2, printMargin: 5, allowRotate: false, align: 'topLeft' as const };
+
+  it('x만 뒤집고 y·크기는 그대로다', () => {
+    const front = computeLayout({
+      ...base,
+      paperWidth: 210,
+      paperHeight: 297,
+      insertWidth: 80,
+      insertHeight: 125,
+    });
+    const back = mirrorLayout(front, 210);
+
+    front.slots.forEach((s, i) => {
+      const b = back.slots[i];
+      expect(b.x).toBeCloseTo(210 - s.x - s.width, 6);
+      expect(b.y).toBe(s.y);
+      expect(b.width).toBe(s.width);
+      expect(b.height).toBe(s.height);
+    });
+  });
+
+  it('칸 수·회전 여부는 그대로 물려받는다', () => {
+    const front = computeLayout({
+      ...base,
+      paperWidth: 210,
+      paperHeight: 297,
+      insertWidth: 80,
+      insertHeight: 125,
+    });
+    const back = mirrorLayout(front, 210);
+    expect(back.count).toBe(front.count);
+    expect(back.cols).toBe(front.cols);
+    expect(back.rows).toBe(front.rows);
+    expect(back.rotated).toBe(front.rotated);
+  });
+
+  it('용지 가운데 놓인 배치는 뒤집어도 같은 자리다', () => {
+    // 좌우 대칭인 가운데 정렬에서는 뒤집어도 칸의 집합이 그대로여야 한다.
+    const front = computeLayout({
+      gap: 2,
+      printMargin: 5,
+      allowRotate: false,
+      align: 'center',
+      paperWidth: 210,
+      paperHeight: 297,
+      insertWidth: 80,
+      insertHeight: 125,
+    });
+    const back = mirrorLayout(front, 210);
+    const xs = (l: typeof front) => [...new Set(l.slots.map((s) => s.x))].sort((a, b) => a - b);
+    expect(xs(back)).toEqual(xs(front).map((x) => expect.closeTo(x, 6)));
   });
 });
 

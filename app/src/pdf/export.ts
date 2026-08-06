@@ -25,10 +25,10 @@ import {
   splitLines,
   valignOf,
 } from '../core/text';
-import type { Layout } from '../core/layout';
+import { mirrorLayout, type Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
-import { filledSlots, sheetsNeeded } from '../core/template';
+import { capacityPerSheet, frontBackFilled, sheetsNeeded } from '../core/template';
 import { insertSizeOf, placeSlot } from '../core/place';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import {
@@ -106,6 +106,26 @@ interface ExportInput {
   totalSlots?: number;
   cropMark: CropMode;
   showRuler: boolean;
+  /**
+   * 양면 인쇄. 켜면 장마다 뒷면 페이지를 하나씩 더 넣는다.
+   *
+   * 칸 위치는 core/layout의 `mirrorLayout`로 좌우만 뒤집는다 — 칸 안의 내용은
+   * 그대로다(설계문서 8장). 총 쪽수를 채우는 순서는 앞을 다 채운 뒤 뒤를
+   * 채운다(core/template의 `frontBackFilled`).
+   */
+  duplex?: boolean;
+  /**
+   * 뒷면의 기본 내용 — 지금 양식의 뒷면. 양식에 뒷면이 없으면 `undefined`고,
+   * 그 칸은 완전히 빈 채로 찍힌다.
+   */
+  defaultBack?: SlotContent;
+  /**
+   * 낱장 조합에서 칸마다 다른 뒷면. 키는 `layout.slots`와 같은 인덱스(앞면 기준).
+   *
+   * 값이 `null`이면 "그 칸에 배정된 양식엔 뒷면이 없다"는 뜻으로, `defaultBack`을
+   * 대신 쓰지 않고 그 칸만 완전히 비운다. 맵에 아예 없는 칸은 `defaultBack`을 쓴다.
+   */
+  backSlotOverrides?: Map<number, SlotContent | null>;
 }
 
 /** 완전히 빈 칸. 반복 인쇄에서 마지막 장의 남는 칸에 쓴다. */
@@ -147,6 +167,15 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
       safeZoneWidth: input.safeZoneWidth,
     };
 
+  /**
+   * 뒷면 칸 하나의 내용. `null`로 정한 칸(그 칸 양식엔 뒷면이 없음)과 아예
+   * 정하지 않은 칸(기본 뒷면을 씀)을 구분한다 — 앞면의 기본값 대체와 다른
+   * 지점이다.
+   */
+  const resolveBackSlot = (i: number): SlotContent =>
+    (input.backSlotOverrides?.has(i) ? input.backSlotOverrides.get(i) : input.defaultBack) ??
+    BLANK_SLOT;
+
   /*
    * 속지 글꼴은 필요할 때만 심는다. 글자가 하나도 없으면 1.2MB를 넣을 이유가 없다.
    *
@@ -155,11 +184,17 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
    * 맞는 쪽을 택한다. 글꼴은 문서에 한 번만 들어가므로 쪽수가 늘어도 그대로다.
    *
    * 낱장 조합이면 기본값과 모든 override의 글자를 함께 본다 — 어느 칸에
-   * 텍스트가 있든 글꼴은 문서 전체에 한 번만 심는다.
+   * 텍스트가 있든 글꼴은 문서 전체에 한 번만 심는다. 양면이면 뒷면 내용도 같이 본다.
    */
-  const allObjects = input.slotOverrides
-    ? [input.objects, ...[...input.slotOverrides.values()].map((c) => c.objects)]
-    : [input.objects];
+  const backOverrideContents = [...(input.backSlotOverrides?.values() ?? [])].filter(
+    (c): c is SlotContent => c != null,
+  );
+  const allObjects = [
+    input.objects,
+    ...(input.slotOverrides ? [...input.slotOverrides.values()].map((c) => c.objects) : []),
+    ...(input.defaultBack ? [input.defaultBack.objects] : []),
+    ...backOverrideContents.map((c) => c.objects),
+  ];
   const texts = allObjects.flatMap((list) => list.filter(isText));
   let bodyFont: PDFFont | null = null;
   let boldFont: PDFFont | null = null;
@@ -183,33 +218,28 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   // 이 변환은 익스포터 안에만 존재하고 모델은 알지 못한다.
   const flipY = (y: Mm): Mm => input.paperHeight - y;
 
+  const duplex = !!input.duplex;
   const slotsPerSheet = input.layout.slots.length;
+  // 양면이면 한 장의 용량이 앞뒤를 합쳐 두 배다(core/template의 capacityPerSheet).
   // totalSlots를 정하지 않았으면 지금까지처럼 한 장, 모든 칸을 채운다.
   const sheets =
     input.totalSlots && input.totalSlots > 0 && slotsPerSheet > 0
-      ? sheetsNeeded(input.totalSlots, slotsPerSheet)
+      ? sheetsNeeded(input.totalSlots, capacityPerSheet(slotsPerSheet, duplex))
       : 1;
+  // 칸 위치만 좌우로 뒤집은 배치. 재단선도 여기서 다시 계산해야 앞뒤가 같은
+  // 자리에서 잘린다(core/layout의 mirrorLayout 주석 참고).
+  const backLayout = duplex ? mirrorLayout(input.layout, input.paperWidth) : null;
 
-  for (let sheet = 0; sheet < sheets; sheet++) {
-    const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
-
-    // 이 장에서 실제로 채울 칸 수. totalSlots가 없으면 언제나 전부다.
-    // 마지막 장만 모자랄 수 있고, 그 나머지 칸은 resolveForSheet가 완전히 비운다.
-    // 화면 미리보기와 같은 core/template의 filledSlots를 쓴다 — 둘이 어긋나면
-    // 미리보기에서 본 빈 칸이 실제 인쇄물과 달라진다.
-    const filled = input.totalSlots
-      ? filledSlots(sheet, input.totalSlots, slotsPerSheet)
-      : slotsPerSheet;
-    const resolveForSheet = (i: number): SlotContent => (i < filled ? resolveSlot(i) : BLANK_SLOT);
-
+  /** 한 면(앞 또는 뒤)을 그린다. 페이지·배치·칸 내용 판단 함수만 갈아끼운다. */
+  function drawSide(page: PDFPage, layout: Layout, resolveForSheet: (i: number) => SlotContent) {
     // 층 순서가 화면과 같아야 한다. 도트 → 선 → 글자.
     // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
-    drawDotGrid(page, input.layout, resolveForSheet, flipY);
-    drawObjects(page, input.layout, resolveForSheet, flipY);
+    drawDotGrid(page, layout, resolveForSheet, flipY);
+    drawObjects(page, layout, resolveForSheet, flipY);
     if (bodyFont) {
       drawTexts(
         page,
-        input.layout,
+        layout,
         resolveForSheet,
         { regular: bodyFont, bold: boldFont, user: userFonts },
         flipY,
@@ -217,7 +247,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     }
 
     // 재단선과 눈금자는 속지 내용이 아니라 용지 위의 표시라 장마다 그 위에 얹는다.
-    for (const s of cropSegments(input.layout, input.paperWidth, input.paperHeight, input.cropMark)) {
+    for (const s of cropSegments(layout, input.paperWidth, input.paperHeight, input.cropMark)) {
       page.drawLine({
         start: { x: mmToPt(s.x1), y: mmToPt(flipY(s.y1)) },
         end: { x: mmToPt(s.x2), y: mmToPt(flipY(s.y2)) },
@@ -228,6 +258,24 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
 
     if (input.showRuler) {
       drawRuler(page, font, input.paperWidth, input.paperHeight, flipY);
+    }
+  }
+
+  for (let sheet = 0; sheet < sheets; sheet++) {
+    // 이 장에서 앞·뒤 각각 실제로 채울 칸 수. totalSlots가 없으면 언제나 전부다.
+    // 마지막 장만 모자랄 수 있고, 그 나머지 칸은 완전히 비운다. 화면 미리보기와
+    // 같은 core/template의 frontBackFilled를 쓴다 — 둘이 어긋나면 미리보기에서
+    // 본 빈 칸이 실제 인쇄물과 달라진다.
+    const { front, back } = input.totalSlots
+      ? frontBackFilled(sheet, input.totalSlots, slotsPerSheet, duplex)
+      : { front: slotsPerSheet, back: slotsPerSheet };
+
+    const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
+    drawSide(page, input.layout, (i) => (i < front ? resolveSlot(i) : BLANK_SLOT));
+
+    if (duplex && backLayout) {
+      const backPage = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
+      drawSide(backPage, backLayout, (i) => (i < back ? resolveBackSlot(i) : BLANK_SLOT));
     }
   }
 

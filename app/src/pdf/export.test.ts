@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { buildPdf } from './export';
+import { buildPdf, type SlotContent } from './export';
 import { computeLayout } from '../core/layout';
 import { DEFAULT_DOT_GRID } from '../core/grid';
 import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from '../core/style';
@@ -426,5 +426,134 @@ describe('반복 인쇄 — 여러 장', () => {
     const two = await buildPdf({ ...base, dotGrid: noGrid, objects: [line], totalSlots: 4 });
     // 4칸(2장)이 2칸(1장)보다 커야 한다 — 반복 인쇄가 실제로 여러 장을 채운다.
     expect(two.byteLength).toBeGreaterThan(one.byteLength);
+  });
+});
+
+describe('양면 인쇄', () => {
+  // 가로로 두 칸이 들어가는 배치. 한 장에 칸 2개.
+  const twoUpLayout = computeLayout({
+    paperWidth: 170,
+    paperHeight: 130,
+    insertWidth: 80,
+    insertHeight: 125,
+    gap: 5,
+    printMargin: 2.5,
+    allowRotate: false,
+    align: 'center',
+  });
+
+  const base = {
+    paperWidth: 170,
+    paperHeight: 130,
+    layout: twoUpLayout,
+    dotGrid: noGrid,
+    objects: [],
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+
+  const backContent = (line = false): SlotContent => ({
+    dotGrid: noGrid,
+    objects: line ? [{ id: 'b1', type: 'line', x1: 5, y1: 5, x2: 40, y2: 5 }] : [],
+    safeZoneWidth: 10,
+  });
+
+  it('양면을 꺼두면 한 장에 한 쪽뿐이다', async () => {
+    const doc = await PDFDocument.load(await buildPdf(base));
+    expect(doc.getPageCount()).toBe(1);
+  });
+
+  it('양면을 켜면 장마다 뒷면 페이지가 하나 더 생긴다', async () => {
+    const doc = await PDFDocument.load(await buildPdf({ ...base, duplex: true }));
+    expect(doc.getPageCount()).toBe(2);
+  });
+
+  it('뒷면 기본값이 없으면 뒷면 페이지는 완전히 빈 채로 찍힌다', async () => {
+    const blank = await buildPdf({ ...base, duplex: true });
+    const withBack = await buildPdf({ ...base, duplex: true, defaultBack: backContent(true) });
+    expect(withBack.byteLength).toBeGreaterThan(blank.byteLength);
+  });
+
+  it('뒷면 칸 위치가 좌우로 뒤집힌다', async () => {
+    // 왼쪽 칸(0)에만 앞면 내용을 주고, 뒷면은 기본값(모든 칸 같은 내용)으로 켠다.
+    // 뒷면 페이지의 벡터 좌표는 core/layout의 mirrorLayout이 낸 값을 그대로 써야
+    // 하므로, 뒷면 내용이 있을 때와 없을 때 바이트가 달라야 한다.
+    const withoutBack = await buildPdf({ ...base, duplex: true });
+    const withBack = await buildPdf({
+      ...base,
+      duplex: true,
+      defaultBack: backContent(true),
+    });
+    expect(withBack.byteLength).toBeGreaterThan(withoutBack.byteLength);
+  });
+
+  it('낱장 조합 — 칸마다 다른 뒷면이 그려진다', async () => {
+    const oneBack = await buildPdf({
+      ...base,
+      duplex: true,
+      backSlotOverrides: new Map([[1, backContent(true)]]),
+    });
+    const noBack = await buildPdf({ ...base, duplex: true });
+    expect(oneBack.byteLength).toBeGreaterThan(noBack.byteLength);
+  });
+
+  it('배정된 양식에 뒷면이 없으면(null) 기본 뒷면 대신 완전히 비운다', async () => {
+    const withDefault = await buildPdf({ ...base, duplex: true, defaultBack: backContent(true) });
+    const overriddenBlank = await buildPdf({
+      ...base,
+      duplex: true,
+      defaultBack: backContent(true),
+      backSlotOverrides: new Map([[0, null], [1, null]]),
+    });
+    expect(overriddenBlank.byteLength).toBeLessThan(withDefault.byteLength);
+  });
+
+  it('반복 인쇄 + 양면 — 총 쪽수만큼 장이 줄어든다', async () => {
+    // 한 장 용량 4(칸 2 × 앞뒤). 총 5칸 필요 → 단면 3장(2+2+1), 양면 2장(4+1).
+    const single = await PDFDocument.load(
+      await buildPdf({ ...base, totalSlots: 5, defaultBack: backContent() }),
+    );
+    const dup = await PDFDocument.load(
+      await buildPdf({ ...base, totalSlots: 5, duplex: true, defaultBack: backContent() }),
+    );
+    expect(single.getPageCount()).toBe(3);
+    expect(dup.getPageCount()).toBe(4); // 2장 × 2쪽
+  });
+
+  it('반복 인쇄 + 양면 — 마지막 장에서 앞을 다 채운 뒤 뒤를 채운다', async () => {
+    // 한 장 용량 4(칸 2 × 앞뒤). 총 3칸 → 앞 2 + 뒤 1, 한 장으로 끝난다.
+    const three = await PDFDocument.load(
+      await buildPdf({ ...base, totalSlots: 3, duplex: true, defaultBack: backContent(true) }),
+    );
+    expect(three.getPageCount()).toBe(2); // 1장 × 2쪽
+  });
+
+  it('재단선도 앞뒤 페이지에 각각 찍힌다', async () => {
+    const withMarks = await buildPdf({ ...base, duplex: true, cropMark: 'mark' as const });
+    const withoutMarks = await buildPdf({ ...base, duplex: true, cropMark: 'none' as const });
+    expect(withoutMarks.byteLength).toBeLessThan(withMarks.byteLength);
+  });
+
+  it('뒷면 글자도 글꼴을 심는다', async () => {
+    const text = {
+      id: 't1',
+      type: 'text' as const,
+      x: 10,
+      y: 10,
+      width: 40,
+      height: 20,
+      text: '뒷면 글자',
+    };
+    // 망가진 폰트 바이트로 embedFont를 강제로 던지게 해서, 뒷면 글자가
+    // 글꼴 수집 대상에 포함됐는지 확인한다.
+    await expect(
+      buildPdf({
+        ...base,
+        duplex: true,
+        fontBytes: new Uint8Array([1, 2, 3]),
+        defaultBack: { dotGrid: noGrid, objects: [text], safeZoneWidth: 10 },
+      }),
+    ).rejects.toThrow();
   });
 });

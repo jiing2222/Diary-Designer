@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore } from '../store';
-import { filledSlots } from '../core/template';
+import { frontBackFilled } from '../core/template';
+import { mirrorLayout } from '../core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
 import { SettingsPanel } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
@@ -41,6 +42,13 @@ export function App() {
    * 아래에서 clamp하므로 따로 초기화하지 않는다.
    */
   const [previewPage, setPreviewPage] = useState(0);
+  /**
+   * 인쇄하기 탭 미리보기가 지금 앞면·뒷면 중 어느 쪽을 보여주는지.
+   *
+   * 양면을 껐다 켰다 해도 잊혀도 되는 값이라 store에 넣지 않는다 — 편집 화면의
+   * `side`와 달리, 이건 그리는 대상이 아니라 "지금 뭘 보고 있는지"일 뿐이다.
+   */
+  const [previewSide, setPreviewSide] = useState<'front' | 'back'>('front');
 
   const { width, height } = paperSize(s.paper);
   const layout = selectLayout(s);
@@ -55,20 +63,41 @@ export function App() {
 
   const previewOverrides = new Map<number, PreviewSlotContent>();
   const pdfOverrides = new Map<number, SlotContent>();
+  /** 뒷면 쪽 override. 앞면과 같은 인덱스, 같은 채우는 규칙을 쓴다. */
+  const previewBackOverrides = new Map<number, PreviewSlotContent>();
+  const pdfBackOverrides = new Map<number, SlotContent | null>();
   /** 반복 인쇄가 아닐 때만 쓰인다. 글꼴을 모을 때 어느 양식들이 관여했는지 알아야 한다. */
   let slotTemplates: ReturnType<typeof resolveSlotTemplates> = [];
+
+  /** 지금 양식의 뒷면. 없으면 그 칸은 완전히 빈 채로 찍힌다·보인다. */
+  const defaultBack: SlotContent | undefined = active?.back
+    ? {
+        dotGrid: active.back.dotGrid,
+        objects: active.back.objects.present,
+        safeZoneWidth: active.insert.punch.safeZoneWidth,
+      }
+    : undefined;
 
   if (active && repeating) {
     /*
      * 반복 인쇄 — 이 양식 하나로 모든 칸을 채운다.
      *
-     * 지금 미리보기 페이지에서 모자라는 칸만 완전히 비운다. `filledSlots`를
-     * core/template에서 가져와 쓴다 — pdf/export.ts도 같은 함수로 마지막 장의
-     * 빈 칸을 정하므로, 미리보기에서 본 빈 칸이 실제 인쇄물과 어긋나지 않는다.
+     * 지금 미리보기 페이지에서 앞·뒤 각각 모자라는 칸만 완전히 비운다.
+     * `frontBackFilled`를 core/template에서 가져와 쓴다 — pdf/export.ts도 같은
+     * 함수로 마지막 장의 빈 칸을 정하므로, 미리보기에서 본 빈 칸이 실제
+     * 인쇄물과 어긋나지 않는다.
      */
-    const filled = filledSlots(previewPage, totalSlots, layout.count);
-    for (let i = filled; i < layout.count; i++) {
+    const { front: frontFilled, back: backFilled } = frontBackFilled(
+      previewPage,
+      totalSlots,
+      layout.count,
+      s.duplex,
+    );
+    for (let i = frontFilled; i < layout.count; i++) {
       previewOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+    }
+    for (let i = backFilled; i < layout.count; i++) {
+      previewBackOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
     }
   } else if (active) {
     /*
@@ -90,6 +119,20 @@ export function App() {
         objects: t.objects.present,
         safeZoneWidth: t.insert.punch.safeZoneWidth,
       });
+      // 배정된 양식에 뒷면이 없으면 지금 양식의 뒷면(defaultBack)이 아니라
+      // 이 칸만 완전히 비워야 한다 — null이 그 뜻이다.
+      previewBackOverrides.set(
+        i,
+        t.back
+          ? { insert: t.insert, dotGrid: t.back.dotGrid, objects: t.back.objects.present }
+          : { insert: t.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] },
+      );
+      pdfBackOverrides.set(
+        i,
+        t.back
+          ? { dotGrid: t.back.dotGrid, objects: t.back.objects.present, safeZoneWidth: t.insert.punch.safeZoneWidth }
+          : null,
+      );
     });
   }
 
@@ -103,9 +146,12 @@ export function App() {
       const uniqueTemplates = repeating
         ? [active]
         : [...new Map(slotTemplates.map((t) => [t.id, t])).values()];
-      const allTexts: TextObject[] = uniqueTemplates.flatMap(
-        (t) => t.objects.present.filter((o): o is TextObject => o.type === 'text'),
-      );
+      const isText = (o: { type: string }): o is TextObject => o.type === 'text';
+      // 뒷면 글자도 함께 본다 — 앞면만 보면 뒷면에만 있는 글꼴이 빠진다.
+      const allTexts: TextObject[] = uniqueTemplates.flatMap((t) => [
+        ...t.objects.present.filter(isText),
+        ...(t.back?.objects.present.filter(isText) ?? []),
+      ]);
 
       // 글자가 있을 때만 글꼴을 받는다. 하나에 2.7MB짜리라 괜히 받을 이유가 없다.
       // 굵기마다 파일이 따로라 Bold도 굵은 글자가 실제로 있을 때만 받는다.
@@ -135,6 +181,9 @@ export function App() {
         safeZoneWidth: active.insert.punch.safeZoneWidth,
         cropMark: s.cropMark,
         showRuler: s.showRuler,
+        duplex: s.duplex,
+        defaultBack,
+        backSlotOverrides: !repeating && pdfBackOverrides.size > 0 ? pdfBackOverrides : undefined,
       });
       downloadPdf(bytes, `속지_${active.insert.presetId}_${s.paper.presetId}.pdf`);
     } finally {
@@ -202,12 +251,31 @@ export function App() {
                   도트·타공 화면 설정과 무관하게 인쇄되는 것만 보여줍니다
                 </span>
               </label>
+
+              {/* 양면을 껐으면 뒷면 자체가 없으니 토글을 보여줄 이유가 없다. */}
+              {s.duplex && (
+                <div className="tabs">
+                  <button
+                    className={previewSide === 'front' ? 'tab on' : 'tab'}
+                    onClick={() => setPreviewSide('front')}
+                  >
+                    앞면
+                  </button>
+                  <button
+                    className={previewSide === 'back' ? 'tab on' : 'tab'}
+                    onClick={() => setPreviewSide('back')}
+                  >
+                    뒷면
+                  </button>
+                </div>
+              )}
             </div>
 
             {repeating ? (
               <RepeatPrint
                 layout={layout}
                 totalSlots={totalSlots}
+                duplex={s.duplex}
                 page={previewPage}
                 onPageChange={setPreviewPage}
               />
@@ -220,18 +288,35 @@ export function App() {
                 <div className="empty">속지가 용지보다 큽니다. 용지를 키우거나 속지를 줄이세요.</div>
               ) : (
                 <div className="preview-wrap" style={{ aspectRatio: `${width} / ${height}` }}>
-                  <PaperPreview
-                    paper={{ ...s.paper, width, height }}
-                    insert={active.insert}
-                    dotGrid={active.dotGrid}
-                    objects={active.objects.present}
-                    slotOverrides={previewOverrides.size > 0 ? previewOverrides : undefined}
-                    layout={layout}
-                    cropMark={s.cropMark}
-                    showRuler={s.showRuler}
-                    unprintable={s.unprintable}
-                    mode={printPreview ? 'print' : 'edit'}
-                  />
+                  {previewSide === 'front' ? (
+                    <PaperPreview
+                      paper={{ ...s.paper, width, height }}
+                      insert={active.insert}
+                      dotGrid={active.dotGrid}
+                      objects={active.objects.present}
+                      slotOverrides={previewOverrides.size > 0 ? previewOverrides : undefined}
+                      layout={layout}
+                      cropMark={s.cropMark}
+                      showRuler={s.showRuler}
+                      unprintable={s.unprintable}
+                      mode={printPreview ? 'print' : 'edit'}
+                    />
+                  ) : (
+                    // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 좌우만 뒤집는다.
+                    // 칸 안의 내용(도트·글자)은 뒤집지 않는다(설계문서 8장).
+                    <PaperPreview
+                      paper={{ ...s.paper, width, height }}
+                      insert={active.insert}
+                      dotGrid={active.back?.dotGrid ?? BLANK_PREVIEW_GRID}
+                      objects={active.back?.objects.present ?? []}
+                      slotOverrides={previewBackOverrides.size > 0 ? previewBackOverrides : undefined}
+                      layout={mirrorLayout(layout, width)}
+                      cropMark={s.cropMark}
+                      showRuler={s.showRuler}
+                      unprintable={s.unprintable}
+                      mode={printPreview ? 'print' : 'edit'}
+                    />
+                  )}
                 </div>
               )}
             </div>

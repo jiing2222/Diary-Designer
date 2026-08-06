@@ -115,6 +115,13 @@ interface Settings {
   align: Align;
   cropMark: CropMode;
   showRuler: boolean;
+  /**
+   * 양면 인쇄. 켜면 장마다 뒷면도 함께 뽑는다.
+   *
+   * 인쇄 작업(용지·간격·절취선과 같은 자리) 설정이라 양식이 아니라 store
+   * 루트에 있다 — 뒷면이 없는 양식을 켜서 인쇄해도 그 칸만 빈 채로 찍힌다.
+   */
+  duplex: boolean;
   unprintable: UnprintableSetting;
   /**
    * 낱장 조합 — 인쇄할 용지의 칸마다 어느 양식을 넣을지.
@@ -185,7 +192,9 @@ interface Store extends Settings {
   undo: () => void;
   redo: () => void;
   patch: (
-    p: Partial<Pick<Settings, 'gap' | 'allowRotate' | 'align' | 'cropMark' | 'showRuler'>>,
+    p: Partial<
+      Pick<Settings, 'gap' | 'allowRotate' | 'align' | 'cropMark' | 'showRuler' | 'duplex'>
+    >,
   ) => void;
   patchUnprintable: (p: Partial<UnprintableSetting>) => void;
 }
@@ -353,6 +362,7 @@ export const useStore = create<Store>((set) => ({
   // 인쇄 정확도는 이미 검증됐다(50mm가 정확히 나오는 것을 확인함). 매번 다시
   // 잴 필요는 없으니 기본은 꺼둔다. 필요하면 배치 설정에서 언제든 켤 수 있다.
   showRuler: false,
+  duplex: false,
   unprintable: { show: true, width: 3 },
   slotAssignment: {},
 

@@ -266,3 +266,31 @@ export function filledSlots(sheet: number, totalSlots: number, slotsPerSheet: nu
   if (slotsPerSheet <= 0) return 0;
   return Math.max(0, Math.min(slotsPerSheet, totalSlots - sheet * slotsPerSheet));
 }
+
+/**
+ * 용지 한 장이 담을 수 있는 총 칸 수. 양면이면 앞·뒤를 합쳐 두 배다
+ * (설계문서 8장, "용지 매수 = ceil(총 쪽수 ÷ (단면이면 S, 양면이면 S × 2))").
+ */
+export function capacityPerSheet(slotsPerSide: number, duplex: boolean): number {
+  return duplex ? slotsPerSide * 2 : slotsPerSide;
+}
+
+/**
+ * 이 장에서 앞면·뒷면 각각 몇 칸을 채우는지.
+ *
+ * **앞을 다 채운 뒤에 뒤를 채운다.** 반복 인쇄는 모든 칸의 내용이 완전히
+ * 같아서 채우는 순서가 결과에 영향을 주지 않는다 — 그중 가장 이해하기 쉬운
+ * 순서를 골랐을 뿐이다. 단면이면 뒤는 언제나 0이다.
+ *
+ * 화면 미리보기(RepeatPrint)와 PDF(pdf/export)가 함께 쓴다.
+ */
+export function frontBackFilled(
+  sheet: number,
+  totalSlots: number,
+  slotsPerSide: number,
+  duplex: boolean,
+): { front: number; back: number } {
+  if (!duplex) return { front: filledSlots(sheet, totalSlots, slotsPerSide), back: 0 };
+  const filled = filledSlots(sheet, totalSlots, capacityPerSheet(slotsPerSide, true));
+  return { front: Math.min(slotsPerSide, filled), back: Math.max(0, filled - slotsPerSide) };
+}

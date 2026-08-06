@@ -27,6 +27,7 @@ export function ProjectFile() {
         align: store.align,
         cropMark: store.cropMark,
         showRuler: store.showRuler,
+        duplex: store.duplex,
         unprintable: store.unprintable,
       },
       fonts: store.userFonts.map((f) => ({ id: f.id, name: f.name })),

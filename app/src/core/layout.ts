@@ -93,3 +93,20 @@ export function computeLayout(input: LayoutInput): Layout {
     return slots;
   }
 }
+
+/**
+ * 양면 인쇄에서 뒷면의 칸 배치.
+ *
+ * 왼쪽에 구멍이 있는 속지를 양면으로 뽑으면, 종이를 뒤집었을 때 구멍이
+ * 오른쪽에서 다시 맞물려야 한다(설계문서 8장). 칸의 **위치만** 좌우로
+ * 뒤집는다 — `x' = 용지폭 − x − 칸폭`. 칸 안의 내용까지 뒤집으면 안 된다.
+ *
+ * 절취선(core/crop)은 칸 좌표만 보고 계산하므로, 이 배치를 그대로 넘기면
+ * 절취선도 저절로 앞뒤가 맞는 자리에 나온다 — 따로 뒤집는 코드가 필요 없다.
+ */
+export function mirrorLayout(layout: Layout, paperWidth: Mm): Layout {
+  return {
+    ...layout,
+    slots: layout.slots.map((s) => ({ ...s, x: paperWidth - s.x - s.width })),
+  };
+}
