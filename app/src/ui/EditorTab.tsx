@@ -18,7 +18,7 @@ import {
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm } from '../core/units';
 import { newTextStyle } from '../core/text';
-import { useStore } from '../store';
+import { useDotGrid, useInsert, useObjects, useStore } from '../store';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
@@ -57,9 +57,10 @@ const ZOOMS = [50, 75, 100, 150, 200, 300, 400];
  * 둘 다 같은 자리에 이미 있으면 지워진다.
  */
 export function EditorTab() {
-  const insert = useStore((s) => s.insert);
-  const grid = useStore((s) => s.dotGrid);
-  const history = useStore((s) => s.objects);
+  // 속지·격자·그린 것은 지금 고르고 있는 양식의 것이다.
+  const insert = useInsert();
+  const grid = useDotGrid();
+  const history = useObjects();
   const tool = useStore((s) => s.tool);
   const selectedIds = useStore((s) => s.selectedIds);
   const setTool = useStore((s) => s.setTool);

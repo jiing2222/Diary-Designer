@@ -6,12 +6,12 @@ import { InsertView, type ViewMode } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import type { DiaryObject } from '../core/objects';
 import type { Layout } from '../core/layout';
-import type { InsertState, PaperState, UnprintableSetting } from '../store';
+import type { InsertSetting, PaperState, UnprintableSetting } from '../store';
 import type { Mm } from '../core/units';
 
 interface Props {
   paper: PaperState & { width: Mm; height: Mm };
-  insert: InsertState;
+  insert: InsertSetting;
   dotGrid: DotGrid;
   objects: DiaryObject[];
   layout: Layout;

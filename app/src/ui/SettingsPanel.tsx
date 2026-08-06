@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { INSERT_PRESETS, PAPER_PRESETS, useStore } from '../store';
+import { activeTemplate, INSERT_PRESETS, PAPER_PRESETS, useStore } from '../store';
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
 import { gridArea, gridLattice, type GridStyle } from '../core/grid';
 import type { Dash } from '../core/objects';
@@ -45,8 +45,8 @@ export function SettingsPanel() {
   const groups = [
     { id: 'paper', label: '용지', icon: <PaperIcon />, on: s.unprintable.show },
     { id: 'insert', label: '속지', icon: <InsertIcon />, on: false },
-    { id: 'grid', label: '도트 격자', icon: <GridIcon />, on: s.dotGrid.showOnScreen },
-    { id: 'punch', label: '타공 안내', icon: <PunchIcon />, on: s.insert.punch.show },
+    { id: 'grid', label: '도트 격자', icon: <GridIcon />, on: activeTemplate(s).dotGrid.showOnScreen },
+    { id: 'punch', label: '타공 안내', icon: <PunchIcon />, on: activeTemplate(s).insert.punch.show },
     { id: 'layout', label: '배치 · 절취선', icon: <LayoutIcon />, on: s.showRuler },
   ] as const;
 
@@ -144,7 +144,7 @@ function InsertGroup() {
   return (
     <>
       <Row label="규격">
-        <select value={s.insert.presetId} onChange={(e) => s.setInsertPreset(e.target.value)}>
+        <select value={activeTemplate(s).insert.presetId} onChange={(e) => s.setInsertPreset(e.target.value)}>
           {INSERT_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -154,10 +154,10 @@ function InsertGroup() {
         </select>
       </Row>
       <Row label="가로">
-        <Num value={s.insert.width} onChange={(width) => s.patchInsert({ width })} />
+        <Num value={activeTemplate(s).insert.width} onChange={(width) => s.patchInsert({ width })} />
       </Row>
       <Row label="세로">
-        <Num value={s.insert.height} onChange={(height) => s.patchInsert({ height })} />
+        <Num value={activeTemplate(s).insert.height} onChange={(height) => s.patchInsert({ height })} />
       </Row>
     </>
   );
@@ -169,7 +169,7 @@ function GridGroup() {
     <>
       <Row label="모양" hint="같은 격자에서 그리는 방식만 바뀐다">
         <select
-          value={s.dotGrid.style}
+          value={activeTemplate(s).dotGrid.style}
           onChange={(e) => s.patchDotGrid({ style: e.target.value as GridStyle })}
         >
           <option value="dot">도트</option>
@@ -179,12 +179,12 @@ function GridGroup() {
         </select>
       </Row>
       <Row label="간격">
-        <Num value={s.dotGrid.spacing} min={1} onChange={(spacing) => s.patchDotGrid({ spacing })} />
+        <Num value={activeTemplate(s).dotGrid.spacing} min={1} onChange={(spacing) => s.patchDotGrid({ spacing })} />
       </Row>
-      {s.dotGrid.style !== 'dot' && (
+      {activeTemplate(s).dotGrid.style !== 'dot' && (
         <Row label="선 모양">
           <select
-            value={s.dotGrid.dash}
+            value={activeTemplate(s).dotGrid.dash}
             onChange={(e) => s.patchDotGrid({ dash: e.target.value as Dash })}
           >
             <option value="solid">실선</option>
@@ -195,18 +195,18 @@ function GridGroup() {
       )}
       <Row label="채우기" hint="모서리에서 시작해 끝까지 나아간다. 마지막 칸은 잘린다">
         <Check
-          checked={s.dotGrid.toEdge}
+          checked={activeTemplate(s).dotGrid.toEdge}
           onChange={(toEdge) => s.patchDotGrid({ toEdge })}
           label="여백 없이 끝까지"
         />
       </Row>
-      {!s.dotGrid.toEdge && (
+      {!activeTemplate(s).dotGrid.toEdge && (
         <Row
           label="최소 여백"
           hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다"
         >
           <Num
-            value={s.dotGrid.minMargin}
+            value={activeTemplate(s).dotGrid.minMargin}
             min={0}
             max={20}
             onChange={(minMargin) => s.patchDotGrid({ minMargin })}
@@ -215,21 +215,21 @@ function GridGroup() {
       )}
       <Row label="타공" hint="구멍 쪽 안전영역을 비우고 그 안에서 다시 가운데 맞춘다">
         <Check
-          checked={s.dotGrid.avoidSafeZone}
+          checked={activeTemplate(s).dotGrid.avoidSafeZone}
           onChange={(avoidSafeZone) => s.patchDotGrid({ avoidSafeZone })}
           label="안전영역 비우기"
         />
       </Row>
       <Row label="화면">
         <Check
-          checked={s.dotGrid.showOnScreen}
+          checked={activeTemplate(s).dotGrid.showOnScreen}
           onChange={(showOnScreen) => s.patchDotGrid({ showOnScreen })}
           label="작업하면서 보기"
         />
       </Row>
       <Row label="인쇄">
         <Check
-          checked={s.dotGrid.print}
+          checked={activeTemplate(s).dotGrid.print}
           onChange={(print) => s.patchDotGrid({ print })}
           label="인쇄물에 남기기"
         />
@@ -241,19 +241,21 @@ function GridGroup() {
 
 function PunchGroup() {
   const s = useStore();
+  const insert = activeTemplate(s).insert;
+  const punch = insert.punch;
   return (
     <>
       <p className="note">화면에만 표시됩니다. 인쇄되지 않습니다.</p>
       <Row label="표시">
         <Check
-          checked={s.insert.punch.show}
+          checked={punch.show}
           onChange={(show) => s.patchPunch({ show })}
           label="타공 위치 보기"
         />
       </Row>
       <Row label="구멍 수">
         <Num
-          value={s.insert.punch.holeCount}
+          value={punch.holeCount}
           step={1}
           unit="개"
           onChange={(holeCount) => s.patchPunch({ holeCount })}
@@ -261,13 +263,13 @@ function PunchGroup() {
       </Row>
       <Row label="배치">
         <select
-          value={s.insert.punch.groupGap === null ? 'even' : 'grouped'}
+          value={punch.groupGap === null ? 'even' : 'grouped'}
           onChange={(e) =>
             s.patchPunch({
               groupGap:
                 e.target.value === 'even'
                   ? null
-                  : suggestGroupGap(s.insert.height, s.insert.punch.holeCount),
+                  : suggestGroupGap(insert.height, punch.holeCount),
             })
           }
         >
@@ -275,14 +277,14 @@ function PunchGroup() {
           <option value="grouped">묶음 (3 + 3)</option>
         </select>
       </Row>
-      {s.insert.punch.groupGap !== null && (
+      {punch.groupGap !== null && (
         <Row label="묶음 간격" hint="두 묶음 사이의 중심 간격">
-          <Num value={s.insert.punch.groupGap} onChange={(groupGap) => s.patchPunch({ groupGap })} />
+          <Num value={punch.groupGap} onChange={(groupGap) => s.patchPunch({ groupGap })} />
         </Row>
       )}
       <Row label="안전영역">
         <Num
-          value={s.insert.punch.safeZoneWidth}
+          value={punch.safeZoneWidth}
           onChange={(safeZoneWidth) => s.patchPunch({ safeZoneWidth })}
         />
       </Row>
@@ -339,8 +341,8 @@ function LayoutGroup() {
  * 원하는 간격을 찾아 넣을 수 있다.
  */
 function GridReadout() {
-  const insert = useStore((s) => s.insert);
-  const grid = useStore((s) => s.dotGrid);
+  const insert = useStore((s) => activeTemplate(s).insert);
+  const grid = useStore((s) => activeTemplate(s).dotGrid);
 
   const area = gridArea(insert, grid, insert.punch.safeZoneWidth);
   const { xs, ys } = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
@@ -406,7 +408,7 @@ function GridReadout() {
 
 /** 자동 계산된 타공 위치를 보여준다. 사용자가 입력하는 값이 아니다. */
 function PunchReadout() {
-  const insert = useStore((s) => s.insert);
+  const insert = useStore((s) => activeTemplate(s).insert);
   const centers = holeCentersY(insert.height, insert.punch);
   const margin = topMargin(insert.height, insert.punch);
 

@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { paperSize, selectLayout, useStore } from '../store';
+import { activeTemplate, paperSize, selectLayout, useStore } from '../store';
 import { SettingsPanel } from './SettingsPanel';
 import { PaperPreview } from './PaperPreview';
 import { EditorTab } from './EditorTab';
+import { GalleryTab } from './GalleryTab';
 import { buildPdf, downloadPdf } from '../pdf/export';
 import { loadBodyFont, loadBoldFont } from '../fonts/load';
 import { fontBytes as fontBytes_ } from '../fonts/registry';
 
-type Tab = 'edit' | 'print';
+type Tab = 'gallery' | 'edit' | 'print';
 
 export function App() {
   const s = useStore();
@@ -22,13 +23,16 @@ export function App() {
 
   const { width, height } = paperSize(s.paper);
   const layout = selectLayout(s);
+  // 속지·격자·그린 것은 이제 양식 안에 있다. 인쇄는 지금 보고 있는 양식을
+  // 모든 칸에 넣는다 — 칸마다 다른 양식을 넣는 것은 5c의 일이다.
+  const active = activeTemplate(s);
 
   async function exportPdf() {
     setBusy(true);
     try {
       // 글자가 있을 때만 글꼴을 받는다. 하나에 2.7MB짜리라 괜히 받을 이유가 없다.
       // 굵기마다 파일이 따로라 Bold도 굵은 글자가 실제로 있을 때만 받는다.
-      const texts = s.objects.present.filter((o) => o.type === 'text');
+      const texts = active.objects.present.filter((o) => o.type === 'text');
       const fontBytes = texts.length > 0 ? await loadBodyFont() : undefined;
       const boldFontBytes = texts.some((t) => t.bold) ? await loadBoldFont() : undefined;
 
@@ -44,16 +48,16 @@ export function App() {
         paperWidth: width,
         paperHeight: height,
         layout,
-        dotGrid: s.dotGrid,
-        objects: s.objects.present,
+        dotGrid: active.dotGrid,
+        objects: active.objects.present,
         fontBytes,
         boldFontBytes,
         userFonts,
-        safeZoneWidth: s.insert.punch.safeZoneWidth,
+        safeZoneWidth: active.insert.punch.safeZoneWidth,
         cropMark: s.cropMark,
         showRuler: s.showRuler,
       });
-      downloadPdf(bytes, `속지_${s.insert.presetId}_${s.paper.presetId}.pdf`);
+      downloadPdf(bytes, `속지_${active.insert.presetId}_${s.paper.presetId}.pdf`);
     } finally {
       setBusy(false);
     }
@@ -64,7 +68,11 @@ export function App() {
       <header>
         <h1>System Diary Designer</h1>
 
+        {/* 고르고 → 그리고 → 인쇄한다. 탭 순서가 곧 작업 순서다. */}
         <nav className="tabs">
+          <button className={tab === 'gallery' ? 'tab on' : 'tab'} onClick={() => setTab('gallery')}>
+            양식 관리
+          </button>
           <button className={tab === 'edit' ? 'tab on' : 'tab'} onClick={() => setTab('edit')}>
             양식 만들기
           </button>
@@ -73,16 +81,22 @@ export function App() {
           </button>
         </nav>
 
-        <span className="stage">4단계 · 그리기 도구</span>
+        <span className="stage">
+          {/* 지금 무엇을 고치고 있는지. 양식이 여럿이 되면서 필요해졌다. */}
+          {active.name} · {active.insert.width} × {active.insert.height}mm
+        </span>
         <button onClick={exportPdf} disabled={busy || layout.count === 0}>
           {busy ? '만드는 중…' : 'PDF 내보내기'}
         </button>
       </header>
 
       <main>
-        <SettingsPanel />
+        {/* 갤러리는 양식 하나를 고치는 화면이 아니라서 설정 패널이 필요 없다. */}
+        {tab !== 'gallery' && <SettingsPanel />}
 
-        {tab === 'edit' ? (
+        {tab === 'gallery' ? (
+          <GalleryTab onEdit={() => setTab('edit')} />
+        ) : tab === 'edit' ? (
           <EditorTab />
         ) : (
           <div className="print-tab">
@@ -108,9 +122,9 @@ export function App() {
                 <div className="preview-wrap" style={{ aspectRatio: `${width} / ${height}` }}>
                   <PaperPreview
                     paper={{ ...s.paper, width, height }}
-                    insert={s.insert}
-                    dotGrid={s.dotGrid}
-                    objects={s.objects.present}
+                    insert={active.insert}
+                    dotGrid={active.dotGrid}
+                    objects={active.objects.present}
                     layout={layout}
                     cropMark={s.cropMark}
                     showRuler={s.showRuler}
@@ -129,7 +143,7 @@ export function App() {
           용지 {width} × {height}mm
         </span>
         <span>
-          속지 {s.insert.width} × {s.insert.height}mm
+          속지 {active.insert.width} × {active.insert.height}mm
         </span>
         <span>
           한 장에 <b>{layout.count}개</b> ({layout.cols} × {layout.rows})

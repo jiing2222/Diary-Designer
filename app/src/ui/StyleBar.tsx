@@ -17,7 +17,7 @@ import {
 import { boldOf, canBold, naturalLineHeight } from '../core/text';
 import { FONT_ACCEPT, registerFont } from '../fonts/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
-import { useStore } from '../store';
+import { activeTemplate, useStore } from '../store';
 import type { Editing } from './gestures';
 
 /**
@@ -67,7 +67,7 @@ export function StyleBar({
   draftStyle: TextStyle;
   refocusText: () => void;
 }) {
-  const objects = useStore((s) => s.objects.present);
+  const objects = useStore((s) => activeTemplate(s).objects.present);
   const selectedIds = useStore((s) => s.selectedIds);
   const styleSelected = useStore((s) => s.styleSelected);
   const styleText = useStore((s) => s.styleText);

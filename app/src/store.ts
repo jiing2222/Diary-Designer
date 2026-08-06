@@ -1,9 +1,17 @@
 import { create } from 'zustand';
-import { INSERT_PRESETS, PAPER_PRESETS, findInsertPreset, findPaperPreset } from './core/presets';
-import { DEFAULT_PUNCH, type PunchSetting } from './core/punch';
+import { INSERT_PRESETS, PAPER_PRESETS, findPaperPreset } from './core/presets';
+import type { PunchSetting } from './core/punch';
 import { computeLayout, type Align, type Layout } from './core/layout';
-import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
-import { commit, initHistory, redo, undo, type History } from './core/history';
+import type { DotGrid } from './core/grid';
+import { commit, redo, undo } from './core/history';
+import {
+  duplicateTemplate,
+  insertFromPreset,
+  newTemplate,
+  uniqueName,
+  type InsertSetting,
+  type Template,
+} from './core/template';
 import {
   dedupe,
   isDegenerate,
@@ -42,30 +50,20 @@ interface UnprintableSetting {
   width: Mm;
 }
 
-interface InsertState {
-  presetId: string;
-  width: Mm;
-  height: Mm;
-  punch: PunchSetting;
-}
-
 interface Settings {
   paper: PaperState;
-  insert: InsertState;
   /**
-   * 속지 안에 깔리는 도트 격자.
+   * 만들어둔 양식들. **속지·격자·그린 것이 전부 이 안에 있다.**
    *
-   * 지금은 모든 칸이 같은 격자를 쓴다. 양식(Template)이 생기는 5단계에서
-   * 각 양식의 페이지로 옮겨간다.
-   */
-  dotGrid: DotGrid;
-  /**
-   * 사용자가 그린 것들. 실행취소가 붙어 있다.
+   * 양식은 용지를 모른다(설계문서 3장). 그래서 용지·배치 설정만 store 루트에
+   * 남고, 속지 한 장에 대한 것은 모두 양식으로 들어갔다.
    *
-   * 설정(용지·속지·격자)은 여기 들어가지 않는다. 되돌리는 게 아니라 다시 고르면
-   * 되는 것들이라, 같이 취소되면 오히려 놀란다.
+   * 비지 않는다. 마지막 하나는 지워지지 않는다 — 편집 화면이 항상 무언가를
+   * 보여줘야 하기 때문이다.
    */
-  objects: History<DiaryObject[]>;
+  templates: Template[];
+  /** 지금 편집 중인 양식. 이 id가 가리키는 것이 없으면 첫 번째로 돌아간다. */
+  activeId: string;
   /**
    * 고르기 / 그리기.
    *
@@ -108,9 +106,17 @@ interface Store extends Settings {
   setPaperPreset: (id: string) => void;
   setInsertPreset: (id: string) => void;
   patchPaper: (p: Partial<PaperState>) => void;
-  patchInsert: (p: Partial<Omit<InsertState, 'punch'>>) => void;
+  patchInsert: (p: Partial<Omit<InsertSetting, 'punch'>>) => void;
   patchPunch: (p: Partial<PunchSetting>) => void;
   patchDotGrid: (p: Partial<DotGrid>) => void;
+  /* ── 양식 관리 ── */
+  selectTemplate: (id: string) => void;
+  addTemplate: (insert?: InsertSetting) => void;
+  /** 규격을 주면 그 규격으로 복제한다. 원본은 손대지 않는다. */
+  copyTemplate: (id: string, insert?: InsertSetting) => void;
+  renameTemplate: (id: string, name: string) => void;
+  /** 마지막 하나는 지워지지 않는다. */
+  removeTemplate: (id: string) => void;
   setTool: (t: Tool) => void;
   /** 그으면 생기고 이미 있으면 지워진다. 선 하나든 면의 네 변이든 한 번으로 친다. */
   drawLines: (segs: LineSeg[]) => void;
@@ -151,8 +157,40 @@ function prune(ids: string[], objects: DiaryObject[]): string[] {
   return ids.filter((id) => objects.some((o) => o.id === id));
 }
 
+/**
+ * 지금 편집 중인 양식.
+ *
+ * id가 가리키는 것이 없으면 첫 번째로 돌아간다. 양식 목록은 비지 않으므로
+ * 이 함수는 언제나 무언가를 돌려준다 — 화면이 빈 상태를 다룰 필요가 없다.
+ */
+export function activeTemplate(s: Pick<Settings, 'templates' | 'activeId'>): Template {
+  return s.templates.find((t) => t.id === s.activeId) ?? s.templates[0];
+}
+
+/**
+ * 지금 양식만 고친다.
+ *
+ * 그리기·격자·속지 관련 동작이 전부 이걸 거친다. 양식마다 따로 들고 있는 값을
+ * 고치는 자리가 한 군데뿐이어야 어느 양식이 바뀌는지 헷갈리지 않는다.
+ */
+function patchActive(
+  s: Pick<Settings, 'templates' | 'activeId'>,
+  fn: (t: Template) => Partial<Template>,
+): Pick<Settings, 'templates'> {
+  const id = activeTemplate(s).id;
+  return { templates: s.templates.map((t) => (t.id === id ? { ...t, ...fn(t) } : t)) };
+}
+
+/** 지금 양식의 그린 것들을 갈아끼우고 실행취소에 한 칸 쌓는다. */
+function commitObjects(
+  s: Pick<Settings, 'templates' | 'activeId'>,
+  next: DiaryObject[],
+): Pick<Settings, 'templates'> {
+  return patchActive(s, (t) => ({ objects: commit(t.objects, next) }));
+}
+
 const firstPaper = PAPER_PRESETS[0];
-const defaultInsert = findInsertPreset('M6')!;
+const firstTemplate = newTemplate('양식 1');
 
 export const useStore = create<Store>((set) => ({
   paper: {
@@ -165,19 +203,8 @@ export const useStore = create<Store>((set) => ({
     // 두는 여백(0.3~0.5mm)이 흡수한다.
     printMargin: 0,
   },
-  insert: {
-    presetId: defaultInsert.id,
-    width: defaultInsert.width,
-    height: defaultInsert.height,
-    punch: {
-      ...DEFAULT_PUNCH,
-      holeCount: defaultInsert.holeCount,
-      groupGap: defaultInsert.groupGap,
-      markSize: defaultInsert.markSize,
-    },
-  },
-  dotGrid: { ...DEFAULT_DOT_GRID },
-  objects: initHistory<DiaryObject[]>([]),
+  templates: [firstTemplate],
+  activeId: firstTemplate.id,
   tool: 'draw',
   selectedIds: [],
   drawStyle: {},
@@ -202,23 +229,7 @@ export const useStore = create<Store>((set) => ({
     }),
 
   setInsertPreset: (id) =>
-    set((s) => {
-      const preset = findInsertPreset(id);
-      if (!preset) return { insert: { ...s.insert, presetId: id } };
-      return {
-        insert: {
-          presetId: id,
-          width: preset.width,
-          height: preset.height,
-          punch: {
-            ...s.insert.punch,
-            holeCount: preset.holeCount,
-            groupGap: preset.groupGap,
-            markSize: preset.markSize,
-          },
-        },
-      };
-    }),
+    set((s) => patchActive(s, (t) => ({ insert: insertFromPreset(id, t.insert) }))),
 
   // 크기를 손으로 고치면 더 이상 프리셋이 아니다. 타공 위치는 알아서 다시 계산된다.
   //
@@ -233,51 +244,96 @@ export const useStore = create<Store>((set) => ({
     }),
 
   patchInsert: (p) =>
+    set((s) =>
+      patchActive(s, (t) => {
+        const resized =
+          (p.width !== undefined && p.width !== t.insert.width) ||
+          (p.height !== undefined && p.height !== t.insert.height);
+        return {
+          insert: { ...t.insert, ...p, presetId: resized ? 'custom' : t.insert.presetId },
+        };
+      }),
+    ),
+
+  patchPunch: (p) =>
+    set((s) => patchActive(s, (t) => ({ insert: { ...t.insert, punch: { ...t.insert.punch, ...p } } }))),
+
+  patchDotGrid: (p) => set((s) => patchActive(s, (t) => ({ dotGrid: { ...t.dotGrid, ...p } }))),
+
+  /* ─────────────────────────── 양식 관리 ─────────────────────────── */
+
+  selectTemplate: (activeId) => set({ activeId, selectedIds: [] }),
+
+  addTemplate: (insert) =>
     set((s) => {
-      const resized =
-        (p.width !== undefined && p.width !== s.insert.width) ||
-        (p.height !== undefined && p.height !== s.insert.height);
-      return { insert: { ...s.insert, ...p, presetId: resized ? 'custom' : s.insert.presetId } };
+      // 규격을 주지 않으면 지금 보던 양식의 규격을 물려받는다. 대부분 한 규격으로
+      // 계속 작업하므로, 매번 고르게 하면 손이 한 번 더 간다.
+      const base = insert ?? { ...activeTemplate(s).insert, punch: { ...activeTemplate(s).insert.punch } };
+      const made = newTemplate(uniqueName(s.templates, '양식 1'), base);
+      return { templates: [...s.templates, made], activeId: made.id, selectedIds: [] };
     }),
 
-  patchPunch: (p) => set((s) => ({ insert: { ...s.insert, punch: { ...s.insert.punch, ...p } } })),
-  patchDotGrid: (p) => set((s) => ({ dotGrid: { ...s.dotGrid, ...p } })),
+  copyTemplate: (id, insert) =>
+    set((s) => {
+      const source = s.templates.find((t) => t.id === id);
+      if (!source) return {};
+      const made = duplicateTemplate(source, uniqueName(s.templates, `${source.name} 사본`), insert);
+      // 원본 바로 뒤에 넣는다. 목록 끝으로 보내면 어디 갔는지 찾게 된다.
+      const at = s.templates.indexOf(source) + 1;
+      const templates = [...s.templates.slice(0, at), made, ...s.templates.slice(at)];
+      return { templates, activeId: made.id, selectedIds: [] };
+    }),
+
+  renameTemplate: (id, name) =>
+    set((s) => {
+      const trimmed = name.trim();
+      if (trimmed === '') return {};
+      return { templates: s.templates.map((t) => (t.id === id ? { ...t, name: trimmed } : t)) };
+    }),
+
+  removeTemplate: (id) =>
+    set((s) => {
+      // 마지막 하나는 남긴다. 편집 화면이 항상 무언가를 보여줘야 한다.
+      if (s.templates.length <= 1) return {};
+      const templates = s.templates.filter((t) => t.id !== id);
+      const activeId = templates.some((t) => t.id === s.activeId) ? s.activeId : templates[0].id;
+      return { templates, activeId, selectedIds: [] };
+    }),
 
   // 도구를 바꾸면 고른 것을 놓는다. 그리기 중에 선택 테두리가 남아 있으면 헷갈린다.
   setTool: (tool) => set({ tool, selectedIds: [] }),
 
   drawLines: (segs) =>
     set((s) => {
-      const next = toggleLines(s.objects.present, segs, s.drawStyle);
-      if (next === s.objects.present) return {};
-      return { objects: commit(s.objects, next) };
+      const cur = activeTemplate(s).objects.present;
+      const next = toggleLines(cur, segs, s.drawStyle);
+      if (next === cur) return {};
+      return commitObjects(s, next);
     }),
 
   setDrawStyle: (patch) => set((s) => ({ drawStyle: { ...s.drawStyle, ...patch } })),
 
   commitText: (box, id) =>
     set((s) => {
+      const cur = activeTemplate(s).objects.present;
       const text = box.text.trim();
-      const rest = id ? s.objects.present.filter((o) => o.id !== id) : s.objects.present;
+      const rest = id ? cur.filter((o) => o.id !== id) : cur;
 
       // 빈 채로 나가면 남기지 않는다. 고치다 비운 것도 마찬가지로 사라진다.
       if (text === '') {
         if (!id) return {};
-        return { objects: commit(s.objects, rest), selectedIds: prune(s.selectedIds, rest) };
+        return { ...commitObjects(s, rest), selectedIds: prune(s.selectedIds, rest) };
       }
 
       const next: TextObject = { id: id ?? newId('t'), type: 'text', ...box, text };
       // 고치는 중이면 원래 자리를 지킨다. 순서가 바뀌면 겹친 것이 위아래로 튄다.
-      const objects = id
-        ? s.objects.present.map((o) => (o.id === id ? next : o))
-        : [...s.objects.present, next];
-      return { objects: commit(s.objects, objects) };
+      return commitObjects(s, id ? cur.map((o) => (o.id === id ? next : o)) : [...cur, next]);
     }),
 
   styleText: (patch) =>
     set((s) => {
       if (s.selectedIds.length === 0) return {};
-      const next = s.objects.present.map((o) => {
+      const next = activeTemplate(s).objects.present.map((o) => {
         if (o.type !== 'text' || !s.selectedIds.includes(o.id)) return o;
         const merged = { ...o, ...patch };
         for (const k of Object.keys(patch) as (keyof TextStyle)[]) {
@@ -285,7 +341,7 @@ export const useStore = create<Store>((set) => ({
         }
         return merged;
       });
-      return { objects: commit(s.objects, next) };
+      return commitObjects(s, next);
     }),
 
   setTextDraftStyle: (patch) => set((s) => ({ textDraftStyle: { ...s.textDraftStyle, ...patch } })),
@@ -297,22 +353,23 @@ export const useStore = create<Store>((set) => ({
   deleteSelected: () =>
     set((s) => {
       if (s.selectedIds.length === 0) return {};
-      const keep = s.objects.present.filter((o) => !s.selectedIds.includes(o.id));
-      return { objects: commit(s.objects, keep), selectedIds: [] };
+      const keep = activeTemplate(s).objects.present.filter((o) => !s.selectedIds.includes(o.id));
+      return { ...commitObjects(s, keep), selectedIds: [] };
     }),
 
   moveSelected: (dx, dy) =>
     set((s) => {
       if (s.selectedIds.length === 0 || (dx === 0 && dy === 0)) return {};
-      const moved = s.objects.present.map((o) =>
+      const moved = activeTemplate(s).objects.present.map((o) =>
         s.selectedIds.includes(o.id) ? moveObject(o, dx, dy) : o,
       );
-      return { objects: commit(s.objects, moved) };
+      return commitObjects(s, moved);
     }),
 
   reshapeSelected: (id, end, p) =>
     set((s) => {
-      const target = s.objects.present.find((o) => o.id === id);
+      const cur = activeTemplate(s).objects.present;
+      const target = cur.find((o) => o.id === id);
       // 끝점 손잡이는 선에만 있다.
       if (!target || !isLine(target)) return {};
 
@@ -320,18 +377,14 @@ export const useStore = create<Store>((set) => ({
       // 두 끝이 한 점으로 모이면 선이 아니다. 그런 상태는 만들지 않는다.
       if (isDegenerate(next)) return {};
 
-      const replaced = s.objects.present.map((o) => (o.id === id ? next : o));
-      const cleaned = dedupe(replaced);
-      return {
-        objects: commit(s.objects, cleaned),
-        selectedIds: prune(s.selectedIds, cleaned),
-      };
+      const cleaned = dedupe(cur.map((o) => (o.id === id ? next : o)));
+      return { ...commitObjects(s, cleaned), selectedIds: prune(s.selectedIds, cleaned) };
     }),
 
   styleSelected: (patch) =>
     set((s) => {
       if (s.selectedIds.length === 0) return {};
-      const next = s.objects.present.map((o) => {
+      const next = activeTemplate(s).objects.present.map((o) => {
         if (o.type !== 'line' || !s.selectedIds.includes(o.id)) return o;
         const merged = { ...o, ...patch };
         // 값이 undefined면 키 자체를 지운다. 그래야 저장 파일에도 남지 않고
@@ -341,19 +394,21 @@ export const useStore = create<Store>((set) => ({
         }
         return merged;
       });
-      return { objects: commit(s.objects, next) };
+      return commitObjects(s, next);
     }),
 
   // 되돌리면 없어진 객체를 고른 채로 남을 수 있으므로 선택을 정리한다.
+  // 실행취소는 **지금 양식의 것만** 되돌린다. 양식을 바꿨다가 ⌘Z를 눌렀는데
+  // 다른 양식의 작업이 사라지면 무섭다.
   undo: () =>
     set((s) => {
-      const objects = undo(s.objects);
-      return { objects, selectedIds: prune(s.selectedIds, objects.present) };
+      const objects = undo(activeTemplate(s).objects);
+      return { ...patchActive(s, () => ({ objects })), selectedIds: prune(s.selectedIds, objects.present) };
     }),
   redo: () =>
     set((s) => {
-      const objects = redo(s.objects);
-      return { objects, selectedIds: prune(s.selectedIds, objects.present) };
+      const objects = redo(activeTemplate(s).objects);
+      return { ...patchActive(s, () => ({ objects })), selectedIds: prune(s.selectedIds, objects.present) };
     }),
   patch: (p) => set(p),
   patchUnprintable: (p) => set((s) => ({ unprintable: { ...s.unprintable, ...p } })),
@@ -366,13 +421,20 @@ export function paperSize(paper: PaperState): { width: Mm; height: Mm } {
     : { width: paper.width, height: paper.height };
 }
 
+/**
+ * 배치 계산.
+ *
+ * 칸 크기는 **지금 양식의 속지**에서 나온다. 칸마다 다른 양식을 넣는 것은 5c의
+ * 일이고, 그때도 한 용지 안에서는 규격이 같아야 하므로 이 계산은 그대로다.
+ */
 export function selectLayout(s: Settings): Layout {
   const { width, height } = paperSize(s.paper);
+  const insert = activeTemplate(s).insert;
   return computeLayout({
     paperWidth: width,
     paperHeight: height,
-    insertWidth: s.insert.width,
-    insertHeight: s.insert.height,
+    insertWidth: insert.width,
+    insertHeight: insert.height,
     gap: s.gap,
     printMargin: s.paper.printMargin,
     allowRotate: s.allowRotate,
@@ -380,5 +442,17 @@ export function selectLayout(s: Settings): Layout {
   });
 }
 
+/*
+ * 화면이 쓰는 지름길.
+ *
+ * `속지·격자·그린 것`이 양식 안으로 들어가면서 읽는 자리마다
+ * `activeTemplate(s).insert`를 적게 됐다. 그 반복을 여기서 한 번만 한다.
+ */
+export const useActive = () => useStore(activeTemplate);
+export const useInsert = () => useStore((s) => activeTemplate(s).insert);
+export const useDotGrid = () => useStore((s) => activeTemplate(s).dotGrid);
+export const useObjects = () => useStore((s) => activeTemplate(s).objects);
+
 export { INSERT_PRESETS, PAPER_PRESETS };
-export type { Settings, PaperState, InsertState, UnprintableSetting };
+export type { Settings, PaperState, UnprintableSetting };
+export type { InsertSetting, Template };
