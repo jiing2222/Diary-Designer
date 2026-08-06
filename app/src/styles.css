@@ -137,6 +137,15 @@ button.ghost:disabled {
   flex-direction: column;
 }
 
+.side-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
 .editor-bar {
   display: flex;
   align-items: center;
@@ -166,6 +175,19 @@ button.ghost:disabled {
   justify-content: center;
   padding: 24px;
   overflow: auto;
+}
+
+.editor-canvas.back-empty {
+  align-items: center;
+}
+
+.back-empty-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .tools {

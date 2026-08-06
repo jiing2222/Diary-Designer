@@ -4,6 +4,7 @@ import {
   duplicateTemplate,
   groupBySize,
   insertFromPreset,
+  newBack,
   newTemplate,
   outsideCount,
   sheetsNeeded,
@@ -239,5 +240,51 @@ describe('필요한 용지 장수', () => {
 
   it('칸 수보다 적게 필요해도 한 장은 있어야 한다', () => {
     expect(sheetsNeeded(1, 4)).toBe(1);
+  });
+});
+
+describe('뒷면', () => {
+  it('새 양식은 단면이다', () => {
+    expect(newTemplate('가').back).toBeNull();
+  });
+
+  it('newBack은 빈 뒷면을 낸다', () => {
+    const back = newBack();
+    expect(back.objects.present).toEqual([]);
+    expect(back.dotGrid.style).toBe('dot');
+  });
+
+  it('뒷면이 없으면 복제해도 단면이다', () => {
+    const t = newTemplate('가');
+    expect(duplicateTemplate(t, '가 사본').back).toBeNull();
+  });
+
+  it('뒷면이 있으면 복제할 때 물려받는다', () => {
+    const t = newTemplate('가');
+    t.back = newBack();
+    t.back.objects = commit(t.back.objects, [line(10, 10, 70, 10)]);
+
+    const copy = duplicateTemplate(t, '가 사본');
+    expect(copy.back).not.toBeNull();
+    expect(copy.back!.objects.present).toEqual(t.back.objects.present);
+  });
+
+  it('복제한 뒷면을 고쳐도 원본은 그대로다', () => {
+    const t = newTemplate('가');
+    t.back = newBack();
+    t.back.objects = commit(t.back.objects, [line(10, 10, 70, 10)]);
+
+    const copy = duplicateTemplate(t, '사본');
+    copy.back!.objects = commit(copy.back!.objects, []);
+    expect(t.back.objects.present).toHaveLength(1);
+  });
+
+  it('복제한 뒷면은 실행취소 이력을 물려받지 않는다', () => {
+    const t = newTemplate('가');
+    t.back = newBack();
+    t.back.objects = commit(t.back.objects, [line(10, 10, 70, 10)]);
+
+    const copy = duplicateTemplate(t, '사본');
+    expect(copy.back!.objects.past).toEqual([]);
   });
 });

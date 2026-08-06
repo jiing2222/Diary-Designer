@@ -18,7 +18,7 @@ import {
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm } from '../core/units';
 import { newTextStyle } from '../core/text';
-import { useDotGrid, useInsert, useObjects, useStore } from '../store';
+import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type Side } from '../store';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
@@ -57,10 +57,15 @@ const ZOOMS = [50, 75, 100, 150, 200, 300, 400];
  * 둘 다 같은 자리에 이미 있으면 지워진다.
  */
 export function EditorTab() {
-  // 속지·격자·그린 것은 지금 고르고 있는 양식의 것이다.
+  // 속지·격자·그린 것은 지금 고르고 있는 양식의, 지금 보는 쪽(앞/뒤)의 것이다.
   const insert = useInsert();
   const grid = useDotGrid();
   const history = useObjects();
+  const side = useSide();
+  const hasBack = useHasBack();
+  const setSide = useStore((s) => s.setSide);
+  const addBack = useStore((s) => s.addBack);
+  const removeBack = useStore((s) => s.removeBack);
   const tool = useStore((s) => s.tool);
   const selectedIds = useStore((s) => s.selectedIds);
   const setTool = useStore((s) => s.setTool);
@@ -495,8 +500,23 @@ export function EditorTab() {
     return null;
   })();
 
+  if (side === 'back' && !hasBack) {
+    return (
+      <div className="editor">
+        <SideBar side={side} setSide={setSide} hasBack={hasBack} removeBack={removeBack} />
+        <div className="editor-canvas back-empty">
+          <div className="back-empty-msg">
+            <p>아직 뒷면이 없습니다.</p>
+            <button onClick={addBack}>뒷면 만들기</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="editor">
+      <SideBar side={side} setSide={setSide} hasBack={hasBack} removeBack={removeBack} />
       <div className="editor-bar">
         <div className="tools">
           <ToolBtn on={tool === 'select'} onClick={() => setTool('select')} title="고르기 (V)">
@@ -889,6 +909,37 @@ function TextInput({
         onDone();
       }}
     />
+  );
+}
+
+/** 앞면·뒷면 전환. 뒷면을 보는 중이면 지우는 버튼도 함께 나온다. */
+function SideBar({
+  side,
+  setSide,
+  hasBack,
+  removeBack,
+}: {
+  side: Side;
+  setSide: (side: Side) => void;
+  hasBack: boolean;
+  removeBack: () => void;
+}) {
+  return (
+    <div className="side-bar">
+      <div className="tabs">
+        <button className={side === 'front' ? 'tab on' : 'tab'} onClick={() => setSide('front')}>
+          앞면
+        </button>
+        <button className={side === 'back' ? 'tab on' : 'tab'} onClick={() => setSide('back')}>
+          뒷면
+        </button>
+      </div>
+      {side === 'back' && hasBack && (
+        <button className="ghost" onClick={removeBack} title="뒷면 지우기">
+          뒷면 지우기
+        </button>
+      )}
+    </div>
   );
 }
 

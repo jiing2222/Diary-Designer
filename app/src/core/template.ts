@@ -14,16 +14,31 @@ import type { Mm } from './units';
  * `위클리1`도 `데일리1`도 M6일 수 있다. 크기가 양식을 소유하는 것이 아니라
  * **양식이 크기를 속성으로 가진다.** 갤러리에서 크기별로 묶어 보여주는 것은
  * 그 속성으로 줄을 세우는 것뿐이다.
- *
- * 뒷면(설계문서의 `Template.back`)은 아직 없다. 양면 인쇄는 한참 뒤의 일이고,
- * 지금 넣으면 화면만 복잡해진다. 저장 파일에 판 번호를 박아두므로 나중에 생겨도
- * 옛 파일은 `뒷면 없음 = 단면`으로 읽으면 된다.
  */
 export interface InsertSetting {
   presetId: string;
   width: Mm;
   height: Mm;
   punch: PunchSetting;
+}
+
+/**
+ * 뒷면.
+ *
+ * **`null`이면 단면이다.** 앞면(`Template.dotGrid`·`objects`)은 항상 있지만,
+ * 뒷면은 만들어야만 생긴다 — 대부분의 양식은 단면이라 처음부터 빈 뒷면을
+ * 들려주면 갤러리·저장 파일이 다 그만큼 무거워진다.
+ *
+ * 속지 크기(`insert`)는 앞뒤가 공유한다. 뒷면은 같은 종이의 반대쪽일 뿐 다른
+ * 크기의 속지가 아니다 — 배치에서 자리만 반전된다(설계문서 8장, "뒷면 칸의
+ * x = 용지폭 − 앞면 칸의 x − 속지폭"). 그 반전은 9b(PDF)에서 다룬다.
+ *
+ * **실행취소는 앞면과 따로 붙는다.** 뒷면을 그리다 ⌘Z를 눌렀는데 앞면 작업이
+ * 되돌려지면 무섭다 — 양식끼리 실행취소를 나눈 것과 같은 이유다.
+ */
+export interface BackPage {
+  dotGrid: DotGrid;
+  objects: History<DiaryObject[]>;
 }
 
 /**
@@ -56,6 +71,8 @@ export interface Template {
   objects: History<DiaryObject[]>;
   /** 이 양식을 몇 번 찍을지. 기본은 `single`(한 번, 다른 양식과 섞일 수 있음). */
   repeat: RepeatSetting;
+  /** 뒷면. 없으면(`null`) 단면이다. */
+  back: BackPage | null;
 }
 
 let counter = 0;
@@ -91,7 +108,13 @@ export function newTemplate(name: string, insert: InsertSetting = defaultInsert(
     dotGrid: { ...DEFAULT_DOT_GRID },
     objects: initHistory<DiaryObject[]>([]),
     repeat: SINGLE_REPEAT,
+    back: null,
   };
+}
+
+/** 이 양식에 뒷면을 만든다. 이미 있으면 아무 일도 하지 않는다. */
+export function newBack(): BackPage {
+  return { dotGrid: { ...DEFAULT_DOT_GRID }, objects: initHistory<DiaryObject[]>([]) };
 }
 
 /**
@@ -116,6 +139,10 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
     // 반복 설정도 물려받는다. 54장짜리 만년형을 디자인만 바꿔보고 싶을 때
     // 매번 장수를 다시 입력하지 않아도 된다.
     repeat: { ...t.repeat },
+    // 뒷면도 그대로 물려받는다. 앞면과 마찬가지로 실행취소 이력은 새로 시작한다.
+    back: t.back
+      ? { dotGrid: { ...t.back.dotGrid }, objects: initHistory([...t.back.objects.present]) }
+      : null,
   };
 }
 

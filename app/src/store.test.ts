@@ -351,3 +351,124 @@ describe('반복 양식은 낱장 조합에 낄 수 없다', () => {
     expect(resolveSlotTemplates(s(), 1)[0].id).toBe(first);
   });
 });
+
+describe('앞면·뒷면', () => {
+  it('새 양식은 앞면부터 보여주고 뒷면이 없다', () => {
+    s().addTemplate();
+    expect(s().side).toBe('front');
+    expect(at().back).toBeNull();
+  });
+
+  it('addBack으로 뒷면을 만든다', () => {
+    s().addTemplate();
+    s().addBack();
+    expect(at().back).not.toBeNull();
+    expect(at().back!.objects.present).toEqual([]);
+  });
+
+  it('이미 뒷면이 있으면 addBack이 덮어쓰지 않는다', () => {
+    s().addTemplate();
+    s().addBack();
+    s().setSide('back');
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+
+    s().addBack();
+    expect(at().back!.objects.present).toHaveLength(1);
+  });
+
+  it('뒷면이 없으면 뒷면 쪽에 그려도 아무 일도 없다', () => {
+    s().addTemplate();
+    s().setSide('back');
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    expect(at().back).toBeNull();
+  });
+
+  it('그린 것이 앞뒤 따로 쌓인다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    s().addBack();
+    s().setSide('back');
+    s().drawLines([{ x1: 20, y1: 20, x2: 60, y2: 20 }]);
+
+    expect(at().objects.present).toHaveLength(1);
+    expect(at().back!.objects.present).toHaveLength(1);
+    expect(at().back!.objects.present[0]).toMatchObject({ y1: 20 });
+
+    s().setSide('front');
+    expect(at().objects.present[0]).toMatchObject({ y1: 10 });
+  });
+
+  it('격자도 앞뒤 따로다', () => {
+    s().addTemplate();
+    s().addBack();
+    s().setSide('back');
+    s().patchDotGrid({ spacing: 2 });
+    expect(at().back!.dotGrid.spacing).toBe(2);
+
+    s().setSide('front');
+    expect(at().dotGrid.spacing).toBe(5);
+  });
+
+  it('실행취소가 앞뒤 따로다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    s().addBack();
+    s().setSide('back');
+    s().drawLines([{ x1: 20, y1: 20, x2: 60, y2: 20 }]);
+
+    s().undo();
+    expect(at().back!.objects.present).toHaveLength(0);
+
+    s().setSide('front');
+    expect(at().objects.present).toHaveLength(1);
+  });
+
+  it('removeBack이 뒷면을 지우고 앞면으로 돌아간다', () => {
+    s().addTemplate();
+    s().addBack();
+    s().setSide('back');
+    s().removeBack();
+    expect(at().back).toBeNull();
+    expect(s().side).toBe('front');
+  });
+
+  it('selectTemplate은 앞면으로 돌아간다', () => {
+    s().addTemplate();
+    const id = s().activeId;
+    s().addBack();
+    s().setSide('back');
+    s().selectTemplate(id);
+    expect(s().side).toBe('front');
+  });
+
+  it('addTemplate은 앞면부터 보여준다', () => {
+    s().addTemplate();
+    s().addBack();
+    s().setSide('back');
+    s().addTemplate();
+    expect(s().side).toBe('front');
+  });
+
+  it('copyTemplate한 사본도 앞면부터 보여준다', () => {
+    s().addTemplate();
+    s().addBack();
+    s().setSide('back');
+    s().copyTemplate(s().activeId);
+    expect(s().side).toBe('front');
+  });
+
+  it('loadProject 뒤에는 앞면부터 보여준다', () => {
+    s().addTemplate();
+    s().setSide('back');
+    s().loadProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        { id: 'x1', name: '가', insert: insertFromPreset('M6'), dotGrid: DEFAULT_DOT_GRID, objects: [] },
+      ],
+      print: {},
+      fonts: [],
+    });
+    expect(s().side).toBe('front');
+  });
+});

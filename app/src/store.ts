@@ -3,12 +3,13 @@ import { INSERT_PRESETS, PAPER_PRESETS, findPaperPreset } from './core/presets';
 import type { PunchSetting } from './core/punch';
 import { computeLayout, type Align, type Layout } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
-import { commit, initHistory, redo, undo } from './core/history';
+import { commit, initHistory, redo, undo, type History } from './core/history';
 import {
   defaultInsert,
   defaultName,
   duplicateTemplate,
   insertFromPreset,
+  newBack,
   newTemplate,
   sameSize,
   uniqueName,
@@ -72,6 +73,14 @@ interface Settings {
   /** 지금 편집 중인 양식. 하나도 없으면 빈 문자열이다. */
   activeId: string;
   /**
+   * 지금 양식의 **어느 쪽**을 편집하는 중인지.
+   *
+   * 뒷면이 없는 양식에서는 의미가 없다 — 화면이 `앞면` 탭만 보여준다.
+   * 양식을 바꾸면 `front`로 돌아간다. 방금 만진 양식의 뒷면 탭에 남아 있다가
+   * 뒷면 없는 다른 양식으로 넘어가면 헷갈린다.
+   */
+  side: Side;
+  /**
    * 고르기 / 그리기.
    *
    * 그리기 안에서는 조작이 곧 종류다 — 점을 찍고 다른 점을 찍으면 선,
@@ -130,6 +139,12 @@ interface Store extends Settings {
   patchDotGrid: (p: Partial<DotGrid>) => void;
   /** 이 양식을 몇 번 찍을지. `repeat`으로 바꾸면 낱장 조합(칸 배정)은 더 이상 쓰이지 않는다. */
   patchRepeat: (repeat: RepeatSetting) => void;
+  /** 지금 양식의 앞면·뒷면 중 어느 쪽을 편집할지. */
+  setSide: (side: Side) => void;
+  /** 지금 양식에 뒷면을 만든다. 이미 있으면 아무 일도 하지 않는다. */
+  addBack: () => void;
+  /** 지금 양식의 뒷면을 지우고 단면으로 되돌린다. 뒷면에 그린 것도 함께 사라진다. */
+  removeBack: () => void;
   /* ── 양식 관리 ── */
   selectTemplate: (id: string) => void;
   /** 규격·이름·격자를 주지 않으면 지금 양식의 것과 자동 이름을 쓴다. */
@@ -176,6 +191,7 @@ interface Store extends Settings {
 }
 
 export type Tool = 'select' | 'draw' | 'text' | 'table';
+export type Side = 'front' | 'back';
 
 /** 더 이상 존재하지 않는 id를 선택 목록에서 걷어낸다. */
 function prune(ids: string[], objects: DiaryObject[]): string[] {
@@ -207,8 +223,9 @@ const NO_REPEAT: RepeatSetting = SINGLE_REPEAT;
 /**
  * 지금 양식만 고친다.
  *
- * 그리기·격자·속지 관련 동작이 전부 이걸 거친다. 양식마다 따로 들고 있는 값을
- * 고치는 자리가 한 군데뿐이어야 어느 양식이 바뀌는지 헷갈리지 않는다.
+ * **양식 전체에 대한 것만** 여기로 온다 — 속지 규격·격자 모양 자체의 켜고 끄는
+ * 값처럼 앞뒤가 공유하는 것들, 그리고 반복 설정처럼 쪽과 무관한 것들이다.
+ * 앞면·뒷면처럼 **쪽마다 다른 내용**은 `patchActiveSide`가 대신 맡는다.
  */
 function patchActive(
   s: Pick<Settings, 'templates' | 'activeId'>,
@@ -219,17 +236,58 @@ function patchActive(
   return { templates: s.templates.map((t) => (t.id === active.id ? { ...t, ...fn(t) } : t)) };
 }
 
-/** 지금 양식의 그린 것들을 갈아끼우고 실행취소에 한 칸 쌓는다. */
-function commitObjects(
-  s: Pick<Settings, 'templates' | 'activeId'>,
-  next: DiaryObject[],
-): Pick<Settings, 'templates'> {
-  return patchActive(s, (t) => ({ objects: commit(t.objects, next) }));
+/** 앞면·뒷면이 공유하는 모양. 격자와 그린 것을 한 덩어리로 다루기 위한 그릇이다. */
+type SideData = { dotGrid: DotGrid; objects: History<DiaryObject[]> };
+
+/** 지금 편집 중인 쪽의 데이터. 뒷면인데 아직 없으면 `null`이다. */
+function activeSideData(t: Template, side: Side): SideData | null {
+  return side === 'front' ? { dotGrid: t.dotGrid, objects: t.objects } : t.back;
 }
 
-/** 지금 양식의 그린 것들. 양식이 없으면 빈 목록이다. */
-function activeObjects(s: Pick<Settings, 'templates' | 'activeId'>): DiaryObject[] {
-  return activeTemplate(s)?.objects.present ?? [];
+/**
+ * 지금 편집 중인 쪽(앞/뒤)만 고친다.
+ *
+ * 그리기·격자·실행취소가 전부 이걸 거친다. **뒷면인데 아직 만들지 않았으면
+ * 조용히 아무 일도 하지 않는다** — 화면이 `뒷면 만들기` 버튼으로 먼저 만들게
+ * 하므로, 여기까지 오는 것은 사실상 일어나지 않는 경우에 대한 방어선이다.
+ */
+function patchActiveSide(
+  s: Pick<Settings, 'templates' | 'activeId' | 'side'>,
+  fn: (data: SideData) => Partial<SideData>,
+): Pick<Settings, 'templates'> {
+  const active = activeTemplate(s);
+  if (!active) return { templates: s.templates };
+
+  if (s.side === 'front') {
+    return {
+      templates: s.templates.map((t) =>
+        t.id === active.id ? { ...t, ...fn({ dotGrid: t.dotGrid, objects: t.objects }) } : t,
+      ),
+    };
+  }
+
+  if (!active.back) return { templates: s.templates };
+  return {
+    templates: s.templates.map((t) => {
+      if (t.id !== active.id || !t.back) return t;
+      return { ...t, back: { ...t.back, ...fn(t.back) } };
+    }),
+  };
+}
+
+/** 지금 편집 중인 쪽의 그린 것들을 갈아끼우고 실행취소에 한 칸 쌓는다. */
+function commitObjects(
+  s: Pick<Settings, 'templates' | 'activeId' | 'side'>,
+  next: DiaryObject[],
+): Pick<Settings, 'templates'> {
+  return patchActiveSide(s, (d) => ({ objects: commit(d.objects, next) }));
+}
+
+/** 지금 편집 중인 쪽의 그린 것들. 없으면(양식이 없거나 뒷면이 없으면) 빈 목록이다. */
+function activeObjects(s: Pick<Settings, 'templates' | 'activeId' | 'side'>): DiaryObject[] {
+  const active = activeTemplate(s);
+  if (!active) return [];
+  return activeSideData(active, s.side)?.objects.present ?? [];
 }
 
 /** 더 이상 존재하지 않는 양식을 가리키는 칸 배정을 걷어낸다. */
@@ -280,6 +338,7 @@ export const useStore = create<Store>((set) => ({
   // 빈 갤러리에서 시작한다. 첫 양식은 사용자가 규격을 골라 만든다.
   templates: [],
   activeId: '',
+  side: 'front',
   tool: 'draw',
   selectedIds: [],
   drawStyle: {},
@@ -334,13 +393,34 @@ export const useStore = create<Store>((set) => ({
   patchPunch: (p) =>
     set((s) => patchActive(s, (t) => ({ insert: { ...t.insert, punch: { ...t.insert.punch, ...p } } }))),
 
-  patchDotGrid: (p) => set((s) => patchActive(s, (t) => ({ dotGrid: { ...t.dotGrid, ...p } }))),
+  // 격자는 앞뒤가 따로다. 뒷면을 줄노트로, 앞면은 도트로 두는 식이 가능해야 한다.
+  patchDotGrid: (p) => set((s) => patchActiveSide(s, (d) => ({ dotGrid: { ...d.dotGrid, ...p } }))),
 
   patchRepeat: (repeat) => set((s) => patchActive(s, () => ({ repeat }))),
 
+  setSide: (side) => set({ side, selectedIds: [] }),
+
+  addBack: () =>
+    set((s) => {
+      const active = activeTemplate(s);
+      if (!active || active.back) return {};
+      return { templates: s.templates.map((t) => (t.id === active.id ? { ...t, back: newBack() } : t)) };
+    }),
+
+  removeBack: () =>
+    set((s) => {
+      const active = activeTemplate(s);
+      if (!active || !active.back) return {};
+      const templates = s.templates.map((t) => (t.id === active.id ? { ...t, back: null } : t));
+      // 뒷면 탭을 보던 중이었다면 이제 볼 것이 없으니 앞면으로 돌아간다.
+      return { templates, side: 'front' as const, selectedIds: [] };
+    }),
+
   /* ─────────────────────────── 양식 관리 ─────────────────────────── */
 
-  selectTemplate: (activeId) => set({ activeId, selectedIds: [] }),
+  // 양식을 바꾸면 앞면으로 돌아간다. 방금 만진 양식의 뒷면 탭에 남아 있다가
+  // 뒷면 없는 다른 양식으로 넘어가면 헷갈린다.
+  selectTemplate: (activeId) => set({ activeId, side: 'front', selectedIds: [] }),
 
   addTemplate: (insert, name, grid) =>
     set((s) => {
@@ -353,7 +433,7 @@ export const useStore = create<Store>((set) => ({
         base,
       );
       if (grid) made.dotGrid = { ...grid };
-      return { templates: [...s.templates, made], activeId: made.id, selectedIds: [] };
+      return { templates: [...s.templates, made], activeId: made.id, side: 'front', selectedIds: [] };
     }),
 
   copyTemplate: (id, insert) =>
@@ -364,7 +444,7 @@ export const useStore = create<Store>((set) => ({
       // 원본 바로 뒤에 넣는다. 목록 끝으로 보내면 어디 갔는지 찾게 된다.
       const at = s.templates.indexOf(source) + 1;
       const templates = [...s.templates.slice(0, at), made, ...s.templates.slice(at)];
-      return { templates, activeId: made.id, selectedIds: [] };
+      return { templates, activeId: made.id, side: 'front', selectedIds: [] };
     }),
 
   renameTemplate: (id, name) =>
@@ -472,6 +552,8 @@ export const useStore = create<Store>((set) => ({
         // 칸 배정도 저장돼 있으면 함께 돌아온다. id는 양식과 함께 저장되므로
         // 대개 그대로 맞지만, 혹시 어긋난 것이 있으면 걷어낸다.
         slotAssignment: pruneSlotAssignment(templates, print.slotAssignment ?? {}),
+        // side는 저장하지 않는 값이다. print를 펼친 뒤 마지막에 확실히 앞면으로 둔다.
+        side: 'front' as const,
       };
     }),
 
@@ -525,21 +607,29 @@ export const useStore = create<Store>((set) => ({
     }),
 
   // 되돌리면 없어진 객체를 고른 채로 남을 수 있으므로 선택을 정리한다.
-  // 실행취소는 **지금 양식의 것만** 되돌린다. 양식을 바꿨다가 ⌘Z를 눌렀는데
-  // 다른 양식의 작업이 사라지면 무섭다.
+  // 실행취소는 **지금 양식의, 지금 편집 중인 쪽만** 되돌린다. 양식을 바꾸거나
+  // 앞뒤를 넘나든 뒤 ⌘Z를 눌렀는데 다른 쪽의 작업이 사라지면 무섭다.
   undo: () =>
     set((s) => {
       const active = activeTemplate(s);
-      if (!active) return {};
-      const objects = undo(active.objects);
-      return { ...patchActive(s, () => ({ objects })), selectedIds: prune(s.selectedIds, objects.present) };
+      const data = active && activeSideData(active, s.side);
+      if (!data) return {};
+      const objects = undo(data.objects);
+      return {
+        ...patchActiveSide(s, () => ({ objects })),
+        selectedIds: prune(s.selectedIds, objects.present),
+      };
     }),
   redo: () =>
     set((s) => {
       const active = activeTemplate(s);
-      if (!active) return {};
-      const objects = redo(active.objects);
-      return { ...patchActive(s, () => ({ objects })), selectedIds: prune(s.selectedIds, objects.present) };
+      const data = active && activeSideData(active, s.side);
+      if (!data) return {};
+      const objects = redo(data.objects);
+      return {
+        ...patchActiveSide(s, () => ({ objects })),
+        selectedIds: prune(s.selectedIds, objects.present),
+      };
     }),
   patch: (p) => set(p),
   patchUnprintable: (p) => set((s) => ({ unprintable: { ...s.unprintable, ...p } })),
@@ -582,9 +672,19 @@ export function selectLayout(s: Settings): Layout {
  */
 export const useActive = () => useStore(activeTemplate);
 export const useInsert = () => useStore((s) => activeTemplate(s)?.insert ?? NO_INSERT);
-export const useDotGrid = () => useStore((s) => activeTemplate(s)?.dotGrid ?? NO_GRID);
-export const useObjects = () => useStore((s) => activeTemplate(s)?.objects ?? NO_OBJECTS);
+export const useDotGrid = () =>
+  useStore((s) => {
+    const active = activeTemplate(s);
+    return (active && activeSideData(active, s.side)?.dotGrid) ?? NO_GRID;
+  });
+export const useObjects = () =>
+  useStore((s) => {
+    const active = activeTemplate(s);
+    return (active && activeSideData(active, s.side)?.objects) ?? NO_OBJECTS;
+  });
 export const useRepeat = () => useStore((s) => activeTemplate(s)?.repeat ?? NO_REPEAT);
+export const useSide = () => useStore((s) => s.side);
+export const useHasBack = () => useStore((s) => activeTemplate(s)?.back != null);
 
 export { INSERT_PRESETS, PAPER_PRESETS };
 export type { Settings, PaperState, UnprintableSetting };

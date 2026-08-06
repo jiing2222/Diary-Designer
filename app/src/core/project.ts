@@ -4,6 +4,12 @@ import type { DiaryObject } from './objects';
 import type { InsertSetting, RepeatSetting, Template } from './template';
 import { defaultInsert, SINGLE_REPEAT } from './template';
 
+/** 저장 파일에 담기는 뒷면 모양. Template.back과 같지만 History가 아니라 배열이다. */
+interface SavedBack {
+  dotGrid: DotGrid;
+  objects: DiaryObject[];
+}
+
 /**
  * 저장 파일.
  *
@@ -34,6 +40,8 @@ export interface SavedTemplate {
   objects: DiaryObject[];
   /** 옛 파일(7단계 이전)에는 없다. 없으면 `single`로 읽는다. */
   repeat?: RepeatSetting;
+  /** 옛 파일(9단계 이전)에는 없다. 없거나 `null`이면 단면이다. */
+  back?: SavedBack | null;
 }
 
 export interface SavedProject {
@@ -64,6 +72,7 @@ export function toProject(input: {
       // 실행취소 이력은 빼고 지금 모습만.
       objects: t.objects.present,
       repeat: t.repeat,
+      back: t.back ? { dotGrid: t.back.dotGrid, objects: t.back.objects.present } : null,
     })),
     print: input.print,
     // 실제로 쓰인 글꼴만 담는다. 등록만 해놓고 안 쓴 것까지 적어두면
@@ -108,6 +117,9 @@ export function readProject(raw: unknown): { ok: SavedProject } | { error: strin
     if (typeof t?.insert?.width !== 'number' || typeof t?.insert?.height !== 'number') {
       return { error: '양식의 속지 크기를 읽을 수 없습니다.' };
     }
+    if (t.back && !Array.isArray(t.back.objects)) {
+      return { error: '양식 뒷면 내용이 깨져 있습니다.' };
+    }
   }
 
   return { ok: p as SavedProject };
@@ -129,6 +141,12 @@ export function toTemplates(p: SavedProject): Template[] {
     dotGrid: { ...DEFAULT_DOT_GRID, ...t.dotGrid },
     objects: initHistory(t.objects),
     repeat: t.repeat ?? SINGLE_REPEAT,
+    back: t.back
+      ? {
+          dotGrid: { ...DEFAULT_DOT_GRID, ...t.back.dotGrid },
+          objects: initHistory(t.back.objects),
+        }
+      : null,
   }));
 }
 

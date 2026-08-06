@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { missingFonts, readProject, toProject, toTemplates, PROJECT_VERSION } from './project';
-import { insertFromPreset, newTemplate } from './template';
+import { insertFromPreset, newBack, newTemplate } from './template';
 import { commit } from './history';
 import type { DiaryObject, TextObject } from './objects';
 
@@ -170,8 +170,66 @@ describe('저장했다 다시 열기', () => {
       print: {},
       fonts: [],
     });
-    const back = toTemplates((r as { ok: never }).ok);
-    expect(back[0].repeat).toEqual({ mode: 'single' });
+    const restored = toTemplates((r as { ok: never }).ok);
+    expect(restored[0].repeat).toEqual({ mode: 'single' });
+  });
+
+  it('뒷면이 그대로 돌아온다', () => {
+    const t = sample();
+    t.back = newBack();
+    t.back.objects = commit(t.back.objects, [line]);
+    t.back.dotGrid = { ...t.back.dotGrid, spacing: 3 };
+
+    const restored = toTemplates(toProject({ templates: [t], print, fonts: [] }));
+    expect(restored[0].back).not.toBeNull();
+    expect(restored[0].back!.objects.present).toEqual([line]);
+    expect(restored[0].back!.dotGrid.spacing).toBe(3);
+  });
+
+  it('뒷면이 없는 양식은 단면으로 돌아온다', () => {
+    const restored = toTemplates(toProject({ templates: [sample()], print, fonts: [] }));
+    expect(restored[0].back).toBeNull();
+  });
+
+  it('뒷면의 실행취소 이력은 담지 않는다', () => {
+    const t = sample();
+    t.back = newBack();
+    t.back.objects = commit(t.back.objects, [line]);
+    t.back.objects = commit(t.back.objects, [line, line]);
+
+    const p = toProject({ templates: [t], print, fonts: [] });
+    expect(JSON.stringify(p)).not.toContain('"past"');
+  });
+
+  it('9단계 이전 파일(뒷면이 없는 파일)은 단면으로 읽는다', () => {
+    const r = readProject({
+      version: 1,
+      savedAt: '',
+      templates: [{ id: 't1', name: '옛것', insert: insertFromPreset('M6'), objects: [] }],
+      print: {},
+      fonts: [],
+    });
+    const restored = toTemplates((r as { ok: never }).ok);
+    expect(restored[0].back).toBeNull();
+  });
+
+  it('뒷면 내용이 깨져 있으면 거른다', () => {
+    const r = readProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        {
+          id: 't1',
+          name: '가',
+          insert: insertFromPreset('M6'),
+          objects: [],
+          back: { dotGrid: {}, objects: 'nope' },
+        },
+      ],
+      print: {},
+      fonts: [],
+    });
+    expect(r).toHaveProperty('error');
   });
 });
 
