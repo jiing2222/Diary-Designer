@@ -15,7 +15,7 @@ import {
   TEXT_SIZE,
 } from '../core/style';
 import { boldOf, canBold, naturalLineHeight } from '../core/text';
-import { FONT_ACCEPT, registerFont } from '../fonts/registry';
+import { FONT_ACCEPT, hasFont, registerFont } from '../fonts/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
 import { activeTemplate, useStore } from '../store';
 import type { Editing } from './gestures';
@@ -365,10 +365,16 @@ function FontPicker({
     if (!file) return;
     setError(null);
     try {
-      const font = await registerFont(file);
+      // 저장 파일을 열면 글꼴이 이름만 남는다. 같은 이름의 파일을 다시 등록하면
+      // **그때의 id를 물려받아** 그 글꼴을 쓰던 글자들이 한꺼번에 되살아난다.
+      const name = file.name.replace(/\.[^.]+$/, '');
+      const orphan = userFonts.find((f) => f.name === name && !hasFont(f.id));
+
+      const font = await registerFont(file, orphan?.id);
       addUserFont(font);
       // 방금 등록한 글꼴을 바로 씌운다. 등록만 하고 또 고르게 하면 한 번 더 손이 간다.
-      onPick(font.id);
+      // 다만 되살린 경우에는 씌우지 않는다 — 이미 그 글꼴을 쓰던 글자들이 있다.
+      if (!orphan) onPick(font.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : '글꼴을 읽지 못했습니다');
     }
@@ -394,7 +400,8 @@ function FontPicker({
         <option value="">{DEFAULT_FONT_FAMILY}</option>
         {userFonts.map((f) => (
           <option key={f.id} value={f.id}>
-            {f.name}
+            {/* 저장 파일에서 이름만 살아 돌아온 것. 지금은 기본 글꼴로 그려진다. */}
+            {hasFont(f.id) ? f.name : `${f.name} (파일 없음)`}
           </option>
         ))}
         <option value={ADD_FONT}>글꼴 파일 추가…</option>

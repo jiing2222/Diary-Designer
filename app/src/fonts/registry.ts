@@ -41,15 +41,21 @@ let counter = 0;
  * 화면에 심는 것까지 마치고 돌려준다. 심기에 실패하면(글꼴 파일이 아니거나
  * 깨졌으면) 던진다 — 목록에 넣어놓고 나중에 안 그려지는 것보다 낫다.
  */
-export async function registerFont(file: File): Promise<UserFont> {
+export async function registerFont(file: File, reuseId?: string): Promise<UserFont> {
   const name = file.name.replace(/\.[^.]+$/, '');
   if (!ACCEPTED.some((ext) => file.name.toLowerCase().endsWith(ext))) {
     throw new Error(`글꼴 파일이 아닙니다 (${ACCEPTED.join(', ')}만 됩니다)`);
   }
 
   const buffer = await file.arrayBuffer();
-  counter += 1;
-  const id = `f${counter}`;
+  // 저장 파일을 열면 글꼴 이름만 남아 있다. 같은 이름의 파일을 다시 등록하면
+  // **그때의 id를 그대로 물려받아** 그 글꼴을 쓰던 글자들이 되살아난다.
+  // 새 id를 주면 글자들은 영영 없는 글꼴을 가리키게 된다.
+  let id = reuseId;
+  if (!id) {
+    counter += 1;
+    id = `f${counter}`;
+  }
   const family = `user-font-${id}`;
 
   // 브라우저가 실제로 읽어낼 수 있는지 여기서 판가름 난다.
@@ -64,6 +70,23 @@ export async function registerFont(file: File): Promise<UserFont> {
 /** PDF에 심을 파일 바이트. 없으면 이번 세션에 등록된 글꼴이 아니다. */
 export function fontBytes(id: string): ArrayBuffer | undefined {
   return bytes.get(id);
+}
+
+/** 파일까지 들고 있는가. 저장 파일에서 이름만 살아 돌아온 글꼴과 구분한다. */
+export function hasFont(id: string): boolean {
+  return bytes.has(id);
+}
+
+/**
+ * 저장 파일을 열 때 id가 부딪히지 않게 번호를 밀어둔다.
+ *
+ * 불러온 글꼴이 `f7`까지 있는데 새로 등록하는 것이 `f1`이 되면 서로를 덮어쓴다.
+ */
+export function reserveIds(ids: string[]): void {
+  for (const id of ids) {
+    const n = Number(id.replace(/^f/, ''));
+    if (Number.isFinite(n) && n > counter) counter = n;
+  }
 }
 
 /**

@@ -12,6 +12,8 @@ import {
   type InsertSetting,
   type Template,
 } from './core/template';
+import { toTemplates, type SavedProject } from './core/project';
+import { reserveIds } from './fonts/registry';
 import {
   dedupe,
   isDegenerate,
@@ -111,7 +113,8 @@ interface Store extends Settings {
   patchDotGrid: (p: Partial<DotGrid>) => void;
   /* ── 양식 관리 ── */
   selectTemplate: (id: string) => void;
-  addTemplate: (insert?: InsertSetting) => void;
+  /** 규격·이름을 주지 않으면 지금 양식의 규격과 자동 이름을 쓴다. */
+  addTemplate: (insert?: InsertSetting, name?: string) => void;
   /** 규격을 주면 그 규격으로 복제한다. 원본은 손대지 않는다. */
   copyTemplate: (id: string, insert?: InsertSetting) => void;
   renameTemplate: (id: string, name: string) => void;
@@ -142,6 +145,8 @@ interface Store extends Settings {
   setTextDraftStyle: (patch: TextStyle) => void;
   /** 등록을 마친 글꼴을 목록에 넣는다. 파일 읽기는 fonts/registry가 이미 끝냈다. */
   addUserFont: (font: UserFont) => void;
+  /** 저장 파일에서 읽은 양식들로 통째로 갈아끼운다. */
+  loadProject: (p: SavedProject) => void;
   undo: () => void;
   redo: () => void;
   patch: (
@@ -264,12 +269,13 @@ export const useStore = create<Store>((set) => ({
 
   selectTemplate: (activeId) => set({ activeId, selectedIds: [] }),
 
-  addTemplate: (insert) =>
+  addTemplate: (insert, name) =>
     set((s) => {
-      // 규격을 주지 않으면 지금 보던 양식의 규격을 물려받는다. 대부분 한 규격으로
-      // 계속 작업하므로, 매번 고르게 하면 손이 한 번 더 간다.
-      const base = insert ?? { ...activeTemplate(s).insert, punch: { ...activeTemplate(s).insert.punch } };
-      const made = newTemplate(uniqueName(s.templates, '양식 1'), base);
+      // 규격을 주지 않으면 지금 보던 양식의 규격을 물려받는다. 갤러리에서 크기
+      // 그룹의 `+`를 누르는 경우가 그렇다 — 그 크기로 하나 더 만드는 뜻이다.
+      const cur = activeTemplate(s).insert;
+      const base = insert ?? { ...cur, punch: { ...cur.punch } };
+      const made = newTemplate(uniqueName(s.templates, name?.trim() || '양식 1'), base);
       return { templates: [...s.templates, made], activeId: made.id, selectedIds: [] };
     }),
 
@@ -346,7 +352,32 @@ export const useStore = create<Store>((set) => ({
 
   setTextDraftStyle: (patch) => set((s) => ({ textDraftStyle: { ...s.textDraftStyle, ...patch } })),
 
-  addUserFont: (font) => set((s) => ({ userFonts: [...s.userFonts, font] })),
+  // 같은 id로 다시 등록하면(저장 파일을 열고 그 글꼴을 다시 찾아온 경우)
+  // 목록에 하나 더 늘리지 않고 그 자리를 갈아끼운다.
+  addUserFont: (font) =>
+    set((s) => ({
+      userFonts: s.userFonts.some((f) => f.id === font.id)
+        ? s.userFonts.map((f) => (f.id === font.id ? font : f))
+        : [...s.userFonts, font],
+    })),
+
+  loadProject: (p) =>
+    set((s) => {
+      const templates = toTemplates(p);
+      // 글꼴은 이름만 살아 돌아온다. 파일은 사용자가 다시 등록해야 하고,
+      // 그때까지 그 글자들은 기본 글꼴로 보인다(fonts/registry의 familyOf).
+      const fonts = p.fonts ?? [];
+      reserveIds(fonts.map((f) => f.id));
+      return {
+        templates,
+        activeId: templates[0].id,
+        selectedIds: [],
+        userFonts: fonts.map((f) => ({ ...f, family: `user-font-${f.id}` })),
+        // 용지·배치는 저장된 것이 있으면 덮어쓰고, 없는 값은 지금 것을 지킨다.
+        ...(p.print as Partial<Settings>),
+        paper: { ...s.paper, ...((p.print as { paper?: PaperState }).paper ?? {}) },
+      };
+    }),
 
   select: (selectedIds) => set({ selectedIds }),
 

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { activeTemplate, useStore } from './store';
+import { insertFromPreset } from './core/template';
+import { DEFAULT_DOT_GRID } from './core/grid';
 
 const s = () => useStore.getState();
 const initial = useStore.getState();
@@ -148,5 +150,66 @@ describe('양식', () => {
     s().addTemplate();
     // 다른 양식의 id가 선택 목록에 남아 있으면 지우기·스타일이 엉뚱하게 동작한다.
     expect(s().selectedIds).toEqual([]);
+  });
+});
+
+describe('저장 파일 불러오기', () => {
+  it('양식이 통째로 갈아끼워진다', () => {
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    s().addTemplate();
+    expect(s().templates).toHaveLength(2);
+
+    s().loadProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        {
+          id: 'x1',
+          name: '불러온것',
+          insert: insertFromPreset('A5'),
+          dotGrid: { ...DEFAULT_DOT_GRID, spacing: 7 },
+          objects: [],
+        },
+      ],
+      print: {},
+      fonts: [],
+    });
+
+    expect(s().templates).toHaveLength(1);
+    expect(activeTemplate(s()).name).toBe('불러온것');
+    expect(activeTemplate(s()).insert.width).toBe(148);
+    expect(activeTemplate(s()).dotGrid.spacing).toBe(7);
+    // 이전 양식의 id가 선택 목록에 남으면 지우기가 엉뚱하게 동작한다.
+    expect(s().selectedIds).toEqual([]);
+  });
+
+  it('용지 설정도 함께 돌아온다', () => {
+    s().patchPaper({ landscape: true });
+    s().loadProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        { id: 'x1', name: '가', insert: insertFromPreset('M6'), dotGrid: DEFAULT_DOT_GRID, objects: [] },
+      ],
+      print: { paper: { presetId: 'A4', width: 210, height: 297, landscape: false, printMargin: 0 }, gap: 3 },
+      fonts: [],
+    });
+
+    expect(s().paper.landscape).toBe(false);
+    expect(s().gap).toBe(3);
+  });
+
+  it('글꼴은 이름만 돌아오고 파일은 없다', () => {
+    s().loadProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        { id: 'x1', name: '가', insert: insertFromPreset('M6'), dotGrid: DEFAULT_DOT_GRID, objects: [] },
+      ],
+      print: {},
+      fonts: [{ id: 'f3', name: '내글꼴' }],
+    });
+
+    expect(s().userFonts).toEqual([{ id: 'f3', name: '내글꼴', family: 'user-font-f3' }]);
   });
 });

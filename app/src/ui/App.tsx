@@ -4,6 +4,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { PaperPreview } from './PaperPreview';
 import { EditorTab } from './EditorTab';
 import { GalleryTab } from './GalleryTab';
+import { ProjectFile } from './ProjectFile';
 import { buildPdf, downloadPdf } from '../pdf/export';
 import { loadBodyFont, loadBoldFont } from '../fonts/load';
 import { fontBytes as fontBytes_ } from '../fonts/registry';
@@ -85,6 +86,7 @@ export function App() {
           {/* 지금 무엇을 고치고 있는지. 양식이 여럿이 되면서 필요해졌다. */}
           {active.name} · {active.insert.width} × {active.insert.height}mm
         </span>
+        <ProjectFile />
         <button onClick={exportPdf} disabled={busy || layout.count === 0}>
           {busy ? '만드는 중…' : 'PDF 내보내기'}
         </button>

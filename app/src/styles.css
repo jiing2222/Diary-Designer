@@ -399,7 +399,14 @@ button.ghost:disabled {
   stroke-dasharray: 1.2 1;
 }
 
-.insert-sheet .sheet-bg {
+/*
+ * 속지 바탕.
+ *
+ * 부모를 따지지 않는다. 한동안 `.insert-sheet .sheet-bg`로 두었더니 갤러리
+ * 썸네일에서는 규칙이 안 걸려 **SVG 기본 채움색인 검정**이 그대로 나왔다.
+ * 속지 바탕은 어디서 그리든 흰색이다.
+ */
+.sheet-bg {
   fill: #fff;
 }
 
@@ -975,4 +982,138 @@ footer b {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
+}
+
+/* ─────────────────────────── 가운데 창 ─────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(28 28 26 / 34%);
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 420px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+  padding: 18px 20px 16px;
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 26%);
+}
+
+.modal h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.modal-note {
+  margin: -4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.modal-field input {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+/* 규격 고르기. 드롭다운보다 낫다 — 크기가 한눈에 비교된다. */
+.preset-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.preset {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 500;
+  text-align: left;
+}
+
+.preset b {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.preset span {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.preset.on {
+  border-color: var(--accent);
+  background: #eef3ef;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.preset.on span {
+  color: var(--accent);
+}
+
+/* 저장·불러오기 결과 알림. 맨 위 오른쪽에 잠깐 뜬다. */
+.notice {
+  position: fixed;
+  top: 54px;
+  right: 16px;
+  z-index: 60;
+  max-width: 380px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 16%);
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.notice-ok {
+  border-color: var(--accent);
+}
+
+.notice-warn {
+  border-color: #c08a3c;
+}
+
+.notice-error {
+  border-color: #c0503c;
+  color: #a8452f;
+}
+
+.notice-close {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
 }

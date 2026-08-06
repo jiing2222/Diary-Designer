@@ -1,7 +1,13 @@
-import { useState } from 'react';
-import { groupBySize, outsideCount, sizeLabel, type Template } from '../core/template';
-import { INSERT_PRESETS, useStore } from '../store';
-import { insertFromPreset } from '../core/template';
+import { useEffect, useState } from 'react';
+import {
+  groupBySize,
+  insertFromPreset,
+  outsideCount,
+  sizeLabel,
+  type InsertSetting,
+  type Template,
+} from '../core/template';
+import { activeTemplate, INSERT_PRESETS, useStore } from '../store';
 import { InsertView } from './InsertView';
 
 /**
@@ -19,19 +25,35 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
   const templates = useStore((s) => s.templates);
   const activeId = useStore((s) => s.activeId);
   const addTemplate = useStore((s) => s.addTemplate);
+  const [creating, setCreating] = useState(false);
 
   const groups = groupBySize(templates);
 
   return (
     <div className="gallery">
       <div className="gallery-bar">
-        <button className="primary" onClick={() => addTemplate()}>
+        {/*
+          맨 위 버튼은 규격을 고르고 만든다. 크기 그룹의 `+`와 다른 점이다 —
+          그쪽은 "이 크기로 하나 더"라는 뜻이라 바로 만드는 것이 맞다.
+        */}
+        <button className="primary" onClick={() => setCreating(true)}>
           + 새 양식
         </button>
         <span className="gallery-hint">
           양식 {templates.length}개 · 클릭하면 그 양식으로 넘어갑니다
         </span>
       </div>
+
+      {creating && (
+        <NewTemplateDialog
+          onClose={() => setCreating(false)}
+          onCreate={(insert, name) => {
+            addTemplate(insert, name);
+            setCreating(false);
+            onEdit();
+          }}
+        />
+      )}
 
       <div className="gallery-body">
         {groups.map((g) => (
@@ -55,6 +77,148 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
             </div>
           </section>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 새 양식 — 규격을 고르고 만든다.
+ *
+ * **처음부터 하나가 골라져 있다.** 지금 보던 양식의 규격이다. 대부분 한 규격으로
+ * 계속 작업하므로, 그대로 `만들기`를 누르면 예전과 같은 결과가 된다. 규격을
+ * 바꾸고 싶을 때만 손이 더 간다.
+ *
+ * 이름도 미리 채워둔다. 비워두면 자동 이름이 붙으므로 그냥 Enter를 쳐도 된다.
+ */
+function NewTemplateDialog({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (insert: InsertSetting, name: string) => void;
+}) {
+  const current = useStore((s) => activeTemplate(s).insert);
+  const [presetId, setPresetId] = useState(current.presetId);
+  const [width, setWidth] = useState(current.width);
+  const [height, setHeight] = useState(current.height);
+  const [name, setName] = useState('');
+
+  function pickPreset(id: string) {
+    setPresetId(id);
+    if (id === 'custom') return;
+    const next = insertFromPreset(id, current);
+    setWidth(next.width);
+    setHeight(next.height);
+  }
+
+  function create() {
+    if (width <= 0 || height <= 0) return;
+    onCreate(
+      presetId === 'custom'
+        ? { presetId, width, height, punch: { ...current.punch } }
+        : { ...insertFromPreset(presetId, current), width, height },
+      name,
+    );
+  }
+
+  return (
+    <Modal title="새 양식" onClose={onClose}>
+      <p className="modal-note">어떤 규격의 속지를 만들까요?</p>
+
+      <div className="preset-list">
+        {INSERT_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            className={`preset ${presetId === p.id ? 'on' : ''}`}
+            onClick={() => pickPreset(p.id)}
+          >
+            <b>{p.name}</b>
+            <span>
+              {p.width} × {p.height}mm
+            </span>
+          </button>
+        ))}
+        <button
+          className={`preset ${presetId === 'custom' ? 'on' : ''}`}
+          onClick={() => pickPreset('custom')}
+        >
+          <b>사용자 지정</b>
+          <span>직접 입력</span>
+        </button>
+      </div>
+
+      {presetId === 'custom' && (
+        <div className="card-dialog-size">
+          <input
+            type="number"
+            value={width}
+            min={10}
+            step={1}
+            onChange={(e) => setWidth(Number(e.target.value))}
+          />
+          <span>×</span>
+          <input
+            type="number"
+            value={height}
+            min={10}
+            step={1}
+            onChange={(e) => setHeight(Number(e.target.value))}
+          />
+          <span>mm</span>
+        </div>
+      )}
+
+      <label className="modal-field">
+        이름
+        <input
+          value={name}
+          placeholder="비워두면 자동으로 붙습니다"
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && create()}
+        />
+      </label>
+
+      <div className="card-dialog-actions">
+        <button className="ghost" onClick={onClose}>
+          취소
+        </button>
+        <button className="primary" onClick={create}>
+          만들기
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * 화면 한가운데 띄우는 창.
+ *
+ * 바깥을 누르거나 Esc로 닫힌다. 창 안쪽 클릭이 바깥으로 새어나가 저절로 닫히는
+ * 일이 없도록 배경에서만 닫기를 받는다.
+ */
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onPointerDown={onClose}>
+      <div className="modal" onPointerDown={(e) => e.stopPropagation()}>
+        <h2>{title}</h2>
+        {children}
       </div>
     </div>
   );
