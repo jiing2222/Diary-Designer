@@ -123,6 +123,15 @@ export interface Lattice {
   /** 격자 바깥에 남는 여백. 입력값이 아니라 간격에서 계산된 결과다. */
   marginX: Mm;
   marginY: Mm;
+  /**
+   * **온전한** 칸 수.
+   *
+   * `xs.length - 1`로 세면 안 된다. 끝까지 채울 때 가장자리에 붙는 잘린 띠도
+   * 격자점 사이이긴 하지만 칸이 아니다 — 간격보다 좁아서 거기에 무언가를
+   * 앉힐 수 없다. 화면에 `14 × 23칸`이라고 적는 것은 이 값이다.
+   */
+  cols: number;
+  rows: number;
 }
 
 /**
@@ -139,21 +148,45 @@ export interface Lattice {
  * 영역 한가운데에 놓이고, 실제 여백은 `최소여백 ≤ 여백 < 최소여백 + 간격/2`다.
  * 기본값 3mm에 간격 3~7mm면 여백이 3~5mm에 들어온다.
  */
-function axis(start: Mm, size: Mm, spacing: Mm, minMargin: Mm): { positions: Mm[]; margin: Mm } {
-  if (spacing <= 0) return { positions: [], margin: size / 2 };
+function axis(
+  start: Mm,
+  size: Mm,
+  spacing: Mm,
+  minMargin: Mm,
+  toEdge: boolean,
+): { positions: Mm[]; margin: Mm; cells: number } {
+  if (spacing <= 0) return { positions: [], margin: size / 2, cells: 0 };
 
   // 음수 여백은 격자를 영역 밖으로 밀어낸다. 0이 하한이다.
   const cells = Math.floor((size - Math.max(0, minMargin) * 2) / spacing);
 
   // 칸이 하나도 안 나오면 격자가 아니다. 여기서 걸러내지 않으면 간격을 속지보다
   // 넓게 넣었을 때 한가운데에 점 한 줄만 찍히고 여백이 수십 mm로 벌어진다.
-  if (cells < 1) return { positions: [], margin: size / 2 };
+  if (cells < 1) return { positions: [], margin: size / 2, cells: 0 };
 
   const margin = (size - cells * spacing) / 2;
 
   // 칸이 n개면 격자점은 n + 1개다.
   const positions = Array.from({ length: cells + 1 }, (_, i) => start + margin + i * spacing);
-  return { positions, margin };
+
+  /*
+   * 끝까지 채울 때는 **영역 가장자리도 붙을 자리로 넣는다.**
+   *
+   * 격자선은 이미 영역 끝까지 그어지는데(gridShapes) 붙을 자리가 안쪽에서
+   * 끝나면, 테두리를 그으려 해도 양끝이 여백만큼 못 미친다. 끝까지 채우겠다는
+   * 뜻은 거기에 그릴 수 있다는 뜻이다.
+   *
+   * 나누어떨어지면 이미 가장자리에 점이 있으므로 아무것도 늘지 않는다.
+   * 늘어난 자리는 **칸으로 세지 않는다** — 간격보다 좁아 무언가를 앉힐 수 없다.
+   */
+  if (toEdge) {
+    if (margin > 0) {
+      positions.unshift(start);
+      positions.push(start + size);
+    }
+  }
+
+  return { positions, margin, cells };
 }
 
 /**
@@ -172,9 +205,31 @@ export function gridLattice(
   // 그 자리가 네 모서리의 잘린 칸이 된다. 선을 영역 끝까지 긋는 일은
   // gridShapes가 맡는다 — 여기서는 좌표만 정한다.
   const margin = toEdge ? 0 : minMargin;
-  const x = axis(area.x, area.width, spacing, margin);
-  const y = axis(area.y, area.height, spacing, margin);
-  return { xs: x.positions, ys: y.positions, marginX: x.margin, marginY: y.margin };
+  const x = axis(area.x, area.width, spacing, margin, toEdge);
+  const y = axis(area.y, area.height, spacing, margin, toEdge);
+  return {
+    xs: x.positions,
+    ys: y.positions,
+    marginX: x.margin,
+    marginY: y.margin,
+    cols: x.cells,
+    rows: y.cells,
+  };
+}
+
+/**
+ * 칸을 몇 개 넣으려면 간격이 얼마여야 하는가.
+ *
+ * 간격을 직접 정하는 대신 `가로 10칸`처럼 세어서 만들고 싶을 때 쓴다.
+ * 딱 나누어떨어지는 값을 돌려주므로 잘리는 칸이 생기지 않는다.
+ *
+ * **간격은 가로·세로가 하나뿐이다.** 그래서 한 축의 칸 수를 정하면 다른 축의
+ * 칸 수는 거기서 따라 나온다. 둘 다 마음대로 정할 수는 없다 — 칸이 정사각형이
+ * 아니게 되고, 그러면 도트 격자라고 부를 수 없다.
+ */
+export function spacingForCells(size: Mm, cells: number, minMargin: Mm): Mm {
+  if (cells < 1) return 0;
+  return Math.max(0, size - Math.max(0, minMargin) * 2) / cells;
 }
 
 export interface Dot {

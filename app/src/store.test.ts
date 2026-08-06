@@ -6,6 +6,13 @@ import { DEFAULT_DOT_GRID } from './core/grid';
 const s = () => useStore.getState();
 const initial = useStore.getState();
 
+/** 지금 양식. 없으면 시험이 잘못 짜인 것이므로 여기서 터지는 편이 낫다. */
+const at = () => {
+  const t = activeTemplate(s());
+  if (!t) throw new Error('양식이 없습니다');
+  return t;
+};
+
 beforeEach(() => useStore.setState(initial, true));
 
 describe('설정 저장소', () => {
@@ -36,10 +43,11 @@ describe('설정 저장소', () => {
   });
 
   it('속지도 같은 규칙을 따른다', () => {
-    expect(activeTemplate(s()).insert.presetId).toBe('M6');
+    s().addTemplate(insertFromPreset('M6'));
+    expect(at().insert.presetId).toBe('M6');
 
     s().patchInsert({ height: 127 }); // 브랜드마다 M6 세로가 다르다
-    expect(activeTemplate(s()).insert.presetId).toBe('custom');
+    expect(at().insert.presetId).toBe('custom');
   });
 
   it('인쇄 불가 영역은 배치에 관여하지 않는다', () => {
@@ -52,38 +60,57 @@ describe('설정 저장소', () => {
 describe('양식', () => {
   const names = () => s().templates.map((t) => t.name);
 
-  it('처음엔 하나뿐이고 그것이 열려 있다', () => {
-    expect(s().templates).toHaveLength(1);
-    expect(activeTemplate(s()).id).toBe(s().activeId);
+  it('처음에는 하나도 없다', () => {
+    // 미리 하나 만들어두면 원하지 않는 규격으로 시작하게 된다.
+    expect(s().templates).toEqual([]);
+    expect(activeTemplate(s())).toBeNull();
+  });
+
+  it('없을 때 그리기를 해도 터지지 않는다', () => {
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    s().undo();
+    s().deleteSelected();
+    expect(s().templates).toEqual([]);
+  });
+
+  it('규격에서 이름이 나온다', () => {
+    // 목록에서 어느 속지용인지 이름만 보고 알아야 한다.
+    s().addTemplate(insertFromPreset('M6'));
+    s().addTemplate(insertFromPreset('M6'));
+    s().addTemplate(insertFromPreset('M5'));
+    expect(names()).toEqual(['M6-1', 'M6-2', 'M5-1']);
   });
 
   it('새로 만들면 지금 규격을 물려받고 바로 열린다', () => {
+    s().addTemplate(insertFromPreset('M6'));
     s().patchInsert({ width: 75 });
     s().addTemplate();
 
     expect(s().templates).toHaveLength(2);
-    expect(activeTemplate(s()).insert.width).toBe(75);
-    expect(activeTemplate(s()).id).toBe(s().templates[1].id);
+    expect(at().insert.width).toBe(75);
+    expect(at().id).toBe(s().templates[1].id);
   });
 
   it('그린 것이 양식마다 따로 남는다', () => {
     // 이 구조 변경의 핵심이다. 양식을 오가도 각자의 작업이 지켜져야 한다.
+    s().addTemplate();
     s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
     const first = s().activeId;
 
     s().addTemplate();
-    expect(activeTemplate(s()).objects.present).toHaveLength(0);
+    expect(at().objects.present).toHaveLength(0);
 
     s().drawLines([{ x1: 20, y1: 20, x2: 60, y2: 20 }]);
-    expect(activeTemplate(s()).objects.present).toHaveLength(1);
+    expect(at().objects.present).toHaveLength(1);
 
     s().selectTemplate(first);
-    expect(activeTemplate(s()).objects.present).toHaveLength(1);
-    expect(activeTemplate(s()).objects.present[0]).toMatchObject({ y1: 10 });
+    expect(at().objects.present).toHaveLength(1);
+    expect(at().objects.present[0]).toMatchObject({ y1: 10 });
   });
 
   it('실행취소도 양식마다 따로다', () => {
     // 양식을 바꿨다가 ⌘Z를 눌렀는데 다른 양식의 작업이 사라지면 무섭다.
+    s().addTemplate();
     s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
     const first = s().activeId;
 
@@ -91,21 +118,23 @@ describe('양식', () => {
     s().undo(); // 새 양식에는 되돌릴 것이 없다
 
     s().selectTemplate(first);
-    expect(activeTemplate(s()).objects.present).toHaveLength(1);
+    expect(at().objects.present).toHaveLength(1);
   });
 
   it('격자도 양식마다 따로다', () => {
+    s().addTemplate();
     s().patchDotGrid({ spacing: 2 });
     const first = s().activeId;
 
     s().addTemplate();
-    expect(activeTemplate(s()).dotGrid.spacing).toBe(5);
+    expect(at().dotGrid.spacing).toBe(5);
 
     s().selectTemplate(first);
-    expect(activeTemplate(s()).dotGrid.spacing).toBe(2);
+    expect(at().dotGrid.spacing).toBe(2);
   });
 
   it('복제하면 원본 바로 뒤에 들어간다', () => {
+    s().addTemplate();
     s().addTemplate();
     s().renameTemplate(s().templates[0].id, '가');
     s().renameTemplate(s().templates[1].id, '나');
@@ -115,6 +144,7 @@ describe('양식', () => {
   });
 
   it('이름이 겹치지 않는다', () => {
+    s().addTemplate();
     const id = s().activeId;
     s().copyTemplate(id);
     s().copyTemplate(id);
@@ -122,17 +152,22 @@ describe('양식', () => {
   });
 
   it('빈 이름으로는 바뀌지 않는다', () => {
-    const before = activeTemplate(s()).name;
+    s().addTemplate();
+    const before = at().name;
     s().renameTemplate(s().activeId, '   ');
-    expect(activeTemplate(s()).name).toBe(before);
+    expect(at().name).toBe(before);
   });
 
-  it('마지막 하나는 지워지지 않는다', () => {
+  it('마지막 하나도 지울 수 있다', () => {
+    // 빈 갤러리는 정상적인 상태다. 처음 열었을 때와 같은 모습이 된다.
+    s().addTemplate();
     s().removeTemplate(s().activeId);
-    expect(s().templates).toHaveLength(1);
+    expect(s().templates).toEqual([]);
+    expect(activeTemplate(s())).toBeNull();
   });
 
   it('열려 있던 것을 지우면 남은 것으로 옮겨간다', () => {
+    s().addTemplate();
     s().addTemplate();
     const open = s().activeId;
     s().removeTemplate(open);
@@ -144,8 +179,9 @@ describe('양식', () => {
   });
 
   it('양식을 바꾸면 고른 것이 풀린다', () => {
+    s().addTemplate();
     s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
-    s().select([activeTemplate(s()).objects.present[0].id]);
+    s().select([at().objects.present[0].id]);
 
     s().addTemplate();
     // 다른 양식의 id가 선택 목록에 남아 있으면 지우기·스타일이 엉뚱하게 동작한다.
@@ -155,6 +191,7 @@ describe('양식', () => {
 
 describe('저장 파일 불러오기', () => {
   it('양식이 통째로 갈아끼워진다', () => {
+    s().addTemplate();
     s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
     s().addTemplate();
     expect(s().templates).toHaveLength(2);
@@ -176,9 +213,9 @@ describe('저장 파일 불러오기', () => {
     });
 
     expect(s().templates).toHaveLength(1);
-    expect(activeTemplate(s()).name).toBe('불러온것');
-    expect(activeTemplate(s()).insert.width).toBe(148);
-    expect(activeTemplate(s()).dotGrid.spacing).toBe(7);
+    expect(at().name).toBe('불러온것');
+    expect(at().insert.width).toBe(148);
+    expect(at().dotGrid.spacing).toBe(7);
     // 이전 양식의 id가 선택 목록에 남으면 지우기가 엉뚱하게 동작한다.
     expect(s().selectedIds).toEqual([]);
   });

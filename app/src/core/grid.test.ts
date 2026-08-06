@@ -6,6 +6,7 @@ import {
   gridArea,
   gridLattice,
   gridShapes,
+  spacingForCells,
   type Area,
 } from './grid';
 
@@ -279,26 +280,45 @@ describe('최소 여백 설정', () => {
 describe('여백 없이 끝까지 채우기', () => {
   it('나누어떨어지면 끝점이 영역 끝과 맞는다', () => {
     // 80 = 5 × 16, 125 = 5 × 25 — 잘린 칸이 없다.
-    const { xs, ys } = gridLattice(m6, 5, 3, true);
+    const { xs, ys, cols, rows } = gridLattice(m6, 5, 3, true);
+    expect(xs[0]).toBe(0);
+    expect(xs[xs.length - 1]).toBe(80);
+    expect(ys[0]).toBe(0);
+    expect(ys[ys.length - 1]).toBe(125);
+    expect(cols).toBe(16);
+    expect(rows).toBe(25);
+  });
+
+  it('온전한 칸은 가운데 정렬을 지킨다', () => {
+    // 80 = 6 × 13 + 2 → 남는 2mm가 1mm씩 나뉜다. 한쪽만 잘리면 격자가 쏠려 보인다.
+    const { xs, cols } = gridLattice(m6, 6, 3, true);
+    expect(cols).toBe(13);
+    // 가장자리를 뺀 안쪽 점들이 온전한 격자다.
+    const inner = xs.slice(1, -1);
+    expect(inner[0]).toBe(1);
+    expect(inner[inner.length - 1]).toBe(79);
+    expect(inner[0]).toBeCloseTo(80 - inner[inner.length - 1], 9);
+  });
+
+  it('영역 가장자리도 붙을 자리로 넣는다', () => {
+    // 격자선은 영역 끝까지 그어지는데 붙을 자리가 안쪽에서 끝나면,
+    // 테두리를 그으려 해도 양끝이 여백만큼 못 미친다.
+    const { xs, ys } = gridLattice(m6, 6, 3, true);
     expect(xs[0]).toBe(0);
     expect(xs[xs.length - 1]).toBe(80);
     expect(ys[0]).toBe(0);
     expect(ys[ys.length - 1]).toBe(125);
   });
 
-  it('남는 만큼이 양끝에 반씩 붙어 네 군데가 잘린다', () => {
-    // 80 = 6 × 13 + 2 → 남는 2mm가 1mm씩 나뉜다. 한쪽만 잘리면 격자가 쏠려 보인다.
-    const { xs } = gridLattice(m6, 6, 3, true);
-    expect(xs[0]).toBe(1);
-    expect(xs[xs.length - 1]).toBe(79);
-    expect(xs[0]).toBeCloseTo(80 - xs[xs.length - 1], 9);
+  it('가장자리 띠는 칸으로 세지 않는다', () => {
+    // 간격보다 좁아서 거기에 무언가를 앉힐 수 없다. 격자점 사이이긴 해도 칸이 아니다.
+    const { xs, cols } = gridLattice(m6, 6, 3, true);
+    expect(xs.length - 1).toBe(cols + 2);
   });
 
-  it('위아래도 마찬가지로 잘린다', () => {
-    // 125 = 6 × 20 + 5 → 위아래 2.5mm씩
-    const { ys } = gridLattice(m6, 6, 3, true);
-    expect(ys[0]).toBe(2.5);
-    expect(ys[0]).toBeCloseTo(125 - ys[ys.length - 1], 9);
+  it('끄면 가장자리를 넣지 않는다', () => {
+    const { xs } = gridLattice(m6, 6, 3, false);
+    expect(xs[0]).not.toBe(0);
   });
 
   it('최소 여백은 무시된다', () => {
@@ -306,17 +326,16 @@ describe('여백 없이 끝까지 채우기', () => {
     expect(gridLattice(m6, 5, 0, true)).toEqual(gridLattice(m6, 5, 15, true));
   });
 
-  it('최소 여백 0과 같은 계산이다', () => {
-    // 특수 분기가 아니라 하한만 0으로 두는 것이다. 켜고 끄는 것이 곧 하한 조절이다.
+  it('온전한 칸 수는 최소 여백 0과 같다', () => {
     for (const spacing of [5, 6, 7.5]) {
-      expect(gridLattice(m6, spacing, 3, true)).toEqual(gridLattice(m6, spacing, 0));
+      expect(gridLattice(m6, spacing, 3, true).cols).toBe(gridLattice(m6, spacing, 0).cols);
     }
   });
 
-  it('간격이 그대로 지켜진다', () => {
-    const { xs } = gridLattice(m6, 6, 3, true);
-    for (let i = 1; i < xs.length; i++) {
-      expect(xs[i] - xs[i - 1]).toBeCloseTo(6, 9);
+  it('안쪽 격자는 간격이 그대로 지켜진다', () => {
+    const inner = gridLattice(m6, 6, 3, true).xs.slice(1, -1);
+    for (let i = 1; i < inner.length; i++) {
+      expect(inner[i] - inner[i - 1]).toBeCloseTo(6, 9);
     }
   });
 
@@ -333,5 +352,29 @@ describe('여백 없이 끝까지 채우기', () => {
     );
     const { xs } = gridLattice(area, 5, 0, true);
     expect(xs[0]).toBeGreaterThanOrEqual(10);
+  });
+});
+
+
+describe('칸 수로 간격 정하기', () => {
+  it('딱 나누어떨어지는 간격이 나온다', () => {
+    // 여백 없이 80mm에 10칸이면 8mm.
+    expect(spacingForCells(80, 10, 0)).toBe(8);
+  });
+
+  it('여백을 뺀 만큼을 나눈다', () => {
+    expect(spacingForCells(80, 10, 5)).toBe(7);
+  });
+
+  it('그 간격으로 실제로 그 칸 수가 나온다', () => {
+    // 계산해놓고 막상 만들면 한 칸 모자라는 일이 없어야 한다.
+    for (const n of [3, 7, 10, 24]) {
+      const spacing = spacingForCells(80, n, 0);
+      expect(gridLattice(m6, spacing, 0, true).cols).toBe(n);
+    }
+  });
+
+  it('0칸은 만들 수 없다', () => {
+    expect(spacingForCells(80, 0, 0)).toBe(0);
   });
 });

@@ -120,8 +120,9 @@ export function EditorTab() {
     : { x0: lattice.xs[0], y0: lattice.ys[0], spacing: grid.spacing };
 
   // 격자점 사이 칸 개수. 도트든 그리드든 줄이든 모양과 무관하게 같은 격자에서 나온다.
-  const cellCols = Math.max(0, lattice.xs.length - 1);
-  const cellRows = Math.max(0, lattice.ys.length - 1);
+  // core가 세어준다. 끝까지 채울 때 가장자리에 붙는 잘린 띠는 칸이 아니다.
+  const cellCols = lattice.cols;
+  const cellRows = lattice.rows;
 
   // 새로 쓸 글자에 붙일 스타일. 줄 간격을 따로 정해두지 않았으면 지금 도트 간격이 새겨진다.
   const draftStyle = newTextStyle(textDraftStyle, grid.spacing);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  defaultName,
   duplicateTemplate,
   groupBySize,
   insertFromPreset,
@@ -163,5 +164,39 @@ describe('이름', () => {
     const list = [newTemplate('양식 1'), newTemplate('양식 1 2')];
     expect(uniqueName(list, '양식 1')).toBe('양식 1 3');
     expect(uniqueName(list, '메모')).toBe('메모');
+  });
+});
+
+describe('규격에서 나오는 이름', () => {
+  it('프리셋 이름 뒤에 번호를 붙인다', () => {
+    // 목록에서 어느 속지용인지 이름만 보고 알아야 한다.
+    const a = newTemplate('M6-1', insertFromPreset('M6'));
+    expect(defaultName([], insertFromPreset('M6'))).toBe('M6-1');
+    expect(defaultName([a], insertFromPreset('M6'))).toBe('M6-2');
+  });
+
+  it('규격마다 따로 센다', () => {
+    const list = [
+      newTemplate('M6-1', insertFromPreset('M6')),
+      newTemplate('M6-2', insertFromPreset('M6')),
+    ];
+    expect(defaultName(list, insertFromPreset('M5'))).toBe('M5-1');
+  });
+
+  it('중간을 지워도 번호가 겹치지 않는다', () => {
+    // M6-1을 지우고 다시 만들면 M6-3이다. 이미 있는 M6-2와 부딪히지 않는다.
+    const list = [newTemplate('M6-2', insertFromPreset('M6'))];
+    expect(defaultName(list, insertFromPreset('M6'))).toBe('M6-3');
+  });
+
+  it('크기를 손으로 고쳤으면 치수를 쓴다', () => {
+    // presetId가 남아 있어도 치수가 다르면 그 이름은 거짓이다.
+    const tweaked = { ...insertFromPreset('M6'), height: 127 };
+    expect(defaultName([], tweaked)).toBe('80x127-1');
+  });
+
+  it('손으로 붙인 이름은 세는 데 끼어들지 않는다', () => {
+    const list = [newTemplate('위클리', insertFromPreset('M6'))];
+    expect(defaultName(list, insertFromPreset('M6'))).toBe('M6-1');
   });
 });

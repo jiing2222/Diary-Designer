@@ -160,7 +160,7 @@ export function sizeLabel(insert: { presetId: string; width: Mm; height: Mm }): 
 /**
  * 겹치지 않는 새 이름.
  *
- * `양식 1`이 있으면 `양식 2`가 된다. 복제할 때는 `위클리1 사본`처럼 바탕을 준다.
+ * 복제할 때는 `위클리1 사본`처럼 바탕을 준다. 이미 있으면 뒤에 번호를 붙인다.
  */
 export function uniqueName(templates: Template[], base: string): string {
   const taken = new Set(templates.map((t) => t.name));
@@ -169,4 +169,27 @@ export function uniqueName(templates: Template[], base: string): string {
     const candidate = `${base} ${n}`;
     if (!taken.has(candidate)) return candidate;
   }
+}
+
+/**
+ * 규격에서 뽑은 기본 이름. `M6-1`, `M5-2`처럼 붙는다.
+ *
+ * **규격마다 따로 센다.** 양식이 늘어나면 이름만 보고도 어느 속지용인지 알아야
+ * 한다. `양식 1`·`양식 2`로는 목록에서 M6와 A5를 구분할 수 없다.
+ *
+ * 크기를 손으로 고쳤으면 프리셋 이름 대신 치수를 쓴다(`80x127-1`) — presetId가
+ * 남아 있어도 치수가 다르면 그 이름은 거짓이다.
+ */
+export function defaultName(templates: Template[], insert: InsertSetting): string {
+  const preset = findInsertPreset(insert.presetId);
+  const prefix =
+    preset && sameSize(preset, insert) ? preset.id : `${insert.width}x${insert.height}`;
+
+  // 같은 앞자리를 쓰는 것 중 가장 큰 번호 다음. 중간을 지워도 번호가 겹치지 않는다.
+  let max = 0;
+  for (const t of templates) {
+    const m = t.name.match(/^(.+)-(\d+)$/);
+    if (m && m[1] === prefix) max = Math.max(max, Number(m[2]));
+  }
+  return `${prefix}-${max + 1}`;
 }

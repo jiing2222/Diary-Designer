@@ -14,7 +14,8 @@ type Tab = 'gallery' | 'edit' | 'print';
 export function App() {
   const s = useStore();
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<Tab>('edit');
+  // 처음 열면 양식이 하나도 없다. 갤러리에서 시작해 첫 양식을 만들게 한다.
+  const [tab, setTab] = useState<Tab>('gallery');
   /**
    * 인쇄하기 탭 전용. 켜면 지금 켜둔 도트·타공 화면 설정과 무관하게 **실제로
    * 인쇄될 모습만** 보여준다. 원래 설정은 그대로 두고 보는 방식만 잠깐 바꾸는
@@ -29,6 +30,7 @@ export function App() {
   const active = activeTemplate(s);
 
   async function exportPdf() {
+    if (!active) return;
     setBusy(true);
     try {
       // 글자가 있을 때만 글꼴을 받는다. 하나에 2.7MB짜리라 괜히 받을 이유가 없다.
@@ -74,29 +76,38 @@ export function App() {
           <button className={tab === 'gallery' ? 'tab on' : 'tab'} onClick={() => setTab('gallery')}>
             양식 관리
           </button>
-          <button className={tab === 'edit' ? 'tab on' : 'tab'} onClick={() => setTab('edit')}>
+          {/* 고칠 양식이 없으면 갈 수 없는 곳이다. */}
+          <button
+            className={tab === 'edit' ? 'tab on' : 'tab'}
+            onClick={() => setTab('edit')}
+            disabled={!active}
+          >
             양식 만들기
           </button>
-          <button className={tab === 'print' ? 'tab on' : 'tab'} onClick={() => setTab('print')}>
+          <button
+            className={tab === 'print' ? 'tab on' : 'tab'}
+            onClick={() => setTab('print')}
+            disabled={!active}
+          >
             인쇄하기
           </button>
         </nav>
 
         <span className="stage">
           {/* 지금 무엇을 고치고 있는지. 양식이 여럿이 되면서 필요해졌다. */}
-          {active.name} · {active.insert.width} × {active.insert.height}mm
+          {active ? `${active.name} · ${active.insert.width} × ${active.insert.height}mm` : ''}
         </span>
         <ProjectFile />
-        <button onClick={exportPdf} disabled={busy || layout.count === 0}>
+        <button onClick={exportPdf} disabled={busy || !active || layout.count === 0}>
           {busy ? '만드는 중…' : 'PDF 내보내기'}
         </button>
       </header>
 
       <main>
         {/* 갤러리는 양식 하나를 고치는 화면이 아니라서 설정 패널이 필요 없다. */}
-        {tab !== 'gallery' && <SettingsPanel />}
+        {tab !== 'gallery' && active && <SettingsPanel />}
 
-        {tab === 'gallery' ? (
+        {tab === 'gallery' || !active ? (
           <GalleryTab onEdit={() => setTab('edit')} />
         ) : tab === 'edit' ? (
           <EditorTab />
@@ -144,13 +155,17 @@ export function App() {
         <span>
           용지 {width} × {height}mm
         </span>
-        <span>
-          속지 {active.insert.width} × {active.insert.height}mm
-        </span>
-        <span>
-          한 장에 <b>{layout.count}개</b> ({layout.cols} × {layout.rows})
-          {layout.rotated && ' · 90도 회전'}
-        </span>
+        {active && (
+          <>
+            <span>
+              속지 {active.insert.width} × {active.insert.height}mm
+            </span>
+            <span>
+              한 장에 <b>{layout.count}개</b> ({layout.cols} × {layout.rows})
+              {layout.rotated && ' · 90도 회전'}
+            </span>
+          </>
+        )}
 
         {/*
           인쇄 안내. 인쇄하기 탭에서만 띄운다 — 양식 만들기 중에는 상관없는 이야기다.

@@ -7,7 +7,16 @@ import {
   type InsertSetting,
   type Template,
 } from '../core/template';
-import { activeTemplate, INSERT_PRESETS, useStore } from '../store';
+import { INSERT_PRESETS, PAPER_PRESETS, useInsert, useStore } from '../store';
+import {
+  DEFAULT_DOT_GRID,
+  gridArea,
+  gridLattice,
+  spacingForCells,
+  type DotGrid,
+  type GridStyle,
+} from '../core/grid';
+import { roundMm } from '../core/units';
 import { InsertView } from './InsertView';
 
 /**
@@ -47,8 +56,8 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
       {creating && (
         <NewTemplateDialog
           onClose={() => setCreating(false)}
-          onCreate={(insert, name) => {
-            addTemplate(insert, name);
+          onCreate={(insert, name, grid) => {
+            addTemplate(insert, name, grid);
             setCreating(false);
             onEdit();
           }}
@@ -56,6 +65,15 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
       )}
 
       <div className="gallery-body">
+        {templates.length === 0 && (
+          <div className="gallery-empty">
+            <p>아직 만든 양식이 없습니다.</p>
+            <p className="muted">
+              <b>+ 새 양식</b>을 눌러 속지 규격과 격자를 고르는 것부터 시작합니다.
+            </p>
+          </div>
+        )}
+
         {groups.map((g) => (
           <section key={`${g.width}x${g.height}`} className="gallery-group">
             <h2>
@@ -96,13 +114,42 @@ function NewTemplateDialog({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (insert: InsertSetting, name: string) => void;
+  onCreate: (insert: InsertSetting, name: string, grid: DotGrid) => void;
 }) {
-  const current = useStore((s) => activeTemplate(s).insert);
+  // 양식이 없으면(처음 열었을 때) 기본 규격에서 시작한다.
+  const current = useInsert();
+  const paper = useStore((s) => s.paper);
+  const setPaperPreset = useStore((s) => s.setPaperPreset);
+
   const [presetId, setPresetId] = useState(current.presetId);
   const [width, setWidth] = useState(current.width);
   const [height, setHeight] = useState(current.height);
   const [name, setName] = useState('');
+  const [grid, setGrid] = useState<DotGrid>({ ...DEFAULT_DOT_GRID });
+  /**
+   * 간격을 직접 칠지, 칸 수로 셀지.
+   *
+   * **간격은 가로·세로가 하나뿐이다.** 그래서 한 축의 칸 수를 정하면 다른 축은
+   * 거기서 따라 나온다. 둘 다 마음대로 정하면 칸이 정사각형이 아니게 되고,
+   * 그러면 도트 격자라고 부를 수 없다.
+   */
+  const [byCells, setByCells] = useState(false);
+  const [cellAxis, setCellAxis] = useState<'x' | 'y'>('x');
+  const [cells, setCells] = useState(10);
+
+  const insert: InsertSetting =
+    presetId === 'custom'
+      ? { presetId, width, height, punch: { ...current.punch } }
+      : { ...insertFromPreset(presetId, current), width, height };
+
+  // 칸 수로 만들면 여기서 간격이 나온다. 딱 나누어떨어져 잘리는 칸이 없다.
+  const spacing = byCells
+    ? spacingForCells(cellAxis === 'x' ? width : height, cells, grid.toEdge ? 0 : grid.minMargin)
+    : grid.spacing;
+
+  // 지금 값으로 만들면 실제로 몇 칸이 되는지. 다른 축은 여기서 따라 나온다.
+  const area = gridArea(insert, grid, insert.punch.safeZoneWidth);
+  const preview = gridLattice(area, spacing, grid.minMargin, grid.toEdge);
 
   function pickPreset(id: string) {
     setPresetId(id);
@@ -113,13 +160,8 @@ function NewTemplateDialog({
   }
 
   function create() {
-    if (width <= 0 || height <= 0) return;
-    onCreate(
-      presetId === 'custom'
-        ? { presetId, width, height, punch: { ...current.punch } }
-        : { ...insertFromPreset(presetId, current), width, height },
-      name,
-    );
+    if (width <= 0 || height <= 0 || spacing <= 0) return;
+    onCreate(insert, name, { ...grid, spacing });
   }
 
   return (
@@ -169,6 +211,101 @@ function NewTemplateDialog({
         </div>
       )}
 
+      <div className="modal-divider" />
+      <p className="modal-note">용지 — 인쇄할 종이입니다. 작업 전체에 적용됩니다.</p>
+      <div className="modal-row">
+        <select value={paper.presetId} onChange={(e) => setPaperPreset(e.target.value)}>
+          {PAPER_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} · {p.width} × {p.height}mm
+            </option>
+          ))}
+          <option value="custom">사용자 지정</option>
+        </select>
+      </div>
+
+      <div className="modal-divider" />
+      <p className="modal-note">도트 격자</p>
+
+      <div className="modal-row">
+        <select
+          value={grid.style}
+          onChange={(e) => setGrid({ ...grid, style: e.target.value as GridStyle })}
+        >
+          <option value="dot">도트</option>
+          <option value="grid">그리드</option>
+          <option value="horizontal">가로줄</option>
+          <option value="vertical">세로줄</option>
+        </select>
+
+        <label className="modal-check">
+          <input
+            type="checkbox"
+            checked={grid.toEdge}
+            onChange={(e) => setGrid({ ...grid, toEdge: e.target.checked })}
+          />
+          여백 없이 끝까지
+        </label>
+      </div>
+
+      <div className="modal-row">
+        <label className="modal-check">
+          <input type="radio" checked={!byCells} onChange={() => setByCells(false)} />
+          간격으로
+        </label>
+        <label className="modal-check">
+          <input type="radio" checked={byCells} onChange={() => setByCells(true)} />
+          칸 수로
+        </label>
+      </div>
+
+      {byCells ? (
+        <div className="modal-row">
+          <select value={cellAxis} onChange={(e) => setCellAxis(e.target.value as 'x' | 'y')}>
+            <option value="x">가로</option>
+            <option value="y">세로</option>
+          </select>
+          <input
+            type="number"
+            className="modal-num"
+            value={cells}
+            min={1}
+            step={1}
+            onChange={(e) => setCells(Math.max(1, Math.round(Number(e.target.value))))}
+          />
+          <span className="modal-unit">칸</span>
+        </div>
+      ) : (
+        <div className="modal-row">
+          <input
+            type="number"
+            className="modal-num"
+            value={grid.spacing}
+            min={0.5}
+            step={0.5}
+            onChange={(e) => setGrid({ ...grid, spacing: Number(e.target.value) })}
+          />
+          <span className="modal-unit">mm</span>
+        </div>
+      )}
+
+      {/* 지금 값으로 만들면 어떻게 되는지. 잘린 띠는 칸으로 세지 않는다. */}
+      <p className="modal-result">
+        {preview.cols > 0 && preview.rows > 0 ? (
+          <>
+            <b>
+              {preview.cols} × {preview.rows}칸
+            </b>
+            {' · 간격 '}
+            {roundMm(spacing, 2)}mm
+            {grid.toEdge ? '' : ` · 여백 ${roundMm(preview.marginX, 1)}mm`}
+          </>
+        ) : (
+          <span className="warn">간격이 속지보다 넓어 격자가 들어가지 않습니다.</span>
+        )}
+      </p>
+
+      <div className="modal-divider" />
       <label className="modal-field">
         이름
         <input
@@ -242,7 +379,7 @@ function Card({
   const selectTemplate = useStore((s) => s.selectTemplate);
   const renameTemplate = useStore((s) => s.renameTemplate);
   const removeTemplate = useStore((s) => s.removeTemplate);
-  const canRemove = useStore((s) => s.templates.length > 1);
+
   const [renaming, setRenaming] = useState(false);
   const [copying, setCopying] = useState(false);
 
@@ -305,12 +442,7 @@ function Card({
           <button className="ghost" onClick={() => setCopying(true)} title="복제 — 규격을 바꿔서도 됩니다">
             복제
           </button>
-          <button
-            className="ghost"
-            onClick={() => removeTemplate(t.id)}
-            disabled={!canRemove}
-            title={canRemove ? '삭제' : '마지막 양식은 지울 수 없습니다'}
-          >
+          <button className="ghost" onClick={() => removeTemplate(t.id)} title="삭제">
             삭제
           </button>
         </div>

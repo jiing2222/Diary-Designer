@@ -2,9 +2,11 @@ import { create } from 'zustand';
 import { INSERT_PRESETS, PAPER_PRESETS, findPaperPreset } from './core/presets';
 import type { PunchSetting } from './core/punch';
 import { computeLayout, type Align, type Layout } from './core/layout';
-import type { DotGrid } from './core/grid';
-import { commit, redo, undo } from './core/history';
+import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
+import { commit, initHistory, redo, undo } from './core/history';
 import {
+  defaultInsert,
+  defaultName,
   duplicateTemplate,
   insertFromPreset,
   newTemplate,
@@ -60,11 +62,11 @@ interface Settings {
    * 양식은 용지를 모른다(설계문서 3장). 그래서 용지·배치 설정만 store 루트에
    * 남고, 속지 한 장에 대한 것은 모두 양식으로 들어갔다.
    *
-   * 비지 않는다. 마지막 하나는 지워지지 않는다 — 편집 화면이 항상 무언가를
-   * 보여줘야 하기 때문이다.
+   * **처음에는 비어 있다.** 빈 갤러리에서 시작해 사용자가 첫 양식을 만든다.
+   * 미리 하나를 만들어두면 원하지 않는 규격으로 시작하게 되고, 지우지도 못한다.
    */
   templates: Template[];
-  /** 지금 편집 중인 양식. 이 id가 가리키는 것이 없으면 첫 번째로 돌아간다. */
+  /** 지금 편집 중인 양식. 하나도 없으면 빈 문자열이다. */
   activeId: string;
   /**
    * 고르기 / 그리기.
@@ -113,12 +115,11 @@ interface Store extends Settings {
   patchDotGrid: (p: Partial<DotGrid>) => void;
   /* ── 양식 관리 ── */
   selectTemplate: (id: string) => void;
-  /** 규격·이름을 주지 않으면 지금 양식의 규격과 자동 이름을 쓴다. */
-  addTemplate: (insert?: InsertSetting, name?: string) => void;
+  /** 규격·이름·격자를 주지 않으면 지금 양식의 것과 자동 이름을 쓴다. */
+  addTemplate: (insert?: InsertSetting, name?: string, grid?: DotGrid) => void;
   /** 규격을 주면 그 규격으로 복제한다. 원본은 손대지 않는다. */
   copyTemplate: (id: string, insert?: InsertSetting) => void;
   renameTemplate: (id: string, name: string) => void;
-  /** 마지막 하나는 지워지지 않는다. */
   removeTemplate: (id: string) => void;
   setTool: (t: Tool) => void;
   /** 그으면 생기고 이미 있으면 지워진다. 선 하나든 면의 네 변이든 한 번으로 친다. */
@@ -163,14 +164,25 @@ function prune(ids: string[], objects: DiaryObject[]): string[] {
 }
 
 /**
- * 지금 편집 중인 양식.
+ * 지금 편집 중인 양식. **없을 수 있다** — 처음 열면 양식이 하나도 없다.
  *
- * id가 가리키는 것이 없으면 첫 번째로 돌아간다. 양식 목록은 비지 않으므로
- * 이 함수는 언제나 무언가를 돌려준다 — 화면이 빈 상태를 다룰 필요가 없다.
+ * id가 가리키는 것이 없으면 첫 번째로 돌아간다. 양식을 지우거나 파일을 불러온
+ * 뒤에도 화면이 엉뚱한 것을 붙들고 있지 않게 한다.
  */
-export function activeTemplate(s: Pick<Settings, 'templates' | 'activeId'>): Template {
-  return s.templates.find((t) => t.id === s.activeId) ?? s.templates[0];
+export function activeTemplate(s: Pick<Settings, 'templates' | 'activeId'>): Template | null {
+  return s.templates.find((t) => t.id === s.activeId) ?? s.templates[0] ?? null;
 }
+
+/*
+ * 양식이 없을 때 화면이 읽는 값.
+ *
+ * **참조가 고정이어야 한다.** 부를 때마다 새 객체를 만들면 zustand가 매번
+ * 바뀐 것으로 보고 무한히 다시 그린다. 편집 화면은 양식이 있을 때만 열리므로
+ * 이 값들이 실제로 쓰이는 일은 없고, 터지지 않게 받쳐두는 것뿐이다.
+ */
+const NO_INSERT = defaultInsert();
+const NO_GRID: DotGrid = { ...DEFAULT_DOT_GRID };
+const NO_OBJECTS = initHistory<DiaryObject[]>([]);
 
 /**
  * 지금 양식만 고친다.
@@ -182,8 +194,9 @@ function patchActive(
   s: Pick<Settings, 'templates' | 'activeId'>,
   fn: (t: Template) => Partial<Template>,
 ): Pick<Settings, 'templates'> {
-  const id = activeTemplate(s).id;
-  return { templates: s.templates.map((t) => (t.id === id ? { ...t, ...fn(t) } : t)) };
+  const active = activeTemplate(s);
+  if (!active) return { templates: s.templates };
+  return { templates: s.templates.map((t) => (t.id === active.id ? { ...t, ...fn(t) } : t)) };
 }
 
 /** 지금 양식의 그린 것들을 갈아끼우고 실행취소에 한 칸 쌓는다. */
@@ -194,8 +207,12 @@ function commitObjects(
   return patchActive(s, (t) => ({ objects: commit(t.objects, next) }));
 }
 
+/** 지금 양식의 그린 것들. 양식이 없으면 빈 목록이다. */
+function activeObjects(s: Pick<Settings, 'templates' | 'activeId'>): DiaryObject[] {
+  return activeTemplate(s)?.objects.present ?? [];
+}
+
 const firstPaper = PAPER_PRESETS[0];
-const firstTemplate = newTemplate('양식 1');
 
 export const useStore = create<Store>((set) => ({
   paper: {
@@ -208,8 +225,9 @@ export const useStore = create<Store>((set) => ({
     // 두는 여백(0.3~0.5mm)이 흡수한다.
     printMargin: 0,
   },
-  templates: [firstTemplate],
-  activeId: firstTemplate.id,
+  // 빈 갤러리에서 시작한다. 첫 양식은 사용자가 규격을 골라 만든다.
+  templates: [],
+  activeId: '',
   tool: 'draw',
   selectedIds: [],
   drawStyle: {},
@@ -269,13 +287,17 @@ export const useStore = create<Store>((set) => ({
 
   selectTemplate: (activeId) => set({ activeId, selectedIds: [] }),
 
-  addTemplate: (insert, name) =>
+  addTemplate: (insert, name, grid) =>
     set((s) => {
       // 규격을 주지 않으면 지금 보던 양식의 규격을 물려받는다. 갤러리에서 크기
       // 그룹의 `+`를 누르는 경우가 그렇다 — 그 크기로 하나 더 만드는 뜻이다.
-      const cur = activeTemplate(s).insert;
+      const cur = activeTemplate(s)?.insert ?? NO_INSERT;
       const base = insert ?? { ...cur, punch: { ...cur.punch } };
-      const made = newTemplate(uniqueName(s.templates, name?.trim() || '양식 1'), base);
+      const made = newTemplate(
+        uniqueName(s.templates, name?.trim() || defaultName(s.templates, base)),
+        base,
+      );
+      if (grid) made.dotGrid = { ...grid };
       return { templates: [...s.templates, made], activeId: made.id, selectedIds: [] };
     }),
 
@@ -299,10 +321,11 @@ export const useStore = create<Store>((set) => ({
 
   removeTemplate: (id) =>
     set((s) => {
-      // 마지막 하나는 남긴다. 편집 화면이 항상 무언가를 보여줘야 한다.
-      if (s.templates.length <= 1) return {};
+      // 마지막 하나도 지울 수 있다. 빈 갤러리는 정상적인 상태다.
       const templates = s.templates.filter((t) => t.id !== id);
-      const activeId = templates.some((t) => t.id === s.activeId) ? s.activeId : templates[0].id;
+      const activeId = templates.some((t) => t.id === s.activeId)
+        ? s.activeId
+        : (templates[0]?.id ?? '');
       return { templates, activeId, selectedIds: [] };
     }),
 
@@ -311,7 +334,7 @@ export const useStore = create<Store>((set) => ({
 
   drawLines: (segs) =>
     set((s) => {
-      const cur = activeTemplate(s).objects.present;
+      const cur = activeObjects(s);
       const next = toggleLines(cur, segs, s.drawStyle);
       if (next === cur) return {};
       return commitObjects(s, next);
@@ -321,7 +344,7 @@ export const useStore = create<Store>((set) => ({
 
   commitText: (box, id) =>
     set((s) => {
-      const cur = activeTemplate(s).objects.present;
+      const cur = activeObjects(s);
       const text = box.text.trim();
       const rest = id ? cur.filter((o) => o.id !== id) : cur;
 
@@ -339,7 +362,7 @@ export const useStore = create<Store>((set) => ({
   styleText: (patch) =>
     set((s) => {
       if (s.selectedIds.length === 0) return {};
-      const next = activeTemplate(s).objects.present.map((o) => {
+      const next = activeObjects(s).map((o) => {
         if (o.type !== 'text' || !s.selectedIds.includes(o.id)) return o;
         const merged = { ...o, ...patch };
         for (const k of Object.keys(patch) as (keyof TextStyle)[]) {
@@ -370,7 +393,7 @@ export const useStore = create<Store>((set) => ({
       reserveIds(fonts.map((f) => f.id));
       return {
         templates,
-        activeId: templates[0].id,
+        activeId: templates[0]?.id ?? '',
         selectedIds: [],
         userFonts: fonts.map((f) => ({ ...f, family: `user-font-${f.id}` })),
         // 용지·배치는 저장된 것이 있으면 덮어쓰고, 없는 값은 지금 것을 지킨다.
@@ -384,14 +407,14 @@ export const useStore = create<Store>((set) => ({
   deleteSelected: () =>
     set((s) => {
       if (s.selectedIds.length === 0) return {};
-      const keep = activeTemplate(s).objects.present.filter((o) => !s.selectedIds.includes(o.id));
+      const keep = activeObjects(s).filter((o) => !s.selectedIds.includes(o.id));
       return { ...commitObjects(s, keep), selectedIds: [] };
     }),
 
   moveSelected: (dx, dy) =>
     set((s) => {
       if (s.selectedIds.length === 0 || (dx === 0 && dy === 0)) return {};
-      const moved = activeTemplate(s).objects.present.map((o) =>
+      const moved = activeObjects(s).map((o) =>
         s.selectedIds.includes(o.id) ? moveObject(o, dx, dy) : o,
       );
       return commitObjects(s, moved);
@@ -399,7 +422,7 @@ export const useStore = create<Store>((set) => ({
 
   reshapeSelected: (id, end, p) =>
     set((s) => {
-      const cur = activeTemplate(s).objects.present;
+      const cur = activeObjects(s);
       const target = cur.find((o) => o.id === id);
       // 끝점 손잡이는 선에만 있다.
       if (!target || !isLine(target)) return {};
@@ -415,7 +438,7 @@ export const useStore = create<Store>((set) => ({
   styleSelected: (patch) =>
     set((s) => {
       if (s.selectedIds.length === 0) return {};
-      const next = activeTemplate(s).objects.present.map((o) => {
+      const next = activeObjects(s).map((o) => {
         if (o.type !== 'line' || !s.selectedIds.includes(o.id)) return o;
         const merged = { ...o, ...patch };
         // 값이 undefined면 키 자체를 지운다. 그래야 저장 파일에도 남지 않고
@@ -433,12 +456,16 @@ export const useStore = create<Store>((set) => ({
   // 다른 양식의 작업이 사라지면 무섭다.
   undo: () =>
     set((s) => {
-      const objects = undo(activeTemplate(s).objects);
+      const active = activeTemplate(s);
+      if (!active) return {};
+      const objects = undo(active.objects);
       return { ...patchActive(s, () => ({ objects })), selectedIds: prune(s.selectedIds, objects.present) };
     }),
   redo: () =>
     set((s) => {
-      const objects = redo(activeTemplate(s).objects);
+      const active = activeTemplate(s);
+      if (!active) return {};
+      const objects = redo(active.objects);
       return { ...patchActive(s, () => ({ objects })), selectedIds: prune(s.selectedIds, objects.present) };
     }),
   patch: (p) => set(p),
@@ -460,7 +487,7 @@ export function paperSize(paper: PaperState): { width: Mm; height: Mm } {
  */
 export function selectLayout(s: Settings): Layout {
   const { width, height } = paperSize(s.paper);
-  const insert = activeTemplate(s).insert;
+  const insert = activeTemplate(s)?.insert ?? NO_INSERT;
   return computeLayout({
     paperWidth: width,
     paperHeight: height,
@@ -480,9 +507,9 @@ export function selectLayout(s: Settings): Layout {
  * `activeTemplate(s).insert`를 적게 됐다. 그 반복을 여기서 한 번만 한다.
  */
 export const useActive = () => useStore(activeTemplate);
-export const useInsert = () => useStore((s) => activeTemplate(s).insert);
-export const useDotGrid = () => useStore((s) => activeTemplate(s).dotGrid);
-export const useObjects = () => useStore((s) => activeTemplate(s).objects);
+export const useInsert = () => useStore((s) => activeTemplate(s)?.insert ?? NO_INSERT);
+export const useDotGrid = () => useStore((s) => activeTemplate(s)?.dotGrid ?? NO_GRID);
+export const useObjects = () => useStore((s) => activeTemplate(s)?.objects ?? NO_OBJECTS);
 
 export { INSERT_PRESETS, PAPER_PRESETS };
 export type { Settings, PaperState, UnprintableSetting };
