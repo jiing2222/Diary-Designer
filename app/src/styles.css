@@ -211,7 +211,8 @@ button.ghost:disabled {
   overflow: visible;
 }
 
-.insert-sheet.draw {
+.insert-sheet.draw,
+.insert-sheet.table {
   cursor: crosshair;
 }
 

@@ -353,3 +353,47 @@ export function gridArea(
   const avoid = grid.avoidSafeZone ? Math.max(0, safeZoneWidth) : 0;
   return { x: avoid, y: 0, width: insert.width - avoid, height: insert.height };
 }
+
+/** `values`에서 `p1`·`p2` 사이(양끝 포함)에 있는 것만, 오름차순으로. */
+function between(values: Mm[], p1: Mm, p2: Mm): Mm[] {
+  const lo = Math.min(p1, p2);
+  const hi = Math.max(p1, p2);
+  return values.filter((v) => v >= lo - 1e-9 && v <= hi + 1e-9);
+}
+
+/**
+ * 표 — 두 점 사이의 격자점을 전부 잇는 선들.
+ *
+ * "면 그리기"(core/objects의 `rectLines`)는 테두리 4개만 낸다. 표는 그 사이의
+ * 모든 가로·세로 선까지 채운다 — 드래그한 범위가 몇 칸이든 안쪽 칸 선까지 전부
+ * 생긴다. 도구가 다르면 결과가 다르다는 것이 이 프로그램의 원칙이다.
+ *
+ * **격자점은 `lattice.xs`·`ys`에서 그대로 가져온다.** 간격으로 다시 계산하지
+ * 않는다 — 안전영역을 피해 격자가 밀려 있거나, 끝까지 채우기로 가장자리가
+ * 덧붙었어도, 실제로 존재하는 격자점 사이에만 선이 생겨야 한다.
+ *
+ * 한 줄로 끌면(가로나 세로가 한 칸도 안 되면) 그 줄 하나만 나온다 —
+ * `rectLines`와 같은 규칙이다. 한 점이면 그을 것이 없다.
+ */
+export function tableLines(lattice: Lattice, a: Dot, b: Dot): Segment[] {
+  const xs = between(lattice.xs, a.x, b.x);
+  const ys = between(lattice.ys, a.y, b.y);
+  if (xs.length === 0 || ys.length === 0) return [];
+
+  const flat = xs.length === 1; // 세로로만 폈다 — 가로 폭이 없다
+  const thin = ys.length === 1; // 가로로만 폈다 — 세로 높이가 없다
+  if (flat && thin) return []; // 한 점 — 그을 것이 없다
+
+  const left = xs[0];
+  const right = xs[xs.length - 1];
+  const top = ys[0];
+  const bottom = ys[ys.length - 1];
+
+  if (flat) return [{ x1: left, y1: top, x2: left, y2: bottom }];
+  if (thin) return [{ x1: left, y1: top, x2: right, y2: top }];
+
+  const lines: Segment[] = [];
+  for (const y of ys) lines.push({ x1: left, y1: y, x2: right, y2: y });
+  for (const x of xs) lines.push({ x1: x, y1: top, x2: x, y2: bottom });
+  return lines;
+}

@@ -109,7 +109,9 @@ export function StyleBar({
           )}
         </>
       ) : (
-        <span className="picked-count muted-label">{tool === 'text' ? '쓸 글자' : '그릴 선'}</span>
+        <span className="picked-count muted-label">
+          {tool === 'text' ? '쓸 글자' : tool === 'table' ? '그릴 표' : '그릴 선'}
+        </span>
       )}
 
       {showText ? (

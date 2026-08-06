@@ -100,3 +100,14 @@ export function LineIcon() {
     </svg>
   );
 }
+
+/** 표 — 칸이 나뉜 사각형. 도트 격자(점 3×3)와 헷갈리지 않게 선으로 그린다. */
+export function TableIcon() {
+  return (
+    <svg {...box}>
+      <rect x={3.5} y={3.5} width={13} height={13} />
+      <line x1={3.5} y1={9.5} x2={16.5} y2={9.5} />
+      <line x1={9.5} y1={3.5} x2={9.5} y2={16.5} />
+    </svg>
+  );
+}

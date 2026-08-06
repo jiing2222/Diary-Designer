@@ -7,6 +7,7 @@ import {
   gridLattice,
   gridShapes,
   spacingForCells,
+  tableLines,
   type Area,
 } from './grid';
 
@@ -416,5 +417,92 @@ describe('가장자리에 덧붙인 자리', () => {
     expect(gridShapes(padded, 'grid', m6, true).lines).toEqual(
       gridShapes(padded, 'grid', m6).lines,
     );
+  });
+});
+
+describe('표 — 두 점 사이의 격자점을 전부 잇는다', () => {
+  // M6 5mm 격자: 가로 5,10,…,75 · 세로 5,10,…,120
+  const lattice = gridLattice(m6, 5);
+
+  it('한 칸이면 테두리 4개와 같다', () => {
+    // rectLines(면 그리기)의 1칸 결과와 정확히 같은 네 선이어야 한다.
+    const lines = tableLines(lattice, { x: 5, y: 5 }, { x: 10, y: 10 });
+    expect(lines).toHaveLength(4);
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        { x1: 5, y1: 5, x2: 10, y2: 5 },
+        { x1: 5, y1: 10, x2: 10, y2: 10 },
+        { x1: 5, y1: 5, x2: 5, y2: 10 },
+        { x1: 10, y1: 5, x2: 10, y2: 10 },
+      ]),
+    );
+  });
+
+  it('여러 칸이면 안쪽 칸 선까지 전부 나온다', () => {
+    // 가로 3칸(5,10,15,20) · 세로 1칸(5,10) → 가로선 2개 + 세로선 4개
+    const lines = tableLines(lattice, { x: 5, y: 5 }, { x: 20, y: 10 });
+    const horizontal = lines.filter((l) => l.y1 === l.y2);
+    const vertical = lines.filter((l) => l.x1 === l.x2);
+    expect(horizontal).toHaveLength(2);
+    expect(vertical).toHaveLength(4);
+    // 가로선은 전부 왼쪽 끝에서 오른쪽 끝까지, 세로선은 위에서 아래까지 이어진다.
+    for (const l of horizontal) {
+      expect(Math.min(l.x1, l.x2)).toBe(5);
+      expect(Math.max(l.x1, l.x2)).toBe(20);
+    }
+    for (const l of vertical) {
+      expect(Math.min(l.y1, l.y2)).toBe(5);
+      expect(Math.max(l.y1, l.y2)).toBe(10);
+    }
+  });
+
+  it('시작점과 끝점 순서가 바뀌어도 같은 표가 나온다', () => {
+    const forward = tableLines(lattice, { x: 5, y: 5 }, { x: 20, y: 15 });
+    const backward = tableLines(lattice, { x: 20, y: 15 }, { x: 5, y: 5 });
+    expect(new Set(backward)).toEqual(new Set(forward));
+    expect(forward).toHaveLength(backward.length);
+  });
+
+  it('가로로만 끌면 선 하나뿐이다 — 나눌 세로 폭이 없다', () => {
+    const lines = tableLines(lattice, { x: 5, y: 5 }, { x: 20, y: 5 });
+    expect(lines).toEqual([{ x1: 5, y1: 5, x2: 20, y2: 5 }]);
+  });
+
+  it('세로로만 끌어도 마찬가지다', () => {
+    const lines = tableLines(lattice, { x: 5, y: 5 }, { x: 5, y: 20 });
+    expect(lines).toEqual([{ x1: 5, y1: 5, x2: 5, y2: 20 }]);
+  });
+
+  it('한 점이면 그을 것이 없다', () => {
+    expect(tableLines(lattice, { x: 5, y: 5 }, { x: 5, y: 5 })).toEqual([]);
+  });
+
+  it('격자점 사이 간격은 항상 지켜진다', () => {
+    // 몇 칸을 끌든 인접한 선끼리는 원래 격자 간격(5mm) 그대로다.
+    const lines = tableLines(lattice, { x: 5, y: 5 }, { x: 30, y: 25 });
+    const xs = [...new Set(lines.flatMap((l) => [l.x1, l.x2]))].sort((a, b) => a - b);
+    for (let i = 1; i < xs.length; i++) {
+      expect(xs[i] - xs[i - 1]).toBeCloseTo(5, 9);
+    }
+  });
+
+  it('실제로 존재하는 격자점만 쓴다 — 다시 계산하지 않는다', () => {
+    // 안전영역을 피해 격자가 밀린 lattice에서, 그 앞쪽(존재하지 않는 자리)까지
+    // 끌어도 실제로 있는 점부터만 선이 생긴다.
+    const shifted = gridLattice(gridArea(m6, { ...DEFAULT_DOT_GRID, avoidSafeZone: true }, 10), 5);
+    const lines = tableLines(shifted, { x: 0, y: 5 }, { x: 30, y: 15 });
+    const xs = lines.flatMap((l) => [l.x1, l.x2]);
+    expect(Math.min(...xs)).toBe(shifted.xs[0]);
+    expect(Math.min(...xs)).toBeGreaterThan(0);
+  });
+
+  it('범위를 벗어나게 끌어도 있는 격자점까지만 그려진다', () => {
+    const lines = tableLines(lattice, { x: -50, y: -50 }, { x: 1000, y: 1000 });
+    const xs = lines.flatMap((l) => [l.x1, l.x2]);
+    const ys = lines.flatMap((l) => [l.y1, l.y2]);
+    expect(Math.min(...xs)).toBe(lattice.xs[0]);
+    expect(Math.max(...xs)).toBe(lattice.xs[lattice.xs.length - 1]);
+    expect(Math.min(...ys)).toBe(lattice.ys[0]);
+    expect(Math.max(...ys)).toBe(lattice.ys[lattice.ys.length - 1]);
   });
 });

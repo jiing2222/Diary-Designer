@@ -171,7 +171,7 @@ interface Store extends Settings {
   patchUnprintable: (p: Partial<UnprintableSetting>) => void;
 }
 
-export type Tool = 'select' | 'draw' | 'text';
+export type Tool = 'select' | 'draw' | 'text' | 'table';
 
 /** 더 이상 존재하지 않는 id를 선택 목록에서 걷어낸다. */
 function prune(ids: string[], objects: DiaryObject[]): string[] {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { cellAt, gridArea, gridLattice } from '../core/grid';
+import { cellAt, gridArea, gridLattice, tableLines } from '../core/grid';
 import { moveDelta, snapToLattice } from '../core/snap';
 import { canRedo, canUndo } from '../core/history';
 import {
@@ -22,7 +22,7 @@ import { useDotGrid, useInsert, useObjects, useStore } from '../store';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
-import { CursorIcon, LineIcon, TextIcon } from './icons';
+import { CursorIcon, LineIcon, TableIcon, TextIcon } from './icons';
 import { measureTextBox } from './measureText';
 import { familyOf } from '../fonts/registry';
 import { PX_PER_MM_AT_100 } from './pixels';
@@ -209,6 +209,7 @@ export function EditorTab() {
       if (e.key.toLowerCase() === 'v') setTool('select');
       if (e.key.toLowerCase() === 'd') setTool('draw');
       if (e.key.toLowerCase() === 't') setTool('text');
+      if (e.key.toLowerCase() === 'g') setTool('table');
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -293,7 +294,10 @@ export function EditorTab() {
     if (!raw) return;
     e.currentTarget.setPointerCapture(e.pointerId);
 
-    if (tool === 'draw') {
+    // 표도 몸짓은 그리기(면)와 똑같이 점에서 끄는 드래그다. 그 사이에서
+    // 실제로 무엇이 생기는지(테두리만인지 안쪽 칸 선까지인지)는 onUp이
+    // 지금 도구를 보고 가른다.
+    if (tool === 'draw' || tool === 'table') {
       if (snap) setDragBoth({ kind: 'draw', from: snap, to: snap });
       return;
     }
@@ -427,6 +431,20 @@ export function EditorTab() {
       return;
     }
 
+    /*
+     * 표 — 끈 범위의 안쪽 칸 선까지 전부 채운다.
+     *
+     * 표는 최소 2칸은 돼야 의미가 있으므로, 끌지 않고 그냥 눌렀다 뗐으면
+     * (점 하나) 아무 일도 하지 않는다 — 그리기 도구의 "점 찍고 다음 점"
+     * 같은 대기 상태를 두지 않는다.
+     */
+    if (tool === 'table') {
+      if (d.from.x !== d.to.x || d.from.y !== d.to.y) {
+        drawLines(tableLines(lattice, d.from, d.to));
+      }
+      return;
+    }
+
     // 그리기 — 같은 점에서 뗐으면 클릭(선), 다른 점이면 끌기(면)
     const moved = d.from.x !== d.to.x || d.from.y !== d.to.y;
     if (moved) {
@@ -443,7 +461,14 @@ export function EditorTab() {
   }
 
   const marquee = drag?.kind === 'marquee' ? rectOf(drag.from, drag.to) : null;
-  const ghost = drag?.kind === 'draw' ? rectLines(drag.from, drag.to) : null;
+  // 표를 끄는 중이면 미리보기도 안쪽 칸 선까지 함께 보여준다 — 몇 칸짜리
+  // 표가 될지 손을 떼기 전에 알아야 한다.
+  const ghost =
+    drag?.kind === 'draw'
+      ? tool === 'table'
+        ? tableLines(lattice, drag.from, drag.to)
+        : rectLines(drag.from, drag.to)
+      : null;
   const nudge = drag?.kind === 'move' ? drag : null;
   const grip = drag?.kind === 'handle' ? drag : null;
   const textDrag = drag?.kind === 'textbox' ? drag : null;
@@ -473,12 +498,15 @@ export function EditorTab() {
           <ToolBtn on={tool === 'draw'} onClick={() => setTool('draw')} title="그리기 (D)">
             <LineIcon />
           </ToolBtn>
+          <ToolBtn on={tool === 'table'} onClick={() => setTool('table')} title="표 (G)">
+            <TableIcon />
+          </ToolBtn>
           <ToolBtn on={tool === 'text'} onClick={() => setTool('text')} title="글자 (T)">
             <TextIcon />
           </ToolBtn>
         </div>
 
-        {selectedIds.length > 0 || tool === 'draw' || tool === 'text' ? (
+        {selectedIds.length > 0 || tool === 'draw' || tool === 'table' || tool === 'text' ? (
           <StyleBar
             editing={editing}
             setEditingStyle={setEditingStyle}
@@ -680,7 +708,7 @@ export function EditorTab() {
           )}
 
           {/* 붙을 자리 미리보기. 도트를 꺼둬도 어디에 붙는지 보인다. */}
-          {tool === 'draw' && hover && (
+          {(tool === 'draw' || tool === 'table') && hover && (
             <circle cx={hover.x} cy={hover.y} r={SNAP_DOT_SIZE / 2} fill={SNAP_COLOR} />
           )}
           {pending && <circle cx={pending.x} cy={pending.y} r={SNAP_DOT_SIZE / 2} fill={SNAP_COLOR} />}
