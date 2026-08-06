@@ -105,6 +105,7 @@ export function EditorTab() {
     gridArea(insert, grid, insert.punch.safeZoneWidth),
     grid.spacing,
     grid.minMargin,
+    grid.toEdge,
   );
   const scale = (zoom / 100) * PX_PER_MM_AT_100;
   const noGrid = lattice.xs.length === 0 || lattice.ys.length === 0;

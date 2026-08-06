@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { colorOf, dashOf, dashPattern, widthOf } from './line';
+import { colorOf, dashOf, dashPattern, dashPatternOf, widthOf } from './line';
 import type { LineObject } from './objects';
-import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from './style';
+import { GRID_LINE_WIDTH, OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from './style';
 
 const at = (extra: Partial<LineObject> = {}): LineObject => ({
   id: 'l1',
@@ -30,29 +30,38 @@ describe('선에 새겨둔 값', () => {
 
 describe('점선 간격', () => {
   it('실선은 간격이 없다', () => {
-    expect(dashPattern(at())).toBeUndefined();
-    expect(dashPattern(at({ dash: 'solid' }))).toBeUndefined();
+    expect(dashPattern('solid', 0.2)).toBeUndefined();
+    expect(dashPatternOf(at())).toBeUndefined();
   });
 
   it('굵기에 비례한다', () => {
     // 고정 길이로 두면 가는 선에서는 뭉개지고 굵은 선에서는 뚝뚝 끊긴다.
-    const thin = dashPattern(at({ dash: 'dashed', width: 0.1 }))!;
-    const thick = dashPattern(at({ dash: 'dashed', width: 0.8 }))!;
+    const thin = dashPattern('dashed', 0.1)!;
+    const thick = dashPattern('dashed', 0.8)!;
     expect(thick[0] / thin[0]).toBeCloseTo(8, 9);
     expect(thick[1] / thin[1]).toBeCloseTo(8, 9);
   });
 
   it('파선은 그리는 쪽이, 점선은 띄는 쪽이 길다', () => {
-    const [dashOn, dashOff] = dashPattern(at({ dash: 'dashed', width: 0.2 }))!;
+    const [dashOn, dashOff] = dashPattern('dashed', 0.2)!;
     expect(dashOn).toBeGreaterThan(dashOff);
 
-    const [dotOn, dotOff] = dashPattern(at({ dash: 'dotted', width: 0.2 }))!;
+    const [dotOn, dotOff] = dashPattern('dotted', 0.2)!;
     expect(dotOff).toBeGreaterThan(dotOn);
   });
 
   it('점선의 점은 굵기와 같다 — 동그랗게 찍힌다', () => {
-    // OBJECT_LINE_CAP이 round라 길이가 굵기와 같으면 정확히 원이 된다.
-    expect(dashPattern(at({ dash: 'dotted', width: 0.3 }))![0]).toBe(0.3);
+    // 끝을 둥글게 처리하면 길이가 굵기와 같을 때 정확히 원이 된다.
+    expect(dashPattern('dotted', 0.3)![0]).toBe(0.3);
+  });
+
+  it('선에서 꺼내 쓰는 쪽도 같은 값을 낸다', () => {
+    // dashPatternOf는 그 선의 모양과 굵기를 꺼내 dashPattern에 넘길 뿐이다.
+    expect(dashPatternOf(at({ dash: 'dashed', width: 0.4 }))).toEqual(dashPattern('dashed', 0.4));
+    // 값이 없으면 기본값으로 잰다.
+    expect(dashPatternOf(at({ dash: 'dotted' }))).toEqual(
+      dashPattern('dotted', OBJECT_LINE_WIDTH),
+    );
   });
 });
 
@@ -61,8 +70,15 @@ describe('화면과 PDF가 같은 값을 쓴다', () => {
     // 이 함수가 생긴 이유다. 예전에는 두 뷰가 각자 6·4·1·3을 적어놓고 주석으로만
     // "같은 비율"이라고 약속했다. OBJECT_LINE_CAP이 정확히 그렇게 어긋나서
     // 인쇄물에서만 꼭짓점이 끊겼던 적이 있다.
-    const pattern = dashPattern(at({ dash: 'dashed', width: 0.2 }))!;
+    const pattern = dashPattern('dashed', 0.2)!;
     expect(pattern[0]).toBeCloseTo(1.2, 9);
     expect(pattern[1]).toBeCloseTo(0.8, 9);
+  });
+
+  it('격자선도 같은 비율을 쓴다', () => {
+    // 격자선은 객체가 아니고 화면과 인쇄의 굵기도 다르지만, 비율은 하나여야 한다.
+    const grid = dashPattern('dashed', GRID_LINE_WIDTH)!;
+    const drawn = dashPattern('dashed', OBJECT_LINE_WIDTH)!;
+    expect(grid[0] / GRID_LINE_WIDTH).toBeCloseTo(drawn[0] / OBJECT_LINE_WIDTH, 9);
   });
 });

@@ -1,3 +1,4 @@
+import type { Dash } from './objects';
 import type { Mm } from './units';
 
 /**
@@ -47,15 +48,27 @@ export interface DotGrid {
    */
   minMargin: Mm;
   /**
-   * 가로선·세로선을 격자 끝이 아니라 **영역 끝까지** 긋기.
+   * 여백 없이 **영역 끝까지** 채우기. 끝 칸은 잘린다.
    *
-   * 기본은 격자 끝에서 끝까지다. 그러면 여백만큼 선이 짧아 안쪽으로 들어와 보인다.
-   * 줄노트처럼 선이 종이 끝까지 이어지길 원할 때 켠다.
+   * 기본은 가운데 정렬이라 양끝에 여백이 남고, 격자는 항상 온전한 칸으로만
+   * 이루어진다. 이것을 켜면 영역 왼쪽 위 모서리에서 시작해 간격만큼씩 끝까지
+   * 나아간다 — 마지막 칸은 간격보다 좁게 잘린 채로 남는다. 잘린 칸을 감수하고
+   * 종이를 남김없이 쓰고 싶을 때다.
    *
-   * **붙는 자리(스냅)는 조금도 변하지 않는다.** 격자점 좌표는 그대로고 보이는
-   * 선만 길어진다. 도트 모양에는 아무 영향이 없다.
+   * **여백(minMargin)은 이때 쓰이지 않는다.** 여백을 없애는 것이 목적이라
+   * 하한을 둘 이유가 없다.
+   *
+   * 격자점 좌표가 실제로 달라지므로 붙는 자리도 함께 옮겨간다. 간격을 바꾸는
+   * 것과 같은 종류의 설정이다 — 이미 그려둔 것의 좌표는 건드리지 않는다.
    */
-  linesToEdge: boolean;
+  toEdge: boolean;
+  /**
+   * 격자선의 모양. 도트에는 쓰이지 않는다.
+   *
+   * 그은 선과 같은 세 가지이고, 점선 간격도 같은 `core/line`에서 나온다.
+   * 화면과 인쇄의 선 굵기가 달라서 비율만 공유하고 실제 길이는 각자 계산한다.
+   */
+  dash: Dash;
   /**
    * 화면에 보이기 · 인쇄물에 남기기.
    *
@@ -83,7 +96,8 @@ export const DEFAULT_DOT_GRID: DotGrid = {
   // 시판 도트 속지는 대개 구멍 쪽까지 도트가 깔려 있다. 필요할 때만 켠다.
   avoidSafeZone: false,
   minMargin: DEFAULT_MIN_MARGIN,
-  linesToEdge: false,
+  toEdge: false,
+  dash: 'solid',
   showOnScreen: true,
   print: true,
 };
@@ -120,8 +134,28 @@ export interface Lattice {
  * 영역 한가운데에 놓이고, 실제 여백은 `최소여백 ≤ 여백 < 최소여백 + 간격/2`다.
  * 기본값 3mm에 간격 3~7mm면 여백이 3~5mm에 들어온다.
  */
-function axis(start: Mm, size: Mm, spacing: Mm, minMargin: Mm): { positions: Mm[]; margin: Mm } {
+function axis(
+  start: Mm,
+  size: Mm,
+  spacing: Mm,
+  minMargin: Mm,
+  toEdge: boolean,
+): { positions: Mm[]; margin: Mm } {
   if (spacing <= 0) return { positions: [], margin: size / 2 };
+
+  /*
+   * 끝까지 채우기 — 여백 없이 모서리에서 시작해 간격만큼씩 나아간다.
+   *
+   * 가운데 정렬을 하지 않으므로 마지막 칸이 간격보다 좁게 잘린 채 남는다.
+   * 그 잘린 칸을 감수하는 것이 이 옵션의 요점이다. 끝점이 영역 끝과 정확히
+   * 맞아떨어지면 잘린 칸 없이 딱 떨어진다.
+   */
+  if (toEdge) {
+    const positions: Mm[] = [];
+    for (let v = 0; v <= size + 1e-9; v += spacing) positions.push(start + v);
+    // 점이 둘은 있어야 칸이 하나라도 생긴다.
+    return positions.length < 2 ? { positions: [], margin: size / 2 } : { positions, margin: 0 };
+  }
 
   // 음수 여백은 격자를 영역 밖으로 밀어낸다. 0이 하한이다.
   const cells = Math.floor((size - Math.max(0, minMargin) * 2) / spacing);
@@ -146,9 +180,10 @@ export function gridLattice(
   area: Area,
   spacing: Mm,
   minMargin: Mm = DEFAULT_MIN_MARGIN,
+  toEdge = false,
 ): Lattice {
-  const x = axis(area.x, area.width, spacing, minMargin);
-  const y = axis(area.y, area.height, spacing, minMargin);
+  const x = axis(area.x, area.width, spacing, minMargin, toEdge);
+  const y = axis(area.y, area.height, spacing, minMargin, toEdge);
   return { xs: x.positions, ys: y.positions, marginX: x.margin, marginY: y.margin };
 }
 

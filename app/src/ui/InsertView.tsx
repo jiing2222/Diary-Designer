@@ -12,7 +12,7 @@ import {
   SCREEN_GRID_LINE_WIDTH,
   TEXT_COLOR,
 } from '../core/style';
-import { colorOf, dashPattern, widthOf } from '../core/line';
+import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import {
   alignOf,
   anchorX,
@@ -198,10 +198,11 @@ function DotGridLayer({
   mode: ViewMode;
 }) {
   const area = gridArea(insert, grid, safeZoneWidth);
-  const lattice = gridLattice(area, grid.spacing, grid.minMargin);
-  // 선을 끝까지 늘일 때도 기준은 속지가 아니라 **격자 영역**이다. 안전영역을
-  // 피하도록 해뒀다면 선이 구멍 쪽으로 넘어가면 안 된다.
-  const { dots, lines } = gridShapes(lattice, grid.style, grid.linesToEdge ? area : null);
+  const lattice = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
+  // 끝까지 채울 때는 선도 영역 끝까지 긋는다 — 잘린 마지막 칸이 종이 끝에서
+  // 닫혀야 칸으로 읽힌다. 기준이 속지가 아니라 **격자 영역**인 이유는,
+  // 안전영역을 피하도록 해뒀다면 선이 구멍 쪽으로 넘어가면 안 되기 때문이다.
+  const { dots, lines } = gridShapes(lattice, grid.style, grid.toEdge ? area : null);
 
   const dotSize = mode === 'print' ? DOT_SIZE : screenDotSize(grid.spacing);
   const lineWidth = mode === 'print' ? GRID_LINE_WIDTH : screenLineWidth(grid.spacing);
@@ -219,7 +220,14 @@ function DotGridLayer({
         </g>
       )}
       {lines.length > 0 && (
-        <g stroke={lineColor} strokeWidth={lineWidth}>
+        <g
+          stroke={lineColor}
+          strokeWidth={lineWidth}
+          // 점선 비율은 그은 선과 같은 core/line에서 나온다. 굵기만 격자 것을 쓴다 —
+          // 화면과 인쇄의 격자선 굵기가 다르기 때문이다.
+          strokeDasharray={dashPattern(grid.dash, lineWidth)?.join(' ')}
+          strokeLinecap={grid.dash === 'dotted' ? 'round' : undefined}
+        >
           {lines.map((l, i) => (
             <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />
           ))}
@@ -248,7 +256,7 @@ function ObjectLayer({ objects }: { objects: LineObject[] }) {
           stroke={colorOf(o)}
           strokeWidth={widthOf(o)}
           // core가 mm로 돌려준다. viewBox가 mm라 그대로 이어 붙이면 된다.
-          strokeDasharray={dashPattern(o)?.join(' ')}
+          strokeDasharray={dashPatternOf(o)?.join(' ')}
         />
       ))}
     </g>

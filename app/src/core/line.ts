@@ -39,10 +39,18 @@ export function dashOf(o: LineObject): Dash {
  * 선에서는 뚝뚝 끊겨 보인다. 비율로 두면 어느 굵기에서나 비슷하게 읽힌다.
  *
  * mm로 돌려준다. 화면은 그대로 이어 붙이고, PDF는 pt로 바꿔서 쓴다.
+ *
+ * 굵기를 따로 받는 이유는 **격자선도 이 함수를 쓰기 때문**이다. 격자선은 객체가
+ * 아니고, 게다가 화면과 인쇄에서 굵기가 다르다(SCREEN_GRID_LINE_WIDTH 대
+ * GRID_LINE_WIDTH). 그래도 점선 비율은 한 군데서 나와야 한다.
  */
-export function dashPattern(o: LineObject): [Mm, Mm] | undefined {
-  const w = widthOf(o);
-  if (dashOf(o) === 'dashed') return [w * 6, w * 4];
-  if (dashOf(o) === 'dotted') return [w, w * 3];
+export function dashPattern(dash: Dash, width: Mm): [Mm, Mm] | undefined {
+  if (dash === 'dashed') return [width * 6, width * 4];
+  if (dash === 'dotted') return [width, width * 3];
   return undefined;
+}
+
+/** 그은 선 하나의 점선 간격. 굵기와 모양을 그 선에서 꺼내 쓴다. */
+export function dashPatternOf(o: LineObject): [Mm, Mm] | undefined {
+  return dashPattern(dashOf(o), widthOf(o));
 }

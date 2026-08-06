@@ -29,7 +29,7 @@ import type { Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import { insertSizeOf, placeSlot } from '../core/place';
-import { colorOf, dashPattern, widthOf } from '../core/line';
+import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import {
   CONTENT_COLOR,
   CROP_COLOR,
@@ -157,8 +157,8 @@ function drawDotGrid(
     const place = placeSlot(slot, layout.rotated);
 
     const area = gridArea(insert, grid, safeZoneWidth);
-    const lattice = gridLattice(area, grid.spacing, grid.minMargin);
-    const { dots, lines } = gridShapes(lattice, grid.style, grid.linesToEdge ? area : null);
+    const lattice = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
+    const { dots, lines } = gridShapes(lattice, grid.style, grid.toEdge ? area : null);
 
     for (const d of dots) {
       const p = place.map(d.x, d.y);
@@ -179,6 +179,9 @@ function drawDotGrid(
         end: { x: mmToPt(b.x), y: mmToPt(flipY(b.y)) },
         thickness: mmToPt(GRID_LINE_WIDTH),
         color: GRID_LINE,
+        // 화면(ui/InsertView)과 같은 core/line에서 비율이 나온다. 굵기만 다르다.
+        dashArray: dashPattern(grid.dash, GRID_LINE_WIDTH)?.map(mmToPt),
+        lineCap: grid.dash === 'dotted' ? LineCapStyle.Round : LineCapStyle.Butt,
       });
     }
   }
@@ -279,7 +282,7 @@ function drawObjects(
         end: { x: mmToPt(b.x), y: mmToPt(flipY(b.y)) },
         thickness: mmToPt(widthOf(o)),
         color: color(colorOf(o)),
-        dashArray: dashPattern(o)?.map(mmToPt),
+        dashArray: dashPatternOf(o)?.map(mmToPt),
         // 끝 처리도 같은 값을 쓴다. 자세한 이유는 core/style에 있다.
         lineCap: OBJECT_LINE_CAP === 'round' ? LineCapStyle.Round : LineCapStyle.Butt,
       });

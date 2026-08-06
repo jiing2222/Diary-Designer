@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { INSERT_PRESETS, PAPER_PRESETS, useStore } from '../store';
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
 import { gridArea, gridLattice, type GridStyle } from '../core/grid';
+import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
 import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon } from './icons';
 
@@ -180,23 +181,35 @@ function GridGroup() {
       <Row label="간격">
         <Num value={s.dotGrid.spacing} min={1} onChange={(spacing) => s.patchDotGrid({ spacing })} />
       </Row>
-      <Row
-        label="최소 여백"
-        hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다"
-      >
-        <Num
-          value={s.dotGrid.minMargin}
-          min={0}
-          max={20}
-          onChange={(minMargin) => s.patchDotGrid({ minMargin })}
+      {s.dotGrid.style !== 'dot' && (
+        <Row label="선 모양">
+          <select
+            value={s.dotGrid.dash}
+            onChange={(e) => s.patchDotGrid({ dash: e.target.value as Dash })}
+          >
+            <option value="solid">실선</option>
+            <option value="dashed">파선</option>
+            <option value="dotted">점선</option>
+          </select>
+        </Row>
+      )}
+      <Row label="채우기" hint="모서리에서 시작해 끝까지 나아간다. 마지막 칸은 잘린다">
+        <Check
+          checked={s.dotGrid.toEdge}
+          onChange={(toEdge) => s.patchDotGrid({ toEdge })}
+          label="여백 없이 끝까지"
         />
       </Row>
-      {s.dotGrid.style !== 'dot' && (
-        <Row label="선 길이" hint="붙는 자리는 그대로다. 보이는 선만 길어진다">
-          <Check
-            checked={s.dotGrid.linesToEdge}
-            onChange={(linesToEdge) => s.patchDotGrid({ linesToEdge })}
-            label="속지 끝까지 긋기"
+      {!s.dotGrid.toEdge && (
+        <Row
+          label="최소 여백"
+          hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다"
+        >
+          <Num
+            value={s.dotGrid.minMargin}
+            min={0}
+            max={20}
+            onChange={(minMargin) => s.patchDotGrid({ minMargin })}
           />
         </Row>
       )}
@@ -330,7 +343,7 @@ function GridReadout() {
   const grid = useStore((s) => s.dotGrid);
 
   const area = gridArea(insert, grid, insert.punch.safeZoneWidth);
-  const { xs, ys } = gridLattice(area, grid.spacing, grid.minMargin);
+  const { xs, ys } = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
 
   if (xs.length === 0 || ys.length === 0) {
     return (

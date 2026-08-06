@@ -275,3 +275,53 @@ describe('최소 여백 설정', () => {
     expect(xs[xs.length - 1]).toBeLessThanOrEqual(80);
   });
 });
+
+describe('여백 없이 끝까지 채우기', () => {
+  it('모서리에서 시작한다', () => {
+    const { xs, ys, marginX, marginY } = gridLattice(m6, 5, 3, true);
+    expect(xs[0]).toBe(0);
+    expect(ys[0]).toBe(0);
+    expect(marginX).toBe(0);
+    expect(marginY).toBe(0);
+  });
+
+  it('나누어떨어지면 끝점이 영역 끝과 맞는다', () => {
+    // 80 = 5 × 16, 125 = 5 × 25
+    const { xs, ys } = gridLattice(m6, 5, 3, true);
+    expect(xs[xs.length - 1]).toBe(80);
+    expect(ys[ys.length - 1]).toBe(125);
+  });
+
+  it('나누어떨어지지 않으면 마지막 칸이 잘린 채 남는다', () => {
+    // 80 = 6 × 13 + 2. 78에서 끝나고 78~80 사이가 잘린 칸이다.
+    // 그 잘린 칸을 감수하는 것이 이 옵션의 요점이다.
+    const { xs } = gridLattice(m6, 6, 3, true);
+    expect(xs[0]).toBe(0);
+    expect(xs[xs.length - 1]).toBe(78);
+    expect(80 - xs[xs.length - 1]).toBe(2);
+  });
+
+  it('최소 여백은 무시된다', () => {
+    // 여백을 없애는 것이 목적이라 하한을 둘 이유가 없다.
+    expect(gridLattice(m6, 5, 0, true)).toEqual(gridLattice(m6, 5, 15, true));
+  });
+
+  it('간격이 그대로 지켜진다', () => {
+    const { xs } = gridLattice(m6, 6, 3, true);
+    for (let i = 1; i < xs.length; i++) {
+      expect(xs[i] - xs[i - 1]).toBeCloseTo(6, 9);
+    }
+  });
+
+  it('간격이 영역보다 넓으면 격자가 없다', () => {
+    // 점이 둘은 있어야 칸이 하나라도 생긴다.
+    expect(gridLattice(m6, 200, 0, true).xs).toEqual([]);
+  });
+
+  it('안전영역을 비우면 그 오른쪽 끝에서 시작한다', () => {
+    // 끝까지 채운다는 것은 속지가 아니라 **격자 영역**의 끝까지다.
+    const area = gridArea({ width: 80, height: 125 }, { ...DEFAULT_DOT_GRID, avoidSafeZone: true }, 10);
+    const { xs } = gridLattice(area, 5, 0, true);
+    expect(xs[0]).toBe(10);
+  });
+});
