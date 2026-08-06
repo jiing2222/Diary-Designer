@@ -378,3 +378,43 @@ describe('칸 수로 간격 정하기', () => {
     expect(spacingForCells(80, 0, 0)).toBe(0);
   });
 });
+
+describe('가장자리에 덧붙인 자리', () => {
+  const padded = gridLattice(m6, 6, 3, true); // 80 = 6 × 13 + 2 → 양끝에 덧붙는다
+  const exact = gridLattice(m6, 5, 3, true); // 80 = 5 × 16 → 덧붙일 것이 없다
+
+  it('나누어떨어지지 않을 때만 덧붙는다', () => {
+    expect(padded.padded).toBe(true);
+    expect(exact.padded).toBe(false);
+    expect(gridLattice(m6, 6, 3, false).padded).toBe(false);
+  });
+
+  it('인쇄할 때는 그 자리에 도트를 찍지 않는다', () => {
+    // 재단선 위에 반쯤 잘린 도트가 남으면 격자가 어긋나 보인다.
+    const screen = gridShapes(padded, 'dot');
+    const print = gridShapes(padded, 'dot', null, true);
+    expect(print.dots.length).toBe((padded.xs.length - 2) * (padded.ys.length - 2));
+    expect(print.dots.length).toBeLessThan(screen.dots.length);
+    expect(print.dots.every((d) => d.x > 0 && d.x < 80)).toBe(true);
+  });
+
+  it('화면에서는 보여준다', () => {
+    // 보여야 어디에 붙는지 알고 끝까지 그을 수 있다.
+    const screen = gridShapes(padded, 'dot');
+    expect(screen.dots.some((d) => d.x === 0)).toBe(true);
+    expect(screen.dots.some((d) => d.x === 80)).toBe(true);
+  });
+
+  it('덧붙일 것이 없으면 인쇄해도 그대로다', () => {
+    expect(gridShapes(exact, 'dot', null, true).dots.length).toBe(
+      gridShapes(exact, 'dot').dots.length,
+    );
+  });
+
+  it('선은 인쇄해도 그대로 긋는다', () => {
+    // 잘린 칸을 종이 끝에서 닫아주는 것이 그 선이다. 도트와 달리 빼면 안 된다.
+    expect(gridShapes(padded, 'grid', m6, true).lines).toEqual(
+      gridShapes(padded, 'grid', m6).lines,
+    );
+  });
+});

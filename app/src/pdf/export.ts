@@ -174,7 +174,8 @@ function drawDotGrid(
 
     const area = gridArea(insert, grid, safeZoneWidth);
     const lattice = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
-    const { dots, lines } = gridShapes(lattice, grid.style, grid.toEdge ? area : null);
+    // 인쇄물이므로 가장자리에 덧붙인 안내용 자리에는 도트를 찍지 않는다.
+    const { dots, lines } = gridShapes(lattice, grid.style, grid.toEdge ? area : null, true);
 
     for (const d of dots) {
       const p = place.map(d.x, d.y);

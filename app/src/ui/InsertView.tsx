@@ -209,7 +209,14 @@ function DotGridLayer({
   // 끝까지 채울 때는 선도 영역 끝까지 긋는다 — 잘린 마지막 칸이 종이 끝에서
   // 닫혀야 칸으로 읽힌다. 기준이 속지가 아니라 **격자 영역**인 이유는,
   // 안전영역을 피하도록 해뒀다면 선이 구멍 쪽으로 넘어가면 안 되기 때문이다.
-  const { dots, lines } = gridShapes(lattice, grid.style, grid.toEdge ? area : null);
+  // 가장자리에 덧붙인 붙을 자리는 **화면에서만** 도트로 보인다. 인쇄물에
+  // 재단선 위의 반쯤 잘린 도트가 남으면 격자가 어긋나 보인다.
+  const { dots, lines } = gridShapes(
+    lattice,
+    grid.style,
+    grid.toEdge ? area : null,
+    mode === 'print',
+  );
 
   const dotSize = mode === 'print' ? DOT_SIZE : screenDotSize(grid.spacing);
   const lineWidth = mode === 'print' ? GRID_LINE_WIDTH : screenLineWidth(grid.spacing);

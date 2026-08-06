@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { INSERT_PRESETS, PAPER_PRESETS, useDotGrid, useInsert, useStore } from '../store';
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
-import { gridArea, gridLattice, type GridStyle } from '../core/grid';
+import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
 import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon } from './icons';
@@ -183,8 +183,9 @@ function GridGroup() {
         </select>
       </Row>
       <Row label="간격">
-        <Num value={grid.spacing} min={1} onChange={(spacing) => s.patchDotGrid({ spacing })} />
+        <Num value={grid.spacing} min={0.5} onChange={(spacing) => s.patchDotGrid({ spacing })} />
       </Row>
+      <CellCountRow />
       {grid.style !== 'dot' && (
         <Row label="선 모양">
           <select
@@ -344,6 +345,40 @@ function LayoutGroup() {
  * 여백은 입력값이 아니라 간격에서 나온 결과다. 눈으로 확인할 수 있어야
  * 원하는 간격을 찾아 넣을 수 있다.
  */
+/**
+ * 칸 수로 간격 정하기.
+ *
+ * 지금 몇 칸인지 보여주고, 고치면 간격이 거꾸로 계산된다(core/grid의
+ * `spacingForCells`). `가로 10칸`처럼 세는 편이 자연스러운 양식이 있다.
+ *
+ * **간격은 가로·세로가 하나뿐이라** 한 축을 고치면 다른 축은 따라 움직인다.
+ * 둘 다 마음대로 정하면 칸이 정사각형이 아니게 되고, 그러면 도트 격자가 아니다.
+ * 그래서 두 칸을 나란히 두되 고친 쪽을 기준으로 삼는다.
+ */
+function CellCountRow() {
+  const s = useStore();
+  const insert = useInsert();
+  const grid = useDotGrid();
+
+  const area = gridArea(insert, grid, insert.punch.safeZoneWidth);
+  const { cols, rows } = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
+  const margin = grid.toEdge ? 0 : grid.minMargin;
+
+  const setCells = (size: number, n: number) => {
+    const spacing = spacingForCells(size, Math.max(1, Math.round(n)), margin);
+    if (spacing > 0) s.patchDotGrid({ spacing });
+  };
+
+  return (
+    <Row label="칸 수" hint="고치면 간격이 거꾸로 계산된다. 간격은 하나뿐이라 다른 축도 따라 움직인다">
+      <div className="cells-row">
+        <Num value={cols} step={1} min={1} unit="가로" onChange={(n) => setCells(area.width, n)} />
+        <Num value={rows} step={1} min={1} unit="세로" onChange={(n) => setCells(area.height, n)} />
+      </div>
+    </Row>
+  );
+}
+
 function GridReadout() {
   const insert = useInsert();
   const grid = useDotGrid();

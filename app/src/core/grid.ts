@@ -132,6 +132,14 @@ export interface Lattice {
    */
   cols: number;
   rows: number;
+  /**
+   * 가장자리에 **붙을 자리만** 덧붙였는가.
+   *
+   * 끝까지 채울 때 영역 끝까지 그을 수 있도록 넣은 자리다. 격자의 일부가 아니라
+   * 그리기를 돕는 안내라서, **인쇄에는 도트를 찍지 않는다** — 재단선 위에 반쯤
+   * 잘린 도트가 남으면 격자가 어긋나 보인다. 화면에서는 보여야 어디에 붙는지 안다.
+   */
+  padded: boolean;
 }
 
 /**
@@ -154,15 +162,15 @@ function axis(
   spacing: Mm,
   minMargin: Mm,
   toEdge: boolean,
-): { positions: Mm[]; margin: Mm; cells: number } {
-  if (spacing <= 0) return { positions: [], margin: size / 2, cells: 0 };
+): { positions: Mm[]; margin: Mm; cells: number; padded: boolean } {
+  if (spacing <= 0) return { positions: [], margin: size / 2, cells: 0, padded: false };
 
   // 음수 여백은 격자를 영역 밖으로 밀어낸다. 0이 하한이다.
   const cells = Math.floor((size - Math.max(0, minMargin) * 2) / spacing);
 
   // 칸이 하나도 안 나오면 격자가 아니다. 여기서 걸러내지 않으면 간격을 속지보다
   // 넓게 넣었을 때 한가운데에 점 한 줄만 찍히고 여백이 수십 mm로 벌어진다.
-  if (cells < 1) return { positions: [], margin: size / 2, cells: 0 };
+  if (cells < 1) return { positions: [], margin: size / 2, cells: 0, padded: false };
 
   const margin = (size - cells * spacing) / 2;
 
@@ -179,14 +187,13 @@ function axis(
    * 나누어떨어지면 이미 가장자리에 점이 있으므로 아무것도 늘지 않는다.
    * 늘어난 자리는 **칸으로 세지 않는다** — 간격보다 좁아 무언가를 앉힐 수 없다.
    */
-  if (toEdge) {
-    if (margin > 0) {
-      positions.unshift(start);
-      positions.push(start + size);
-    }
+  const padded = toEdge && margin > 0;
+  if (padded) {
+    positions.unshift(start);
+    positions.push(start + size);
   }
 
-  return { positions, margin, cells };
+  return { positions, margin, cells, padded };
 }
 
 /**
@@ -214,6 +221,7 @@ export function gridLattice(
     marginY: y.margin,
     cols: x.cells,
     rows: y.cells,
+    padded: x.padded || y.padded,
   };
 }
 
@@ -292,6 +300,14 @@ export function gridShapes(
   lattice: Lattice,
   style: GridStyle,
   edges?: Area | null,
+  /**
+   * 인쇄용인가.
+   *
+   * 가장자리에 덧붙인 자리(`padded`)는 그리기를 돕는 안내일 뿐이라 **도트를
+   * 찍지 않는다.** 재단선 위에 반쯤 잘린 도트가 남으면 격자가 어긋나 보인다.
+   * 선은 그대로 긋는다 — 잘린 칸을 종이 끝에서 닫아주는 것이 그 선이다.
+   */
+  forPrint = false,
 ): GridShapes {
   const { xs, ys } = lattice;
   if (xs.length === 0 || ys.length === 0) return { dots: [], lines: [] };
@@ -302,8 +318,11 @@ export function gridShapes(
   const bottom = edges ? edges.y + edges.height : ys[ys.length - 1];
 
   if (style === 'dot') {
+    const trim = forPrint && lattice.padded;
+    const dx = trim ? xs.slice(1, -1) : xs;
+    const dy = trim ? ys.slice(1, -1) : ys;
     const dots: Dot[] = [];
-    for (const y of ys) for (const x of xs) dots.push({ x, y });
+    for (const y of dy) for (const x of dx) dots.push({ x, y });
     return { dots, lines: [] };
   }
 
