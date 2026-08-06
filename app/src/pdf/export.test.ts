@@ -353,3 +353,78 @@ describe('낱장 조합 — 칸마다 다른 양식', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('반복 인쇄 — 여러 장', () => {
+  // 가로로 두 칸이 들어가는 배치 (5c 시험과 같은 구성). 한 장에 칸 2개.
+  const twoUpLayout = computeLayout({
+    paperWidth: 170,
+    paperHeight: 130,
+    insertWidth: 80,
+    insertHeight: 125,
+    gap: 5,
+    printMargin: 2.5,
+    allowRotate: false,
+    align: 'center',
+  });
+
+  const base = {
+    paperWidth: 170,
+    paperHeight: 130,
+    layout: twoUpLayout,
+    dotGrid: DEFAULT_DOT_GRID,
+    objects: [],
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+
+  it('totalSlots를 안 주면 지금까지처럼 한 장이다', async () => {
+    const doc = await PDFDocument.load(await buildPdf(base));
+    expect(doc.getPageCount()).toBe(1);
+  });
+
+  it('칸 수보다 totalSlots가 많으면 그만큼 장이 늘어난다', async () => {
+    // 한 장에 2칸이니 5칸이 필요하면 3장(2+2+1)이다.
+    const doc = await PDFDocument.load(await buildPdf({ ...base, totalSlots: 5 }));
+    expect(doc.getPageCount()).toBe(3);
+  });
+
+  it('딱 나누어떨어지면 남는 장이 없다', async () => {
+    const doc = await PDFDocument.load(await buildPdf({ ...base, totalSlots: 4 }));
+    expect(doc.getPageCount()).toBe(2);
+  });
+
+  it('마지막 장의 남는 칸은 완전히 빈 채로 찍힌다', async () => {
+    // totalSlots=3, 칸 2개짜리 배치 → 2장. 두 번째 장은 칸 1개만 채워야 한다.
+    // 격자를 켜두면(온전한 칸은 도트가 찍힌다) 완전히 채운 2장(4칸)보다
+    // 바이트가 작아야 한다 — 빈 칸에는 아무것도 안 그렸다는 뜻이다.
+    const threeSlots = await buildPdf({ ...base, dotGrid: DEFAULT_DOT_GRID, totalSlots: 3 });
+    const fourSlots = await buildPdf({ ...base, dotGrid: DEFAULT_DOT_GRID, totalSlots: 4 });
+    expect(threeSlots.byteLength).toBeLessThan(fourSlots.byteLength);
+  });
+
+  it('totalSlots가 칸 수 이하면 한 장뿐이고 다 채운다', async () => {
+    const doc = await PDFDocument.load(
+      await buildPdf({ ...base, dotGrid: DEFAULT_DOT_GRID, totalSlots: 1 }),
+    );
+    expect(doc.getPageCount()).toBe(1);
+    // 칸 하나만 채운 것이 두 칸 다 채운 것보다 작아야 한다.
+    const oneSlot = await buildPdf({ ...base, dotGrid: DEFAULT_DOT_GRID, totalSlots: 1 });
+    const twoSlots = await buildPdf({ ...base, dotGrid: DEFAULT_DOT_GRID, totalSlots: 2 });
+    expect(oneSlot.byteLength).toBeLessThan(twoSlots.byteLength);
+  });
+
+  it('재단선도 장마다 찍힌다', async () => {
+    const withMarks = await buildPdf({ ...base, totalSlots: 4, cropMark: 'mark' as const });
+    const withoutMarks = await buildPdf({ ...base, totalSlots: 4, cropMark: 'none' as const });
+    expect(withoutMarks.byteLength).toBeLessThan(withMarks.byteLength);
+  });
+
+  it('그린 것이 채운 칸마다 반복된다', async () => {
+    const line = { id: 'l1', type: 'line' as const, x1: 10, y1: 10, x2: 70, y2: 10 };
+    const one = await buildPdf({ ...base, dotGrid: noGrid, objects: [line], totalSlots: 2 });
+    const two = await buildPdf({ ...base, dotGrid: noGrid, objects: [line], totalSlots: 4 });
+    // 4칸(2장)이 2칸(1장)보다 커야 한다 — 반복 인쇄가 실제로 여러 장을 채운다.
+    expect(two.byteLength).toBeGreaterThan(one.byteLength);
+  });
+});

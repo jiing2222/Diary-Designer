@@ -154,6 +154,25 @@ describe('저장했다 다시 열기', () => {
     const back = toTemplates((r as { ok: never }).ok);
     expect(back[0].id).toBeTruthy();
   });
+
+  it('반복 설정이 그대로 돌아온다', () => {
+    const t = sample();
+    t.repeat = { mode: 'repeat', count: 54 };
+    const back = toTemplates(toProject({ templates: [t], print, fonts: [] }));
+    expect(back[0].repeat).toEqual({ mode: 'repeat', count: 54 });
+  });
+
+  it('7단계 이전 파일(반복 설정이 없는 파일)은 single로 읽는다', () => {
+    const r = readProject({
+      version: 1,
+      savedAt: '',
+      templates: [{ id: 't1', name: '옛것', insert: insertFromPreset('M6'), objects: [] }],
+      print: {},
+      fonts: [],
+    });
+    const back = toTemplates((r as { ok: never }).ok);
+    expect(back[0].repeat).toEqual({ mode: 'single' });
+  });
 });
 
 describe('다시 등록해야 하는 글꼴', () => {

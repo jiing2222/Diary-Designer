@@ -8,6 +8,7 @@ import {
   gridShapes,
   spacingForCells,
   tableLines,
+  tableSize,
   type Area,
 } from './grid';
 
@@ -504,5 +505,34 @@ describe('표 — 두 점 사이의 격자점을 전부 잇는다', () => {
     expect(Math.max(...xs)).toBe(lattice.xs[lattice.xs.length - 1]);
     expect(Math.min(...ys)).toBe(lattice.ys[0]);
     expect(Math.max(...ys)).toBe(lattice.ys[lattice.ys.length - 1]);
+  });
+});
+
+describe('표 크기 — 몇 칸인지', () => {
+  const lattice = gridLattice(m6, 5);
+
+  it('한 칸이면 1 × 1이다', () => {
+    expect(tableSize(lattice, { x: 5, y: 5 }, { x: 10, y: 10 })).toEqual({ cols: 1, rows: 1 });
+  });
+
+  it('여러 칸이면 tableLines가 실제로 내는 것과 같은 수다', () => {
+    const a = { x: 5, y: 5 };
+    const b = { x: 20, y: 15 };
+    const { cols, rows } = tableSize(lattice, a, b);
+    const lines = tableLines(lattice, a, b);
+    expect(lines.filter((l) => l.x1 === l.x2)).toHaveLength(cols + 1);
+    expect(lines.filter((l) => l.y1 === l.y2)).toHaveLength(rows + 1);
+  });
+
+  it('한 줄로만 끌어도 최소 1칸으로 센다', () => {
+    // 가로로만 끌면 세로 폭이 없어도 "그 방향으로 한 칸"은 된다.
+    expect(tableSize(lattice, { x: 5, y: 5 }, { x: 20, y: 5 })).toEqual({ cols: 3, rows: 1 });
+    expect(tableSize(lattice, { x: 5, y: 5 }, { x: 5, y: 20 })).toEqual({ cols: 1, rows: 3 });
+  });
+
+  it('시작점과 끝점 순서가 바뀌어도 같다', () => {
+    const a = { x: 5, y: 5 };
+    const b = { x: 25, y: 15 };
+    expect(tableSize(lattice, a, b)).toEqual(tableSize(lattice, b, a));
   });
 });

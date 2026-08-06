@@ -1,10 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { INSERT_PRESETS, PAPER_PRESETS, useDotGrid, useInsert, useStore } from '../store';
+import {
+  INSERT_PRESETS,
+  PAPER_PRESETS,
+  selectLayout,
+  useDotGrid,
+  useInsert,
+  useRepeat,
+  useStore,
+} from '../store';
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
 import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
+import { sheetsNeeded } from '../core/template';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
-import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon } from './icons';
+import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon, RepeatIcon } from './icons';
 
 /**
  * 설정 도구.
@@ -16,12 +25,13 @@ import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon } from './icons'
  * 켜고 끄는 것은 말풍선 안에서 한다.
  */
 
-type GroupId = 'paper' | 'insert' | 'grid' | 'punch' | 'layout';
+type GroupId = 'paper' | 'insert' | 'repeat' | 'grid' | 'punch' | 'layout';
 
 export function SettingsPanel() {
   const s = useStore();
   const insert = useInsert();
   const grid = useDotGrid();
+  const repeat = useRepeat();
   const [open, setOpen] = useState<GroupId | null>(null);
   const [top, setTop] = useState(0);
   const railRef = useRef<HTMLDivElement>(null);
@@ -47,6 +57,7 @@ export function SettingsPanel() {
   const groups = [
     { id: 'paper', label: '용지', icon: <PaperIcon />, on: s.unprintable.show },
     { id: 'insert', label: '속지', icon: <InsertIcon />, on: false },
+    { id: 'repeat', label: '반복', icon: <RepeatIcon />, on: repeat.mode === 'repeat' },
     { id: 'grid', label: '도트 격자', icon: <GridIcon />, on: grid.showOnScreen },
     { id: 'punch', label: '타공 안내', icon: <PunchIcon />, on: insert.punch.show },
     { id: 'layout', label: '배치 · 절취선', icon: <LayoutIcon />, on: s.showRuler },
@@ -82,6 +93,7 @@ export function SettingsPanel() {
           <div className="popover-body">
             {open === 'paper' && <PaperGroup />}
             {open === 'insert' && <InsertGroup />}
+            {open === 'repeat' && <RepeatGroup />}
             {open === 'grid' && <GridGroup />}
             {open === 'punch' && <PunchGroup />}
             {open === 'layout' && <LayoutGroup />}
@@ -162,6 +174,69 @@ function InsertGroup() {
       <Row label="세로">
         <Num value={insert.height} onChange={(height) => s.patchInsert({ height })} />
       </Row>
+    </>
+  );
+}
+
+/**
+ * 반복 인쇄 — 이 양식을 몇 번 찍을지.
+ *
+ * `single`(기본)은 지금까지와 같다. 인쇄하기 탭에서 다른 양식과 칸마다 섞어
+ * 배정할 수 있다(낱장 조합).
+ *
+ * `repeat`으로 바꾸면 **이 양식 하나로만** 여러 장을 채운다. 53쪽짜리 위클리와
+ * 1쪽짜리 메모를 한 인쇄 작업에 섞을 수 없다는 것이 설계문서의 원칙이라, 이
+ * 순간 인쇄하기 탭의 낱장 조합(칸 배정) UI가 사라지고 매수 안내로 바뀐다.
+ */
+function RepeatGroup() {
+  const s = useStore();
+  const repeat = useRepeat();
+  const layout = selectLayout(s);
+  const count = repeat.mode === 'repeat' ? repeat.count : 1;
+
+  return (
+    <>
+      <Row
+        label="방식"
+        hint="여러 장이면 이 양식 하나로만 채운다. 다른 양식과 섞이지 않는다"
+      >
+        <select
+          value={repeat.mode}
+          onChange={(e) =>
+            s.patchRepeat(
+              e.target.value === 'repeat'
+                ? { mode: 'repeat', count: Math.max(1, count) }
+                : { mode: 'single' },
+            )
+          }
+        >
+          <option value="single">한 번만 — 다른 양식과 섞어 배정</option>
+          <option value="repeat">여러 장 — 이 양식만 반복</option>
+        </select>
+      </Row>
+
+      {repeat.mode === 'repeat' && (
+        <>
+          <Row label="매수" hint="총 몇 칸(장)이 필요한지. 만년형이면 원하는 쪽수만큼">
+            <Num
+              value={repeat.count}
+              step={1}
+              min={1}
+              unit="칸"
+              onChange={(n) => s.patchRepeat({ mode: 'repeat', count: Math.max(1, Math.round(n)) })}
+            />
+          </Row>
+          <div className="readout">
+            <span>
+              한 장에 <b>{layout.count}칸</b>이니 <b>{sheetsNeeded(count, layout.count)}장</b>이
+              필요합니다.
+            </span>
+            <span className="muted">
+              마지막 장에서 모자라는 칸은 비웁니다. 속지를 필요한 만큼만 뽑기 위해서입니다.
+            </span>
+          </div>
+        </>
+      )}
     </>
   );
 }

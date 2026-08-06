@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { cellAt, gridArea, gridLattice, tableLines } from '../core/grid';
+import { cellAt, gridArea, gridLattice, tableLines, tableSize } from '../core/grid';
 import { moveDelta, snapToLattice } from '../core/snap';
 import { canRedo, canUndo } from '../core/history';
 import {
@@ -480,7 +480,14 @@ export function EditorTab() {
 
   // 지금 그리는 것의 치수. 면이면 가로 × 세로, 선이면 길이.
   const sizeLabel = (() => {
-    if (drag?.kind === 'draw') return sizeLabelOf(rectLines(drag.from, drag.to));
+    if (drag?.kind === 'draw') {
+      // 표는 mm가 아니라 몇 칸인지가 더 궁금하다. 그리기(선·면)는 지금처럼 mm.
+      if (tool === 'table') {
+        const { cols, rows } = tableSize(lattice, drag.from, drag.to);
+        return `${cols} × ${rows}칸`;
+      }
+      return sizeLabelOf(rectLines(drag.from, drag.to));
+    }
     if (grip && lone && isLine(lone)) return sizeLabelOf([preview(lone, null, grip)]);
     if (pending && hover) {
       return sizeLabelOf([{ x1: pending.x, y1: pending.y, x2: hover.x, y2: hover.y }]);

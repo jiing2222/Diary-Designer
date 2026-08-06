@@ -1,17 +1,26 @@
 import { useState } from 'react';
 import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore } from '../store';
+import { filledSlots } from '../core/template';
+import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
 import { SettingsPanel } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
 import { EditorTab } from './EditorTab';
 import { GalleryTab } from './GalleryTab';
 import { ProjectFile } from './ProjectFile';
 import { SlotAssign } from './SlotAssign';
+import { RepeatPrint } from './RepeatPrint';
 import { buildPdf, downloadPdf, type SlotContent } from '../pdf/export';
 import { loadBodyFont, loadBoldFont } from '../fonts/load';
 import { fontBytes as fontBytes_ } from '../fonts/registry';
 import type { TextObject } from '../core/objects';
 
 type Tab = 'gallery' | 'edit' | 'print';
+
+/**
+ * 반복 인쇄에서 마지막 장의 남는 칸. 화면에서는 완전히 비워 보여준다.
+ * pdf/export.ts의 `BLANK_SLOT`과 같은 생각이다 — 인쇄물과 미리보기가 같아야 한다.
+ */
+const BLANK_PREVIEW_GRID: DotGrid = { ...DEFAULT_DOT_GRID, showOnScreen: false, print: false };
 
 export function App() {
   const s = useStore();
@@ -24,42 +33,76 @@ export function App() {
    * 것이라 store에 넣지 않는다 — 탭을 나가면 잊혀도 되는 값이다.
    */
   const [printPreview, setPrintPreview] = useState(true);
+  /**
+   * 반복 인쇄 미리보기가 지금 몇 번째 장을 보여주는지.
+   *
+   * store에 넣지 않는다 — 실제 데이터가 아니라 "지금 뭘 보고 있는지"일 뿐이라,
+   * 다른 양식으로 옮겨가면 잊혀도 상관없다. 범위를 벗어나도(매수를 줄인 뒤 등)
+   * 아래에서 clamp하므로 따로 초기화하지 않는다.
+   */
+  const [previewPage, setPreviewPage] = useState(0);
 
   const { width, height } = paperSize(s.paper);
   const layout = selectLayout(s);
   const active = activeTemplate(s);
 
   /*
-   * 낱장 조합 — 칸마다 다른 양식.
-   *
-   * `resolveSlotTemplates`가 칸마다 실제로 쓸 양식을 정해준다(배정이 없거나
-   * 규격이 다르면 지금 양식으로 대신한다). 화면 미리보기와 PDF가 **같은 배열을
-   * 함께 본다** — 둘이 따로 계산하면 언젠가 어긋난다.
-   *
-   * 지금 양식과 같은 칸은 굳이 override에 넣지 않는다. 대부분의 칸이 지금
-   * 양식을 그대로 쓰므로, 다른 칸만 골라내는 편이 다루기 쉽다.
+   * 낱장 조합과 반복 인쇄는 설계문서 8장의 "두 가지 작업"처럼 한 인쇄에 섞이지
+   * 않는다. `active.repeat.mode`가 어느 쪽인지 정한다 — 사용자가 따로 고르지 않는다.
    */
-  const slotTemplates = active ? resolveSlotTemplates(s, layout.count) : [];
+  const repeating = active?.repeat.mode === 'repeat';
+  const totalSlots = active?.repeat.mode === 'repeat' ? active.repeat.count : 0;
+
   const previewOverrides = new Map<number, PreviewSlotContent>();
   const pdfOverrides = new Map<number, SlotContent>();
-  slotTemplates.forEach((t, i) => {
-    if (!active || t.id === active.id) return;
-    previewOverrides.set(i, { insert: t.insert, dotGrid: t.dotGrid, objects: t.objects.present });
-    pdfOverrides.set(i, {
-      dotGrid: t.dotGrid,
-      objects: t.objects.present,
-      safeZoneWidth: t.insert.punch.safeZoneWidth,
+  /** 반복 인쇄가 아닐 때만 쓰인다. 글꼴을 모을 때 어느 양식들이 관여했는지 알아야 한다. */
+  let slotTemplates: ReturnType<typeof resolveSlotTemplates> = [];
+
+  if (active && repeating) {
+    /*
+     * 반복 인쇄 — 이 양식 하나로 모든 칸을 채운다.
+     *
+     * 지금 미리보기 페이지에서 모자라는 칸만 완전히 비운다. `filledSlots`를
+     * core/template에서 가져와 쓴다 — pdf/export.ts도 같은 함수로 마지막 장의
+     * 빈 칸을 정하므로, 미리보기에서 본 빈 칸이 실제 인쇄물과 어긋나지 않는다.
+     */
+    const filled = filledSlots(previewPage, totalSlots, layout.count);
+    for (let i = filled; i < layout.count; i++) {
+      previewOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+    }
+  } else if (active) {
+    /*
+     * 낱장 조합 — 칸마다 다른 양식.
+     *
+     * `resolveSlotTemplates`가 칸마다 실제로 쓸 양식을 정해준다(배정이 없거나
+     * 규격이 다르면 지금 양식으로 대신한다). 화면 미리보기와 PDF가 **같은 배열을
+     * 함께 본다** — 둘이 따로 계산하면 언젠가 어긋난다.
+     *
+     * 지금 양식과 같은 칸은 굳이 override에 넣지 않는다. 대부분의 칸이 지금
+     * 양식을 그대로 쓰므로, 다른 칸만 골라내는 편이 다루기 쉽다.
+     */
+    slotTemplates = resolveSlotTemplates(s, layout.count);
+    slotTemplates.forEach((t, i) => {
+      if (t.id === active.id) return;
+      previewOverrides.set(i, { insert: t.insert, dotGrid: t.dotGrid, objects: t.objects.present });
+      pdfOverrides.set(i, {
+        dotGrid: t.dotGrid,
+        objects: t.objects.present,
+        safeZoneWidth: t.insert.punch.safeZoneWidth,
+      });
     });
-  });
+  }
 
   async function exportPdf() {
     if (!active) return;
     setBusy(true);
     try {
-      // 배정된 모든 칸(기본 + 낱장 조합)의 글자를 함께 본다. 어느 칸에 글꼴이
-      // 필요한지는 core/pdf의 slotOverrides가 알아서 합쳐 보지만, 어떤 글꼴
-      // 파일을 받아와야 하는지는 여기서 먼저 정해야 한다.
-      const uniqueTemplates = [...new Map(slotTemplates.map((t) => [t.id, t])).values()];
+      // 반복 인쇄면 이 양식 하나의 글자만 본다. 낱장 조합이면 배정된 모든 칸의
+      // 글자를 함께 본다 — 어느 칸에 글꼴이 필요한지는 core/pdf의 slotOverrides가
+      // 알아서 합쳐 보지만, 어떤 글꼴 파일을 받아와야 하는지는 여기서 먼저 정한다.
+      const uniqueTemplates = repeating
+        ? [active]
+        : [...new Map(slotTemplates.map((t) => [t.id, t])).values()];
       const allTexts: TextObject[] = uniqueTemplates.flatMap(
         (t) => t.objects.present.filter((o): o is TextObject => o.type === 'text'),
       );
@@ -83,7 +126,9 @@ export function App() {
         layout,
         dotGrid: active.dotGrid,
         objects: active.objects.present,
-        slotOverrides: pdfOverrides.size > 0 ? pdfOverrides : undefined,
+        // 낱장 조합(칸마다 다른 양식)과 반복 인쇄(여러 장)는 섞이지 않는다.
+        slotOverrides: !repeating && pdfOverrides.size > 0 ? pdfOverrides : undefined,
+        totalSlots: repeating ? totalSlots : undefined,
         fontBytes,
         boldFontBytes,
         userFonts,
@@ -159,7 +204,16 @@ export function App() {
               </label>
             </div>
 
-            <SlotAssign layout={layout} />
+            {repeating ? (
+              <RepeatPrint
+                layout={layout}
+                totalSlots={totalSlots}
+                page={previewPage}
+                onPageChange={setPreviewPage}
+              />
+            ) : (
+              <SlotAssign layout={layout} />
+            )}
 
             <div className="stage-area">
               {layout.count === 0 ? (

@@ -12,7 +12,9 @@ import {
   newTemplate,
   sameSize,
   uniqueName,
+  SINGLE_REPEAT,
   type InsertSetting,
+  type RepeatSetting,
   type Template,
 } from './core/template';
 import { toTemplates, type SavedProject } from './core/project';
@@ -126,6 +128,8 @@ interface Store extends Settings {
   patchInsert: (p: Partial<Omit<InsertSetting, 'punch'>>) => void;
   patchPunch: (p: Partial<PunchSetting>) => void;
   patchDotGrid: (p: Partial<DotGrid>) => void;
+  /** 이 양식을 몇 번 찍을지. `repeat`으로 바꾸면 낱장 조합(칸 배정)은 더 이상 쓰이지 않는다. */
+  patchRepeat: (repeat: RepeatSetting) => void;
   /* ── 양식 관리 ── */
   selectTemplate: (id: string) => void;
   /** 규격·이름·격자를 주지 않으면 지금 양식의 것과 자동 이름을 쓴다. */
@@ -198,6 +202,7 @@ export function activeTemplate(s: Pick<Settings, 'templates' | 'activeId'>): Tem
 const NO_INSERT = defaultInsert();
 const NO_GRID: DotGrid = { ...DEFAULT_DOT_GRID };
 const NO_OBJECTS = initHistory<DiaryObject[]>([]);
+const NO_REPEAT: RepeatSetting = SINGLE_REPEAT;
 
 /**
  * 지금 양식만 고친다.
@@ -250,7 +255,11 @@ export function resolveSlotTemplates(s: Settings, count: number): Template[] {
   for (let i = 0; i < count; i++) {
     const id = s.slotAssignment[i];
     const t = id ? s.templates.find((x) => x.id === id) : undefined;
-    out.push(t && sameSize(t.insert, base.insert) ? t : base);
+    // 규격이 같고, 그 양식도 낱장 조합에 낄 수 있어야(single) 유효하다.
+    // 반복(repeat) 양식은 자기 하나로만 여러 장을 채우는 것이라 낄 수 없다 —
+    // 뒤늦게 repeat으로 바뀐 양식이 배정에 남아 있는 경우를 여기서 막는다.
+    const valid = t && t.repeat.mode === 'single' && sameSize(t.insert, base.insert);
+    out.push(valid ? t : base);
   }
   return out;
 }
@@ -326,6 +335,8 @@ export const useStore = create<Store>((set) => ({
     set((s) => patchActive(s, (t) => ({ insert: { ...t.insert, punch: { ...t.insert.punch, ...p } } }))),
 
   patchDotGrid: (p) => set((s) => patchActive(s, (t) => ({ dotGrid: { ...t.dotGrid, ...p } }))),
+
+  patchRepeat: (repeat) => set((s) => patchActive(s, () => ({ repeat }))),
 
   /* ─────────────────────────── 양식 관리 ─────────────────────────── */
 
@@ -573,7 +584,8 @@ export const useActive = () => useStore(activeTemplate);
 export const useInsert = () => useStore((s) => activeTemplate(s)?.insert ?? NO_INSERT);
 export const useDotGrid = () => useStore((s) => activeTemplate(s)?.dotGrid ?? NO_GRID);
 export const useObjects = () => useStore((s) => activeTemplate(s)?.objects ?? NO_OBJECTS);
+export const useRepeat = () => useStore((s) => activeTemplate(s)?.repeat ?? NO_REPEAT);
 
 export { INSERT_PRESETS, PAPER_PRESETS };
 export type { Settings, PaperState, UnprintableSetting };
-export type { InsertSetting, Template };
+export type { InsertSetting, RepeatSetting, Template };

@@ -28,6 +28,7 @@ import {
 import type { Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
+import { filledSlots, sheetsNeeded } from '../core/template';
 import { insertSizeOf, placeSlot } from '../core/place';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import {
@@ -91,9 +92,37 @@ interface ExportInput {
    * 심으면 문서가 그만큼 무거워지고, 등록한 글꼴이 칸마다 다를 이유도 없다.
    */
   slotOverrides?: Map<number, SlotContent>;
+  /**
+   * 반복 인쇄 — 이 내용을 몇 칸어치 찍을지.
+   *
+   * **장수가 아니라 칸 수다.** 정하지 않으면 지금까지처럼 한 장, 모든 칸을 채운다.
+   * 정하면 `ceil(totalSlots ÷ 칸 수)`장을 만들고, 마지막 장에서 모자라는 칸은
+   * 완전히 비운다 — 내용을 억지로 채우거나 앞 칸을 복사해 늘리지 않는다.
+   *
+   * 도트 속지를 필요한 만큼만 뽑으려는 것이다. 54칸이 필요한데 한 장에 4칸씩
+   * 이면 14장(56칸)이 나오는데, 마지막 장의 남는 2칸을 채우면 못 쓰는 속지
+   * 2장이 더 생긴다.
+   */
+  totalSlots?: number;
   cropMark: CropMode;
   showRuler: boolean;
 }
+
+/** 완전히 빈 칸. 반복 인쇄에서 마지막 장의 남는 칸에 쓴다. */
+const BLANK_SLOT: SlotContent = {
+  dotGrid: {
+    style: 'dot',
+    spacing: 1,
+    avoidSafeZone: false,
+    minMargin: 0,
+    toEdge: false,
+    dash: 'solid',
+    showOnScreen: false,
+    print: false,
+  },
+  objects: [],
+  safeZoneWidth: 0,
+};
 
 const color = (hex: string) => {
   const { r, g, b } = hexToRgb(hex);
@@ -150,32 +179,56 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     }
   }
 
-  const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
-
   // PDF는 Y축이 위로 증가한다. 문서 모델은 아래로 증가하므로 여기서 뒤집는다.
   // 이 변환은 익스포터 안에만 존재하고 모델은 알지 못한다.
   const flipY = (y: Mm): Mm => input.paperHeight - y;
 
-  // 층 순서가 화면과 같아야 한다. 도트 → 선 → 글자.
-  // 재단선과 눈금자는 속지 내용이 아니라 용지 위의 표시라 그 위에 얹는다.
-  // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
-  drawDotGrid(page, input.layout, resolveSlot, flipY);
-  drawObjects(page, input.layout, resolveSlot, flipY);
-  if (bodyFont) {
-    drawTexts(page, input.layout, resolveSlot, { regular: bodyFont, bold: boldFont, user: userFonts }, flipY);
-  }
+  const slotsPerSheet = input.layout.slots.length;
+  // totalSlots를 정하지 않았으면 지금까지처럼 한 장, 모든 칸을 채운다.
+  const sheets =
+    input.totalSlots && input.totalSlots > 0 && slotsPerSheet > 0
+      ? sheetsNeeded(input.totalSlots, slotsPerSheet)
+      : 1;
 
-  for (const s of cropSegments(input.layout, input.paperWidth, input.paperHeight, input.cropMark)) {
-    page.drawLine({
-      start: { x: mmToPt(s.x1), y: mmToPt(flipY(s.y1)) },
-      end: { x: mmToPt(s.x2), y: mmToPt(flipY(s.y2)) },
-      thickness: mmToPt(CROP_WIDTH),
-      color: CROP,
-    });
-  }
+  for (let sheet = 0; sheet < sheets; sheet++) {
+    const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
 
-  if (input.showRuler) {
-    drawRuler(page, font, input.paperWidth, input.paperHeight, flipY);
+    // 이 장에서 실제로 채울 칸 수. totalSlots가 없으면 언제나 전부다.
+    // 마지막 장만 모자랄 수 있고, 그 나머지 칸은 resolveForSheet가 완전히 비운다.
+    // 화면 미리보기와 같은 core/template의 filledSlots를 쓴다 — 둘이 어긋나면
+    // 미리보기에서 본 빈 칸이 실제 인쇄물과 달라진다.
+    const filled = input.totalSlots
+      ? filledSlots(sheet, input.totalSlots, slotsPerSheet)
+      : slotsPerSheet;
+    const resolveForSheet = (i: number): SlotContent => (i < filled ? resolveSlot(i) : BLANK_SLOT);
+
+    // 층 순서가 화면과 같아야 한다. 도트 → 선 → 글자.
+    // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
+    drawDotGrid(page, input.layout, resolveForSheet, flipY);
+    drawObjects(page, input.layout, resolveForSheet, flipY);
+    if (bodyFont) {
+      drawTexts(
+        page,
+        input.layout,
+        resolveForSheet,
+        { regular: bodyFont, bold: boldFont, user: userFonts },
+        flipY,
+      );
+    }
+
+    // 재단선과 눈금자는 속지 내용이 아니라 용지 위의 표시라 장마다 그 위에 얹는다.
+    for (const s of cropSegments(input.layout, input.paperWidth, input.paperHeight, input.cropMark)) {
+      page.drawLine({
+        start: { x: mmToPt(s.x1), y: mmToPt(flipY(s.y1)) },
+        end: { x: mmToPt(s.x2), y: mmToPt(flipY(s.y2)) },
+        thickness: mmToPt(CROP_WIDTH),
+        color: CROP,
+      });
+    }
+
+    if (input.showRuler) {
+      drawRuler(page, font, input.paperWidth, input.paperHeight, flipY);
+    }
   }
 
   return doc.save();

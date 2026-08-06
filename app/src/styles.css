@@ -672,6 +672,35 @@ select,
   font-size: 11.5px;
 }
 
+/* 반복 인쇄 — 낱장 조합(.slot-assign)의 반대말. 같은 자리·같은 생김새를 쓴다. */
+.repeat-print {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.repeat-print-label {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.page-nav button {
+  padding: 3px 9px;
+  font-size: 13px;
+  line-height: 1;
+}
+
 .stage-area {
   flex: 1;
   min-width: 0;

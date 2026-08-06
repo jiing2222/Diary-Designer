@@ -26,6 +26,22 @@ export interface InsertSetting {
   punch: PunchSetting;
 }
 
+/**
+ * 반복 인쇄 — 이 양식을 몇 번 찍을지.
+ *
+ * **만년형만 다룬다.** 연도형(날짜·요일이 데이터에서 자동으로 채워지는 것)은
+ * 자동 필드가 생기는 8단계의 일이다. 여기서는 개수만 입력받는다(설계문서 7장).
+ *
+ * `single`이면 지금까지처럼 다른 양식과 한 장에 섞일 수 있다(낱장 조합, 5c).
+ * `repeat`이면 이 양식 **하나로만** 여러 장을 채운다 — 다른 양식과 섞이지 않는다.
+ * 53쪽짜리 위클리와 1쪽짜리 메모를 한 인쇄 작업에 넣을 수 없다는 것이 설계문서
+ * 8장의 원칙이라, 양식을 고르면 어느 쪽인지 저절로 정해지고 사용자가 인쇄
+ * 모드를 따로 고르지 않는다.
+ */
+export type RepeatSetting = { mode: 'single' } | { mode: 'repeat'; count: number };
+
+export const SINGLE_REPEAT: RepeatSetting = { mode: 'single' };
+
 export interface Template {
   id: string;
   name: string;
@@ -38,6 +54,8 @@ export interface Template {
    * 양식을 바꿨다가 ⌘Z를 눌렀는데 다른 양식의 작업이 되돌려지면 무섭다.
    */
   objects: History<DiaryObject[]>;
+  /** 이 양식을 몇 번 찍을지. 기본은 `single`(한 번, 다른 양식과 섞일 수 있음). */
+  repeat: RepeatSetting;
 }
 
 let counter = 0;
@@ -72,6 +90,7 @@ export function newTemplate(name: string, insert: InsertSetting = defaultInsert(
     insert,
     dotGrid: { ...DEFAULT_DOT_GRID },
     objects: initHistory<DiaryObject[]>([]),
+    repeat: SINGLE_REPEAT,
   };
 }
 
@@ -94,6 +113,9 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
     dotGrid: { ...t.dotGrid },
     // 실행취소 이력은 물려주지 않는다. 사본은 지금 모습에서 새로 시작한다.
     objects: initHistory([...t.objects.present]),
+    // 반복 설정도 물려받는다. 54장짜리 만년형을 디자인만 바꿔보고 싶을 때
+    // 매번 장수를 다시 입력하지 않아도 된다.
+    repeat: { ...t.repeat },
   };
 }
 
@@ -192,4 +214,28 @@ export function defaultName(templates: Template[], insert: InsertSetting): strin
     if (m && m[1] === prefix) max = Math.max(max, Number(m[2]));
   }
   return `${prefix}-${max + 1}`;
+}
+
+/**
+ * 필요한 칸 수를 채우려면 용지가 몇 장 있어야 하는지.
+ *
+ * `ceil(totalSlots ÷ 한 장의 칸 수)`. 나머지가 남으면 마지막 장은 일부만
+ * 채우고 나머지 칸은 비운다(pdf/export의 `SlotContent` 쪽이 실제로 비운다) —
+ * 필요 이상으로 속지를 뽑지 않기 위해서다.
+ */
+export function sheetsNeeded(totalSlots: number, slotsPerSheet: number): number {
+  if (slotsPerSheet <= 0 || totalSlots <= 0) return 0;
+  return Math.ceil(totalSlots / slotsPerSheet);
+}
+
+/**
+ * 이 장(0부터 센다)에서 실제로 채울 칸 수. 마지막 장만 모자랄 수 있다.
+ *
+ * **화면 미리보기와 PDF가 이 함수 하나를 함께 쓴다.** 각자 계산하면 미리보기에서
+ * 본 빈 칸이 실제 인쇄물과 어긋날 수 있다 — 이 프로젝트가 이미 여러 번 겪은
+ * 종류의 사고다.
+ */
+export function filledSlots(sheet: number, totalSlots: number, slotsPerSheet: number): number {
+  if (slotsPerSheet <= 0) return 0;
+  return Math.max(0, Math.min(slotsPerSheet, totalSlots - sheet * slotsPerSheet));
 }

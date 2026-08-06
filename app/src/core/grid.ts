@@ -375,6 +375,24 @@ function between(values: Mm[], p1: Mm, p2: Mm): Mm[] {
  * 한 줄로 끌면(가로나 세로가 한 칸도 안 되면) 그 줄 하나만 나온다 —
  * `rectLines`와 같은 규칙이다. 한 점이면 그을 것이 없다.
  */
+/**
+ * 표를 그으면 몇 칸이 되는지.
+ *
+ * `tableLines`와 같은 격자점 계산(`between`)을 쓴다 — 드래그 중 미리보기
+ * 숫자와 실제로 그어질 선이 서로 다른 계산에서 나오면 언젠가 어긋난다.
+ *
+ * 한 줄로만 끌어도(가로나 세로가 한 칸도 없어도) **최소 1칸으로 센다.** 선
+ * 하나짜리 표도 "그 방향으로 한 칸"은 되기 때문이다 — 0칸이라고 하면 오해한다.
+ */
+export function tableSize(lattice: Lattice, a: Dot, b: Dot): { cols: number; rows: number } {
+  const xs = between(lattice.xs, a.x, b.x);
+  const ys = between(lattice.ys, a.y, b.y);
+  return {
+    cols: Math.max(1, xs.length - 1),
+    rows: Math.max(1, ys.length - 1),
+  };
+}
+
 export function tableLines(lattice: Lattice, a: Dot, b: Dot): Segment[] {
   const xs = between(lattice.xs, a.x, b.x);
   const ys = between(lattice.ys, a.y, b.y);

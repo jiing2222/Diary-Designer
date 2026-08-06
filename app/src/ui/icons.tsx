@@ -111,3 +111,13 @@ export function TableIcon() {
     </svg>
   );
 }
+
+/** 반복 — 겹쳐 쌓인 종이 두 장. 여러 장 찍는다는 뜻이다. 다른 아이콘처럼 선으로만 그린다. */
+export function RepeatIcon() {
+  return (
+    <svg {...box}>
+      <rect x={6.5} y={2.5} width={10} height={13} rx={1} opacity={0.55} />
+      <rect x={3.5} y={5.5} width={10} height={13} rx={1} />
+    </svg>
+  );
+}

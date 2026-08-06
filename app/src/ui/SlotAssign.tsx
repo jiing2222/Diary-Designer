@@ -9,6 +9,10 @@ import type { Layout } from '../core/layout';
  * 한 번만 계산되기 때문이다(설계문서 8장). 지금 양식과 같은 규격의 양식이
  * 하나뿐이면(자기 자신뿐이면) 고를 게 없으므로 아무것도 보여주지 않는다.
  *
+ * **반복(`repeat`) 양식은 목록에 안 뜬다.** 그 양식은 자기 하나로만 여러 장을
+ * 채우는 것이라, 다른 양식과 한 칸씩 섞이는 낱장 조합에 낄 수 없다 — 이 화면
+ * 자체가 지금 양식이 `single`일 때만 뜬다(App.tsx가 가른다).
+ *
  * 드롭다운을 칸 배치와 같은 모양(가로·세로)으로 늘어놓는다 — 어느 칸을
  * 고치는지 바로 알아볼 수 있어야 한다.
  */
@@ -20,7 +24,9 @@ export function SlotAssign({ layout }: { layout: Layout }) {
 
   if (!active || layout.count === 0) return null;
 
-  const group = templates.filter((t) => sameSize(t.insert, active.insert));
+  const group = templates.filter(
+    (t) => sameSize(t.insert, active.insert) && t.repeat.mode === 'single',
+  );
   if (group.length <= 1) return null;
 
   return (

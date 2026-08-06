@@ -314,3 +314,40 @@ describe('낱장 조합 — 칸 배정', () => {
     expect(resolveSlotTemplates(s(), 4)).toEqual([]);
   });
 });
+
+describe('반복 인쇄 설정', () => {
+  it('새 양식은 single이다', () => {
+    s().addTemplate();
+    expect(at().repeat).toEqual({ mode: 'single' });
+  });
+
+  it('patchRepeat이 지금 양식만 바꾼다', () => {
+    s().addTemplate();
+    const first = s().activeId;
+    s().addTemplate();
+
+    s().patchRepeat({ mode: 'repeat', count: 54 });
+    expect(at().repeat).toEqual({ mode: 'repeat', count: 54 });
+
+    s().selectTemplate(first);
+    expect(at().repeat).toEqual({ mode: 'single' });
+  });
+});
+
+describe('반복 양식은 낱장 조합에 낄 수 없다', () => {
+  it('배정된 양식이 나중에 repeat으로 바뀌면 기본값으로 돌아간다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    s().selectTemplate(first);
+    s().assignSlot(0, second);
+    expect(resolveSlotTemplates(s(), 1)[0].id).toBe(second);
+
+    // second가 반복 양식으로 바뀐 뒤에는 더 이상 낱장 조합에 낄 수 없다.
+    s().selectTemplate(second);
+    s().patchRepeat({ mode: 'repeat', count: 10 });
+    s().selectTemplate(first);
+    expect(resolveSlotTemplates(s(), 1)[0].id).toBe(first);
+  });
+});

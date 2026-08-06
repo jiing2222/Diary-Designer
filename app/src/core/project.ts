@@ -1,8 +1,8 @@
 import { initHistory } from './history';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import type { DiaryObject } from './objects';
-import type { InsertSetting, Template } from './template';
-import { defaultInsert } from './template';
+import type { InsertSetting, RepeatSetting, Template } from './template';
+import { defaultInsert, SINGLE_REPEAT } from './template';
 
 /**
  * 저장 파일.
@@ -32,6 +32,8 @@ export interface SavedTemplate {
   insert: InsertSetting;
   dotGrid: DotGrid;
   objects: DiaryObject[];
+  /** 옛 파일(7단계 이전)에는 없다. 없으면 `single`로 읽는다. */
+  repeat?: RepeatSetting;
 }
 
 export interface SavedProject {
@@ -61,6 +63,7 @@ export function toProject(input: {
       dotGrid: t.dotGrid,
       // 실행취소 이력은 빼고 지금 모습만.
       objects: t.objects.present,
+      repeat: t.repeat,
     })),
     print: input.print,
     // 실제로 쓰인 글꼴만 담는다. 등록만 해놓고 안 쓴 것까지 적어두면
@@ -125,6 +128,7 @@ export function toTemplates(p: SavedProject): Template[] {
     insert: { ...defaultInsert(), ...t.insert },
     dotGrid: { ...DEFAULT_DOT_GRID, ...t.dotGrid },
     objects: initHistory(t.objects),
+    repeat: t.repeat ?? SINGLE_REPEAT,
   }));
 }
 

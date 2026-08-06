@@ -6,6 +6,7 @@ import {
   insertFromPreset,
   newTemplate,
   outsideCount,
+  sheetsNeeded,
   sizeLabel,
   uniqueName,
 } from './template';
@@ -198,5 +199,45 @@ describe('규격에서 나오는 이름', () => {
   it('손으로 붙인 이름은 세는 데 끼어들지 않는다', () => {
     const list = [newTemplate('위클리', insertFromPreset('M6'))];
     expect(defaultName(list, insertFromPreset('M6'))).toBe('M6-1');
+  });
+});
+
+describe('반복 인쇄', () => {
+  it('새로 만들면 single이다', () => {
+    expect(newTemplate('가').repeat).toEqual({ mode: 'single' });
+  });
+
+  it('복제하면 반복 설정도 물려받는다', () => {
+    const t = newTemplate('가');
+    t.repeat = { mode: 'repeat', count: 54 };
+    const copy = duplicateTemplate(t, '가 사본');
+    expect(copy.repeat).toEqual({ mode: 'repeat', count: 54 });
+  });
+
+  it('복제본을 고쳐도 원본 반복 설정은 그대로다', () => {
+    const t = newTemplate('가');
+    t.repeat = { mode: 'repeat', count: 54 };
+    const copy = duplicateTemplate(t, '가 사본');
+    copy.repeat = { mode: 'repeat', count: 1 };
+    expect(t.repeat).toEqual({ mode: 'repeat', count: 54 });
+  });
+});
+
+describe('필요한 용지 장수', () => {
+  it('칸 수로 나누어떨어지면 딱 맞는다', () => {
+    expect(sheetsNeeded(54, 4)).toBe(14); // 54 = 4×13 + 2 → 14장
+    expect(sheetsNeeded(8, 4)).toBe(2);
+  });
+
+  it('한 칸도 안 되면 0장이다', () => {
+    expect(sheetsNeeded(0, 4)).toBe(0);
+  });
+
+  it('한 장에 칸이 없으면 0장이다', () => {
+    expect(sheetsNeeded(10, 0)).toBe(0);
+  });
+
+  it('칸 수보다 적게 필요해도 한 장은 있어야 한다', () => {
+    expect(sheetsNeeded(1, 4)).toBe(1);
   });
 });
