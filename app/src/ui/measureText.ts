@@ -25,12 +25,13 @@ export function measureTextBox(
   size: Mm,
   lineHeight: Mm,
   bold = false,
+  family = DEFAULT_FONT_FAMILY,
 ): { width: Mm; height: Mm } {
   const c = getCtx();
-  // 굵기까지 넣어야 한다. Bold는 획이 두꺼운 만큼 폭도 넓어서, 보통 굵기로 재면
-  // 상자가 모자라게 잡힌다.
+  // 굵기와 글꼴까지 넣어야 한다. Bold는 획이 두꺼운 만큼 폭도 넓고, 등록한 글꼴은
+  // 글자 폭이 아예 다르다. 그리는 것과 다른 글꼴로 재면 상자가 안 맞는다.
   const weight = bold ? FONT_WEIGHT.bold : FONT_WEIGHT.regular;
-  c.font = `${weight} ${size * PX_PER_MM_AT_100}px ${DEFAULT_FONT_FAMILY}, sans-serif`;
+  c.font = `${weight} ${size * PX_PER_MM_AT_100}px ${family}, sans-serif`;
 
   const lines = splitLines(text);
   const widthPx = Math.max(0, ...lines.map((l) => c.measureText(l).width));

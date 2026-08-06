@@ -5,6 +5,7 @@ import { PaperPreview } from './PaperPreview';
 import { EditorTab } from './EditorTab';
 import { buildPdf, downloadPdf } from '../pdf/export';
 import { loadBodyFont, loadBoldFont } from '../fonts/load';
+import { fontBytes as fontBytes_ } from '../fonts/registry';
 
 type Tab = 'edit' | 'print';
 
@@ -31,6 +32,14 @@ export function App() {
       const fontBytes = texts.length > 0 ? await loadBodyFont() : undefined;
       const boldFontBytes = texts.some((t) => t.bold) ? await loadBoldFont() : undefined;
 
+      // 등록 글꼴은 실제로 쓰이는 것만 모은다. 등록소에 없는 id(새로고침 뒤에
+      // 남은 글자)는 그냥 빠지고, PDF에서도 기본 글꼴로 그려진다.
+      const userFonts = new Map<string, ArrayBuffer>();
+      for (const t of texts) {
+        const b = t.font ? fontBytes_(t.font) : undefined;
+        if (t.font && b) userFonts.set(t.font, b);
+      }
+
       const bytes = await buildPdf({
         paperWidth: width,
         paperHeight: height,
@@ -39,6 +48,7 @@ export function App() {
         objects: s.objects.present,
         fontBytes,
         boldFontBytes,
+        userFonts,
         safeZoneWidth: s.insert.punch.safeZoneWidth,
         cropMark: s.cropMark,
         showRuler: s.showRuler,

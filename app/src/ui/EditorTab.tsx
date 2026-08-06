@@ -24,6 +24,7 @@ import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
 import { CursorIcon, LineIcon, TextIcon } from './icons';
 import { measureTextBox } from './measureText';
+import { familyOf } from '../fonts/registry';
 import { PX_PER_MM_AT_100 } from './pixels';
 import {
   editingFor,
@@ -69,6 +70,7 @@ export function EditorTab() {
   const reshapeSelected = useStore((s) => s.reshapeSelected);
   const commitText = useStore((s) => s.commitText);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
+  const userFonts = useStore((s) => s.userFonts);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
 
@@ -716,6 +718,7 @@ export function EditorTab() {
                 size,
                 editing.style.lineHeight ?? size,
                 editing.style.bold,
+                familyOf(userFonts, editing.style.font),
               );
               const box = growBox(editing.box, grid.spacing, required, insert.width, insert.height);
               setEditing({ ...editing, text, box });
@@ -783,6 +786,8 @@ function TextInput({
 }) {
   const ref = inputRef;
   const { box } = editing;
+  // 치는 동안에도 확정한 뒤와 같은 글꼴로 보여야 한다.
+  const userFonts = useStore((s) => s.userFonts);
   const size = editing.style.size ?? TEXT_SIZE;
 
   useEffect(() => {
@@ -811,6 +816,7 @@ function TextInput({
         width: box.width * scale,
         height: box.height * scale,
         fontSize: size * scale,
+        fontFamily: familyOf(userFonts, editing.style.font),
         fontWeight: editing.style.bold ? FONT_WEIGHT.bold : FONT_WEIGHT.regular,
         // 이 글자에 새겨둔 줄 간격을 그대로 쓴다 — 타이핑 중과 커밋 후가
         // 같은 자리로 보여야 한다.

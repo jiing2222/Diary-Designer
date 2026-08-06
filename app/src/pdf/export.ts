@@ -69,6 +69,13 @@ interface ExportInput {
   fontBytes?: ArrayBuffer | Uint8Array;
   /** 굵게용 글꼴 파일. 굵은 글자가 실제로 있을 때만 쓰인다. */
   boldFontBytes?: ArrayBuffer | Uint8Array;
+  /**
+   * 사용자가 등록한 글꼴. `TextObject.font`의 id → 파일 바이트.
+   *
+   * 실제로 쓰이는 것만 담아 넘긴다. 등록만 해놓고 안 쓴 글꼴까지 심으면
+   * 파일마다 수 MB씩 불어난다.
+   */
+  userFonts?: Map<string, ArrayBuffer | Uint8Array>;
   /** 타공 안전영역 폭. 격자가 이 영역을 피할지는 dotGrid가 정한다. */
   safeZoneWidth: Mm;
   cropMark: CropMode;
@@ -100,12 +107,19 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   const texts = input.objects.filter(isText);
   let bodyFont: PDFFont | null = null;
   let boldFont: PDFFont | null = null;
+  const userFonts = new Map<string, PDFFont>();
   if (texts.length > 0 && input.fontBytes) {
     doc.registerFontkit(fontkit);
     bodyFont = await doc.embedFont(input.fontBytes, { subset: false });
     // 굵기마다 파일이 따로다. 굵은 글자가 하나도 없으면 심지 않는다.
     if (input.boldFontBytes && texts.some(boldOf)) {
       boldFont = await doc.embedFont(input.boldFontBytes, { subset: false });
+    }
+    // 등록 글꼴도 실제로 쓰이는 것만 심는다.
+    for (const [id, b] of input.userFonts ?? []) {
+      if (texts.some((t) => t.font === id)) {
+        userFonts.set(id, await doc.embedFont(b, { subset: false }));
+      }
     }
   }
 
@@ -121,7 +135,9 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     drawDotGrid(page, input.layout, input.dotGrid, input.safeZoneWidth, flipY);
   }
   drawObjects(page, input.layout, input.objects.filter(isLine), flipY);
-  if (bodyFont) drawTexts(page, input.layout, texts, { regular: bodyFont, bold: boldFont }, flipY);
+  if (bodyFont) {
+    drawTexts(page, input.layout, texts, { regular: bodyFont, bold: boldFont, user: userFonts }, flipY);
+  }
 
   for (const s of cropSegments(input.layout, input.paperWidth, input.paperHeight, input.cropMark)) {
     page.drawLine({
@@ -204,12 +220,31 @@ function drawDotGrid(
  * 자체를 넘어가면 안 된다 — 재단선 너머까지 인쇄되면 옆 칸을 침범한다. 도트·선은
  * 애초에 격자 안에서만 그려지므로 자를 필요가 없고, 글자만 자른다.
  */
+interface Fonts {
+  regular: PDFFont;
+  bold: PDFFont | null;
+  /** 등록 글꼴. id로 찾는다. */
+  user: Map<string, PDFFont>;
+}
+
+/**
+ * 이 글자를 그릴 글꼴.
+ *
+ * 등록 글꼴이 먼저다. 그 글꼴에는 Bold 파일이 없으므로 굵게는 아예 끼지 않는다
+ * (core/text의 canBold와 같은 규칙이다). 새로고침 뒤처럼 등록소에 없는 id가
+ * 남아 있으면 기본 글꼴로 돌아간다 — 화면에서도 그렇게 보인다.
+ */
+function fontFor(t: TextObject, fonts: Fonts): PDFFont {
+  if (t.font) return fonts.user.get(t.font) ?? fonts.regular;
+  return boldOf(t) && fonts.bold ? fonts.bold : fonts.regular;
+}
+
 function drawTexts(
   page: PDFPage,
   layout: Layout,
   texts: TextObject[],
-  /** 굵기별 글꼴. `bold`가 없으면 굵은 글자가 없다는 뜻이라 심지 않은 것이다. */
-  fonts: { regular: PDFFont; bold: PDFFont | null },
+  /** 심어둔 글꼴들. `bold`가 없으면 굵은 글자가 없어서 심지 않은 것이다. */
+  fonts: Fonts,
   flipY: (y: Mm) => Mm,
 ) {
   if (texts.length === 0) return;
@@ -242,7 +277,7 @@ function drawTexts(
       const baselines = lineBaselines(t, size, valignOf(t), lines.length, lineHeightOf(t));
       // 폭을 재는 글꼴과 그리는 글꼴이 반드시 같아야 한다. Bold는 획이 두꺼운
       // 만큼 폭도 넓어서, Regular로 재고 Bold로 그리면 가운데 정렬이 어긋난다.
-      const font = boldOf(t) && fonts.bold ? fonts.bold : fonts.regular;
+      const font = fontFor(t, fonts);
 
       lines.forEach((line, i) => {
         if (line === '') return;

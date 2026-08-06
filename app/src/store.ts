@@ -20,6 +20,7 @@ import {
 } from './core/objects';
 import type { CropMode } from './core/crop';
 import type { Mm } from './core/units';
+import type { UserFont } from './fonts/registry';
 
 interface PaperState {
   presetId: string;
@@ -88,6 +89,13 @@ interface Settings {
   drawStyle: LineStyle;
   /** 앞으로 쓸 글자의 모양. drawStyle의 글자 판이다. */
   textDraftStyle: TextStyle;
+  /**
+   * 이번 세션에 등록한 글꼴 목록.
+   *
+   * 파일 바이트는 여기 없다 — fonts/registry가 들고 있다. 상태에 수 MB짜리
+   * 버퍼를 넣으면 구독하는 컴포넌트마다 그것을 들여다보게 된다.
+   */
+  userFonts: UserFont[];
   gap: Mm;
   allowRotate: boolean;
   align: Align;
@@ -126,6 +134,8 @@ interface Store extends Settings {
   styleText: (patch: TextStyle) => void;
   /** 앞으로 쓸 글자의 모양. */
   setTextDraftStyle: (patch: TextStyle) => void;
+  /** 등록을 마친 글꼴을 목록에 넣는다. 파일 읽기는 fonts/registry가 이미 끝냈다. */
+  addUserFont: (font: UserFont) => void;
   undo: () => void;
   redo: () => void;
   patch: (
@@ -172,6 +182,7 @@ export const useStore = create<Store>((set) => ({
   selectedIds: [],
   drawStyle: {},
   textDraftStyle: {},
+  userFonts: [],
   gap: 0,
   allowRotate: true,
   // 좌측 상단에 붙이면 자르는 횟수가 줄지만, 실제로 인쇄해보니 가운데가 낫다.
@@ -278,6 +289,8 @@ export const useStore = create<Store>((set) => ({
     }),
 
   setTextDraftStyle: (patch) => set((s) => ({ textDraftStyle: { ...s.textDraftStyle, ...patch } })),
+
+  addUserFont: (font) => set((s) => ({ userFonts: [...s.userFonts, font] })),
 
   select: (selectedIds) => set({ selectedIds }),
 

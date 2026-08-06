@@ -69,8 +69,18 @@ export interface TextObject {
    * **가짜 굵게가 아니라 Bold 글꼴 파일을 쓴다.** 브라우저는 획을 부풀려 굵은
    * 척을 할 수 있지만 pdf-lib에는 그런 기능이 없다. 화면만 굵고 인쇄물은 그대로
    * 나오는 사고를 막으려면 양쪽이 같은 파일을 봐야 한다.
+   *
+   * 그래서 **등록한 글꼴에는 쓸 수 없다.** 그 글꼴의 Bold 파일이 없기 때문이다.
+   * 굵은 글꼴이 필요하면 Bold 파일을 따로 등록해서 고른다.
    */
   bold?: boolean;
+  /**
+   * 사용자가 등록한 글꼴의 id. 없으면 기본 글꼴(Pretendard)이다.
+   *
+   * **이번 세션에만 유효하다.** 새로고침하면 등록소가 비므로 기본 글꼴로
+   * 되돌아간다. 자세한 이유는 fonts/registry에 있다.
+   */
+  font?: string;
   /**
    * 줄 간격 (⇧Enter로 나뉜 줄 사이 거리).
    *
@@ -103,7 +113,7 @@ export type LineStyle = Partial<Pick<LineObject, 'width' | 'color' | 'dash'>>;
  * 똑같이 객체에 새겨져 따라다닌다.
  */
 export type TextStyle = Partial<
-  Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight' | 'bold'>
+  Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight' | 'bold' | 'font'>
 >;
 
 /**

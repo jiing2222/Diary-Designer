@@ -8,12 +8,14 @@ import {
   type TextStyle,
 } from '../core/objects';
 import {
+  DEFAULT_FONT_FAMILY,
   OBJECT_LINE_COLOR,
   OBJECT_LINE_WIDTH,
   TEXT_COLOR,
   TEXT_SIZE,
 } from '../core/style';
-import { boldOf, naturalLineHeight } from '../core/text';
+import { boldOf, canBold, naturalLineHeight } from '../core/text';
+import { FONT_ACCEPT, registerFont } from '../fonts/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
 import { useStore } from '../store';
 import type { Editing } from './gestures';
@@ -253,15 +255,23 @@ function TextControls({
   // 하나라도 보통 굵기면 눌렀을 때 전부 굵어진다. 여러 개가 섞여 있을 때
   // 무엇이 될지 예측하기 쉬운 쪽이다.
   const allBold = !mixed('bold') && boldOf(items[0]);
+  // 등록 글꼴에는 Bold 파일이 없다. 가짜 굵게는 PDF에서 안 되므로 막는다.
+  const boldable = items.every(canBold);
 
   return (
     <>
+      <FontPicker
+        value={mixed('font') ? null : (items[0].font ?? '')}
+        onPick={(font) => pick({ font })}
+      />
+
       <button
         type="button"
         className={`bold-btn ${allBold ? 'on' : ''}`}
         // 보통 굵기로 되돌릴 때는 값을 아예 지운다. 그래야 기본값을 따라간다.
         onClick={() => pick({ bold: allBold ? undefined : true })}
-        title="굵게"
+        disabled={!boldable}
+        title={boldable ? '굵게' : '등록한 글꼴은 굵게가 없습니다. Bold 파일을 따로 등록하세요'}
       >
         가
       </button>
@@ -327,6 +337,86 @@ function TextControls({
     </>
   );
 }
+
+/**
+ * 글꼴 고르기.
+ *
+ * 목록 맨 아래의 `글꼴 파일 추가…`가 파일 창을 연다. 드롭다운 하나에 고르기와
+ * 등록을 함께 둔 것은, 글꼴을 바꾸려다 없다는 걸 알게 되는 순간이 곧 등록하고
+ * 싶은 순간이기 때문이다.
+ *
+ * **등록한 글꼴은 이번 세션에만 산다.** 새로고침하면 목록이 비고, 그 글꼴을 쓰던
+ * 글자는 기본 글꼴로 돌아간다. 자세한 이유는 fonts/registry에 있다.
+ */
+function FontPicker({
+  value,
+  onPick,
+}: {
+  /** 고른 글꼴 id. 빈 문자열이면 기본 글꼴, null이면 여러 개가 섞여 있다. */
+  value: string | null;
+  onPick: (id: string | undefined) => void;
+}) {
+  const userFonts = useStore((s) => s.userFonts);
+  const addUserFont = useStore((s) => s.addUserFont);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function take(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    try {
+      const font = await registerFont(file);
+      addUserFont(font);
+      // 방금 등록한 글꼴을 바로 씌운다. 등록만 하고 또 고르게 하면 한 번 더 손이 간다.
+      onPick(font.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '글꼴을 읽지 못했습니다');
+    }
+  }
+
+  return (
+    <>
+      <select
+        value={value === null ? 'mixed' : value}
+        onChange={(e) => {
+          if (e.target.value === ADD_FONT) {
+            // 고른 값을 되돌려놓는다. 파일 창을 닫아버리면 아무 일도 없어야 한다.
+            e.target.value = value === null ? 'mixed' : (value ?? '');
+            fileRef.current?.click();
+            return;
+          }
+          onPick(e.target.value || undefined);
+        }}
+        title={error ?? '글꼴'}
+        className={error ? 'has-error' : undefined}
+      >
+        {value === null && <option value="mixed">—</option>}
+        <option value="">{DEFAULT_FONT_FAMILY}</option>
+        {userFonts.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.name}
+          </option>
+        ))}
+        <option value={ADD_FONT}>글꼴 파일 추가…</option>
+      </select>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept={FONT_ACCEPT}
+        hidden
+        onChange={(e) => {
+          void take(e.target.files?.[0]);
+          // 같은 파일을 다시 고를 수 있게 비운다.
+          e.target.value = '';
+        }}
+      />
+    </>
+  );
+}
+
+/** 드롭다운에서 `파일 추가`를 뜻하는 값. 글꼴 id와 부딪히지 않는 모양이면 된다. */
+const ADD_FONT = '__add__';
 
 /**
  * 직접 치는 숫자 칸.

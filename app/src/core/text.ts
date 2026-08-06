@@ -33,6 +33,17 @@ export function boldOf(t: { bold?: boolean }): boolean {
 }
 
 /**
+ * 굵게를 쓸 수 있는가.
+ *
+ * 등록한 글꼴에는 Bold 파일이 따로 없다. 브라우저는 가짜 굵게를 만들어주지만
+ * pdf-lib에는 그 기능이 없어서, 허용하면 화면만 굵고 인쇄물은 그대로 나온다.
+ * 굵은 글꼴이 필요하면 Bold 파일을 따로 등록해서 고른다.
+ */
+export function canBold(t: { font?: string }): boolean {
+  return t.font === undefined;
+}
+
+/**
  * 글자가 걸리는 가로 기준점.
  *
  * 화면은 이 자리에 text-anchor(start/middle/end)로 붙이고,

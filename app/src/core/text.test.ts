@@ -4,6 +4,7 @@ import {
   baselineY,
   blockHeight,
   boldOf,
+  canBold,
   effectiveLineHeight,
   leftOf,
   lineBaselines,
@@ -103,6 +104,13 @@ describe('굵게', () => {
   it('앞으로 쓸 글자에도 이어진다', () => {
     // 크기·색과 같은 규칙이다. 한 번 굵게로 바꾸면 다음 글자도 굵다.
     expect(newTextStyle({ bold: true }, 5).bold).toBe(true);
+  });
+
+  it('기본 글꼴에서만 쓸 수 있다', () => {
+    // 등록한 글꼴에는 Bold 파일이 없다. 브라우저는 가짜 굵게를 만들어주지만
+    // pdf-lib에는 그 기능이 없어서, 허용하면 화면만 굵고 인쇄물은 그대로다.
+    expect(canBold({})).toBe(true);
+    expect(canBold({ font: 'f1' })).toBe(false);
   });
 });
 

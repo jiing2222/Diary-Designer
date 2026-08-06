@@ -269,6 +269,17 @@ button.ghost:disabled {
   color: #fff;
 }
 
+/* 등록 글꼴에는 Bold 파일이 없어 굵게를 쓸 수 없다. 왜 안 되는지는 title에 있다. */
+.bold-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 글꼴 파일을 못 읽었을 때. 무슨 일인지는 title에 적어둔다. */
+.stylebar select.has-error {
+  border-color: #c0503c;
+}
+
 /* 속성 막대에서 직접 치는 숫자 칸(글자 크기·줄 간격).
    설정 패널의 `.num`과 달리 칸을 다 채우지 않고 숫자만큼만 차지한다. */
 .numfield {

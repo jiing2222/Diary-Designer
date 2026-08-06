@@ -219,6 +219,28 @@ describe('도트 격자 인쇄', () => {
     expect(given.byteLength).toBe(not.byteLength);
   });
 
+  it('쓰이지 않는 등록 글꼴은 심지 않는다', async () => {
+    // 굵게와 같은 규칙이다. 등록만 해놓고 안 쓴 글꼴까지 심으면 파일마다
+    // 수 MB씩 불어난다. 망가진 바이트를 줘도 터지지 않아야 손대지 않은 것이다.
+    const plain = {
+      id: 't1',
+      type: 'text' as const,
+      x: 10,
+      y: 10,
+      width: 40,
+      height: 20,
+      text: '기본 글꼴',
+    };
+    const given = await buildPdf({
+      ...base,
+      dotGrid: noGrid,
+      objects: [plain],
+      userFonts: new Map([['f1', new Uint8Array([1, 2, 3])]]),
+    });
+    const not = await buildPdf({ ...base, dotGrid: noGrid, objects: [plain] });
+    expect(given.byteLength).toBe(not.byteLength);
+  });
+
   it('속지가 누워도 도트가 벡터로 들어간다', async () => {
     const bytes = await buildPdf({
       ...base,

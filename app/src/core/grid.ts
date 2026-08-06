@@ -48,12 +48,17 @@ export interface DotGrid {
    */
   minMargin: Mm;
   /**
-   * 여백 없이 **영역 끝까지** 채우기. 끝 칸은 잘린다.
+   * 여백 없이 **영역 끝까지** 채우기. 네 모서리의 칸이 잘린다.
    *
-   * 기본은 가운데 정렬이라 양끝에 여백이 남고, 격자는 항상 온전한 칸으로만
-   * 이루어진다. 이것을 켜면 영역 왼쪽 위 모서리에서 시작해 간격만큼씩 끝까지
-   * 나아간다 — 마지막 칸은 간격보다 좁게 잘린 채로 남는다. 잘린 칸을 감수하고
-   * 종이를 남김없이 쓰고 싶을 때다.
+   * 기본은 양끝에 여백을 남기고 온전한 칸으로만 격자를 만든다. 이것을 켜면
+   * 여백의 하한이 0이 되어 칸을 최대한 넣고, 선을 영역 끝까지 긋는다.
+   *
+   * **가운데 정렬은 그대로다.** 그래서 나누어떨어지지 않고 남는 만큼이 양끝에
+   * 반씩 붙고, 위아래·좌우 네 군데가 모두 잘린 칸이 된다. 한쪽 모서리에서
+   * 시작해 반대쪽만 잘리게 하면 격자가 한쪽으로 쏠려 보인다.
+   *
+   *   80mm · 5mm 간격 → 0, 5, …, 80        딱 떨어져 잘린 칸이 없다
+   *   80mm · 6mm 간격 → 1, 7, …, 79        양끝 1mm씩이 잘린 칸
    *
    * **여백(minMargin)은 이때 쓰이지 않는다.** 여백을 없애는 것이 목적이라
    * 하한을 둘 이유가 없다.
@@ -134,28 +139,8 @@ export interface Lattice {
  * 영역 한가운데에 놓이고, 실제 여백은 `최소여백 ≤ 여백 < 최소여백 + 간격/2`다.
  * 기본값 3mm에 간격 3~7mm면 여백이 3~5mm에 들어온다.
  */
-function axis(
-  start: Mm,
-  size: Mm,
-  spacing: Mm,
-  minMargin: Mm,
-  toEdge: boolean,
-): { positions: Mm[]; margin: Mm } {
+function axis(start: Mm, size: Mm, spacing: Mm, minMargin: Mm): { positions: Mm[]; margin: Mm } {
   if (spacing <= 0) return { positions: [], margin: size / 2 };
-
-  /*
-   * 끝까지 채우기 — 여백 없이 모서리에서 시작해 간격만큼씩 나아간다.
-   *
-   * 가운데 정렬을 하지 않으므로 마지막 칸이 간격보다 좁게 잘린 채 남는다.
-   * 그 잘린 칸을 감수하는 것이 이 옵션의 요점이다. 끝점이 영역 끝과 정확히
-   * 맞아떨어지면 잘린 칸 없이 딱 떨어진다.
-   */
-  if (toEdge) {
-    const positions: Mm[] = [];
-    for (let v = 0; v <= size + 1e-9; v += spacing) positions.push(start + v);
-    // 점이 둘은 있어야 칸이 하나라도 생긴다.
-    return positions.length < 2 ? { positions: [], margin: size / 2 } : { positions, margin: 0 };
-  }
 
   // 음수 여백은 격자를 영역 밖으로 밀어낸다. 0이 하한이다.
   const cells = Math.floor((size - Math.max(0, minMargin) * 2) / spacing);
@@ -182,8 +167,13 @@ export function gridLattice(
   minMargin: Mm = DEFAULT_MIN_MARGIN,
   toEdge = false,
 ): Lattice {
-  const x = axis(area.x, area.width, spacing, minMargin, toEdge);
-  const y = axis(area.y, area.height, spacing, minMargin, toEdge);
+  // 끝까지 채우기는 **여백의 하한을 0으로 두는 것**과 같은 계산이다. 가운데
+  // 정렬은 그대로 두므로 나누어떨어지지 않고 남는 만큼이 양끝에 반씩 붙고,
+  // 그 자리가 네 모서리의 잘린 칸이 된다. 선을 영역 끝까지 긋는 일은
+  // gridShapes가 맡는다 — 여기서는 좌표만 정한다.
+  const margin = toEdge ? 0 : minMargin;
+  const x = axis(area.x, area.width, spacing, margin);
+  const y = axis(area.y, area.height, spacing, margin);
   return { xs: x.positions, ys: y.positions, marginX: x.margin, marginY: y.margin };
 }
 

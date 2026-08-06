@@ -13,6 +13,8 @@ import {
   TEXT_COLOR,
 } from '../core/style';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
+import { familyOf } from '../fonts/registry';
+import { useStore } from '../store';
 import {
   alignOf,
   anchorX,
@@ -109,6 +111,8 @@ export function InsertView({
  * 글자가 차지하는 크기는 글꼴이 정하므로 core가 알 수 없다.
  */
 function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: string }) {
+  // 등록한 글꼴은 이번 세션에만 있다. 목록이 바뀌면 다시 그려야 한다.
+  const userFonts = useStore((s) => s.userFonts);
   return (
     /*
      * 커닝과 합자를 끈다.
@@ -133,6 +137,9 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
             data-id={t.id}
             x={x}
             fontSize={size}
+            // 등록한 글꼴이 있으면 그것으로. 새로고침 뒤 등록소가 비었으면
+            // 기본 글꼴로 돌아간다 — 안 보이는 것보다 낫다.
+            fontFamily={familyOf(userFonts, t.font)}
             // 400/700은 @font-face 선언과 같은 값이라 진짜 Bold 파일이 쓰인다.
             // 가짜 굵게(synthetic bold)로 그리면 PDF와 글자 폭이 어긋난다.
             fontWeight={boldOf(t) ? FONT_WEIGHT.bold : FONT_WEIGHT.regular}
