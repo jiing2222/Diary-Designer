@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_DOT_GRID,
-  MIN_MARGIN,
+  DEFAULT_MIN_MARGIN,
   cellAt,
   gridArea,
   gridLattice,
@@ -40,8 +40,8 @@ describe('격자점 좌표', () => {
     // 간격을 바꿔가며 전부 확인한다. 사용자가 임의의 간격을 넣기 때문이다.
     for (let spacing = 1; spacing <= 20; spacing += 0.5) {
       const { marginX, marginY } = gridLattice(m6, spacing);
-      expect(marginX).toBeGreaterThanOrEqual(MIN_MARGIN);
-      expect(marginY).toBeGreaterThanOrEqual(MIN_MARGIN);
+      expect(marginX).toBeGreaterThanOrEqual(DEFAULT_MIN_MARGIN);
+      expect(marginY).toBeGreaterThanOrEqual(DEFAULT_MIN_MARGIN);
     }
   });
 
@@ -51,8 +51,8 @@ describe('격자점 좌표', () => {
     // 간격이 4mm 이하면 여백은 언제나 5mm 밑이다.
     for (let spacing = 1; spacing <= 20; spacing += 0.5) {
       const { marginX, marginY } = gridLattice(m6, spacing);
-      expect(marginX).toBeLessThan(MIN_MARGIN + spacing / 2);
-      expect(marginY).toBeLessThan(MIN_MARGIN + spacing / 2);
+      expect(marginX).toBeLessThan(DEFAULT_MIN_MARGIN + spacing / 2);
+      expect(marginY).toBeLessThan(DEFAULT_MIN_MARGIN + spacing / 2);
     }
   });
 
@@ -132,8 +132,8 @@ describe('타공 안전영역', () => {
       const a = gridArea(m6Insert, on, 10);
       const { xs, marginX } = gridLattice(a, spacing);
       if (xs.length === 0) continue;
-      expect(marginX).toBeGreaterThanOrEqual(MIN_MARGIN);
-      expect(xs[0]).toBeGreaterThanOrEqual(a.x + MIN_MARGIN);
+      expect(marginX).toBeGreaterThanOrEqual(DEFAULT_MIN_MARGIN);
+      expect(xs[0]).toBeGreaterThanOrEqual(a.x + DEFAULT_MIN_MARGIN);
     }
   });
 
@@ -203,5 +203,75 @@ describe('모양 뽑기', () => {
 
   it('도트 모양은 선을 그리지 않는다', () => {
     expect(gridShapes(lattice, 'dot').lines).toEqual([]);
+  });
+
+  it('영역을 주면 선이 그 끝까지 늘어난다', () => {
+    // 줄노트처럼 선이 종이 끝까지 이어지길 원할 때.
+    const { lines } = gridShapes(lattice, 'grid', m6);
+    for (const l of lines.filter((s) => s.y1 === s.y2)) {
+      expect(Math.min(l.x1, l.x2)).toBe(0);
+      expect(Math.max(l.x1, l.x2)).toBe(80);
+    }
+    for (const l of lines.filter((s) => s.x1 === s.x2)) {
+      expect(Math.min(l.y1, l.y2)).toBe(0);
+      expect(Math.max(l.y1, l.y2)).toBe(125);
+    }
+  });
+
+  it('선을 늘여도 격자점 자리는 조금도 변하지 않는다', () => {
+    // 늘어나는 건 보이는 선뿐이다. 붙는 자리까지 따라 움직이면 이미 그려둔 것이
+    // 어긋난다 — 줄 간격에서 한 번 겪은 사고다.
+    const plain = gridShapes(lattice, 'grid');
+    const wide = gridShapes(lattice, 'grid', m6);
+
+    expect(wide.lines.length).toBe(plain.lines.length);
+    expect(wide.lines.filter((l) => l.y1 === l.y2).map((l) => l.y1)).toEqual(lattice.ys);
+    expect(wide.lines.filter((l) => l.x1 === l.x2).map((l) => l.x1)).toEqual(lattice.xs);
+  });
+
+  it('도트 모양은 영역을 줘도 달라지지 않는다', () => {
+    expect(gridShapes(lattice, 'dot', m6)).toEqual(gridShapes(lattice, 'dot'));
+  });
+});
+
+describe('최소 여백 설정', () => {
+  it('정하지 않으면 기본값 3mm를 쓴다', () => {
+    expect(gridLattice(m6, 5)).toEqual(gridLattice(m6, 5, DEFAULT_MIN_MARGIN));
+  });
+
+  it('0으로 두면 여백이 최소가 된다', () => {
+    // 80mm에 5mm 간격이면 딱 나누어떨어져 여백이 0이다.
+    const { xs, marginX } = gridLattice(m6, 5, 0);
+    expect(marginX).toBe(0);
+    expect(xs[0]).toBe(0);
+    expect(xs[xs.length - 1]).toBe(80);
+  });
+
+  it('0으로 둬도 나누어떨어지지 않으면 남는 만큼은 반씩 남는다', () => {
+    // 정확히 0이 되지는 않는다는 것을 못 박아둔다. 80 = 6 × 13 + 2
+    expect(gridLattice(m6, 6, 0).marginX).toBe(1);
+  });
+
+  it('여백을 키우면 칸이 줄어든다', () => {
+    const tight = gridLattice(m6, 5, 0);
+    const loose = gridLattice(m6, 5, 10);
+    expect(loose.xs.length).toBeLessThan(tight.xs.length);
+    expect(loose.marginX).toBeGreaterThanOrEqual(10);
+  });
+
+  it('어떤 값을 줘도 격자는 한가운데 놓인다', () => {
+    for (const m of [0, 1, 3, 7, 12]) {
+      const { xs, marginX } = gridLattice(m6, 5, m);
+      if (xs.length === 0) continue;
+      expect(xs[0]).toBeCloseTo(80 - xs[xs.length - 1], 9);
+      expect(marginX).toBeGreaterThanOrEqual(m);
+    }
+  });
+
+  it('음수를 줘도 격자가 영역 밖으로 나가지 않는다', () => {
+    const { xs, marginX } = gridLattice(m6, 5, -20);
+    expect(marginX).toBeGreaterThanOrEqual(0);
+    expect(xs[0]).toBeGreaterThanOrEqual(0);
+    expect(xs[xs.length - 1]).toBeLessThanOrEqual(80);
   });
 });

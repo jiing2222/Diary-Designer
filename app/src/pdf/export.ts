@@ -156,8 +156,9 @@ function drawDotGrid(
     const insert = insertSizeOf(slot, layout.rotated);
     const place = placeSlot(slot, layout.rotated);
 
-    const lattice = gridLattice(gridArea(insert, grid, safeZoneWidth), grid.spacing);
-    const { dots, lines } = gridShapes(lattice, grid.style);
+    const area = gridArea(insert, grid, safeZoneWidth);
+    const lattice = gridLattice(area, grid.spacing, grid.minMargin);
+    const { dots, lines } = gridShapes(lattice, grid.style, grid.linesToEdge ? area : null);
 
     for (const d of dots) {
       const p = place.map(d.x, d.y);

@@ -197,8 +197,11 @@ function DotGridLayer({
   safeZoneWidth: Mm;
   mode: ViewMode;
 }) {
-  const lattice = gridLattice(gridArea(insert, grid, safeZoneWidth), grid.spacing);
-  const { dots, lines } = gridShapes(lattice, grid.style);
+  const area = gridArea(insert, grid, safeZoneWidth);
+  const lattice = gridLattice(area, grid.spacing, grid.minMargin);
+  // 선을 끝까지 늘일 때도 기준은 속지가 아니라 **격자 영역**이다. 안전영역을
+  // 피하도록 해뒀다면 선이 구멍 쪽으로 넘어가면 안 된다.
+  const { dots, lines } = gridShapes(lattice, grid.style, grid.linesToEdge ? area : null);
 
   const dotSize = mode === 'print' ? DOT_SIZE : screenDotSize(grid.spacing);
   const lineWidth = mode === 'print' ? GRID_LINE_WIDTH : screenLineWidth(grid.spacing);

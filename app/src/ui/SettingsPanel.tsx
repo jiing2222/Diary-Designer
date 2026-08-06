@@ -180,6 +180,26 @@ function GridGroup() {
       <Row label="간격">
         <Num value={s.dotGrid.spacing} min={1} onChange={(spacing) => s.patchDotGrid({ spacing })} />
       </Row>
+      <Row
+        label="최소 여백"
+        hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다"
+      >
+        <Num
+          value={s.dotGrid.minMargin}
+          min={0}
+          max={20}
+          onChange={(minMargin) => s.patchDotGrid({ minMargin })}
+        />
+      </Row>
+      {s.dotGrid.style !== 'dot' && (
+        <Row label="선 길이" hint="붙는 자리는 그대로다. 보이는 선만 길어진다">
+          <Check
+            checked={s.dotGrid.linesToEdge}
+            onChange={(linesToEdge) => s.patchDotGrid({ linesToEdge })}
+            label="속지 끝까지 긋기"
+          />
+        </Row>
+      )}
       <Row label="타공" hint="구멍 쪽 안전영역을 비우고 그 안에서 다시 가운데 맞춘다">
         <Check
           checked={s.dotGrid.avoidSafeZone}
@@ -310,7 +330,7 @@ function GridReadout() {
   const grid = useStore((s) => s.dotGrid);
 
   const area = gridArea(insert, grid, insert.punch.safeZoneWidth);
-  const { xs, ys } = gridLattice(area, grid.spacing);
+  const { xs, ys } = gridLattice(area, grid.spacing, grid.minMargin);
 
   if (xs.length === 0 || ys.length === 0) {
     return (
@@ -362,7 +382,9 @@ function GridReadout() {
         </span>
       ) : (
         <span className="muted">
-          여백은 간격에서 자동 계산됩니다. 최소 3mm를 남겨 재단선에 도트가 걸리지 않게 합니다.
+          {grid.minMargin > 0
+            ? `여백은 간격에서 자동 계산됩니다. 최소 ${grid.minMargin}mm를 남겨 재단선에 도트가 걸리지 않게 합니다.`
+            : '최소 여백이 0이라 바깥쪽이 재단선에 붙습니다. 자를 때 반쯤 날아갈 수 있습니다.'}
         </span>
       )}
     </div>
@@ -451,12 +473,14 @@ function Num({
   onChange,
   step = 0.5,
   min = 0,
+  max,
   unit = 'mm',
 }: {
   value: number;
   onChange: (v: number) => void;
   step?: number;
   min?: number;
+  max?: number;
   unit?: string;
 }) {
   return (
@@ -466,6 +490,7 @@ function Num({
         value={value}
         step={step}
         min={min}
+        max={max}
         onChange={(e) => {
           const v = Number(e.target.value);
           if (Number.isFinite(v)) onChange(v);

@@ -32,6 +32,31 @@ export interface DotGrid {
    */
   avoidSafeZone: boolean;
   /**
+   * 격자 바깥에 **최소한** 남길 여백.
+   *
+   * 여백을 직접 지정하는 값이 아니다. 여백은 여전히 간격에서 따라 나오는 종속
+   * 변수이고(axis 함수 참고), 이것은 그 계산의 **하한**일 뿐이다. 여백을 정확한
+   * 값으로 받으면 간격과 서로 맞지 않는 상황이 생긴다.
+   *
+   * 0으로 두면 여백이 최소가 된다. 다만 **정확히 0이 되지는 않는다** — 나누어
+   * 떨어지지 않고 남는 만큼은 좌우에 반씩 남는다. 80mm에 5mm 간격이면 딱 0이지만
+   * 6mm 간격이면 1mm가 남는다.
+   *
+   * 0에 가까울수록 바깥쪽 도트·선이 재단선에 붙어 자를 때 반쯤 날아갈 수 있다.
+   * 그래도 막지는 않는다 — 어디까지 감수할지는 뽑아보고 정할 일이다.
+   */
+  minMargin: Mm;
+  /**
+   * 가로선·세로선을 격자 끝이 아니라 **영역 끝까지** 긋기.
+   *
+   * 기본은 격자 끝에서 끝까지다. 그러면 여백만큼 선이 짧아 안쪽으로 들어와 보인다.
+   * 줄노트처럼 선이 종이 끝까지 이어지길 원할 때 켠다.
+   *
+   * **붙는 자리(스냅)는 조금도 변하지 않는다.** 격자점 좌표는 그대로고 보이는
+   * 선만 길어진다. 도트 모양에는 아무 영향이 없다.
+   */
+  linesToEdge: boolean;
+  /**
    * 화면에 보이기 · 인쇄물에 남기기.
    *
    * 둘을 따로 두는 것이 요점이다. 도트를 보면서 작업하고 인쇄할 땐 뺄 수도,
@@ -41,11 +66,24 @@ export interface DotGrid {
   print: boolean;
 }
 
+/**
+ * 격자 바깥에 최소한 남겨야 하는 여백의 **기본값**.
+ *
+ * 속지 끝까지 격자를 채우면 바깥쪽 도트가 재단선 위에 앉아 반쯤 잘려나간다.
+ * 실제 도트 속지는 전부 가장자리를 비워둔다.
+ *
+ * 설정에서 바꿀 수 있다(DotGrid.minMargin). 0까지 내릴 수 있지만 그때는 자를 때
+ * 바깥쪽이 날아갈 각오를 해야 한다.
+ */
+export const DEFAULT_MIN_MARGIN: Mm = 3;
+
 export const DEFAULT_DOT_GRID: DotGrid = {
   style: 'dot',
   spacing: 5,
   // 시판 도트 속지는 대개 구멍 쪽까지 도트가 깔려 있다. 필요할 때만 켠다.
   avoidSafeZone: false,
+  minMargin: DEFAULT_MIN_MARGIN,
+  linesToEdge: false,
   showOnScreen: true,
   print: true,
 };
@@ -69,29 +107,24 @@ export interface Lattice {
 }
 
 /**
- * 격자 바깥에 최소한 남겨야 하는 여백.
- *
- * 속지 끝까지 격자를 채우면 바깥쪽 도트가 재단선 위에 앉아 반쯤 잘려나간다.
- * 실제 도트 속지는 전부 가장자리를 비워둔다.
- */
-export const MIN_MARGIN: Mm = 3;
-
-/**
  * 한 축의 격자점 좌표.
  *
- * 여백은 입력받지 않는다. 타공 여백과 같은 이유다 — 간격을 정하면 여백은
- * 저절로 결정되는 종속 변수다. 여백을 따로 받으면 둘이 서로 안 맞는 상황이 생긴다.
+ * **여백은 직접 입력받지 않는다.** 타공 여백과 같은 이유다 — 간격을 정하면 여백은
+ * 저절로 결정되는 종속 변수다. 여백을 값으로 받으면 둘이 서로 안 맞는 상황이 생긴다.
+ * 설정에서 받는 `minMargin`은 여백 자체가 아니라 이 계산의 **하한**이다.
  *
  *   칸 개수 = floor((영역 − 최소여백 × 2) ÷ 간격)
  *   여백    = (영역 − 칸 개수 × 간격) ÷ 2
  *
- * 여백이 3mm 밑으로 안 내려가는 선에서 칸을 최대한 넣는다. 결과적으로 격자는
- * 영역 한가운데에 놓이고, 간격 3~7mm 구간에서는 여백이 3~5mm에 들어온다.
+ * 최소여백 밑으로 안 내려가는 선에서 칸을 최대한 넣는다. 결과적으로 격자는
+ * 영역 한가운데에 놓이고, 실제 여백은 `최소여백 ≤ 여백 < 최소여백 + 간격/2`다.
+ * 기본값 3mm에 간격 3~7mm면 여백이 3~5mm에 들어온다.
  */
-function axis(start: Mm, size: Mm, spacing: Mm): { positions: Mm[]; margin: Mm } {
+function axis(start: Mm, size: Mm, spacing: Mm, minMargin: Mm): { positions: Mm[]; margin: Mm } {
   if (spacing <= 0) return { positions: [], margin: size / 2 };
 
-  const cells = Math.floor((size - MIN_MARGIN * 2) / spacing);
+  // 음수 여백은 격자를 영역 밖으로 밀어낸다. 0이 하한이다.
+  const cells = Math.floor((size - Math.max(0, minMargin) * 2) / spacing);
 
   // 칸이 하나도 안 나오면 격자가 아니다. 여기서 걸러내지 않으면 간격을 속지보다
   // 넓게 넣었을 때 한가운데에 점 한 줄만 찍히고 여백이 수십 mm로 벌어진다.
@@ -109,9 +142,13 @@ function axis(start: Mm, size: Mm, spacing: Mm): { positions: Mm[]; margin: Mm }
  *
  * 스냅은 언제나 이 값을 쓴다. 화면에 도트로 보이든 줄노트로 보이든 상관없다.
  */
-export function gridLattice(area: Area, spacing: Mm): Lattice {
-  const x = axis(area.x, area.width, spacing);
-  const y = axis(area.y, area.height, spacing);
+export function gridLattice(
+  area: Area,
+  spacing: Mm,
+  minMargin: Mm = DEFAULT_MIN_MARGIN,
+): Lattice {
+  const x = axis(area.x, area.width, spacing, minMargin);
+  const y = axis(area.y, area.height, spacing, minMargin);
   return { xs: x.positions, ys: y.positions, marginX: x.margin, marginY: y.margin };
 }
 
@@ -164,16 +201,25 @@ export interface GridShapes {
  * 네 가지 모양이 전부 같은 격자에서 나온다. 간격을 그대로 두고 모양만 바꾸면
  * 도트속지가 그리드속지가 되고 줄노트가 된다.
  *
- * 선은 격자 끝에서 끝까지만 긋는다. 속지 끝까지 늘이면 여백이 무의미해진다.
+ * 선은 기본적으로 **격자 끝에서 끝까지만** 긋는다. 속지 끝까지 늘이면 여백이
+ * 무의미해지기 때문이다. `edges`를 주면 그 영역 끝까지 늘인다 — 줄노트처럼 선이
+ * 종이 끝까지 이어지길 원할 때다.
+ *
+ * **어느 쪽이든 격자점 좌표는 변하지 않는다.** 늘어나는 것은 보이는 선뿐이라
+ * 붙는 자리(스냅)와 도트 모양에는 아무 영향이 없다.
  */
-export function gridShapes(lattice: Lattice, style: GridStyle): GridShapes {
+export function gridShapes(
+  lattice: Lattice,
+  style: GridStyle,
+  edges?: Area | null,
+): GridShapes {
   const { xs, ys } = lattice;
   if (xs.length === 0 || ys.length === 0) return { dots: [], lines: [] };
 
-  const left = xs[0];
-  const right = xs[xs.length - 1];
-  const top = ys[0];
-  const bottom = ys[ys.length - 1];
+  const left = edges ? edges.x : xs[0];
+  const right = edges ? edges.x + edges.width : xs[xs.length - 1];
+  const top = edges ? edges.y : ys[0];
+  const bottom = edges ? edges.y + edges.height : ys[ys.length - 1];
 
   if (style === 'dot') {
     const dots: Dot[] = [];
