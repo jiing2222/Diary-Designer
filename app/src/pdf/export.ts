@@ -18,6 +18,7 @@ import { mmToPt, ptToMm, type Mm } from '../core/units';
 import {
   alignOf,
   boldOf,
+  displayText,
   leftOf,
   lineBaselines,
   lineHeightOf,
@@ -426,7 +427,7 @@ function drawTexts(
 
     for (const t of texts) {
       const size = sizeOf(t);
-      const lines = splitLines(t.text);
+      const lines = splitLines(displayText(t));
       const baselines = lineBaselines(t, size, valignOf(t), lines.length, lineHeightOf(t));
       // 폭을 재는 글꼴과 그리는 글꼴이 반드시 같아야 한다. Bold는 획이 두꺼운
       // 만큼 폭도 넓어서, Regular로 재고 Bold로 그리면 가운데 정렬이 어긋난다.

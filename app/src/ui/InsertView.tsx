@@ -19,6 +19,7 @@ import {
   alignOf,
   anchorX,
   boldOf,
+  displayText,
   lineBaselines,
   lineHeightOf,
   sizeOf,
@@ -137,7 +138,7 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
       {objects.map((t) => {
         const size = sizeOf(t);
         const align = alignOf(t);
-        const lines = splitLines(t.text);
+        const lines = splitLines(displayText(t));
         const baselines = lineBaselines(t, size, valignOf(t), lines.length, lineHeightOf(t));
         const x = anchorX(t, align);
         return (

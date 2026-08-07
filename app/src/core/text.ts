@@ -68,6 +68,34 @@ export function splitLines(text: string): string[] {
   return text.split('\n');
 }
 
+/** 자동 필드가 편집 화면에서 보이는 자리표시(설계문서 7장). 진짜 값이 아니다. */
+export function fieldPlaceholder(field: { offset: number }): string {
+  return `⟨+${field.offset}⟩`;
+}
+
+/**
+ * 이 글자에 실제로 보일 문자열.
+ *
+ * 화면과 PDF가 함께 부른다 — 각자 `t.text`를 직접 읽으면 자동 필드가 생겼을 때
+ * 한쪽만 자리표시로 바뀌는 사고가 난다.
+ *
+ * **지금은 화면·PDF가 똑같이 자리표시를 보여준다.** 데이터셋에서 진짜 값을
+ * 뽑아 채우는 일은 8c의 몫이다 — 그때까지는 편집 화면과 인쇄물이 다른 값을
+ * 보여주는 것보다, 둘 다 같은 자리표시를 보여주는 편이 덜 놀랍다.
+ */
+export function displayText(t: TextObject): string {
+  return t.field ? fieldPlaceholder(t.field) : t.text;
+}
+
+/** 자동 필드의 서식 목록. 지금은 날짜만 다룬다 — 8c에서 실제 계산과 함께 늘어난다. */
+export const FIELD_FORMATS: { id: string; label: string }[] = [
+  { id: 'D', label: '15' },
+  { id: 'M/D', label: '3/15' },
+  { id: 'M월 D일', label: '3월 15일' },
+  { id: 'YYYY-MM-DD', label: '2027-03-15' },
+];
+export const DEFAULT_FIELD_FORMAT = 'M/D';
+
 /** 글꼴 자체가 세로로 차지하는 높이. 줄 간격의 하한이다. */
 export function naturalLineHeight(size: Mm): Mm {
   return size * (TEXT_ASCENT + TEXT_DESCENT);

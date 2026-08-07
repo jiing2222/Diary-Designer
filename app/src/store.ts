@@ -201,6 +201,14 @@ interface Store extends Settings {
   commitText: (box: Omit<TextObject, 'id' | 'type'>, id?: string) => void;
   /** 고른 글자들의 크기·정렬·색. */
   styleText: (patch: TextStyle) => void;
+  /**
+   * 고른 글자들을 자동 필드로 만들거나(값을 주면) 되돌린다(`null`).
+   *
+   * `styleText`와 갈라둔 이유는 필드가 스타일(굵기·색 같은 겉모양)이 아니라
+   * **글자의 값이 어디서 오는지**를 바꾸는 일이기 때문이다. 만들 때 앞으로 쓸
+   * 글자에 기본값으로 씌우는 것도 아니다 — 이미 있는 글자를 선택해서 켠다.
+   */
+  setField: (field: { offset: number; format: string } | null) => void;
   /** 앞으로 쓸 글자의 모양. */
   setTextDraftStyle: (patch: TextStyle) => void;
   /** 등록을 마친 글꼴을 목록에 넣는다. 파일 읽기는 fonts/registry가 이미 끝냈다. */
@@ -558,6 +566,21 @@ export const useStore = create<Store>((set) => ({
           if (patch[k] === undefined) delete merged[k];
         }
         return merged;
+      });
+      return commitObjects(s, next);
+    }),
+
+  setField: (field) =>
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      const next = activeObjects(s).map((o) => {
+        if (o.type !== 'text' || !s.selectedIds.includes(o.id)) return o;
+        if (field === null) {
+          const merged = { ...o };
+          delete merged.field;
+          return merged;
+        }
+        return { ...o, field };
       });
       return commitObjects(s, next);
     }),

@@ -5,7 +5,9 @@ import {
   blockHeight,
   boldOf,
   canBold,
+  displayText,
   effectiveLineHeight,
+  fieldPlaceholder,
   leftOf,
   lineBaselines,
   lineHeightOf,
@@ -73,6 +75,34 @@ describe('줄바꿈', () => {
   it('⇧Enter로 나눈 줄이 배열이 된다', () => {
     expect(splitLines('월\n화\n수')).toEqual(['월', '화', '수']);
     expect(splitLines('한 줄')).toEqual(['한 줄']);
+  });
+});
+
+describe('자동 필드 자리표시', () => {
+  const base: TextObject = {
+    id: 't1',
+    type: 'text',
+    x: 0,
+    y: 0,
+    width: 10,
+    height: 10,
+    text: '원래 글자',
+  };
+
+  it('자리표시는 오프셋을 담은 꺾쇠 표시다', () => {
+    expect(fieldPlaceholder({ offset: 0 })).toBe('⟨+0⟩');
+    expect(fieldPlaceholder({ offset: 6 })).toBe('⟨+6⟩');
+  });
+
+  it('필드가 없으면 원래 글자를 그대로 보여준다', () => {
+    expect(displayText(base)).toBe('원래 글자');
+  });
+
+  it('필드가 있으면 원래 글자 대신 자리표시를 보여준다', () => {
+    // text는 지워지지 않는다 — field를 떼면 원래 글자로 돌아온다.
+    const field = { ...base, field: { offset: 2, format: 'M/D' } };
+    expect(displayText(field)).toBe('⟨+2⟩');
+    expect(field.text).toBe('원래 글자');
   });
 });
 

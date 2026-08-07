@@ -472,3 +472,54 @@ describe('앞면·뒷면', () => {
     expect(s().side).toBe('front');
   });
 });
+
+describe('자동 필드', () => {
+  /** 방금 만든(유일한) 글자. 없거나 글자가 아니면 시험이 잘못 짜인 것이다. */
+  const text = () => {
+    const o = at().objects.present[0];
+    if (!o || o.type !== 'text') throw new Error('글자가 없습니다');
+    return o;
+  };
+
+  function makeText() {
+    s().addTemplate();
+    s().commitText({ x: 10, y: 10, width: 20, height: 10, text: '월' });
+    return text().id;
+  }
+
+  it('고른 글자를 필드로 만든다', () => {
+    const id = makeText();
+    s().select([id]);
+    s().setField({ offset: 3, format: 'M/D' });
+    expect(text().field).toEqual({ offset: 3, format: 'M/D' });
+  });
+
+  it('필드로 만들어도 원래 글자는 남는다', () => {
+    const id = makeText();
+    s().select([id]);
+    s().setField({ offset: 0, format: 'D' });
+    expect(text().text).toBe('월');
+  });
+
+  it('null을 주면 필드를 떼어낸다', () => {
+    const id = makeText();
+    s().select([id]);
+    s().setField({ offset: 0, format: 'D' });
+    s().setField(null);
+    expect(text().field).toBeUndefined();
+  });
+
+  it('아무것도 안 골랐으면 아무 일도 없다', () => {
+    makeText();
+    s().setField({ offset: 0, format: 'D' });
+    expect(text().field).toBeUndefined();
+  });
+
+  it('실행취소가 된다', () => {
+    const id = makeText();
+    s().select([id]);
+    s().setField({ offset: 0, format: 'D' });
+    s().undo();
+    expect(text().field).toBeUndefined();
+  });
+});

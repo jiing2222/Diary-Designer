@@ -91,6 +91,15 @@ export interface TextObject {
    * 다른 값들과 같은 규칙이다. 값이 있으면 그것을 쓰고, 없으면 기본값을 따른다.
    */
   lineHeight?: Mm;
+  /**
+   * 자동 필드 — 값을 직접 쓰는 대신 데이터셋에서 순서대로 꺼내 채운다(설계문서 7장).
+   *
+   * **`text`는 손대지 않는다.** 필드로 바꿔도 원래 쓴 글자가 사라지지 않고
+   * 그대로 남아 있다 — 다시 끄면 원래 글자로 돌아온다. 실제로 보이는 값은
+   * core/text의 `displayText`가 정한다: 편집 화면은 언제나 `⟨+오프셋⟩` 자리표시,
+   * 인쇄 미리보기·PDF는 데이터셋에서 뽑은 진짜 값(8c에서 붙는다).
+   */
+  field?: { offset: number; format: string };
 }
 
 export type DiaryObject = LineObject | TextObject;

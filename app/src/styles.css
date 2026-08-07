@@ -327,6 +327,32 @@ button.ghost:disabled {
   color: var(--muted);
 }
 
+/* 자동 필드 전환. 나머지 글자 속성과 헷갈리지 않게 오른쪽에 옅은 구분선을 둔다. */
+.field-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 8px;
+  margin-right: 2px;
+  border-right: 1px solid var(--line);
+}
+
+.field-controls select {
+  width: auto;
+  min-width: 74px;
+}
+
+.field-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .picked-count {
   font-size: 12px;
   font-weight: 600;

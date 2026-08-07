@@ -5,6 +5,7 @@ import {
   isText,
   type LineObject,
   type LineStyle,
+  type TextObject,
   type TextStyle,
 } from '../core/objects';
 import {
@@ -14,7 +15,13 @@ import {
   TEXT_COLOR,
   TEXT_SIZE,
 } from '../core/style';
-import { boldOf, canBold, naturalLineHeight } from '../core/text';
+import {
+  boldOf,
+  canBold,
+  DEFAULT_FIELD_FORMAT,
+  FIELD_FORMATS,
+  naturalLineHeight,
+} from '../core/text';
 import { FONT_ACCEPT, hasFont, registerFont } from '../fonts/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
 import { useObjects, useStore } from '../store';
@@ -115,10 +122,16 @@ export function StyleBar({
       )}
 
       {showText ? (
-        <TextControls
-          items={pickedTexts.length > 0 ? pickedTexts : [draftStyle]}
-          apply={pickedTexts.length > 0 ? styleText : setTextDraftStyle}
-        />
+        <>
+          {/* 이미 만든 글자를 골랐을 때만 자동 필드로 바꿀 수 있다. 아직 쓰는
+              중이거나 앞으로 쓸 글자의 기본값으로는 두지 않는다 — 매번 새 글자가
+              필드로 시작하면 놀란다. */}
+          {pickedTexts.length > 0 && <FieldControls texts={pickedTexts} />}
+          <TextControls
+            items={pickedTexts.length > 0 ? pickedTexts : [draftStyle]}
+            apply={pickedTexts.length > 0 ? styleText : setTextDraftStyle}
+          />
+        </>
       ) : (
         <LineControls
           lines={pickedLines}
@@ -195,6 +208,80 @@ function LineControls({
         <option value="dotted">점선</option>
       </select>
     </>
+  );
+}
+
+/**
+ * 자동 필드로 바꾸기.
+ *
+ * 켜면 오프셋(이 쪽의 몇 번째 값인지)과 서식을 고르는 칸이 뜬다. 편집 화면에는
+ * `⟨+0⟩` 같은 자리표시만 보인다 — 실제 값은 데이터셋을 붙이는 8c에서 채워진다.
+ *
+ * 여러 개를 골랐는데 일부만 필드면 체크박스를 어중간한(indeterminate) 상태로
+ * 보여준다. 그 상태에서 누르면 전부 켠다.
+ */
+function FieldControls({ texts }: { texts: TextObject[] }) {
+  const setField = useStore((s) => s.setField);
+  const checkRef = useRef<HTMLInputElement>(null);
+
+  const allOn = texts.every((t) => t.field);
+  const noneOn = texts.every((t) => !t.field);
+  const mixed = !allOn && !noneOn;
+
+  useEffect(() => {
+    if (checkRef.current) checkRef.current.indeterminate = mixed;
+  }, [mixed]);
+
+  const first = texts[0].field;
+
+  return (
+    <div className="field-controls">
+      <label
+        className="field-toggle"
+        title="켜면 편집 화면에는 자리표시만 보이고, 인쇄할 때 데이터셋의 값이 채워집니다"
+      >
+        <input
+          ref={checkRef}
+          type="checkbox"
+          checked={allOn}
+          onChange={(e) =>
+            setField(e.target.checked ? { offset: 0, format: DEFAULT_FIELD_FORMAT } : null)
+          }
+        />
+        자동 필드
+      </label>
+
+      {allOn && (
+        <>
+          <label className="numfield" title="이 쪽에서 몇 번째 값을 쓸지. 0부터 센다">
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={mixed ? '' : (first?.offset ?? 0)}
+              placeholder={mixed ? '—' : undefined}
+              onChange={(e) => {
+                const offset = Math.max(0, Math.round(Number(e.target.value) || 0));
+                setField({ offset, format: first?.format ?? DEFAULT_FIELD_FORMAT });
+              }}
+            />
+            <span>번째</span>
+          </label>
+
+          <select
+            value={mixed ? '' : (first?.format ?? DEFAULT_FIELD_FORMAT)}
+            onChange={(e) => setField({ offset: first?.offset ?? 0, format: e.target.value })}
+          >
+            {mixed && <option value="">—</option>}
+            {FIELD_FORMATS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+    </div>
   );
 }
 
