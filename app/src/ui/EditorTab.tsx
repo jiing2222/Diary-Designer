@@ -8,10 +8,13 @@ import {
   cleanStyle,
   distanceToSegment,
   growBox,
+  isCalendar,
   isLine,
   isText,
   objectInRect,
   rectLines,
+  resizeBox,
+  type Corner,
   type DiaryObject,
   type TextStyle,
 } from '../core/objects';
@@ -22,7 +25,7 @@ import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type 
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
-import { CursorIcon, FieldIcon, LineIcon, TableIcon, TextIcon } from './icons';
+import { CalendarIcon, CursorIcon, FieldIcon, LineIcon, TableIcon, TextIcon } from './icons';
 import { measureTextBox } from './measureText';
 import { familyOf } from '../fonts/registry';
 import { PX_PER_MM_AT_100 } from './pixels';
@@ -30,6 +33,7 @@ import {
   editingFor,
   merge,
   preview,
+  previewBox,
   rectOf,
   segProps,
   sizeLabelOf,
@@ -75,6 +79,8 @@ export function EditorTab() {
   const moveSelected = useStore((s) => s.moveSelected);
   const reshapeSelected = useStore((s) => s.reshapeSelected);
   const commitText = useStore((s) => s.commitText);
+  const commitCalendar = useStore((s) => s.commitCalendar);
+  const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
   const userFonts = useStore((s) => s.userFonts);
   const undo = useStore((s) => s.undo);
@@ -224,6 +230,7 @@ export function EditorTab() {
       if (e.key.toLowerCase() === 't') setTool('text');
       if (e.key.toLowerCase() === 'g') setTool('table');
       if (e.key.toLowerCase() === 'f') setTool('field');
+      if (e.key.toLowerCase() === 'c') setTool('calendar');
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -268,6 +275,22 @@ export function EditorTab() {
     return null;
   }
 
+  /** 딱 하나 고른 달력의 네 모서리 손잡이. 선의 끝점 손잡이와 짝이다. */
+  function boxHandleAt(p: Point): { id: string; corner: Corner } | null {
+    if (!lone || !isCalendar(lone)) return null;
+    const b = boxOf(lone);
+    const corners: { corner: Corner; x: number; y: number }[] = [
+      { corner: 'nw', x: b.x, y: b.y },
+      { corner: 'ne', x: b.x + b.width, y: b.y },
+      { corner: 'sw', x: b.x, y: b.y + b.height },
+      { corner: 'se', x: b.x + b.width, y: b.y + b.height },
+    ];
+    for (const c of corners) {
+      if (Math.hypot(p.x - c.x, p.y - c.y) <= HANDLE_GRAB) return { id: lone.id, corner: c.corner };
+    }
+    return null;
+  }
+
   /**
    * 그 자리에서 집히는 것. 가장 가까운 것 하나만 고른다.
    *
@@ -276,6 +299,7 @@ export function EditorTab() {
    * getBBox()가 곧 mm를 돌려준다.
    *
    * 글자를 먼저 본다. 글자가 선 위에 얹혀 있을 때 글자를 집을 수 없으면 곤란하다.
+   * 달력은 자기 상자가 곧 자리라 글꼴이 그린 크기를 잴 필요가 없다.
    */
   function hitAt(p: Point): DiaryObject | null {
     const svg = svgRef.current;
@@ -287,6 +311,12 @@ export function EditorTab() {
           if (found) return found;
         }
       }
+    }
+
+    for (const o of [...objects].reverse()) {
+      if (!isCalendar(o)) continue;
+      const b = boxOf(o);
+      if (p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height) return o;
     }
 
     let best: DiaryObject | null = null;
@@ -342,6 +372,32 @@ export function EditorTab() {
       return;
     }
 
+    if (tool === 'calendar') {
+      // 방금 놓은(또는 고른) 달력이면 모서리 손잡이가 몸통보다 먼저다 —
+      // 도구를 select로 바꾸지 않고도 이어서 바로 크기를 다듬을 수 있다.
+      const boxGripHit = boxHandleAt(raw);
+      if (boxGripHit) {
+        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to: raw });
+        return;
+      }
+      // 이미 있는 달력을 클릭하면 고르기만 한다.
+      const hit = hitAt(raw);
+      if (hit) {
+        select([hit.id]);
+        return;
+      }
+      if (snap) setDragBoth({ kind: 'textbox', from: snap, to: snap });
+      return;
+    }
+
+    // 달력 모서리 손잡이가 몸통보다 먼저다. 겹쳐 있을 때 손잡이를 못 잡으면
+    // 늘이려다 매번 통째로 옮겨진다 — 끝점 손잡이와 같은 이유다.
+    const boxGripHit = boxHandleAt(raw);
+    if (boxGripHit) {
+      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to: raw });
+      return;
+    }
+
     // 끝점 손잡이가 선 몸통보다 먼저다. 겹쳐 있을 때 손잡이를 못 잡으면
     // 늘이려다 매번 통째로 옮겨진다.
     const grip = handleAt(raw);
@@ -385,7 +441,7 @@ export function EditorTab() {
     const raw = rawMm(e);
     if (!d || !raw) return;
 
-    if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox') {
+    if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox' || d.kind === 'boxHandle') {
       const snap = snapped(e);
       if (snap) setDragBoth({ ...d, to: snap });
     } else if (d.kind === 'marquee') {
@@ -436,9 +492,28 @@ export function EditorTab() {
       return;
     }
 
+    if (d.kind === 'boxHandle') {
+      const target = objects.find((o) => o.id === d.id);
+      if (target) resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to));
+      return;
+    }
+
     if (d.kind === 'textbox') {
       // 한 점에서 뗐으면 그 점이 든 칸 하나, 끌었으면 걸친 칸 전체가 상자다.
       const same = d.from.x === d.to.x && d.from.y === d.to.y;
+
+      if (tool === 'calendar') {
+        // 표처럼 실제로 끌어야 만들어진다 — 그냥 눌렀다 뗀 칸 하나는 너무 작다.
+        if (same) return;
+        commitCalendar({
+          x: Math.min(d.from.x, d.to.x),
+          y: Math.min(d.from.y, d.to.y),
+          width: Math.abs(d.to.x - d.from.x),
+          height: Math.abs(d.to.y - d.from.y),
+        });
+        return;
+      }
+
       const box = same
         ? cellAt(lattice, d.from.x, d.from.y)
         : {
@@ -508,6 +583,7 @@ export function EditorTab() {
       : null;
   const nudge = drag?.kind === 'move' ? drag : null;
   const grip = drag?.kind === 'handle' ? drag : null;
+  const boxGrip = drag?.kind === 'boxHandle' ? drag : null;
   const textDrag = drag?.kind === 'textbox' ? drag : null;
 
   // 글자·자동 필드 도구에서 마우스가 올라간 칸. 어디에 쓰일지 미리 보여준다.
@@ -528,6 +604,10 @@ export function EditorTab() {
       return sizeLabelOf(rectLines(drag.from, drag.to));
     }
     if (grip && lone && isLine(lone)) return sizeLabelOf([preview(lone, null, grip)]);
+    if (boxGrip && lone && isCalendar(lone)) {
+      const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
+      return `${roundMm(b.width, 1)} × ${roundMm(b.height, 1)}mm`;
+    }
     if (pending && hover) {
       return sizeLabelOf([{ x1: pending.x, y1: pending.y, x2: hover.x, y2: hover.y }]);
     }
@@ -568,13 +648,17 @@ export function EditorTab() {
           <ToolBtn on={tool === 'field'} onClick={() => setTool('field')} title="자동 필드 (F)">
             <FieldIcon />
           </ToolBtn>
+          <ToolBtn on={tool === 'calendar'} onClick={() => setTool('calendar')} title="달력 (C)">
+            <CalendarIcon />
+          </ToolBtn>
         </div>
 
         {selectedIds.length > 0 ||
         tool === 'draw' ||
         tool === 'table' ||
         tool === 'text' ||
-        tool === 'field' ? (
+        tool === 'field' ||
+        tool === 'calendar' ? (
           <StyleBar
             editing={editing}
             setEditingStyle={setEditingStyle}
@@ -692,7 +776,7 @@ export function EditorTab() {
                   const s = preview(o, nudge, grip);
                   return <line key={o.id} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />;
                 }
-                const b = boxOf(o);
+                const b = previewBox({ id: o.id, ...boxOf(o) }, boxGrip);
                 return (
                   <rect
                     key={o.id}
@@ -724,6 +808,32 @@ export function EditorTab() {
                     width={HANDLE_SIZE}
                     height={HANDLE_SIZE}
                   />
+                </g>
+              );
+            })()}
+
+          {/* 모서리 손잡이. 달력 하나만 골랐을 때만 나온다 — 끝점 손잡이와 짝이다. */}
+          {lone &&
+            isCalendar(lone) &&
+            (() => {
+              const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
+              const corners = [
+                { x: b.x, y: b.y },
+                { x: b.x + b.width, y: b.y },
+                { x: b.x, y: b.y + b.height },
+                { x: b.x + b.width, y: b.y + b.height },
+              ];
+              return (
+                <g className="handles">
+                  {corners.map((c, i) => (
+                    <rect
+                      key={i}
+                      x={c.x - HANDLE_SIZE / 2}
+                      y={c.y - HANDLE_SIZE / 2}
+                      width={HANDLE_SIZE}
+                      height={HANDLE_SIZE}
+                    />
+                  ))}
                 </g>
               );
             })()}

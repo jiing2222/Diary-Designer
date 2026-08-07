@@ -8,10 +8,12 @@ import {
   moveSegment,
   rectLines,
   reshape,
+  resizeBox,
   segmentLength,
   sameSegment,
   segmentInRect,
   toggleLines,
+  MIN_BOX_SIZE,
   type LineSeg,
 } from './objects';
 
@@ -257,5 +259,34 @@ describe('선까지의 거리', () => {
   it('선 바깥으로 나가면 끝점까지의 거리다', () => {
     // 선을 무한히 늘인 직선이 아니라 그은 구간까지만 잰다.
     expect(distanceToSegment(line, 70, 20)).toBeCloseTo(10, 9);
+  });
+});
+
+describe('상자 모서리로 크기 바꾸기', () => {
+  const box = { x: 10, y: 10, width: 20, height: 30 }; // 10~30, 10~40
+
+  it('맞은편 모서리는 그대로 두고 끈 모서리만 움직인다', () => {
+    // 오른쪽 아래(se)를 (50, 60)으로 끌면 왼쪽 위(10,10)는 그대로다.
+    expect(resizeBox(box, 'se', { x: 50, y: 60 })).toEqual({ x: 10, y: 10, width: 40, height: 50 });
+  });
+
+  it('왼쪽 위(nw)를 끌면 오른쪽 아래(30,40)가 고정된다', () => {
+    expect(resizeBox(box, 'nw', { x: 0, y: 0 })).toEqual({ x: 0, y: 0, width: 30, height: 40 });
+  });
+
+  it('맞은편을 넘어 반대쪽으로 끌어도 뒤집히지 않고 최소 크기로 멈춘다', () => {
+    // se를 왼쪽 위 모서리(10,10) 너머로 끌어도 폭·높이가 음수가 되지 않는다.
+    const r = resizeBox(box, 'se', { x: 5, y: 5 });
+    expect(r.width).toBe(MIN_BOX_SIZE);
+    expect(r.height).toBe(MIN_BOX_SIZE);
+    expect(r.x).toBeLessThanOrEqual(10);
+    expect(r.y).toBeLessThanOrEqual(10);
+  });
+
+  it('ne·sw도 같은 규칙이다', () => {
+    // 오른쪽 위(ne)를 끌면 왼쪽 아래(10,40)가 고정된다.
+    expect(resizeBox(box, 'ne', { x: 50, y: 0 })).toEqual({ x: 10, y: 0, width: 40, height: 40 });
+    // 왼쪽 아래(sw)를 끌면 오른쪽 위(30,10)가 고정된다.
+    expect(resizeBox(box, 'sw', { x: 0, y: 60 })).toEqual({ x: 0, y: 10, width: 30, height: 50 });
   });
 });

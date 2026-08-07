@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { calendarLayout, weekdayLabels } from './calendar';
+import { calendarLayout, showAdjacentOf, weekdayLabels, weekdayLangOf, weekStartOf } from './calendar';
+import type { CalendarObject } from './objects';
 
 describe('달력 오브젝트 기하 계산', () => {
   // 8행(제목+요일머리글+6주) × 7열이라 딱 떨어지게 70×80을 쓴다.
@@ -67,5 +68,22 @@ describe('요일 이름', () => {
 
   it('일요일 시작 — 한자', () => {
     expect(weekdayLabels('hanja', 'sun')).toEqual(['日', '月', '火', '水', '木', '金', '土']);
+  });
+});
+
+describe('달력 오브젝트 속성 기본값', () => {
+  const bare: CalendarObject = { id: 'c1', type: 'calendar', x: 0, y: 0, width: 70, height: 80 };
+
+  it('정하지 않았으면 일요일 시작·이전달 표시·한글이다', () => {
+    expect(weekStartOf(bare)).toBe('sun');
+    expect(showAdjacentOf(bare)).toBe(true);
+    expect(weekdayLangOf(bare)).toBe('kr');
+  });
+
+  it('정한 값이 있으면 그대로 쓴다', () => {
+    const custom: CalendarObject = { ...bare, weekStart: 'mon', showAdjacent: false, weekdayLang: 'en' };
+    expect(weekStartOf(custom)).toBe('mon');
+    expect(showAdjacentOf(custom)).toBe(false);
+    expect(weekdayLangOf(custom)).toBe('en');
   });
 });

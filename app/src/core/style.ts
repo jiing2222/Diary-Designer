@@ -109,6 +109,11 @@ export const TEXT_COLOR = '#3a3a3a';
 export const TEXT_ASCENT = 0.76;
 export const TEXT_DESCENT = 0.24;
 
+/** 월간 달력 오브젝트의 기본값(core/calendar.ts). */
+export const CALENDAR_WEEK_START = 'sun' as const;
+export const CALENDAR_SHOW_ADJACENT = true;
+export const CALENDAR_WEEKDAY_LANG = 'kr' as const;
+
 /*
  * 줄 간격(여러 줄을 쓸 때 ⇧Enter로 나뉘는 줄 사이 거리)은 여기 상수로 두지 않는다.
  * core/text.ts의 effectiveLineHeight가 **도트 간격을 그대로 따르도록** 계산한다 —

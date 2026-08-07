@@ -102,7 +102,36 @@ export interface TextObject {
   field?: { offset: number; format: string };
 }
 
-export type DiaryObject = LineObject | TextObject;
+export type WeekdayLang = 'kr' | 'en' | 'hanja';
+
+/**
+ * 월간 달력 오브젝트.
+ *
+ * 박스(x, y, width, height) 하나만 있으면 안의 요일 머리글·42칸·제목이
+ * core/calendar의 `calendarLayout`으로 전부 자동 배치된다 — 이미지를 끌어서
+ * 키우듯 이 박스 크기만 바꾸면 안의 글자도 같이 커지고 작아진다.
+ *
+ * `weekStart`·`showAdjacent`·`weekdayLang`은 "어떻게 보일까"에 가까운
+ * 값이라 데이터셋이 아니라 이 오브젝트가 직접 지닌다 — core/dataset.ts의
+ * `CalendarDataset`은 연도만 안다(10단계).
+ */
+export interface CalendarObject {
+  id: string;
+  type: 'calendar';
+  x: Mm;
+  y: Mm;
+  width: Mm;
+  height: Mm;
+  /** 그리드 맨 왼쪽 줄의 요일. 정하지 않았으면 일요일. */
+  weekStart?: 'sun' | 'mon';
+  /** 이번 달이 아닌 칸에도 날짜를 보여줄지. 정하지 않았으면 보여준다. */
+  showAdjacent?: boolean;
+  /** 요일 이름 언어. 정하지 않았으면 한글. */
+  weekdayLang?: WeekdayLang;
+  color?: string;
+}
+
+export type DiaryObject = LineObject | TextObject | CalendarObject;
 
 export function isLine(o: DiaryObject): o is LineObject {
   return o.type === 'line';
@@ -110,6 +139,10 @@ export function isLine(o: DiaryObject): o is LineObject {
 
 export function isText(o: DiaryObject): o is TextObject {
   return o.type === 'text';
+}
+
+export function isCalendar(o: DiaryObject): o is CalendarObject {
+  return o.type === 'calendar';
 }
 
 /** 선마다 따로 정할 수 있는 것들. 키가 있고 값이 undefined면 기본값을 따른다. */
@@ -123,6 +156,10 @@ export type LineStyle = Partial<Pick<LineObject, 'width' | 'color' | 'dash'>>;
  */
 export type TextStyle = Partial<
   Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight' | 'bold' | 'font'>
+>;
+/** 달력마다 따로 정할 수 있는 것들. */
+export type CalendarStyle = Partial<
+  Pick<CalendarObject, 'weekStart' | 'showAdjacent' | 'weekdayLang' | 'color'>
 >;
 
 /**
@@ -255,10 +292,12 @@ export interface Box {
   height: Mm;
 }
 
-/** 객체 하나가 차지하는 자리. 선은 두 끝점을 감싸는 네모, 글자는 상자 그대로. */
+/**
+ * 객체 하나가 차지하는 자리. 선은 두 끝점을 감싸는 네모, 글자·달력은 상자 그대로.
+ */
 export function boxOf(o: DiaryObject): Box {
-  if (isText(o)) return { x: o.x, y: o.y, width: o.width, height: o.height };
-  return boundsOf([o])!;
+  if (isLine(o)) return boundsOf([o])!;
+  return { x: o.x, y: o.y, width: o.width, height: o.height };
 }
 
 /** 여러 객체를 감싸는 가장 작은 네모. */
@@ -303,7 +342,32 @@ export function growBox(
 
 /** 객체를 통째로 옮긴다. 크기와 모양은 그대로다. */
 export function moveObject(o: DiaryObject, dx: Mm, dy: Mm): DiaryObject {
-  return isText(o) ? { ...o, x: o.x + dx, y: o.y + dy } : moveSegment(o, dx, dy);
+  return isLine(o) ? moveSegment(o, dx, dy) : { ...o, x: o.x + dx, y: o.y + dy };
+}
+
+/** 모서리 이름 — 손잡이가 어느 꼭짓점인지. */
+export type Corner = 'nw' | 'ne' | 'sw' | 'se';
+
+/** 모서리 손잡이로 크기를 바꿀 때, 너무 작아 안이 안 보이는 상자를 막는다. */
+export const MIN_BOX_SIZE: Mm = 5;
+
+/**
+ * 상자의 한 모서리(`corner`)를 `to`로 끌었을 때의 새 상자.
+ *
+ * **맞은편 모서리는 움직이지 않는다.** 왼쪽 위를 끌면 오른쪽 아래가 고정된
+ * 채로 자라거나 줄어든다 — 이미지 편집 프로그램에서 흔히 보는 동작이다.
+ * 너무 작아지면(`MIN_BOX_SIZE` 아래) 그 이상은 줄지 않는다.
+ */
+export function resizeBox(box: Box, corner: Corner, to: { x: Mm; y: Mm }): Box {
+  const opposite = {
+    x: corner.includes('e') ? box.x : box.x + box.width,
+    y: corner.includes('s') ? box.y : box.y + box.height,
+  };
+  const width = Math.max(MIN_BOX_SIZE, Math.abs(to.x - opposite.x));
+  const height = Math.max(MIN_BOX_SIZE, Math.abs(to.y - opposite.y));
+  const x = to.x >= opposite.x ? opposite.x : opposite.x - width;
+  const y = to.y >= opposite.y ? opposite.y : opposite.y - height;
+  return { x, y, width, height };
 }
 
 /**

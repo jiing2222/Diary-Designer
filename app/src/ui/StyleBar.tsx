@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   boundsOfObjects,
+  isCalendar,
   isLine,
   isText,
+  type CalendarObject,
+  type CalendarStyle,
   type LineObject,
   type LineStyle,
   type TextObject,
@@ -22,6 +25,7 @@ import {
   FIELD_FORMATS,
   naturalLineHeight,
 } from '../core/text';
+import { showAdjacentOf, weekdayLangOf, weekStartOf } from '../core/calendar';
 import { FONT_ACCEPT, hasFont, registerFont } from '../fonts/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
 import { useObjects, useStore } from '../store';
@@ -99,11 +103,14 @@ export function StyleBar({
   const picked = objects.filter((o) => selectedIds.includes(o.id));
   const pickedLines = picked.filter(isLine);
   const pickedTexts = picked.filter(isText);
+  const pickedCalendars = picked.filter(isCalendar);
   const size = boundsOfObjects(picked);
 
-  // 글자를 골랐거나 글자·자동 필드 도구를 쓰는 중이면 글자 속성을, 아니면 선 속성을 보여준다.
+  // 무엇 하나를 골랐거나 그 도구를 쓰는 중이면 그 속성을, 아니면 선 속성을 보여준다.
+  const showCalendar = tool === 'calendar' || pickedCalendars.length > 0;
   const showText =
-    tool === 'text' || tool === 'field' || (pickedTexts.length > 0 && pickedLines.length === 0);
+    !showCalendar &&
+    (tool === 'text' || tool === 'field' || (pickedTexts.length > 0 && pickedLines.length === 0));
 
   return (
     <div className="stylebar">
@@ -124,11 +131,15 @@ export function StyleBar({
               ? '그릴 표'
               : tool === 'field'
                 ? '찍을 자동 필드'
-                : '그릴 선'}
+                : tool === 'calendar'
+                  ? '그릴 달력'
+                  : '그릴 선'}
         </span>
       )}
 
-      {showText ? (
+      {showCalendar ? (
+        <CalendarControls calendars={pickedCalendars} />
+      ) : showText ? (
         <>
           {/* 이미 만든 글자를 골랐을 때만 자동 필드로 바꿀 수 있다. 아직 쓰는
               중이거나 앞으로 쓸 글자의 기본값으로는 두지 않는다 — 매번 새 글자가
@@ -214,6 +225,75 @@ function LineControls({
         <option value="dashed">파선</option>
         <option value="dotted">점선</option>
       </select>
+    </>
+  );
+}
+
+/**
+ * 달력의 시작 요일·요일 언어·이전달 표시.
+ *
+ * 값이 없는 오브젝트와 있는 오브젝트를 나란히 골라도 같은 결과를 보여주도록
+ * `core/calendar`의 `weekStartOf` 등 접근자로 비교한다 — 원시 속성(`o.weekStart`)을
+ * 직접 비교하면 "정하지 않아서 기본값"과 "기본값을 직접 골라 정함"이 서로
+ * 다르게 보인다.
+ *
+ * 아직 그린 달력이 없으면(도구만 고른 상태) 아무 조작칸도 없다 — 만들기 전
+ * 기본값을 바꿔 둘 자리가 없다(자동 필드처럼 이미 있는 것만 손댄다).
+ */
+function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
+  const styleCalendar = useStore((s) => s.styleCalendar);
+  const adjacentRef = useRef<HTMLInputElement>(null);
+
+  const editing = calendars.length > 0;
+  const first = calendars[0];
+  const weekStartMixed = editing && !calendars.every((o) => weekStartOf(o) === weekStartOf(first));
+  const langMixed = editing && !calendars.every((o) => weekdayLangOf(o) === weekdayLangOf(first));
+  const adjacentMixed = editing && !calendars.every((o) => showAdjacentOf(o) === showAdjacentOf(first));
+
+  useEffect(() => {
+    if (adjacentRef.current) adjacentRef.current.indeterminate = adjacentMixed;
+  }, [adjacentMixed]);
+
+  if (!editing) {
+    return null;
+  }
+
+  return (
+    <>
+      <select
+        value={weekStartMixed ? 'mixed' : weekStartOf(first)}
+        onChange={(e) =>
+          styleCalendar({ weekStart: e.target.value as CalendarStyle['weekStart'] })
+        }
+        title="시작 요일"
+      >
+        {weekStartMixed && <option value="mixed">—</option>}
+        <option value="sun">일요일 시작</option>
+        <option value="mon">월요일 시작</option>
+      </select>
+
+      <select
+        value={langMixed ? 'mixed' : weekdayLangOf(first)}
+        onChange={(e) =>
+          styleCalendar({ weekdayLang: e.target.value as CalendarStyle['weekdayLang'] })
+        }
+        title="요일 언어"
+      >
+        {langMixed && <option value="mixed">—</option>}
+        <option value="kr">한글 요일</option>
+        <option value="en">영어 요일</option>
+        <option value="hanja">한자 요일</option>
+      </select>
+
+      <label className="check" title="이번 달이 아닌 칸에도 그 달 날짜를 보여줄지">
+        <input
+          ref={adjacentRef}
+          type="checkbox"
+          checked={!adjacentMixed && showAdjacentOf(first)}
+          onChange={(e) => styleCalendar({ showAdjacent: e.target.checked })}
+        />
+        이전·다음 달 표시
+      </label>
     </>
   );
 }

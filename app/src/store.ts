@@ -29,6 +29,9 @@ import {
   newId,
   reshape,
   toggleLines,
+  type Box,
+  type CalendarObject,
+  type CalendarStyle,
   type DiaryObject,
   type LineSeg,
   type LineStyle,
@@ -232,6 +235,17 @@ interface Store extends Settings {
   setField: (patch: Partial<{ offset: number; format: string }> | null) => void;
   /** 앞으로 쓸 글자의 모양. */
   setTextDraftStyle: (patch: TextStyle) => void;
+  /** 새 달력 오브젝트를 이 박스 크기로 만든다. */
+  commitCalendar: (box: Box) => void;
+  /**
+   * 상자 모양 오브젝트(글자·달력) 하나의 크기·자리를 통째로 바꾼다.
+   *
+   * 모서리 손잡이로 끄는 동안은 미리보기만 하고(gestures의 `previewBox`),
+   * 손을 뗄 때 이 액션으로 한 번만 진짜 값을 바꾼다 — 다른 몸짓들과 같은 규칙이다.
+   */
+  resizeObject: (id: string, box: Box) => void;
+  /** 고른 달력들의 시작 요일·이전달 표시·요일 언어·색. */
+  styleCalendar: (patch: CalendarStyle) => void;
   /** 등록을 마친 글꼴을 목록에 넣는다. 파일 읽기는 fonts/registry가 이미 끝냈다. */
   addUserFont: (font: UserFont) => void;
   /** 저장 파일에서 읽은 양식들로 통째로 갈아끼운다. */
@@ -258,7 +272,7 @@ interface Store extends Settings {
   patchUnprintable: (p: Partial<UnprintableSetting>) => void;
 }
 
-export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field';
+export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar';
 export type Side = 'front' | 'back';
 
 /** 더 이상 존재하지 않는 id를 선택 목록에서 걷어낸다. */
@@ -614,6 +628,36 @@ export const useStore = create<Store>((set) => ({
     }),
 
   setTextDraftStyle: (patch) => set((s) => ({ textDraftStyle: { ...s.textDraftStyle, ...patch } })),
+
+  commitCalendar: (box) =>
+    set((s) => {
+      const next: CalendarObject = { id: newId('c'), type: 'calendar', ...box };
+      // 곧바로 고른 상태로 둔다. 놓자마자 크기부터 다듬는 일이 흔해서,
+      // 손잡이가 바로 보여야 한 번 더 클릭하지 않고 이어서 끌 수 있다.
+      return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
+    }),
+
+  resizeObject: (id, box) =>
+    set((s) => {
+      const cur = activeObjects(s);
+      const target = cur.find((o) => o.id === id);
+      if (!target || isLine(target)) return {};
+      return commitObjects(s, cur.map((o) => (o.id === id ? { ...o, ...box } : o)));
+    }),
+
+  styleCalendar: (patch) =>
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      const next = activeObjects(s).map((o) => {
+        if (o.type !== 'calendar' || !s.selectedIds.includes(o.id)) return o;
+        const merged = { ...o, ...patch };
+        for (const k of Object.keys(patch) as (keyof CalendarStyle)[]) {
+          if (patch[k] === undefined) delete merged[k];
+        }
+        return merged;
+      });
+      return commitObjects(s, next);
+    }),
 
   // 같은 id로 다시 등록하면(저장 파일을 열고 그 글꼴을 다시 찾아온 경우)
   // 목록에 하나 더 늘리지 않고 그 자리를 갈아끼운다.

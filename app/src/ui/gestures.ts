@@ -2,8 +2,10 @@ import {
   boundsOf,
   boxOf,
   cleanStyle,
+  resizeBox,
   segmentLength,
   type Box,
+  type Corner,
   type LineObject,
   type LineSeg,
   type TextObject,
@@ -84,7 +86,9 @@ export type Drag =
       free: boolean;
       moved: boolean;
     }
-  | { kind: 'handle'; id: string; end: 1 | 2; to: Point };
+  | { kind: 'handle'; id: string; end: 1 | 2; to: Point }
+  /** 상자(달력 등)의 모서리 손잡이를 끄는 중. `preview()`의 상자 버전은 `previewBox`. */
+  | { kind: 'boxHandle'; id: string; corner: Corner; to: Point };
 
 export function rectOf(a: Point, b: Point) {
   return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
@@ -127,6 +131,14 @@ export function preview(o: LineObject, nudge: { dx: Mm; dy: Mm } | null, grip: G
   const dx = nudge?.dx ?? 0;
   const dy = nudge?.dy ?? 0;
   return { x1: o.x1 + dx, y1: o.y1 + dy, x2: o.x2 + dx, y2: o.y2 + dy };
+}
+
+export type BoxHandleDrag = Extract<Drag, { kind: 'boxHandle' }>;
+
+/** 상자 모서리를 끄는 중이면 놓았을 때의 크기, 아니면 있는 그대로. `preview()`의 상자 버전. */
+export function previewBox(o: { id: string } & Box, boxHandle: BoxHandleDrag | null): Box {
+  if (boxHandle && boxHandle.id === o.id) return resizeBox(o, boxHandle.corner, boxHandle.to);
+  return o;
 }
 
 export type GripDrag = Extract<Drag, { kind: 'handle' }>;

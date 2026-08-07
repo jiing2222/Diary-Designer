@@ -1,4 +1,6 @@
+import { CALENDAR_SHOW_ADJACENT, CALENDAR_WEEK_START, CALENDAR_WEEKDAY_LANG } from './style';
 import { anchorX, baselineY } from './text';
+import type { CalendarObject, WeekdayLang } from './objects';
 import type { Mm } from './units';
 
 /**
@@ -67,7 +69,20 @@ export function calendarLayout(box: { width: Mm; height: Mm }): CalendarLayout {
   return { fontSize, title, weekdays, days };
 }
 
-export type WeekdayLang = 'kr' | 'en' | 'hanja';
+/** 그리드 맨 왼쪽 줄의 요일. 정하지 않았으면 일요일. */
+export function weekStartOf(o: CalendarObject): 'sun' | 'mon' {
+  return o.weekStart ?? CALENDAR_WEEK_START;
+}
+
+/** 이번 달이 아닌 칸에도 날짜를 보여줄지. 정하지 않았으면 보여준다. */
+export function showAdjacentOf(o: CalendarObject): boolean {
+  return o.showAdjacent ?? CALENDAR_SHOW_ADJACENT;
+}
+
+/** 요일 이름 언어. 정하지 않았으면 한글. */
+export function weekdayLangOf(o: CalendarObject): WeekdayLang {
+  return o.weekdayLang ?? CALENDAR_WEEKDAY_LANG;
+}
 
 const WEEKDAY_NAMES: Record<WeekdayLang, string[]> = {
   // 일요일(0)부터.

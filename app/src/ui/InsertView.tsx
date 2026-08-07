@@ -13,6 +13,9 @@ import {
   TEXT_COLOR,
 } from '../core/style';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
+import { calendarLayout, weekdayLabels, weekdayLangOf, weekStartOf, showAdjacentOf } from '../core/calendar';
+import { calendarCellAt, calendarTitleAt } from '../core/dataset';
+import { formatDate } from '../core/format';
 import { familyOf } from '../fonts/registry';
 import { useStore } from '../store';
 import {
@@ -27,8 +30,10 @@ import {
   valignOf,
 } from '../core/text';
 import {
+  isCalendar,
   isLine,
   isText,
+  type CalendarObject,
   type DiaryObject,
   type LineObject,
   type TextObject,
@@ -106,6 +111,7 @@ export function InsertView({
       </clipPath>
       <g clipPath={mode === 'print' ? `url(#${clipId})` : undefined}>
         <TextLayer objects={objects.filter(isText)} hiddenId={hiddenId} />
+        <CalendarLayer objects={objects.filter(isCalendar)} />
       </g>
     </>
   );
@@ -164,6 +170,64 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
               </tspan>
             ))}
           </text>
+        );
+      })}
+    </g>
+  );
+}
+
+/**
+ * 월간 달력.
+ *
+ * 자리는 core/calendar의 `calendarLayout(o)`가 정한다 — 박스 크기만 보고
+ * 제목·요일 머리글·42칸의 자리와 글자 크기를 낸다. PDF도 같은 함수를 쓴다.
+ *
+ * **편집 화면은 아직 실제 데이터셋과 연결되지 않는다.** 자동 필드가
+ * `⟨+0⟩` 자리표시를 보여주는 것과 같은 이유로, 여기서는 지금 달을 미리
+ * 보여준다 — 실제로 몇 년치가 찍힐지는 인쇄하기 탭의 데이터셋(연도)이
+ * 정한다.
+ */
+function CalendarLayer({ objects }: { objects: CalendarObject[] }) {
+  const now = new Date();
+  const previewYear = now.getFullYear();
+  const previewPage = now.getMonth(); // 0~11
+
+  return (
+    <g
+      fontFamily={DEFAULT_FONT_FAMILY}
+      style={{ fontKerning: 'none', fontVariantLigatures: 'none', whiteSpace: 'pre' }}
+    >
+      {objects.map((o) => {
+        const layout = calendarLayout(o);
+        const weekStart = weekStartOf(o);
+        const labels = weekdayLabels(weekdayLangOf(o), weekStart);
+        const title = formatDate(calendarTitleAt(previewYear, previewPage), 'YYYY년 M월');
+        return (
+          <g
+            key={o.id}
+            transform={`translate(${o.x}, ${o.y})`}
+            fill={o.color ?? TEXT_COLOR}
+            fontSize={layout.fontSize}
+            textAnchor="middle"
+          >
+            <text x={layout.title.cx} y={layout.title.baseline}>
+              {title}
+            </text>
+            {labels.map((label, i) => (
+              <text key={`w${i}`} x={layout.weekdays[i].cx} y={layout.weekdays[i].baseline}>
+                {label}
+              </text>
+            ))}
+            {layout.days.map((pos, i) => {
+              const date = calendarCellAt(previewYear, previewPage, i, weekStart, showAdjacentOf(o));
+              if (!date) return null;
+              return (
+                <text key={`d${i}`} x={pos.cx} y={pos.baseline}>
+                  {date.day}
+                </text>
+              );
+            })}
+          </g>
         );
       })}
     </g>

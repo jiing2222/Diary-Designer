@@ -124,6 +124,18 @@ export function FieldIcon() {
   );
 }
 
+/** 달력 — 위에 고리 두 개, 머리글 줄이 나뉜 사각형. */
+export function CalendarIcon() {
+  return (
+    <svg {...box}>
+      <rect x={3.5} y={4.5} width={13} height={12} rx={1} />
+      <line x1={3.5} y1={8} x2={16.5} y2={8} />
+      <line x1={7} y1={2.5} x2={7} y2={5.5} />
+      <line x1={13} y1={2.5} x2={13} y2={5.5} />
+    </svg>
+  );
+}
+
 /** 반복 — 겹쳐 쌓인 종이 두 장. 여러 장 찍는다는 뜻이다. 다른 아이콘처럼 선으로만 그린다. */
 export function RepeatIcon() {
   return (
