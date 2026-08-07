@@ -12,6 +12,7 @@ import {
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
 import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
 import { capacityPerSheet, sheetsNeeded } from '../core/template';
+import { datasetPages, type Dataset } from '../core/dataset';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
 import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon, RepeatIcon } from './icons';
@@ -58,7 +59,7 @@ export function SettingsPanel() {
   const groups = [
     { id: 'paper', label: '용지', icon: <PaperIcon />, on: s.unprintable.show },
     { id: 'insert', label: '속지', icon: <InsertIcon />, on: false },
-    { id: 'repeat', label: '반복', icon: <RepeatIcon />, on: repeat.mode === 'repeat' },
+    { id: 'repeat', label: '반복', icon: <RepeatIcon />, on: repeat.mode !== 'single' },
     { id: 'grid', label: '도트 격자', icon: <GridIcon />, on: grid.showOnScreen },
     { id: 'punch', label: '타공 안내', icon: <PunchIcon />, on: insert.punch.show },
     { id: 'layout', label: '배치 · 절취선', icon: <LayoutIcon />, on: s.showRuler },
@@ -189,6 +190,12 @@ function InsertGroup() {
  * 1쪽짜리 메모를 한 인쇄 작업에 섞을 수 없다는 것이 설계문서의 원칙이라, 이
  * 순간 인쇄하기 탭의 낱장 조합(칸 배정) UI가 사라지고 매수 안내로 바뀐다.
  */
+/** 세트형을 처음 켤 때 보여줄 기본값. 다이어리는 보통 다음 해를 만든다. */
+function defaultDataset(): Dataset {
+  const year = new Date().getFullYear() + 1;
+  return { kind: 'date', perPage: 7, start: `${year}-01-01`, end: `${year}-12-31`, step: 'day' };
+}
+
 function RepeatGroup() {
   const s = useStore();
   const repeat = useRepeat();
@@ -203,16 +210,16 @@ function RepeatGroup() {
       >
         <select
           value={repeat.mode}
-          onChange={(e) =>
-            s.patchRepeat(
-              e.target.value === 'repeat'
-                ? { mode: 'repeat', count: Math.max(1, count) }
-                : { mode: 'single' },
-            )
-          }
+          onChange={(e) => {
+            const mode = e.target.value;
+            if (mode === 'repeat') s.patchRepeat({ mode: 'repeat', count: Math.max(1, count) });
+            else if (mode === 'dataset') s.patchRepeat({ mode: 'dataset', dataset: defaultDataset() });
+            else s.patchRepeat({ mode: 'single' });
+          }}
         >
           <option value="single">한 번만 — 다른 양식과 섞어 배정</option>
-          <option value="repeat">여러 장 — 이 양식만 반복</option>
+          <option value="repeat">여러 장 — 이 양식만 반복(만년형)</option>
+          <option value="dataset">여러 쪽 — 데이터에서 자동으로 채움(세트형)</option>
         </select>
       </Row>
 
@@ -239,6 +246,60 @@ function RepeatGroup() {
           </div>
         </>
       )}
+
+      {repeat.mode === 'dataset' && <DatasetGroup dataset={repeat.dataset} layout={layout} />}
+    </>
+  );
+}
+
+/**
+ * 세트형 — 자동 필드가 순서대로 꺼내 쓸 데이터.
+ *
+ * 지금은 날짜만 다룬다(core/dataset). "한 쪽당" 값은 위클리처럼 한 쪽이
+ * 며칠씩 소비하는지다 — 편집 화면에서 만든 필드의 오프셋(0~한 쪽당-1)과
+ * 짝이 맞아야 한다.
+ *
+ * **양면이어도 장수 계산에서 칸 수가 두 배로 늘지 않는다.** 칸 하나가 한
+ * 쪽의 앞뒤일 뿐이라 반복 인쇄와 계산이 다르다(pdf/export.ts 참고).
+ */
+function DatasetGroup({ dataset, layout }: { dataset: Dataset; layout: { count: number } }) {
+  const s = useStore();
+  const patch = (p: Partial<Dataset>) => s.patchRepeat({ mode: 'dataset', dataset: { ...dataset, ...p } });
+  const pages = datasetPages(dataset);
+
+  return (
+    <>
+      <Row label="기간">
+        <div className="cells-row">
+          <input type="date" value={dataset.start} onChange={(e) => patch({ start: e.target.value })} />
+          <input type="date" value={dataset.end} onChange={(e) => patch({ end: e.target.value })} />
+        </div>
+      </Row>
+      <Row label="간격" hint="한 칸이 며칠 치인지. 위클리는 하루, 달마다 한 칸이면 달">
+        <select value={dataset.step} onChange={(e) => patch({ step: e.target.value as Dataset['step'] })}>
+          <option value="day">하루</option>
+          <option value="week">한 주</option>
+          <option value="month">한 달</option>
+        </select>
+      </Row>
+      <Row label="한 쪽당" hint="한 쪽이 몇 칸을 쓰는지. 위클리(7일씩) = 7">
+        <Num
+          value={dataset.perPage}
+          step={1}
+          min={1}
+          unit="개"
+          onChange={(n) => patch({ perPage: Math.max(1, Math.round(n)) })}
+        />
+      </Row>
+      <div className="readout">
+        <span>
+          총 <b>{pages}쪽</b>이니 한 장에 <b>{layout.count}쪽</b>이면{' '}
+          <b>{sheetsNeeded(pages, layout.count)}장</b>이 필요합니다.
+        </span>
+        <span className="muted">
+          마지막 쪽에서 데이터가 모자란 자동 필드는 빈 채로 찍힙니다.
+        </span>
+      </div>
     </>
   );
 }

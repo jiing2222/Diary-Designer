@@ -29,7 +29,7 @@ import {
 import { mirrorLayout, type Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
-import { capacityPerSheet, frontBackFilled, sheetsNeeded } from '../core/template';
+import { capacityPerSheet, filledSlots, frontBackFilled, sheetsNeeded } from '../core/template';
 import { insertSizeOf, placeSlot } from '../core/place';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import {
@@ -136,6 +136,20 @@ interface ExportInput {
    * 무시된다(반복 인쇄가 우선). 정하지 않으면 지금까지처럼 1장이다.
    */
   sheets?: number;
+  /**
+   * 세트형(데이터셋) — 쪽마다 다른 내용. 키는 **장을 가로지르는 전체 쪽 번호**
+   * (0부터) — `slotOverrides`(칸 위치 기준, 장마다 되풀이됨)와는 인덱싱이 다르다.
+   *
+   * 정해져 있으면 `totalSlots`·`slotOverrides`·`sheets`는 모두 무시하고 이
+   * 값과 `datasetPages`로 장 수를 정한다. **양면이어도 한 장의 용량이 늘지
+   * 않는다** — 칸 하나가 한 쪽의 앞뒤일 뿐, 앞뒤가 서로 다른 쪽을 가리키면 안
+   * 되기 때문이다(예: 3주차 카드의 뒷면이 47주차이면 안 된다).
+   */
+  datasetOverrides?: Map<number, SlotContent>;
+  /** 세트형의 뒷면. 키는 `datasetOverrides`와 같은 전체 쪽 번호다. */
+  datasetBackOverrides?: Map<number, SlotContent>;
+  /** 데이터셋의 총 쪽수. `datasetOverrides`와 함께 쓴다. */
+  datasetPages?: number;
 }
 
 /** 완전히 빈 칸. 반복 인쇄에서 마지막 장의 남는 칸에 쓴다. */
@@ -204,6 +218,10 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     ...(input.slotOverrides ? [...input.slotOverrides.values()].map((c) => c.objects) : []),
     ...(input.defaultBack ? [input.defaultBack.objects] : []),
     ...backOverrideContents.map((c) => c.objects),
+    ...(input.datasetOverrides ? [...input.datasetOverrides.values()].map((c) => c.objects) : []),
+    ...(input.datasetBackOverrides
+      ? [...input.datasetBackOverrides.values()].map((c) => c.objects)
+      : []),
   ];
   const texts = allObjects.flatMap((list) => list.filter(isText));
   let bodyFont: PDFFont | null = null;
@@ -230,11 +248,15 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
 
   const duplex = !!input.duplex;
   const slotsPerSheet = input.layout.slots.length;
-  // 양면이면 한 장의 용량이 앞뒤를 합쳐 두 배다(core/template의 capacityPerSheet).
-  // totalSlots(반복 인쇄)가 있으면 그걸 우선한다. 없으면 낱장 조합의 sheets —
-  // 정하지 않았으면 지금까지처럼 1장이다.
-  const sheets =
-    input.totalSlots && input.totalSlots > 0 && slotsPerSheet > 0
+  const datasetMode = !!input.datasetOverrides;
+  const totalPages = input.datasetPages ?? 0;
+  // 세트형은 칸 하나가 곧 한 쪽이다 — 양면이어도 용량이 늘지 않는다(앞뒤가
+  // 같은 쪽을 가리켜야 한다). 그 외는 양면이면 한 장의 용량이 앞뒤를 합쳐
+  // 두 배다(core/template의 capacityPerSheet). totalSlots(반복 인쇄)가 있으면
+  // 그걸 우선한다. 없으면 낱장 조합의 sheets — 정하지 않았으면 지금까지처럼 1장이다.
+  const sheets = datasetMode
+    ? sheetsNeeded(totalPages, slotsPerSheet)
+    : input.totalSlots && input.totalSlots > 0 && slotsPerSheet > 0
       ? sheetsNeeded(input.totalSlots, capacityPerSheet(slotsPerSheet, duplex))
       : Math.max(1, input.sheets ?? 1);
   // 칸 위치만 좌우로 뒤집은 배치. 재단선도 여기서 다시 계산해야 앞뒤가 같은
@@ -283,6 +305,33 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   }
 
   for (let sheet = 0; sheet < sheets; sheet++) {
+    const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
+
+    if (datasetMode) {
+      /*
+       * 세트형 — 칸 하나가 한 쪽. 장을 가로지르는 전체 쪽 번호로 찾는다.
+       * 앞·뒤가 같은 쪽 번호를 가리키므로(위의 sheets 계산 참고) 채우는 칸 수도
+       * 앞뒤가 같다 — frontBackFilled가 아니라 filledSlots 하나만 쓴다.
+       */
+      const filled = filledSlots(sheet, totalPages, slotsPerSheet);
+      const resolveDatasetSlot = (i: number): SlotContent => {
+        if (i >= filled) return BLANK_SLOT;
+        return input.datasetOverrides!.get(sheet * slotsPerSheet + i) ?? BLANK_SLOT;
+      };
+      drawSide(page, input.layout, resolveDatasetSlot, false);
+
+      if (duplex && backLayout) {
+        const backPage = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
+        const resolveDatasetBack = (i: number): SlotContent => {
+          if (i >= filled) return BLANK_SLOT;
+          const p = sheet * slotsPerSheet + i;
+          return input.datasetBackOverrides?.get(p) ?? input.defaultBack ?? BLANK_SLOT;
+        };
+        drawSide(backPage, backLayout, resolveDatasetBack, true);
+      }
+      continue;
+    }
+
     // 이 장에서 앞·뒤 각각 실제로 채울 칸 수. totalSlots가 없으면 언제나 전부다.
     // 마지막 장만 모자랄 수 있고, 그 나머지 칸은 완전히 비운다. 화면 미리보기와
     // 같은 core/template의 frontBackFilled를 쓴다 — 둘이 어긋나면 미리보기에서
@@ -291,7 +340,6 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
       ? frontBackFilled(sheet, input.totalSlots, slotsPerSheet, duplex)
       : { front: slotsPerSheet, back: slotsPerSheet };
 
-    const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
     drawSide(page, input.layout, (i) => (i < front ? resolveSlot(i) : BLANK_SLOT), false);
 
     if (duplex && backLayout) {

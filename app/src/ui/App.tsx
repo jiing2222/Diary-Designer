@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore } from '../store';
-import { frontBackFilled } from '../core/template';
+import { capacityPerSheet, filledSlots, frontBackFilled, sheetsNeeded } from '../core/template';
 import { mirrorLayout } from '../core/layout';
+import { datasetPages } from '../core/dataset';
+import { resolveObjectsForPage } from '../core/format';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
 import { SettingsPanel } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
@@ -55,11 +57,19 @@ export function App() {
   const active = activeTemplate(s);
 
   /*
-   * 낱장 조합과 반복 인쇄는 설계문서 8장의 "두 가지 작업"처럼 한 인쇄에 섞이지
-   * 않는다. `active.repeat.mode`가 어느 쪽인지 정한다 — 사용자가 따로 고르지 않는다.
+   * 낱장 조합·반복 인쇄(만년형)·세트형은 설계문서 8장의 원칙대로 한 인쇄에
+   * 섞이지 않는다. `active.repeat.mode`가 어느 쪽인지 정한다 — 사용자가 따로
+   * 고르지 않는다.
    */
-  const repeating = active?.repeat.mode === 'repeat';
+  const printMode: 'combo' | 'repeat' | 'dataset' =
+    active?.repeat.mode === 'repeat'
+      ? 'repeat'
+      : active?.repeat.mode === 'dataset'
+        ? 'dataset'
+        : 'combo';
   const totalSlots = active?.repeat.mode === 'repeat' ? active.repeat.count : 0;
+  const dataset = active?.repeat.mode === 'dataset' ? active.repeat.dataset : null;
+  const totalPages = dataset ? datasetPages(dataset) : 0;
 
   const previewOverrides = new Map<number, PreviewSlotContent>();
   const pdfOverrides = new Map<number, SlotContent>();
@@ -92,9 +102,9 @@ export function App() {
       ? backFallback(active)
       : undefined;
 
-  if (active && repeating) {
+  if (active && printMode === 'repeat') {
     /*
-     * 반복 인쇄 — 이 양식 하나로 모든 칸을 채운다.
+     * 반복 인쇄(만년형) — 이 양식 하나로 모든 칸을 채운다.
      *
      * 지금 미리보기 페이지에서 앞·뒤 각각 모자라는 칸만 완전히 비운다.
      * `frontBackFilled`를 core/template에서 가져와 쓴다 — pdf/export.ts도 같은
@@ -112,6 +122,43 @@ export function App() {
     }
     for (let i = backFilled; i < layout.count; i++) {
       previewBackOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+    }
+  } else if (active && printMode === 'dataset' && dataset) {
+    /*
+     * 세트형 — 칸마다 다른 쪽. previewPage는 지금 보는 장 번호이고, 그 장의
+     * 칸 i는 전체 쪽 번호 `previewPage × 칸수 + i`를 가리킨다 — pdf/export.ts와
+     * 같은 셈법이다(칸 하나 = 한 쪽의 앞뒤, 양면이어도 칸 수가 늘지 않는다).
+     *
+     * 여기서는 **지금 보는 장의 칸만** 계산한다. 전체 쪽(수십~수백)을 렌더마다
+     * 다 계산하면 느려진다 — 전체는 exportPdf에서 실제로 내보낼 때만 계산한다.
+     */
+    const filled = filledSlots(previewPage, totalPages, layout.count);
+    for (let i = 0; i < layout.count; i++) {
+      if (i >= filled) {
+        previewOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+        previewBackOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+        continue;
+      }
+      const page = previewPage * layout.count + i;
+      previewOverrides.set(i, {
+        insert: active.insert,
+        dotGrid: active.dotGrid,
+        objects: resolveObjectsForPage(active.objects.present, dataset, page),
+      });
+      previewBackOverrides.set(
+        i,
+        active.back
+          ? {
+              insert: active.insert,
+              dotGrid: active.back.dotGrid,
+              objects: resolveObjectsForPage(active.back.objects.present, dataset, page),
+            }
+          : {
+              insert: active.insert,
+              dotGrid: s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID,
+              objects: [],
+            },
+      );
     }
   } else if (active) {
     /*
@@ -154,12 +201,14 @@ export function App() {
     if (!active) return;
     setBusy(true);
     try {
-      // 반복 인쇄면 이 양식 하나의 글자만 본다. 낱장 조합이면 배정된 모든 칸의
-      // 글자를 함께 본다 — 어느 칸에 글꼴이 필요한지는 core/pdf의 slotOverrides가
-      // 알아서 합쳐 보지만, 어떤 글꼴 파일을 받아와야 하는지는 여기서 먼저 정한다.
-      const uniqueTemplates = repeating
-        ? [active]
-        : [...new Map(slotTemplates.map((t) => [t.id, t])).values()];
+      // 반복 인쇄·세트형이면 이 양식 하나의 글자만 본다. 낱장 조합이면 배정된
+      // 모든 칸의 글자를 함께 본다 — 어느 칸에 글꼴이 필요한지는 core/pdf의
+      // slotOverrides가 알아서 합쳐 보지만, 어떤 글꼴 파일을 받아와야 하는지는
+      // 여기서 먼저 정한다.
+      const uniqueTemplates =
+        printMode !== 'combo'
+          ? [active]
+          : [...new Map(slotTemplates.map((t) => [t.id, t])).values()];
       const isText = (o: { type: string }): o is TextObject => o.type === 'text';
       // 뒷면 글자도 함께 본다 — 앞면만 보면 뒷면에만 있는 글꼴이 빠진다.
       const allTexts: TextObject[] = uniqueTemplates.flatMap((t) => [
@@ -180,17 +229,49 @@ export function App() {
         if (t.font && b) userFonts.set(t.font, b);
       }
 
+      /*
+       * 세트형 — 모든 쪽의 자동 필드를 실제 값으로 채운다.
+       *
+       * 미리보기와 달리 **지금 보는 장만이 아니라 전체 쪽**을 계산해야 한다.
+       * 렌더마다(previewPage 기준으로) 계산하면 느려지므로, 실제로 내보낼
+       * 때(여기)만 전체를 계산한다.
+       */
+      let datasetOverrides: Map<number, SlotContent> | undefined;
+      let datasetBackOverrides: Map<number, SlotContent> | undefined;
+      if (printMode === 'dataset' && dataset) {
+        datasetOverrides = new Map();
+        datasetBackOverrides = new Map();
+        for (let page = 0; page < totalPages; page++) {
+          datasetOverrides.set(page, {
+            dotGrid: active.dotGrid,
+            objects: resolveObjectsForPage(active.objects.present, dataset, page),
+            safeZoneWidth: active.insert.punch.safeZoneWidth,
+          });
+          if (active.back) {
+            datasetBackOverrides.set(page, {
+              dotGrid: active.back.dotGrid,
+              objects: resolveObjectsForPage(active.back.objects.present, dataset, page),
+              safeZoneWidth: active.insert.punch.safeZoneWidth,
+            });
+          }
+        }
+      }
+
       const bytes = await buildPdf({
         paperWidth: width,
         paperHeight: height,
         layout,
         dotGrid: active.dotGrid,
         objects: active.objects.present,
-        // 낱장 조합(칸마다 다른 양식)과 반복 인쇄(여러 장)는 섞이지 않는다.
-        slotOverrides: !repeating && pdfOverrides.size > 0 ? pdfOverrides : undefined,
-        totalSlots: repeating ? totalSlots : undefined,
-        // 낱장 조합에서만 쓴다 — 반복 인쇄는 totalSlots가 우선이다(pdf/export.ts).
-        sheets: !repeating ? s.comboSheets : undefined,
+        // 낱장 조합(칸마다 다른 양식)·반복 인쇄(여러 장)·세트형(쪽마다 다른
+        // 내용)은 섞이지 않는다.
+        slotOverrides: printMode === 'combo' && pdfOverrides.size > 0 ? pdfOverrides : undefined,
+        totalSlots: printMode === 'repeat' ? totalSlots : undefined,
+        // 낱장 조합에서만 쓴다 — 반복 인쇄·세트형은 각자의 값이 우선이다(pdf/export.ts).
+        sheets: printMode === 'combo' ? s.comboSheets : undefined,
+        datasetOverrides,
+        datasetBackOverrides,
+        datasetPages: printMode === 'dataset' ? totalPages : undefined,
         fontBytes,
         boldFontBytes,
         userFonts,
@@ -199,7 +280,7 @@ export function App() {
         showRuler: s.showRuler,
         duplex: s.duplex,
         defaultBack,
-        backSlotOverrides: !repeating && pdfBackOverrides.size > 0 ? pdfBackOverrides : undefined,
+        backSlotOverrides: printMode === 'combo' && pdfBackOverrides.size > 0 ? pdfBackOverrides : undefined,
       });
       downloadPdf(bytes, `속지_${active.insert.presetId}_${s.paper.presetId}.pdf`);
     } finally {
@@ -296,11 +377,22 @@ export function App() {
               )}
             </div>
 
-            {repeating ? (
+            {printMode === 'repeat' ? (
               <RepeatPrint
                 layout={layout}
-                totalSlots={totalSlots}
-                duplex={s.duplex}
+                totalCount={totalSlots}
+                unit="칸"
+                sheets={sheetsNeeded(totalSlots, capacityPerSheet(layout.count, s.duplex))}
+                hint={s.duplex && <> (양면이라 앞뒤 {layout.count * 2}칸)</>}
+                page={previewPage}
+                onPageChange={setPreviewPage}
+              />
+            ) : printMode === 'dataset' ? (
+              <RepeatPrint
+                layout={layout}
+                totalCount={totalPages}
+                unit="쪽"
+                sheets={sheetsNeeded(totalPages, layout.count)}
                 page={previewPage}
                 onPageChange={setPreviewPage}
               />

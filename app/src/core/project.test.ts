@@ -162,6 +162,23 @@ describe('저장했다 다시 열기', () => {
     expect(back[0].repeat).toEqual({ mode: 'repeat', count: 54 });
   });
 
+  it('세트형(dataset) 반복 설정도 그대로 돌아온다', () => {
+    const t = sample();
+    t.repeat = {
+      mode: 'dataset',
+      dataset: { kind: 'date', perPage: 7, start: '2027-01-01', end: '2027-12-31', step: 'day' },
+    };
+    const back = toTemplates(toProject({ templates: [t], print, fonts: [] }));
+    expect(back[0].repeat).toEqual(t.repeat);
+  });
+
+  it('자동 필드가 있는 글자도 그대로 돌아온다', () => {
+    const withField = { ...plain, id: 't3', field: { offset: 2, format: 'M/D' } };
+    const t = sample([withField]);
+    const back = toTemplates(toProject({ templates: [t], print, fonts: [] }));
+    expect(back[0].objects.present).toEqual([withField]);
+  });
+
   it('7단계 이전 파일(반복 설정이 없는 파일)은 single로 읽는다', () => {
     const r = readProject({
       version: 1,

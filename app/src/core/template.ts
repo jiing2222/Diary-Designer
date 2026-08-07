@@ -3,6 +3,7 @@ import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import { initHistory, type History } from './history';
 import { DEFAULT_PUNCH, type PunchSetting } from './punch';
 import { findInsertPreset, INSERT_PRESETS } from './presets';
+import type { Dataset } from './dataset';
 import type { Mm } from './units';
 
 /**
@@ -44,16 +45,20 @@ export interface BackPage {
 /**
  * 반복 인쇄 — 이 양식을 몇 번 찍을지.
  *
- * **만년형만 다룬다.** 연도형(날짜·요일이 데이터에서 자동으로 채워지는 것)은
- * 자동 필드가 생기는 8단계의 일이다. 여기서는 개수만 입력받는다(설계문서 7장).
- *
  * `single`이면 지금까지처럼 다른 양식과 한 장에 섞일 수 있다(낱장 조합, 5c).
- * `repeat`이면 이 양식 **하나로만** 여러 장을 채운다 — 다른 양식과 섞이지 않는다.
- * 53쪽짜리 위클리와 1쪽짜리 메모를 한 인쇄 작업에 넣을 수 없다는 것이 설계문서
- * 8장의 원칙이라, 양식을 고르면 어느 쪽인지 저절로 정해지고 사용자가 인쇄
- * 모드를 따로 고르지 않는다.
+ * `repeat`(만년형)이면 이 양식 **하나로만** 여러 장을 똑같이 채운다 — 개수만
+ * 입력받는다. `dataset`(세트형, 8c)이면 자동 필드가 데이터셋에서 순서대로
+ * 값을 뽑아 쪽마다 다른 내용으로 채운다.
+ *
+ * `single`이 아닌 둘은 이 양식 **하나로만** 인쇄한다 — 다른 양식과 섞이지
+ * 않는다. 53쪽짜리 위클리와 1쪽짜리 메모를 한 인쇄 작업에 넣을 수 없다는 것이
+ * 설계문서 8장의 원칙이라, 양식을 고르면 어느 쪽인지 저절로 정해지고 사용자가
+ * 인쇄 모드를 따로 고르지 않는다.
  */
-export type RepeatSetting = { mode: 'single' } | { mode: 'repeat'; count: number };
+export type RepeatSetting =
+  | { mode: 'single' }
+  | { mode: 'repeat'; count: number }
+  | { mode: 'dataset'; dataset: Dataset };
 
 export const SINGLE_REPEAT: RepeatSetting = { mode: 'single' };
 

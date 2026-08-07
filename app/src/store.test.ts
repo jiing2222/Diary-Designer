@@ -316,6 +316,14 @@ describe('낱장 조합 — 칸 배정', () => {
 });
 
 describe('반복 인쇄 설정', () => {
+  const sampleDataset = {
+    kind: 'date' as const,
+    perPage: 7,
+    start: '2027-01-01',
+    end: '2027-12-31',
+    step: 'day' as const,
+  };
+
   it('새 양식은 single이다', () => {
     s().addTemplate();
     expect(at().repeat).toEqual({ mode: 'single' });
@@ -332,6 +340,12 @@ describe('반복 인쇄 설정', () => {
     s().selectTemplate(first);
     expect(at().repeat).toEqual({ mode: 'single' });
   });
+
+  it('세트형(dataset)도 저장된다', () => {
+    s().addTemplate();
+    s().patchRepeat({ mode: 'dataset', dataset: sampleDataset });
+    expect(at().repeat).toEqual({ mode: 'dataset', dataset: sampleDataset });
+  });
 });
 
 describe('반복 양식은 낱장 조합에 낄 수 없다', () => {
@@ -347,6 +361,30 @@ describe('반복 양식은 낱장 조합에 낄 수 없다', () => {
     // second가 반복 양식으로 바뀐 뒤에는 더 이상 낱장 조합에 낄 수 없다.
     s().selectTemplate(second);
     s().patchRepeat({ mode: 'repeat', count: 10 });
+    s().selectTemplate(first);
+    expect(resolveSlotTemplates(s(), 1)[0].id).toBe(first);
+  });
+
+  it('세트형으로 바뀌어도 마찬가지다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    s().selectTemplate(first);
+    s().assignSlot(0, second);
+    expect(resolveSlotTemplates(s(), 1)[0].id).toBe(second);
+
+    s().selectTemplate(second);
+    s().patchRepeat({
+      mode: 'dataset',
+      dataset: {
+        kind: 'date',
+        perPage: 7,
+        start: '2027-01-01',
+        end: '2027-12-31',
+        step: 'day',
+      },
+    });
     s().selectTemplate(first);
     expect(resolveSlotTemplates(s(), 1)[0].id).toBe(first);
   });

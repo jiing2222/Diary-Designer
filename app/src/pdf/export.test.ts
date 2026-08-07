@@ -638,3 +638,118 @@ describe('양면 인쇄', () => {
     expect(avoided.byteLength).toBeLessThan(full.byteLength);
   });
 });
+
+describe('세트형 — 데이터셋', () => {
+  // 가로로 두 칸이 들어가는 배치. 한 장에 칸 2개 → 칸 하나가 한 쪽.
+  const twoUpLayout = computeLayout({
+    paperWidth: 170,
+    paperHeight: 130,
+    insertWidth: 80,
+    insertHeight: 125,
+    gap: 5,
+    printMargin: 2.5,
+    allowRotate: false,
+    align: 'center',
+  });
+
+  const base = {
+    paperWidth: 170,
+    paperHeight: 130,
+    layout: twoUpLayout,
+    dotGrid: DEFAULT_DOT_GRID,
+    objects: [],
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+
+  // 글자는 글꼴 없이는 그려지지 않으므로(기존 규칙), 내용 차이는 선으로 낸다.
+  const pageContent = (x2: number): SlotContent => ({
+    dotGrid: DEFAULT_DOT_GRID,
+    objects: [{ id: 'l1', type: 'line', x1: 5, y1: 5, x2, y2: 5 }],
+    safeZoneWidth: 10,
+  });
+
+  const overridesFor = (count: number) =>
+    new Map(Array.from({ length: count }, (_, i) => [i, pageContent(10 + i)] as const));
+
+  it('datasetPages만큼 장이 나온다 — 칸 2개면 5쪽에 3장', async () => {
+    const doc = await PDFDocument.load(
+      await buildPdf({ ...base, datasetOverrides: overridesFor(5), datasetPages: 5 }),
+    );
+    expect(doc.getPageCount()).toBe(3); // 2+2+1
+  });
+
+  it('마지막 장의 남는 칸은 채운 것보다 작다', async () => {
+    const threePages = await buildPdf({
+      ...base,
+      datasetOverrides: overridesFor(3),
+      datasetPages: 3,
+    });
+    const fourPages = await buildPdf({
+      ...base,
+      datasetOverrides: overridesFor(4),
+      datasetPages: 4,
+    });
+    // 3쪽(마지막 장 1칸만 채움)이 4쪽(모든 장 꽉 채움)보다 작아야 한다.
+    expect(threePages.byteLength).toBeLessThan(fourPages.byteLength);
+  });
+
+  it('쪽마다 다른 내용이 그려진다', async () => {
+    const twoPages = await buildPdf({ ...base, datasetOverrides: overridesFor(2), datasetPages: 2 });
+    // 1번 쪽(칸 1)의 내용만 완전히 다른 것으로 바꾼다. 칸 위치별 override가
+    // 아니라 전체 쪽 번호별 override라는 것을 확인한다 — 잘못 짜였다면 두
+    // 칸이 같은 내용을 반복해 이 변화가 반영되지 않는다.
+    const changed = await buildPdf({
+      ...base,
+      datasetOverrides: new Map([[0, pageContent(10)], [1, pageContent(70)]]),
+      datasetPages: 2,
+    });
+    expect(changed.byteLength).not.toBe(twoPages.byteLength);
+  });
+
+  it('totalSlots·sheets가 있어도 datasetOverrides가 있으면 그것을 따른다', async () => {
+    const doc = await PDFDocument.load(
+      await buildPdf({
+        ...base,
+        datasetOverrides: overridesFor(2),
+        datasetPages: 2,
+        totalSlots: 99,
+        sheets: 99,
+      }),
+    );
+    expect(doc.getPageCount()).toBe(1); // 칸 2개짜리 배치에 2쪽 → 1장
+  });
+
+  it('양면이어도 한 장의 용량이 늘지 않는다 — 칸 하나가 앞뒤 같은 쪽이다', async () => {
+    const doc = await PDFDocument.load(
+      await buildPdf({
+        ...base,
+        datasetOverrides: overridesFor(2),
+        datasetPages: 2,
+        duplex: true,
+        datasetBackOverrides: overridesFor(2),
+      }),
+    );
+    // 단면이면 1장. 양면이면 반복 인쇄처럼 용량이 늘어 장이 줄지 않고,
+    // 그 1장에 뒷면 페이지가 하나 더 붙어 2쪽이 된다.
+    expect(doc.getPageCount()).toBe(2);
+  });
+
+  it('뒷면 override가 없어도 defaultBack이 있으면 쓴다', async () => {
+    const withDefault = await buildPdf({
+      ...base,
+      datasetOverrides: overridesFor(1),
+      datasetPages: 1,
+      duplex: true,
+      defaultBack: pageContent(50),
+    });
+    const withoutDefault = await buildPdf({
+      ...base,
+      datasetOverrides: overridesFor(1),
+      datasetPages: 1,
+      duplex: true,
+    });
+    expect(withDefault.byteLength).toBeGreaterThan(withoutDefault.byteLength);
+  });
+});
