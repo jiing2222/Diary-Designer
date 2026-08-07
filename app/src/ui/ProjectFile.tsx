@@ -28,6 +28,7 @@ export function ProjectFile() {
         cropMark: store.cropMark,
         showRuler: store.showRuler,
         duplex: store.duplex,
+        fillEmptyBack: store.fillEmptyBack,
         comboSheets: store.comboSheets,
         unprintable: store.unprintable,
       },

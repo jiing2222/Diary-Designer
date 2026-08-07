@@ -316,6 +316,13 @@ function GridGroup() {
           label="인쇄물에 남기기"
         />
       </Row>
+      <Row label="뒷면 없으면" hint="양면 인쇄에서만 의미가 있습니다. 뒷면을 안 만든 칸도 백지 대신 앞면과 같은 도트·그리드로 찍습니다">
+        <Check
+          checked={s.fillEmptyBack}
+          onChange={(fillEmptyBack) => s.patch({ fillEmptyBack })}
+          label="도트만 찍기"
+        />
+      </Row>
       <GridReadout />
     </>
   );
@@ -410,9 +417,8 @@ function LayoutGroup() {
           label="50mm 검증 눈금"
         />
       </Row>
-      <Row label="양면" hint="뒷면이 없는 양식은 그 칸만 빈 채로 찍힙니다">
-        <Check checked={s.duplex} onChange={(duplex) => s.patch({ duplex })} label="양면 인쇄" />
-      </Row>
+      {/* 양면 인쇄는 인쇄하기 탭 상단(print-bar)으로 옮겼다 — 자주 켜고 끄는
+          값이라 여기 팝오버 안쪽보다 눈에 띄는 자리가 낫다. */}
     </>
   );
 }

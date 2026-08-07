@@ -123,6 +123,15 @@ interface Settings {
    */
   duplex: boolean;
   /**
+   * 뒷면이 없는 칸도 완전히 비우지 않고 도트·그리드는 찍는다.
+   *
+   * 양면 인쇄에서만 의미가 있다. 기본은 꺼져 있어 지금까지처럼 백지로 나간다.
+   * 켜면 뒷면이 없는 칸에 **그 칸 양식의 앞면과 같은 도트·그리드 설정**을
+   * 쓰되 그린 것(objects)은 넣지 않는다 — 뒷면을 따로 디자인하지 않았어도
+   * 최소한 쓸 수 있는 면으로 찍고 싶을 때를 위해서다.
+   */
+  fillEmptyBack: boolean;
+  /**
    * 낱장 조합 — 지금 짜둔 칸 배정을 통째로 몇 장 찍을지.
    *
    * 양식의 `repeat`(이 양식 하나가 여러 장을 채우는 것)과는 다르다. 이건 여러
@@ -204,7 +213,14 @@ interface Store extends Settings {
     p: Partial<
       Pick<
         Settings,
-        'gap' | 'allowRotate' | 'align' | 'cropMark' | 'showRuler' | 'duplex' | 'comboSheets'
+        | 'gap'
+        | 'allowRotate'
+        | 'align'
+        | 'cropMark'
+        | 'showRuler'
+        | 'duplex'
+        | 'fillEmptyBack'
+        | 'comboSheets'
       >
     >,
   ) => void;
@@ -375,6 +391,7 @@ export const useStore = create<Store>((set) => ({
   // 잴 필요는 없으니 기본은 꺼둔다. 필요하면 배치 설정에서 언제든 켤 수 있다.
   showRuler: false,
   duplex: false,
+  fillEmptyBack: false,
   comboSheets: 1,
   unprintable: { show: true, width: 3 },
   slotAssignment: {},

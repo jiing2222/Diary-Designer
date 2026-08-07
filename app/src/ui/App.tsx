@@ -69,14 +69,28 @@ export function App() {
   /** 반복 인쇄가 아닐 때만 쓰인다. 글꼴을 모을 때 어느 양식들이 관여했는지 알아야 한다. */
   let slotTemplates: ReturnType<typeof resolveSlotTemplates> = [];
 
-  /** 지금 양식의 뒷면. 없으면 그 칸은 완전히 빈 채로 찍힌다·보인다. */
+  /**
+   * 뒷면이 없는 칸에 쓸 내용.
+   *
+   * 기본은 완전히 빈 칸(`undefined`)이다. `fillEmptyBack`을 켜면 대신 그 양식의
+   * **앞면과 같은 도트·그리드**를 쓰되 그린 것은 넣지 않는다 — 뒷면을 따로
+   * 디자인하지 않았어도 백지가 아니라 쓸 수 있는 면으로 찍고 싶을 때다.
+   */
+  const backFallback = (t: { dotGrid: DotGrid; insert: { punch: { safeZoneWidth: number } } }): SlotContent | undefined =>
+    s.fillEmptyBack
+      ? { dotGrid: t.dotGrid, objects: [], safeZoneWidth: t.insert.punch.safeZoneWidth }
+      : undefined;
+
+  /** 지금 양식의 뒷면. 없으면 backFallback(또는 완전히 빈 칸)을 쓴다. */
   const defaultBack: SlotContent | undefined = active?.back
     ? {
         dotGrid: active.back.dotGrid,
         objects: active.back.objects.present,
         safeZoneWidth: active.insert.punch.safeZoneWidth,
       }
-    : undefined;
+    : active
+      ? backFallback(active)
+      : undefined;
 
   if (active && repeating) {
     /*
@@ -120,18 +134,18 @@ export function App() {
         safeZoneWidth: t.insert.punch.safeZoneWidth,
       });
       // 배정된 양식에 뒷면이 없으면 지금 양식의 뒷면(defaultBack)이 아니라
-      // 이 칸만 완전히 비워야 한다 — null이 그 뜻이다.
+      // 이 칸만의 backFallback을 쓴다 — fillEmptyBack이 꺼져 있으면 완전히 빈다.
       previewBackOverrides.set(
         i,
         t.back
           ? { insert: t.insert, dotGrid: t.back.dotGrid, objects: t.back.objects.present }
-          : { insert: t.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] },
+          : { insert: t.insert, dotGrid: s.fillEmptyBack ? t.dotGrid : BLANK_PREVIEW_GRID, objects: [] },
       );
       pdfBackOverrides.set(
         i,
         t.back
           ? { dotGrid: t.back.dotGrid, objects: t.back.objects.present, safeZoneWidth: t.insert.punch.safeZoneWidth }
-          : null,
+          : (backFallback(t) ?? null),
       );
     });
   }
@@ -254,6 +268,15 @@ export function App() {
                 </span>
               </label>
 
+              <label className="preview-toggle">
+                <input
+                  type="checkbox"
+                  checked={s.duplex}
+                  onChange={(e) => s.patch({ duplex: e.target.checked })}
+                />
+                양면 인쇄
+              </label>
+
               {/* 양면을 껐으면 뒷면 자체가 없으니 토글을 보여줄 이유가 없다. */}
               {s.duplex && (
                 <div className="tabs">
@@ -310,7 +333,9 @@ export function App() {
                     <PaperPreview
                       paper={{ ...s.paper, width, height }}
                       insert={active.insert}
-                      dotGrid={active.back?.dotGrid ?? BLANK_PREVIEW_GRID}
+                      dotGrid={
+                        active.back?.dotGrid ?? (s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID)
+                      }
                       objects={active.back?.objects.present ?? []}
                       slotOverrides={previewBackOverrides.size > 0 ? previewBackOverrides : undefined}
                       layout={mirrorLayout(layout, width)}
