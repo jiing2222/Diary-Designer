@@ -122,6 +122,15 @@ interface Settings {
    * 루트에 있다 — 뒷면이 없는 양식을 켜서 인쇄해도 그 칸만 빈 채로 찍힌다.
    */
   duplex: boolean;
+  /**
+   * 낱장 조합 — 지금 짜둔 칸 배정을 통째로 몇 장 찍을지.
+   *
+   * 양식의 `repeat`(이 양식 하나가 여러 장을 채우는 것)과는 다르다. 이건 여러
+   * 양식이 섞인 조합 자체를 몇 벌 복사할지를 정하는, 인쇄 작업 설정이다 —
+   * 그래서 어느 한 양식이 아니라 store 루트에 있다. 매번 완전히 채워진 장만
+   * 나온다(자투리 칸이 생기지 않는다).
+   */
+  comboSheets: number;
   unprintable: UnprintableSetting;
   /**
    * 낱장 조합 — 인쇄할 용지의 칸마다 어느 양식을 넣을지.
@@ -193,7 +202,10 @@ interface Store extends Settings {
   redo: () => void;
   patch: (
     p: Partial<
-      Pick<Settings, 'gap' | 'allowRotate' | 'align' | 'cropMark' | 'showRuler' | 'duplex'>
+      Pick<
+        Settings,
+        'gap' | 'allowRotate' | 'align' | 'cropMark' | 'showRuler' | 'duplex' | 'comboSheets'
+      >
     >,
   ) => void;
   patchUnprintable: (p: Partial<UnprintableSetting>) => void;
@@ -363,6 +375,7 @@ export const useStore = create<Store>((set) => ({
   // 잴 필요는 없으니 기본은 꺼둔다. 필요하면 배치 설정에서 언제든 켤 수 있다.
   showRuler: false,
   duplex: false,
+  comboSheets: 1,
   unprintable: { show: true, width: 3 },
   slotAssignment: {},
 

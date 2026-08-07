@@ -354,6 +354,69 @@ describe('낱장 조합 — 칸마다 다른 양식', () => {
   });
 });
 
+describe('낱장 조합 — 통째로 반복(sheets)', () => {
+  const twoUpLayout = computeLayout({
+    paperWidth: 170,
+    paperHeight: 130,
+    insertWidth: 80,
+    insertHeight: 125,
+    gap: 5,
+    printMargin: 2.5,
+    allowRotate: false,
+    align: 'center',
+  });
+
+  const base = {
+    paperWidth: 170,
+    paperHeight: 130,
+    layout: twoUpLayout,
+    dotGrid: DEFAULT_DOT_GRID,
+    objects: [],
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+
+  it('정하지 않으면 지금까지처럼 1장이다', async () => {
+    const doc = await PDFDocument.load(await buildPdf(base));
+    expect(doc.getPageCount()).toBe(1);
+  });
+
+  it('sheets만큼 장이 늘어난다', async () => {
+    const doc = await PDFDocument.load(await buildPdf({ ...base, sheets: 14 }));
+    expect(doc.getPageCount()).toBe(14);
+  });
+
+  it('장마다 자투리 없이 두 칸 다 채운다', async () => {
+    // 반복 인쇄와 달리 매번 완전히 채워진 장만 나와야 한다.
+    const one = await buildPdf({ ...base, sheets: 1 });
+    const three = await buildPdf({ ...base, sheets: 3 });
+    // 3장은 1장의 3배 내용이어야 한다(같은 도트 패턴이 그대로 반복되므로
+    // 바이트도 거의 정비례해야 한다 — 장마다 빈 칸이 섞이면 이 비율이 깨진다).
+    expect(three.byteLength).toBeGreaterThan(one.byteLength * 2.5);
+  });
+
+  it('totalSlots가 있으면 sheets는 무시된다', async () => {
+    // 반복 인쇄가 우선이다 — 설계상 둘은 섞이지 않는다.
+    const doc = await PDFDocument.load(
+      await buildPdf({ ...base, totalSlots: 2, sheets: 99 }),
+    );
+    expect(doc.getPageCount()).toBe(1);
+  });
+
+  it('양면이면 장마다 뒷면도 함께 반복된다', async () => {
+    const doc = await PDFDocument.load(
+      await buildPdf({
+        ...base,
+        sheets: 3,
+        duplex: true,
+        defaultBack: { dotGrid: DEFAULT_DOT_GRID, objects: [], safeZoneWidth: 10 },
+      }),
+    );
+    expect(doc.getPageCount()).toBe(6); // 3장 × 2쪽
+  });
+});
+
 describe('반복 인쇄 — 여러 장', () => {
   // 가로로 두 칸이 들어가는 배치 (5c 시험과 같은 구성). 한 장에 칸 2개.
   const twoUpLayout = computeLayout({

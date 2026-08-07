@@ -660,10 +660,10 @@ select,
 }
 
 /*
- * 낱장 조합 — 칸 배정.
+ * 낱장 조합 — 매수와 칸 배정.
  *
- * 같은 규격의 양식이 하나뿐이면(자기 자신뿐이면) 컴포넌트 자체가 아무것도
- * 그리지 않으므로 이 블록은 그럴 때 화면에 나타나지 않는다.
+ * 매수(이 배치를 몇 장 찍을지)는 항상 보여준다. 칸 배정 드롭다운은 같은
+ * 규격의 양식이 하나뿐이면(자기 자신뿐이면) 고를 게 없으므로 그 부분만 뺀다.
  */
 .slot-assign {
   display: flex;
@@ -680,6 +680,20 @@ select,
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);
+}
+
+.slot-assign-repeat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-right: 10px;
+  border-right: 1px solid var(--line);
+}
+
+.slot-assign-repeat-hint {
+  font-size: 11.5px;
+  color: var(--muted);
 }
 
 /* 칸 배치(가로·세로)와 같은 모양으로 늘어놓는다 — 어느 칸을 고치는지 바로 안다. */

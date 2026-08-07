@@ -175,6 +175,8 @@ export function App() {
         // 낱장 조합(칸마다 다른 양식)과 반복 인쇄(여러 장)는 섞이지 않는다.
         slotOverrides: !repeating && pdfOverrides.size > 0 ? pdfOverrides : undefined,
         totalSlots: repeating ? totalSlots : undefined,
+        // 낱장 조합에서만 쓴다 — 반복 인쇄는 totalSlots가 우선이다(pdf/export.ts).
+        sheets: !repeating ? s.comboSheets : undefined,
         fontBytes,
         boldFontBytes,
         userFonts,

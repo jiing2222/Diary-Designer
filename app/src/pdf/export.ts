@@ -126,6 +126,15 @@ interface ExportInput {
    * 대신 쓰지 않고 그 칸만 완전히 비운다. 맵에 아예 없는 칸은 `defaultBack`을 쓴다.
    */
   backSlotOverrides?: Map<number, SlotContent | null>;
+  /**
+   * 낱장 조합 — 이 배치를 통째로 몇 장 찍을지.
+   *
+   * `totalSlots`(반복 인쇄)와는 다르다. 반복 인쇄는 총 칸 수를 나눠 채우다가
+   * 마지막 장이 모자랄 수 있지만, 이건 **매번 완전히 채워진 장만** 나온다 —
+   * 조합 한 세트를 그대로 N번 복사하는 것뿐이다. `totalSlots`가 있으면 이 값은
+   * 무시된다(반복 인쇄가 우선). 정하지 않으면 지금까지처럼 1장이다.
+   */
+  sheets?: number;
 }
 
 /** 완전히 빈 칸. 반복 인쇄에서 마지막 장의 남는 칸에 쓴다. */
@@ -221,11 +230,12 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   const duplex = !!input.duplex;
   const slotsPerSheet = input.layout.slots.length;
   // 양면이면 한 장의 용량이 앞뒤를 합쳐 두 배다(core/template의 capacityPerSheet).
-  // totalSlots를 정하지 않았으면 지금까지처럼 한 장, 모든 칸을 채운다.
+  // totalSlots(반복 인쇄)가 있으면 그걸 우선한다. 없으면 낱장 조합의 sheets —
+  // 정하지 않았으면 지금까지처럼 1장이다.
   const sheets =
     input.totalSlots && input.totalSlots > 0 && slotsPerSheet > 0
       ? sheetsNeeded(input.totalSlots, capacityPerSheet(slotsPerSheet, duplex))
-      : 1;
+      : Math.max(1, input.sheets ?? 1);
   // 칸 위치만 좌우로 뒤집은 배치. 재단선도 여기서 다시 계산해야 앞뒤가 같은
   // 자리에서 잘린다(core/layout의 mirrorLayout 주석 참고).
   const backLayout = duplex ? mirrorLayout(input.layout, input.paperWidth) : null;
