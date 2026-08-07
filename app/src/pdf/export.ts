@@ -230,11 +230,21 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   // 자리에서 잘린다(core/layout의 mirrorLayout 주석 참고).
   const backLayout = duplex ? mirrorLayout(input.layout, input.paperWidth) : null;
 
-  /** 한 면(앞 또는 뒤)을 그린다. 페이지·배치·칸 내용 판단 함수만 갈아끼운다. */
-  function drawSide(page: PDFPage, layout: Layout, resolveForSheet: (i: number) => SlotContent) {
+  /**
+   * 한 면(앞 또는 뒤)을 그린다. 페이지·배치·칸 내용 판단 함수만 갈아끼운다.
+   *
+   * `mirror`는 뒷면일 때만 켠다 — 안전영역(도트가 비켜야 할 자리)이 오른쪽으로
+   * 뒤집힌다(core/grid의 gridArea 참고). 칸 위치(layout)와는 다른 층의 반전이다.
+   */
+  function drawSide(
+    page: PDFPage,
+    layout: Layout,
+    resolveForSheet: (i: number) => SlotContent,
+    mirror: boolean,
+  ) {
     // 층 순서가 화면과 같아야 한다. 도트 → 선 → 글자.
     // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
-    drawDotGrid(page, layout, resolveForSheet, flipY);
+    drawDotGrid(page, layout, resolveForSheet, flipY, mirror);
     drawObjects(page, layout, resolveForSheet, flipY);
     if (bodyFont) {
       drawTexts(
@@ -271,11 +281,11 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
       : { front: slotsPerSheet, back: slotsPerSheet };
 
     const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
-    drawSide(page, input.layout, (i) => (i < front ? resolveSlot(i) : BLANK_SLOT));
+    drawSide(page, input.layout, (i) => (i < front ? resolveSlot(i) : BLANK_SLOT), false);
 
     if (duplex && backLayout) {
       const backPage = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
-      drawSide(backPage, backLayout, (i) => (i < back ? resolveBackSlot(i) : BLANK_SLOT));
+      drawSide(backPage, backLayout, (i) => (i < back ? resolveBackSlot(i) : BLANK_SLOT), true);
     }
   }
 
@@ -293,6 +303,7 @@ function drawDotGrid(
   layout: Layout,
   resolveSlot: (i: number) => SlotContent,
   flipY: (y: Mm) => Mm,
+  mirror: boolean,
 ) {
   layout.slots.forEach((slot, i) => {
     const { dotGrid: grid, safeZoneWidth } = resolveSlot(i);
@@ -302,7 +313,7 @@ function drawDotGrid(
     const insert = insertSizeOf(slot, layout.rotated);
     const place = placeSlot(slot, layout.rotated);
 
-    const area = gridArea(insert, grid, safeZoneWidth);
+    const area = gridArea(insert, grid, safeZoneWidth, mirror);
     const lattice = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
     // 인쇄물이므로 가장자리에 덧붙인 안내용 자리에는 도트를 찍지 않는다.
     const { dots, lines } = gridShapes(lattice, grid.style, grid.toEdge ? area : null, true);

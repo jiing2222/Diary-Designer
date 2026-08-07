@@ -556,4 +556,22 @@ describe('양면 인쇄', () => {
       }),
     ).rejects.toThrow();
   });
+
+  it('뒷면의 안전영역 비우기도 도트를 줄인다', async () => {
+    // core/grid의 gridArea가 뒷면에서는 오른쪽을 비운다(mirror). 어느 쪽을
+    // 비우든 도트 개수는 줄어야 한다 — 방향이 아니라 "적용되는지"를 본다.
+    // 정확한 방향(왼쪽/오른쪽)은 core/grid.test.ts·core/geometry.test.ts가 잰다.
+    const dotGrid = { ...DEFAULT_DOT_GRID, print: true };
+    const full = await buildPdf({
+      ...base,
+      duplex: true,
+      defaultBack: { dotGrid, objects: [], safeZoneWidth: 10 },
+    });
+    const avoided = await buildPdf({
+      ...base,
+      duplex: true,
+      defaultBack: { dotGrid: { ...dotGrid, avoidSafeZone: true }, objects: [], safeZoneWidth: 10 },
+    });
+    expect(avoided.byteLength).toBeLessThan(full.byteLength);
+  });
 });

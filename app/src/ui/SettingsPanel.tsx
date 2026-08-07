@@ -6,6 +6,7 @@ import {
   useDotGrid,
   useInsert,
   useRepeat,
+  useSide,
   useStore,
 } from '../store';
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
@@ -438,8 +439,9 @@ function CellCountRow() {
   const s = useStore();
   const insert = useInsert();
   const grid = useDotGrid();
+  const side = useSide();
 
-  const area = gridArea(insert, grid, insert.punch.safeZoneWidth);
+  const area = gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back');
   const { cols, rows } = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
   const margin = grid.toEdge ? 0 : grid.minMargin;
 
@@ -461,8 +463,9 @@ function CellCountRow() {
 function GridReadout() {
   const insert = useInsert();
   const grid = useDotGrid();
+  const side = useSide();
 
-  const area = gridArea(insert, grid, insert.punch.safeZoneWidth);
+  const area = gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back');
   const { xs, ys, cols, rows } = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
 
   if (xs.length === 0 || ys.length === 0) {
@@ -488,7 +491,8 @@ function GridReadout() {
           : `${cols} × ${rows}칸`;
 
   // 속지 가장자리에서 바깥쪽 도트까지의 실제 거리를 보여준다.
-  // 안전영역을 비우면 왼쪽만 그만큼 멀어지므로 좌우를 따로 적어야 한다.
+  // 안전영역을 비우면 한쪽만(앞면은 왼쪽, 뒷면은 오른쪽) 그만큼 멀어지므로
+  // 좌우를 따로 적어야 한다. area가 이미 mirror를 반영하므로 xs·ys는 그대로 쓴다.
   const left = xs[0];
   const right = insert.width - xs[xs.length - 1];
   const top = ys[0];

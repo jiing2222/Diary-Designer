@@ -110,7 +110,7 @@ export function EditorTab() {
 
   const objects = history.present;
   const lattice = gridLattice(
-    gridArea(insert, grid, insert.punch.safeZoneWidth),
+    gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back'),
     grid.spacing,
     grid.minMargin,
     grid.toEdge,
@@ -623,13 +623,14 @@ export function EditorTab() {
             grid={grid}
             objects={objects}
             safeZoneWidth={insert.punch.safeZoneWidth}
+            mirror={side === 'back'}
             // 고치는 중인 글자는 감춘다. 입력칸이 같은 자리에 겹쳐 있어서, 둘 다
             // 보이면 어느 게 지금 치는 내용인지 헷갈린다. 목록에서 빼지 않고
             // 감추기만 하는 이유는 InsertView의 hiddenId 주석에 있다.
             hiddenId={editing?.id}
           />
 
-          <PunchGuide height={insert.height} punch={insert.punch} />
+          <PunchGuide width={insert.width} height={insert.height} punch={insert.punch} mirror={side === 'back'} />
 
           {/* 고른 것 표시. 옮기거나 끝점을 끄는 중이면 갈 자리에 미리 보여준다.
               선은 선 자체를, 글자는 상자를 두른다. */}

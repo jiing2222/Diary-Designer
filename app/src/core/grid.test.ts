@@ -144,6 +144,15 @@ describe('타공 안전영역', () => {
     const { xs } = gridLattice(gridArea(m6Insert, on, 100), 5);
     expect(xs).toEqual([]);
   });
+
+  it('뒷면(mirror)이면 오른쪽이 안전영역만큼 좁아진다', () => {
+    // 앞면 왼쪽에 있던 구멍은 종이를 뒤집으면 뒷면에서 오른쪽에 있다.
+    expect(gridArea(m6Insert, on, 10, true)).toEqual({ x: 0, y: 0, width: 70, height: 125 });
+  });
+
+  it('뒷면이어도 안전영역을 꺼두면 속지 전체를 쓴다', () => {
+    expect(gridArea(m6Insert, off, 10, true)).toEqual({ x: 0, y: 0, width: 80, height: 125 });
+  });
 });
 
 describe('칸 찾기', () => {

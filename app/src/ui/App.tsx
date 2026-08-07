@@ -303,7 +303,8 @@ export function App() {
                     />
                   ) : (
                     // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 좌우만 뒤집는다.
-                    // 칸 안의 내용(도트·글자)은 뒤집지 않는다(설계문서 8장).
+                    // 칸 안의 내용(도트·글자)은 뒤집지 않지만, 안전영역·타공 안내는
+                    // mirror로 오른쪽에 표시한다(설계문서 8장).
                     <PaperPreview
                       paper={{ ...s.paper, width, height }}
                       insert={active.insert}
@@ -315,6 +316,7 @@ export function App() {
                       showRuler={s.showRuler}
                       unprintable={s.unprintable}
                       mode={printPreview ? 'print' : 'edit'}
+                      mirror
                     />
                   )}
                 </div>

@@ -342,16 +342,21 @@ export function gridShapes(
  * 화면·PDF·설정 패널 셋이 전부 이 함수를 부른다. 어디 하나가 다른 결론을 내면
  * 인쇄물만 틀어지고 화면으로는 알 수가 없다.
  *
- * 안전영역은 속지 왼쪽에 있다. 회전 배치라도 여기서는 신경 쓰지 않는다.
+ * 안전영역은 기본적으로 속지 왼쪽에 있다. **뒷면(`mirror`)이면 오른쪽이다** —
+ * 종이를 뒤집어야 뒷면이 보이므로, 앞면에서 왼쪽에 있던 구멍은 뒷면에서
+ * 오른쪽에 있다(설계문서 8장). 회전 배치라도 여기서는 신경 쓰지 않는다.
  * 이 좌표는 속지 기준이고, 칸으로 옮기는 일은 core/place가 한다.
  */
 export function gridArea(
   insert: { width: Mm; height: Mm },
   grid: DotGrid,
   safeZoneWidth: Mm,
+  mirror = false,
 ): Area {
   const avoid = grid.avoidSafeZone ? Math.max(0, safeZoneWidth) : 0;
-  return { x: avoid, y: 0, width: insert.width - avoid, height: insert.height };
+  return mirror
+    ? { x: 0, y: 0, width: insert.width - avoid, height: insert.height }
+    : { x: avoid, y: 0, width: insert.width - avoid, height: insert.height };
 }
 
 /** `values`에서 `p1`·`p2` 사이(양끝 포함)에 있는 것만, 오름차순으로. */

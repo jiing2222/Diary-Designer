@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeLayout, mirrorLayout } from './layout';
-import { holeCentersY, suggestGroupGap, type PunchSetting } from './punch';
+import { holeCenterX, holeCentersY, suggestGroupGap, type PunchSetting } from './punch';
 import { INSERT_PRESETS } from './presets';
 
 const punch = (holeCount: number, groupGap: number | null, markSize: number): PunchSetting => ({
@@ -181,6 +181,19 @@ describe('양면 배치 — 칸 뒤집기', () => {
     const back = mirrorLayout(front, 210);
     const xs = (l: typeof front) => [...new Set(l.slots.map((s) => s.x))].sort((a, b) => a - b);
     expect(xs(back)).toEqual(xs(front).map((x) => expect.closeTo(x, 6)));
+  });
+});
+
+describe('구멍 가로 좌표 — 뒷면 뒤집기', () => {
+  const p = punch(6, null, 4); // edgeToHole 3, markSize 4 → 5mm
+
+  it('앞면은 왼쪽 끝에서 잰다', () => {
+    expect(holeCenterX(p, 80)).toBe(5);
+  });
+
+  it('뒷면(mirror)이면 오른쪽 끝에서 잰 값이 된다', () => {
+    // 앞면 왼쪽에 있던 구멍은 종이를 뒤집으면 뒷면에서 오른쪽에 있다.
+    expect(holeCenterX(p, 80, true)).toBe(80 - 5);
   });
 });
 

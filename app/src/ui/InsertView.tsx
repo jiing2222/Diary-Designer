@@ -55,6 +55,7 @@ export function InsertView({
   objects,
   safeZoneWidth,
   mode = 'edit',
+  mirror = false,
   hiddenId,
 }: {
   insert: { width: Mm; height: Mm };
@@ -62,6 +63,8 @@ export function InsertView({
   objects: DiaryObject[];
   safeZoneWidth: Mm;
   mode?: ViewMode;
+  /** 뒷면이면 켠다. 안전영역을 비울 때 오른쪽을 비운다(core/grid의 gridArea 참고). */
+  mirror?: boolean;
   /**
    * 화면에서만 감출 글자 하나. 지금 고치는 중인 글자에 쓴다 — 입력칸이 같은
    * 자리에 겹쳐 있어서 둘 다 보이면 어느 게 지금 치는 내용인지 헷갈린다.
@@ -78,7 +81,13 @@ export function InsertView({
   return (
     <>
       {showDots && (
-        <DotGridLayer insert={insert} grid={grid} safeZoneWidth={safeZoneWidth} mode={mode} />
+        <DotGridLayer
+          insert={insert}
+          grid={grid}
+          safeZoneWidth={safeZoneWidth}
+          mode={mode}
+          mirror={mirror}
+        />
       )}
       <ObjectLayer objects={objects.filter(isLine)} />
 
@@ -198,13 +207,15 @@ function DotGridLayer({
   grid,
   safeZoneWidth,
   mode,
+  mirror,
 }: {
   insert: { width: Mm; height: Mm };
   grid: DotGrid;
   safeZoneWidth: Mm;
   mode: ViewMode;
+  mirror: boolean;
 }) {
-  const area = gridArea(insert, grid, safeZoneWidth);
+  const area = gridArea(insert, grid, safeZoneWidth, mirror);
   const lattice = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
   // 끝까지 채울 때는 선도 영역 끝까지 긋는다 — 잘린 마지막 칸이 종이 끝에서
   // 닫혀야 칸으로 읽힌다. 기준이 속지가 아니라 **격자 영역**인 이유는,

@@ -39,6 +39,12 @@ interface Props {
    * 그리지 않는다(인쇄되지 않으므로). 인쇄하기 탭의 미리보기 토글이 이걸 쓴다.
    */
   mode?: ViewMode;
+  /**
+   * 양면 인쇄의 뒷면을 보여주는 중이면 켠다. 안전영역·타공 안내가 오른쪽으로
+   * 뒤집힌다(core/grid의 gridArea 참고) — 칸 위치 자체(layout)는 여기서 다루지
+   * 않으므로 호출하는 쪽이 core/layout의 mirrorLayout으로 미리 뒤집어 넘긴다.
+   */
+  mirror?: boolean;
 }
 
 /**
@@ -58,6 +64,7 @@ export function PaperPreview({
   unprintable,
   slotOverrides,
   mode = 'edit',
+  mirror = false,
 }: Props) {
   const { width: pw, height: ph } = paper;
 
@@ -106,9 +113,17 @@ export function PaperPreview({
                 objects={content.objects}
                 safeZoneWidth={punch.safeZoneWidth}
                 mode={mode}
+                mirror={mirror}
               />
 
-              {mode === 'edit' && <PunchGuide height={content.insert.height} punch={punch} />}
+              {mode === 'edit' && (
+                <PunchGuide
+                  width={content.insert.width}
+                  height={content.insert.height}
+                  punch={punch}
+                  mirror={mirror}
+                />
+              )}
             </g>
           </g>
         );

@@ -78,9 +78,16 @@ export function suggestGroupGap(insertHeight: Mm, holeCount: number): Mm | null 
   return Math.min(70, Math.floor(fitting));
 }
 
-/** 구멍 중심의 가로 좌표. 속지 왼쪽 끝이 0. */
-export function holeCenterX(punch: PunchSetting): Mm {
-  return punch.edgeToHole + punch.markSize / 2;
+/**
+ * 구멍 중심의 가로 좌표. 속지 왼쪽 끝이 0.
+ *
+ * **뒷면(`mirror`)이면 오른쪽 끝 기준으로 뒤집는다.** 앞면 왼쪽에 있는 구멍은
+ * 종이를 뒤집으면 뒷면에서 오른쪽에 있다(설계문서 8장) — core/grid의
+ * `gridArea`와 같은 이유, 같은 방향이다.
+ */
+export function holeCenterX(punch: PunchSetting, insertWidth: Mm, mirror = false): Mm {
+  const x = punch.edgeToHole + punch.markSize / 2;
+  return mirror ? insertWidth - x : x;
 }
 
 /** 맨 위 구멍 가장자리까지의 여백. 화면에 보여주기 위한 값. */
