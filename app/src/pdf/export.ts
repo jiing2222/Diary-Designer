@@ -3,6 +3,7 @@ import {
   PDFDocument,
   clip,
   closePath,
+  degrees,
   endPath,
   lineTo,
   moveTo,
@@ -498,6 +499,11 @@ function drawTexts(
           size: mmToPt(size),
           font,
           color: t.color ? color(t.color) : TEXT,
+          // 자리는 place.map이 이미 회전 배치를 반영해 옮겨준다. 하지만 pdf-lib은
+          // 글자 자체를 그 방향으로 돌려 그리라고 따로 말해주지 않으면 언제나
+          // 가로로 눕혀 그린다 — 화면(SVG)은 <g transform>이 글자까지 통째로
+          // 돌리므로 이 차이가 화면에서는 안 보이다가 인쇄물에서만 드러났다.
+          rotate: degrees(layout.rotated ? 90 : 0),
         });
       });
     }
