@@ -299,3 +299,41 @@ export function frontBackFilled(
   const filled = filledSlots(sheet, totalSlots, capacityPerSheet(slotsPerSide, true));
   return { front: Math.min(slotsPerSide, filled), back: Math.max(0, filled - slotsPerSide) };
 }
+
+/**
+ * 겹치기 배치 — 이 장(0부터)·이 칸(0부터)에 들어갈 쪽 번호(0부터). 없으면
+ * (범위 밖) `null`.
+ *
+ * 여러 쪽을 한 용지에 여러 칸씩 뽑으면 자른 뒤 순서가 안 맞는다(설계문서
+ * 8장). **칸마다 연속된 구간을 담당하게** 하면, 자른 뒤 그 칸의 무더기를
+ * 쌓기만 해도 순서대로 읽힌다 — `칸당 담당 쪽수 = ceil(총 쪽수 ÷ 칸 수)`,
+ * `n번째 칸 · m번째 장에 들어갈 쪽 = n × 담당쪽수 + m`.
+ *
+ * `groupSheets`를 주면 그만큼의 장을 한 무더기로 보고 그 안에서만 이 계산을
+ * 적용한다 — 재단기가 한 번에 자를 수 있는 장수가 제한적일 때(예: 10장씩),
+ * 무더기별로 나눠 잘라도 각 무더기 안은 이미 순서대로다. 무더기끼리는
+ * 원래 순서 그대로 이어지므로, 전부 자른 뒤 무더기 순서대로 쌓으면 처음부터
+ * 끝까지 순서대로 완성된다. 정하지 않으면 전체를 한 무더기로 본다.
+ */
+export function cutStackPage(
+  sheet: number,
+  slotIndex: number,
+  totalPages: number,
+  slotsPerSheet: number,
+  groupSheets?: number,
+): number | null {
+  const totalSheets = sheetsNeeded(totalPages, slotsPerSheet);
+  const group = Math.max(1, groupSheets ?? totalSheets);
+  const groupIndex = Math.floor(sheet / group);
+  const sheetInGroup = sheet % group;
+  const groupStartSheet = groupIndex * group;
+  const groupStartPage = groupStartSheet * slotsPerSheet;
+  const sheetsInGroup = Math.min(group, totalSheets - groupStartSheet);
+  const pagesInGroup = Math.min(totalPages - groupStartPage, sheetsInGroup * slotsPerSheet);
+  if (pagesInGroup <= 0) return null;
+
+  const perSlot = Math.ceil(pagesInGroup / slotsPerSheet);
+  const localPage = slotIndex * perSlot + sheetInGroup;
+  if (localPage >= pagesInGroup) return null;
+  return groupStartPage + localPage;
+}

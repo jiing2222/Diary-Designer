@@ -291,6 +291,29 @@ function DatasetGroup({ dataset, layout }: { dataset: Dataset; layout: { count: 
           onChange={(n) => patch({ perPage: Math.max(1, Math.round(n)) })}
         />
       </Row>
+      <Row
+        label="순서"
+        hint="겹치기면 칸마다 이어진 구간을 담당해서, 자른 뒤 그 칸의 무더기를 쌓기만 해도 순서대로 읽힙니다"
+      >
+        <select
+          value={s.cutStack ? 'stack' : 'sequential'}
+          onChange={(e) => s.patch({ cutStack: e.target.value === 'stack' })}
+        >
+          <option value="sequential">순차</option>
+          <option value="stack">겹치기</option>
+        </select>
+      </Row>
+      {s.cutStack && (
+        <Row label="무더기" hint="재단기가 한 번에 자를 수 있는 장수. 0이면 전체를 한 무더기로 봅니다">
+          <Num
+            value={s.cutStackGroup}
+            step={1}
+            min={0}
+            unit="장"
+            onChange={(n) => s.patch({ cutStackGroup: Math.max(0, Math.round(n)) })}
+          />
+        </Row>
+      )}
       <div className="readout">
         <span>
           총 <b>{pages}쪽</b>이니 한 장에 <b>{layout.count}쪽</b>이면{' '}

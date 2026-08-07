@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore } from '../store';
-import { capacityPerSheet, filledSlots, frontBackFilled, sheetsNeeded } from '../core/template';
+import {
+  capacityPerSheet,
+  cutStackPage,
+  filledSlots,
+  frontBackFilled,
+  sheetsNeeded,
+} from '../core/template';
 import { mirrorLayout } from '../core/layout';
 import { datasetPages } from '../core/dataset';
 import { resolveObjectsForPage } from '../core/format';
@@ -125,21 +131,29 @@ export function App() {
     }
   } else if (active && printMode === 'dataset' && dataset) {
     /*
-     * 세트형 — 칸마다 다른 쪽. previewPage는 지금 보는 장 번호이고, 그 장의
-     * 칸 i는 전체 쪽 번호 `previewPage × 칸수 + i`를 가리킨다 — pdf/export.ts와
-     * 같은 셈법이다(칸 하나 = 한 쪽의 앞뒤, 양면이어도 칸 수가 늘지 않는다).
+     * 세트형 — 칸마다 다른 쪽. previewPage는 지금 보는 장 번호다.
+     *
+     * 겹치기 배치(cutStack)가 꺼져 있으면 그 장의 칸 i는 전체 쪽 번호
+     * `previewPage × 칸수 + i`를 가리킨다 — pdf/export.ts와 같은 셈법이다
+     * (칸 하나 = 한 쪽의 앞뒤, 양면이어도 칸 수가 늘지 않는다). 켜져 있으면
+     * `cutStackPage`가 칸마다 담당 쪽을 따로 정해준다.
      *
      * 여기서는 **지금 보는 장의 칸만** 계산한다. 전체 쪽(수십~수백)을 렌더마다
      * 다 계산하면 느려진다 — 전체는 exportPdf에서 실제로 내보낼 때만 계산한다.
      */
     const filled = filledSlots(previewPage, totalPages, layout.count);
     for (let i = 0; i < layout.count; i++) {
-      if (i >= filled) {
+      const page = s.cutStack
+        ? cutStackPage(previewPage, i, totalPages, layout.count, s.cutStackGroup || undefined)
+        : i < filled
+          ? previewPage * layout.count + i
+          : null;
+
+      if (page === null) {
         previewOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
         previewBackOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
         continue;
       }
-      const page = previewPage * layout.count + i;
       previewOverrides.set(i, {
         insert: active.insert,
         dotGrid: active.dotGrid,
@@ -272,6 +286,10 @@ export function App() {
         datasetOverrides,
         datasetBackOverrides,
         datasetPages: printMode === 'dataset' ? totalPages : undefined,
+        // 겹치기 배치도 세트형에서만 의미가 있다 — 반복 인쇄·낱장 조합은 모든
+        // 칸의 내용이 같아 순서가 결과에 영향을 주지 않는다.
+        cutStack: printMode === 'dataset' ? s.cutStack : undefined,
+        cutStackGroup: printMode === 'dataset' ? s.cutStackGroup || undefined : undefined,
         fontBytes,
         boldFontBytes,
         userFonts,
@@ -393,6 +411,7 @@ export function App() {
                 totalCount={totalPages}
                 unit="쪽"
                 sheets={sheetsNeeded(totalPages, layout.count)}
+                hint={s.cutStack && <> · 겹치기</>}
                 page={previewPage}
                 onPageChange={setPreviewPage}
               />

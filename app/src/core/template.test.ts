@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   capacityPerSheet,
+  cutStackPage,
   defaultName,
   duplicateTemplate,
   frontBackFilled,
@@ -328,5 +329,73 @@ describe('뒷면', () => {
 
     const copy = duplicateTemplate(t, '사본');
     expect(copy.back!.objects.past).toEqual([]);
+  });
+});
+
+describe('겹치기 배치', () => {
+  it('설계문서 예시 — 53쪽 · 4칸에서 1장의 칸들은 1·15·29·43이다', () => {
+    // 담당 쪽수 = ceil(53/4) = 14. n번째 칸·0번째 장 = n×14.
+    expect(cutStackPage(0, 0, 53, 4)).toBe(0); // "1"
+    expect(cutStackPage(0, 1, 53, 4)).toBe(14); // "15"
+    expect(cutStackPage(0, 2, 53, 4)).toBe(28); // "29"
+    expect(cutStackPage(0, 3, 53, 4)).toBe(42); // "43"
+  });
+
+  it('설계문서 예시 — 2장의 칸들은 2·16·30·44다', () => {
+    expect(cutStackPage(1, 0, 53, 4)).toBe(1);
+    expect(cutStackPage(1, 1, 53, 4)).toBe(15);
+    expect(cutStackPage(1, 2, 53, 4)).toBe(29);
+    expect(cutStackPage(1, 3, 53, 4)).toBe(43);
+  });
+
+  it('한 칸의 무더기(장을 넘나들며)는 쪽 번호가 이미 순서대로다', () => {
+    // 담당 쪽수 14. 칸 0은 14개 장(0~13) 전부에서 쪽을 받는다(0~13).
+    const slot0 = Array.from({ length: 14 }, (_, sheet) => cutStackPage(sheet, 0, 53, 4));
+    expect(slot0).toEqual(Array.from({ length: 14 }, (_, i) => i));
+  });
+
+  it('마지막 칸은 데이터가 모자라면 뒤쪽 장부터 null이다', () => {
+    // 칸 3의 구간(담당 쪽수 14)은 42~55인데 실제 쪽은 42~52(11개)뿐이다.
+    const slot3 = Array.from({ length: 14 }, (_, sheet) => cutStackPage(sheet, 3, 53, 4));
+    expect(slot3.slice(0, 11)).toEqual(Array.from({ length: 11 }, (_, i) => 42 + i));
+    expect(slot3.slice(11)).toEqual([null, null, null]);
+  });
+
+  it('범위를 완전히 벗어난 칸은 null이다', () => {
+    expect(cutStackPage(20, 0, 53, 4)).toBeNull();
+  });
+
+  it('그룹을 나누면 그룹 안에서만 담당 구간이 이어진다', () => {
+    // 20쪽 · 4칸 · 그룹 5장 → 딱 한 그룹, 그룹 안 담당 쪽수 = ceil(20/4) = 5.
+    // 그룹을 굳이 나눠도(전체가 한 그룹과 같은 크기라) 결과는 그룹 없을 때와 같다.
+    for (let sheet = 0; sheet < 5; sheet++) {
+      for (let slot = 0; slot < 4; slot++) {
+        expect(cutStackPage(sheet, slot, 20, 4, 5)).toBe(cutStackPage(sheet, slot, 20, 4));
+      }
+    }
+  });
+
+  it('그룹마다 새로 시작하되, 그룹끼리는 이어진다', () => {
+    // 40쪽 · 4칸 · 그룹 5장 → 두 그룹(각 20쪽어치). 그룹 1은 쪽 0~19,
+    // 그룹 2는 쪽 20~39를 담당한다.
+    // 그룹 1: 0번째 장 0번째 칸 = 쪽 0.
+    expect(cutStackPage(0, 0, 40, 4, 5)).toBe(0);
+    // 그룹 2의 첫 장(전체로는 5번째 장)의 첫 칸 = 그룹 시작 쪽(20) + 0.
+    expect(cutStackPage(5, 0, 40, 4, 5)).toBe(20);
+    // 그룹 2의 칸 1은 그룹 시작(20) + 담당쪽수(5) = 25.
+    expect(cutStackPage(5, 1, 40, 4, 5)).toBe(25);
+  });
+
+  it('마지막 그룹이 짧아도 데이터가 모자란 칸만 null이다', () => {
+    // 22쪽 · 4칸 · 그룹 5장(=20쪽어치) → 그룹 1(쪽 0~19, 꽉 참), 그룹 2(쪽
+    // 20~21, 2쪽뿐 — 담당쪽수 ceil(2/4)=1이라 칸 0·1만 쪽을 받고 칸 2·3은 빈다).
+    expect(cutStackPage(5, 0, 22, 4, 5)).toBe(20);
+    expect(cutStackPage(5, 1, 22, 4, 5)).toBe(21);
+    expect(cutStackPage(5, 2, 22, 4, 5)).toBeNull();
+    expect(cutStackPage(5, 3, 22, 4, 5)).toBeNull();
+  });
+
+  it('그룹을 정하지 않으면 전체를 한 무더기로 본다', () => {
+    expect(cutStackPage(0, 0, 53, 4, undefined)).toBe(cutStackPage(0, 0, 53, 4));
   });
 });

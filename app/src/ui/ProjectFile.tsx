@@ -30,6 +30,8 @@ export function ProjectFile() {
         duplex: store.duplex,
         fillEmptyBack: store.fillEmptyBack,
         comboSheets: store.comboSheets,
+        cutStack: store.cutStack,
+        cutStackGroup: store.cutStackGroup,
         unprintable: store.unprintable,
       },
       fonts: store.userFonts.map((f) => ({ id: f.id, name: f.name })),

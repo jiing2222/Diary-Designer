@@ -30,7 +30,13 @@ import {
 import { mirrorLayout, type Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
-import { capacityPerSheet, filledSlots, frontBackFilled, sheetsNeeded } from '../core/template';
+import {
+  capacityPerSheet,
+  cutStackPage,
+  filledSlots,
+  frontBackFilled,
+  sheetsNeeded,
+} from '../core/template';
 import { insertSizeOf, placeSlot } from '../core/place';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import {
@@ -152,6 +158,14 @@ interface ExportInput {
   datasetBackOverrides?: Map<number, SlotContent>;
   /** 데이터셋의 총 쪽수. `datasetOverrides`와 함께 쓴다. */
   datasetPages?: number;
+  /**
+   * 겹치기 배치 — 세트형에서 칸마다 연속된 구간을 담당하도록 쪽 순서를
+   * 재배열할지(core/template의 `cutStackPage`). 꺼져 있으면(기본) 지금까지처럼
+   * 장을 가로질러 순서대로(칸0·칸1·... 장마다 반복) 채운다.
+   */
+  cutStack?: boolean;
+  /** 겹치기 배치에서 몇 장을 한 무더기로 볼지. 정하지 않으면 전체가 한 무더기다. */
+  cutStackGroup?: number;
 }
 
 /** 완전히 빈 칸. 반복 인쇄에서 마지막 장의 남는 칸에 쓴다. */
@@ -313,23 +327,35 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
 
     if (datasetMode) {
       /*
-       * 세트형 — 칸 하나가 한 쪽. 장을 가로지르는 전체 쪽 번호로 찾는다.
-       * 앞·뒤가 같은 쪽 번호를 가리키므로(위의 sheets 계산 참고) 채우는 칸 수도
-       * 앞뒤가 같다 — frontBackFilled가 아니라 filledSlots 하나만 쓴다.
+       * 세트형 — 칸 하나가 한 쪽. 앞·뒤가 같은 쪽 번호를 가리키므로(위의 sheets
+       * 계산 참고) 어느 칸에 어느 쪽이 들어가는지는 앞뒤가 항상 같다.
+       *
+       * 겹치기 배치(cutStack)가 꺼져 있으면 장을 가로지르는 전체 쪽 번호로
+       * 순서대로 채운다(filledSlots가 이 장의 채울 칸 수를 정한다). 켜져 있으면
+       * 칸마다 cutStackPage가 담당 쪽을 따로 정해준다 — 칸별로 비는 자리가
+       * 다를 수 있어 장 단위 컷오프(filled) 대신 칸마다 null인지 본다.
        */
       const filled = filledSlots(sheet, totalPages, slotsPerSheet);
+      const pageFor = (i: number): number | null =>
+        input.cutStack
+          ? cutStackPage(sheet, i, totalPages, slotsPerSheet, input.cutStackGroup)
+          : i < filled
+            ? sheet * slotsPerSheet + i
+            : null;
+
       const resolveDatasetSlot = (i: number): SlotContent => {
-        if (i >= filled) return BLANK_SLOT;
-        return input.datasetOverrides!.get(sheet * slotsPerSheet + i) ?? BLANK_SLOT;
+        const p = pageFor(i);
+        return p === null ? BLANK_SLOT : (input.datasetOverrides!.get(p) ?? BLANK_SLOT);
       };
       drawSide(page, input.layout, resolveDatasetSlot, false);
 
       if (duplex && backLayout) {
         const backPage = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
         const resolveDatasetBack = (i: number): SlotContent => {
-          if (i >= filled) return BLANK_SLOT;
-          const p = sheet * slotsPerSheet + i;
-          return input.datasetBackOverrides?.get(p) ?? input.defaultBack ?? BLANK_SLOT;
+          const p = pageFor(i);
+          return p === null
+            ? BLANK_SLOT
+            : (input.datasetBackOverrides?.get(p) ?? input.defaultBack ?? BLANK_SLOT);
         };
         drawSide(backPage, backLayout, resolveDatasetBack, true);
       }

@@ -790,4 +790,62 @@ describe('세트형 — 데이터셋', () => {
     });
     expect(withDefault.byteLength).toBeGreaterThan(withoutDefault.byteLength);
   });
+
+  describe('겹치기 배치(cutStack)', () => {
+    // 정확한 쪽 배정 계산(core/template의 cutStackPage)은 core/template.test.ts가
+    // 촘촘히 잰다. 여기서는 배선이 죽지 않고 정상적으로 그려지는지만 본다 —
+    // 재배열은 같은 내용을 자리만 바꿀 뿐 총 그려지는 양이 그대로라(장수도
+    // 그대로다), 바이트 길이 비교로는 방향을 검증할 수 없다.
+    const withContent = new Map([
+      [0, pageContent(10)],
+      [1, pageContent(20)],
+      [2, pageContent(30)],
+    ]);
+
+    it('꺼두면 장수는 지금까지와 같다', async () => {
+      const doc = await PDFDocument.load(
+        await buildPdf({ ...base, datasetOverrides: withContent, datasetPages: 3 }),
+      );
+      expect(doc.getPageCount()).toBe(2); // 3쪽 · 칸 2개 → 2장
+    });
+
+    it('켜도 장수는 그대로다 — 재배열은 자리만 바꾼다', async () => {
+      const doc = await PDFDocument.load(
+        await buildPdf({
+          ...base,
+          datasetOverrides: withContent,
+          datasetPages: 3,
+          cutStack: true,
+        }),
+      );
+      expect(doc.getPageCount()).toBe(2);
+    });
+
+    it('그룹을 줘도 정상적으로 그려진다', async () => {
+      const doc = await PDFDocument.load(
+        await buildPdf({
+          ...base,
+          datasetOverrides: withContent,
+          datasetPages: 3,
+          cutStack: true,
+          cutStackGroup: 1,
+        }),
+      );
+      expect(doc.getPageCount()).toBe(2);
+    });
+
+    it('양면이어도 안전하게 그려진다', async () => {
+      const doc = await PDFDocument.load(
+        await buildPdf({
+          ...base,
+          datasetOverrides: withContent,
+          datasetBackOverrides: withContent,
+          datasetPages: 3,
+          cutStack: true,
+          duplex: true,
+        }),
+      );
+      expect(doc.getPageCount()).toBe(4); // 2장 × 2쪽
+    });
+  });
 });

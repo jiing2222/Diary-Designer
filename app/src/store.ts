@@ -141,6 +141,22 @@ interface Settings {
    * 나온다(자투리 칸이 생기지 않는다).
    */
   comboSheets: number;
+  /**
+   * 겹치기 배치 — 세트형(데이터셋) 인쇄에서 쪽 순서를 칸별로 재배열할지.
+   *
+   * 여러 쪽을 한 용지에 여러 칸씩 뽑으면 자른 뒤 순서가 안 맞는다(설계문서
+   * 8장). 켜면 칸마다 연속된 구간을 담당해서, 자른 뒤 그 칸의 무더기를
+   * 쌓기만 해도 순서대로 읽힌다. 반복 인쇄(만년형)·낱장 조합은 모든 칸의
+   * 내용이 완전히 같아서 순서가 결과에 영향을 주지 않으므로 의미가 없다 —
+   * 세트형에서만 쓴다.
+   */
+  cutStack: boolean;
+  /**
+   * 겹치기 배치에서 몇 장을 한 무더기로 볼지. `0`이면 전체를 한 무더기로
+   * 본다. 재단기가 한 번에 자를 수 있는 장수가 제한적일 때만 정한다 — 예를
+   * 들어 10을 넣으면 10장씩 잘라도 각 무더기 안이 이미 순서대로다.
+   */
+  cutStackGroup: number;
   unprintable: UnprintableSetting;
   /**
    * 낱장 조합 — 인쇄할 용지의 칸마다 어느 양식을 넣을지.
@@ -234,6 +250,8 @@ interface Store extends Settings {
         | 'duplex'
         | 'fillEmptyBack'
         | 'comboSheets'
+        | 'cutStack'
+        | 'cutStackGroup'
       >
     >,
   ) => void;
@@ -406,6 +424,8 @@ export const useStore = create<Store>((set) => ({
   duplex: false,
   fillEmptyBack: false,
   comboSheets: 1,
+  cutStack: false,
+  cutStackGroup: 0,
   unprintable: { show: true, width: 3 },
   slotAssignment: {},
 
