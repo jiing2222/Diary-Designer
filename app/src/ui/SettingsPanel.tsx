@@ -199,7 +199,7 @@ function defaultDataset(): DateDataset {
 /** 월간 달력을 처음 켤 때 보여줄 기본값. */
 function defaultCalendarDataset(): CalendarDataset {
   const year = new Date().getFullYear() + 1;
-  return { kind: 'calendar', year, weekStart: 'sun', showAdjacent: true };
+  return { kind: 'calendar', year };
 }
 
 function RepeatGroup() {
@@ -337,10 +337,11 @@ function DatasetGroup({ dataset, layout }: { dataset: DateDataset; layout: { cou
 }
 
 /**
- * 월간 달력 — 6주(42칸) 그리드가 매달 자동으로 채워진다(core/dataset의
- * `calendarCellAt`). 편집 화면에서 표 도구로 6행 7열을 만들고, 자동 필드
- * 도구(F)로 칸마다 오프셋 0~41을 순서대로 찍는다. "몇 월인지" 보여줄
- * 글자는 속성 막대의 "월 제목" 토글로 따로 켠다(core/dataset.ts 10a 참고).
+ * 월간 달력 — 연도만 정하면 12쪽이 저절로 나온다.
+ *
+ * 시작 요일·이전달 표시·요일 언어처럼 "어떻게 보일까"에 해당하는 값은
+ * 데이터셋이 아니라 편집 화면에 놓는 달력 오브젝트 자체의 속성이다
+ * (core/calendar.ts, 10단계).
  */
 function CalendarDatasetGroup({
   dataset,
@@ -359,22 +360,6 @@ function CalendarDatasetGroup({
       <Row label="연도">
         <Num value={dataset.year} step={1} min={1} unit="년" onChange={(n) => patch({ year: Math.round(n) })} />
       </Row>
-      <Row label="시작 요일" hint="달력 칸의 맨 왼쪽 줄이 무슨 요일인지">
-        <select
-          value={dataset.weekStart}
-          onChange={(e) => patch({ weekStart: e.target.value as CalendarDataset['weekStart'] })}
-        >
-          <option value="sun">일요일</option>
-          <option value="mon">월요일</option>
-        </select>
-      </Row>
-      <Row label="이전·다음 달" hint="이번 달이 아닌 칸에도 그 달 날짜를 보여줄지. 끄면 빈 칸이다">
-        <Check
-          checked={dataset.showAdjacent}
-          onChange={(v) => patch({ showAdjacent: v })}
-          label="날짜 표시"
-        />
-      </Row>
       <CutStackRows />
       <div className="readout">
         <span>
@@ -382,8 +367,8 @@ function CalendarDatasetGroup({
           <b>{sheetsNeeded(pages, layout.count)}장</b>이 필요합니다.
         </span>
         <span className="muted">
-          달력 칸은 6주(42칸)로 고정입니다. 표 도구로 6행 7열을 만들고 자동 필드
-          도구(F)로 순서대로 찍으면 오프셋이 저절로 0~41이 됩니다.
+          편집 화면에서 달력 도구로 박스를 그리면 시작 요일·요일 언어 등을 그
+          자리에서 정합니다.
         </span>
       </div>
     </>

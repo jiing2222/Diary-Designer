@@ -19,13 +19,12 @@ import {
   boldOf,
   canBold,
   DEFAULT_FIELD_FORMAT,
-  DEFAULT_TITLE_FORMAT,
   FIELD_FORMATS,
   naturalLineHeight,
 } from '../core/text';
 import { FONT_ACCEPT, hasFont, registerFont } from '../fonts/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
-import { useObjects, useRepeat, useStore } from '../store';
+import { useObjects, useStore } from '../store';
 import type { Editing } from './gestures';
 
 /**
@@ -235,27 +234,19 @@ function LineControls({
  */
 function FieldControls({ texts }: { texts: TextObject[] }) {
   const setField = useStore((s) => s.setField);
-  const repeat = useRepeat();
-  const isCalendar = repeat.mode === 'dataset' && repeat.dataset.kind === 'calendar';
   const checkRef = useRef<HTMLInputElement>(null);
-  const titleRef = useRef<HTMLInputElement>(null);
 
   const allOn = texts.every((t) => t.field);
   const noneOn = texts.every((t) => !t.field);
   const onMixed = !allOn && !noneOn;
 
-  const first = texts[0].field;
-  const offsetMixed = allOn && !texts.every((t) => t.field?.offset === first?.offset);
-  const formatMixed = allOn && !texts.every((t) => t.field?.format === first?.format);
-  const titleMixed = allOn && !texts.every((t) => !!t.field?.title === !!first?.title);
-
   useEffect(() => {
     if (checkRef.current) checkRef.current.indeterminate = onMixed;
   }, [onMixed]);
 
-  useEffect(() => {
-    if (titleRef.current) titleRef.current.indeterminate = titleMixed;
-  }, [titleMixed]);
+  const first = texts[0].field;
+  const offsetMixed = allOn && !texts.every((t) => t.field?.offset === first?.offset);
+  const formatMixed = allOn && !texts.every((t) => t.field?.format === first?.format);
 
   return (
     <div className="field-controls">
@@ -273,25 +264,6 @@ function FieldControls({ texts }: { texts: TextObject[] }) {
         />
         자동 필드
       </label>
-
-      {allOn && isCalendar && (
-        <label
-          className="field-toggle"
-          title="켜면 오프셋과 무관하게 이 쪽이 속한 달을 보여줍니다(달력 그리드 칸은 어느 것도 몇 월인지 안정적으로 가리키지 못해서, 따로 켜는 값입니다)"
-        >
-          <input
-            ref={titleRef}
-            type="checkbox"
-            checked={!titleMixed && !!first?.title}
-            onChange={(e) =>
-              setField(
-                e.target.checked ? { title: true, format: DEFAULT_TITLE_FORMAT } : { title: false },
-              )
-            }
-          />
-          월 제목
-        </label>
-      )}
 
       {allOn && (
         <>

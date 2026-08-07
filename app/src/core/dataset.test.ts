@@ -134,62 +134,63 @@ describe('데이터셋 — 달 단위', () => {
 });
 
 describe('월간 달력', () => {
-  const sunStart: CalendarDataset = { kind: 'calendar', year: 2027, weekStart: 'sun', showAdjacent: true };
-  const monStart: CalendarDataset = { kind: 'calendar', year: 2027, weekStart: 'mon', showAdjacent: true };
-  const hideAdjacent: CalendarDataset = { ...sunStart, showAdjacent: false };
+  const Y = 2027;
+  const cellSun = (page: number, offset: number, showAdjacent = true) =>
+    calendarCellAt(Y, page, offset, 'sun', showAdjacent);
+  const cellMon = (page: number, offset: number, showAdjacent = true) =>
+    calendarCellAt(Y, page, offset, 'mon', showAdjacent);
 
   it('언제나 12쪽이다', () => {
-    expect(datasetPages(sunStart)).toBe(12);
-    expect(datasetPages(hideAdjacent)).toBe(12);
+    const dataset: CalendarDataset = { kind: 'calendar', year: Y };
+    expect(datasetPages(dataset)).toBe(12);
   });
 
   it('일요일 시작 — 2027년 3월 1일은 월요일이라 칸 0은 지난달 끝자락이다', () => {
     // 3월(page=2): 2/28(일) 3/1(월) 3/2(화) ...
-    expect(calendarCellAt(sunStart, 2, 0)).toEqual({ year: 2027, month: 2, day: 28 });
-    expect(calendarCellAt(sunStart, 2, 1)).toEqual({ year: 2027, month: 3, day: 1 });
-    expect(calendarCellAt(sunStart, 2, 31)).toEqual({ year: 2027, month: 3, day: 31 });
-    expect(calendarCellAt(sunStart, 2, 32)).toEqual({ year: 2027, month: 4, day: 1 });
+    expect(cellSun(2, 0)).toEqual({ year: 2027, month: 2, day: 28 });
+    expect(cellSun(2, 1)).toEqual({ year: 2027, month: 3, day: 1 });
+    expect(cellSun(2, 31)).toEqual({ year: 2027, month: 3, day: 31 });
+    expect(cellSun(2, 32)).toEqual({ year: 2027, month: 4, day: 1 });
   });
 
   it('월요일 시작 — 같은 3월이 마침 월요일부터 시작해 칸 0이 곧 1일이다', () => {
-    expect(calendarCellAt(monStart, 2, 0)).toEqual({ year: 2027, month: 3, day: 1 });
-    expect(calendarCellAt(monStart, 2, 30)).toEqual({ year: 2027, month: 3, day: 31 });
-    expect(calendarCellAt(monStart, 2, 31)).toEqual({ year: 2027, month: 4, day: 1 });
+    expect(cellMon(2, 0)).toEqual({ year: 2027, month: 3, day: 1 });
+    expect(cellMon(2, 30)).toEqual({ year: 2027, month: 3, day: 31 });
+    expect(cellMon(2, 31)).toEqual({ year: 2027, month: 4, day: 1 });
   });
 
   it('이전·다음 달 칸도 실제 날짜를 낸다(showAdjacent 켬)', () => {
     // 4월(page=3): 4/1은 목요일 → 일요일 시작이면 앞에 3일(3/29~3/31)이 지난달이다.
-    expect(calendarCellAt(sunStart, 3, 0)).toEqual({ year: 2027, month: 3, day: 28 });
-    expect(calendarCellAt(sunStart, 3, 3)).toEqual({ year: 2027, month: 3, day: 31 });
-    expect(calendarCellAt(sunStart, 3, 4)).toEqual({ year: 2027, month: 4, day: 1 });
+    expect(cellSun(3, 0)).toEqual({ year: 2027, month: 3, day: 28 });
+    expect(cellSun(3, 3)).toEqual({ year: 2027, month: 3, day: 31 });
+    expect(cellSun(3, 4)).toEqual({ year: 2027, month: 4, day: 1 });
   });
 
   it('showAdjacent를 끄면 이번 달이 아닌 칸은 null이다', () => {
-    expect(calendarCellAt(hideAdjacent, 2, 0)).toBeNull(); // 2/28, 지난달
-    expect(calendarCellAt(hideAdjacent, 2, 1)).toEqual({ year: 2027, month: 3, day: 1 }); // 이번 달은 그대로
-    expect(calendarCellAt(hideAdjacent, 2, 32)).toBeNull(); // 4/1, 다음달
+    expect(cellSun(2, 0, false)).toBeNull(); // 2/28, 지난달
+    expect(cellSun(2, 1, false)).toEqual({ year: 2027, month: 3, day: 1 }); // 이번 달은 그대로
+    expect(cellSun(2, 32, false)).toBeNull(); // 4/1, 다음달
   });
 
   it('연말·연초를 넘어가도 해가 다르면 이번 달이 아니다', () => {
     // 12월(page=11): 12/1은 수요일 → 일요일 시작이면 앞에 11/28~11/30이 지난달이다.
-    expect(calendarCellAt(sunStart, 11, 0)).toEqual({ year: 2027, month: 11, day: 28 });
+    expect(cellSun(11, 0)).toEqual({ year: 2027, month: 11, day: 28 });
     // 12/31은 그리드 34번째 칸(0부터) → 그 다음은 2028년 1월 1일, 해가 달라 이번 달이 아니다.
-    expect(calendarCellAt(sunStart, 11, 34)).toEqual({ year: 2028, month: 1, day: 1 });
-    expect(calendarCellAt(hideAdjacent, 11, 34)).toBeNull();
+    expect(cellSun(11, 34)).toEqual({ year: 2028, month: 1, day: 1 });
+    expect(cellSun(11, 34, false)).toBeNull();
 
     // 1월(page=0): 1/1은 금요일 → 앞의 지난달 자리는 2026년 12월이다.
-    expect(calendarCellAt(sunStart, 0, 0)).toEqual({ year: 2026, month: 12, day: 27 });
-    expect(calendarCellAt(hideAdjacent, 0, 0)).toBeNull();
+    expect(cellSun(0, 0)).toEqual({ year: 2026, month: 12, day: 27 });
+    expect(cellSun(0, 0, false)).toBeNull();
   });
 
   it('그리드 밖 오프셋(음수·42 이상)은 null이다', () => {
-    expect(calendarCellAt(sunStart, 2, -1)).toBeNull();
-    expect(calendarCellAt(sunStart, 2, 42)).toBeNull();
+    expect(cellSun(2, -1)).toBeNull();
+    expect(cellSun(2, 42)).toBeNull();
   });
 
-  it('월 제목은 언제나 그 달 1일이다 — showAdjacent·weekStart와 무관하다', () => {
-    expect(calendarTitleAt(sunStart, 2)).toEqual({ year: 2027, month: 3, day: 1 });
-    expect(calendarTitleAt(monStart, 2)).toEqual({ year: 2027, month: 3, day: 1 });
-    expect(calendarTitleAt(hideAdjacent, 0)).toEqual({ year: 2027, month: 1, day: 1 });
+  it('월 제목은 언제나 그 달 1일이다', () => {
+    expect(calendarTitleAt(Y, 2)).toEqual({ year: 2027, month: 3, day: 1 });
+    expect(calendarTitleAt(Y, 0)).toEqual({ year: 2027, month: 1, day: 1 });
   });
 });

@@ -35,13 +35,14 @@ export interface DateDataset {
  * 매달 1일이 시작하는 요일이 달라서 날짜 하나하나를 순서대로 셀 수 없다.
  * 대신 항상 6주(42칸) 그리드로 고정하고, 그 칸이 몇 월 며칠인지는
  * `calendarCellAt`이 매달 새로 계산한다.
+ *
+ * **시작 요일·이전달 표시 여부는 여기 없다.** 데이터(몇 년치인가)가 아니라
+ * "어떻게 보일까"에 가까운 값이라, 달력을 그리는 오브젝트 쪽 속성으로
+ * 옮겼다(core/calendar.ts).
  */
 export interface CalendarDataset {
   kind: 'calendar';
   year: number;
-  weekStart: 'sun' | 'mon';
-  /** 이번 달이 아닌 칸(지난달 끝자락·다음달 시작)을 채울지. 꺼져 있으면 빈 칸(null)이다. */
-  showAdjacent: boolean;
 }
 
 export type Dataset = DateDataset | CalendarDataset;
@@ -152,29 +153,32 @@ export const CALENDAR_GRID_SIZE = 42;
 /**
  * 달력 그리드의 이 칸(0~41, 왼쪽 위부터 한 줄씩)에 해당하는 날짜.
  *
- * `page`는 몇 월인지(0부터, 0 = 1월). 그 칸이 이번 달이 아니고
- * `showAdjacent`가 꺼져 있으면 null이다(빈 칸으로 찍힌다). 범위 밖
- * 오프셋(42 이상)도 null이다.
+ * `page`는 몇 월인지(0부터, 0 = 1월). `weekStart`·`showAdjacent`는
+ * 데이터가 아니라 오브젝트가 정하는 값이라(core/calendar.ts) 여기서는
+ * 인자로 받는다. 그 칸이 이번 달이 아니고 `showAdjacent`가 꺼져 있으면
+ * null이다(빈 칸으로 찍힌다). 범위 밖 오프셋(42 이상)도 null이다.
  */
 export function calendarCellAt(
-  dataset: CalendarDataset,
+  year: number,
   page: number,
   offset: number,
+  weekStart: 'sun' | 'mon',
+  showAdjacent: boolean,
 ): CalendarDate | null {
   if (offset < 0 || offset >= CALENDAR_GRID_SIZE) return null;
   const month = page + 1;
-  const first = { year: dataset.year, month, day: 1 };
+  const first = { year, month, day: 1 };
   const firstWeekday = dayOfWeek(first); // 0(일)~6(토)
   // weekStart가 월요일이면 월요일이 칸 0이 되도록 요일을 한 칸씩 당긴다.
-  const startCol = dataset.weekStart === 'mon' ? (firstWeekday + 6) % 7 : firstWeekday;
+  const startCol = weekStart === 'mon' ? (firstWeekday + 6) % 7 : firstWeekday;
   const gridStart = addDays(first, -startCol);
   const date = addDays(gridStart, offset);
-  const inMonth = date.year === dataset.year && date.month === month;
-  if (!inMonth && !dataset.showAdjacent) return null;
+  const inMonth = date.year === year && date.month === month;
+  if (!inMonth && !showAdjacent) return null;
   return date;
 }
 
 /** 이 쪽(달)의 제목에 쓸 날짜 — 언제나 그 달 1일이다. showAdjacent와 무관하다. */
-export function calendarTitleAt(dataset: CalendarDataset, page: number): CalendarDate {
-  return { year: dataset.year, month: page + 1, day: 1 };
+export function calendarTitleAt(year: number, page: number): CalendarDate {
+  return { year, month: page + 1, day: 1 };
 }

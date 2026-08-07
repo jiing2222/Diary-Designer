@@ -229,7 +229,7 @@ interface Store extends Settings {
    * **글자의 값이 어디서 오는지**를 바꾸는 일이기 때문이다. 만들 때 앞으로 쓸
    * 글자에 기본값으로 씌우는 것도 아니다 — 이미 있는 글자를 선택해서 켠다.
    */
-  setField: (patch: Partial<{ offset: number; format: string; title: boolean }> | null) => void;
+  setField: (patch: Partial<{ offset: number; format: string }> | null) => void;
   /** 앞으로 쓸 글자의 모양. */
   setTextDraftStyle: (patch: TextStyle) => void;
   /** 등록을 마친 글꼴을 목록에 넣는다. 파일 읽기는 fonts/registry가 이미 끝냈다. */
