@@ -10,7 +10,9 @@ import {
   datasetLength,
   datasetPages,
   dayOfWeek,
+  daysBetween,
   parseDate,
+  weekOfYear,
   type CalendarDataset,
   type Dataset,
 } from './dataset';
@@ -53,6 +55,19 @@ describe('날짜 파싱·산술', () => {
 
   it('요일 — 2027년 1월 1일은 금요일이다', () => {
     expect(dayOfWeek(parseDate('2027-01-01'))).toBe(5);
+  });
+
+  it('날짜 사이 며칠 — 뒤 날짜가 이전이면 음수다', () => {
+    expect(daysBetween(parseDate('2027-01-01'), parseDate('2027-01-08'))).toBe(7);
+    expect(daysBetween(parseDate('2027-01-08'), parseDate('2027-01-01'))).toBe(-7);
+    expect(daysBetween(parseDate('2027-01-01'), parseDate('2027-01-01'))).toBe(0);
+  });
+
+  it('주차 — 1월 1일부터 7일씩 끊어 센다', () => {
+    expect(weekOfYear(parseDate('2027-01-01'))).toBe(1);
+    expect(weekOfYear(parseDate('2027-01-07'))).toBe(1);
+    expect(weekOfYear(parseDate('2027-01-08'))).toBe(2);
+    expect(weekOfYear(parseDate('2027-03-05'))).toBe(10);
   });
 });
 

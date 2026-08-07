@@ -1,5 +1,18 @@
-import { dateAtOffset, type CalendarDate, type Dataset } from './dataset';
+import { dateAtOffset, dayOfWeek, weekOfYear, type CalendarDate, type Dataset } from './dataset';
 import { isText, type DiaryObject } from './objects';
+
+// 일요일(0)부터. 월간 달력 오브젝트(core/calendar.ts)의 요일 이름과는 별도로
+// 둔다 — 그쪽은 달력 그리드 머리글에 쓰는 짧은 이름만 필요하지만, 여기는
+// 글자 서식이라 길고 짧은 이름·영어까지 다 필요하다.
+const WEEKDAY_KR = ['일', '월', '화', '수', '목', '금', '토'];
+const WEEKDAY_KR_LONG = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+const WEEKDAY_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKDAY_EN_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTH_EN = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const MONTH_EN_LONG = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
 /**
  * 날짜를 서식 문자열로.
@@ -18,6 +31,28 @@ export function formatDate(d: CalendarDate, formatId: string): string {
       return `${d.year}-${pad2(d.month)}-${pad2(d.day)}`;
     case 'YYYY년 M월':
       return `${d.year}년 ${d.month}월`;
+    case 'ddd':
+      return WEEKDAY_KR[dayOfWeek(d)];
+    case 'dddd':
+      return WEEKDAY_KR_LONG[dayOfWeek(d)];
+    case 'ddd-en':
+      return WEEKDAY_EN[dayOfWeek(d)];
+    case 'dddd-en':
+      return WEEKDAY_EN_LONG[dayOfWeek(d)];
+    case 'M':
+      return String(d.month);
+    case 'M월':
+      return `${d.month}월`;
+    case 'MMM':
+      return MONTH_EN[d.month - 1];
+    case 'MMMM':
+      return MONTH_EN_LONG[d.month - 1];
+    case '주차':
+      return `${weekOfYear(d)}주차`;
+    case 'W':
+      return `W${weekOfYear(d)}`;
+    case 'Week':
+      return `Week ${weekOfYear(d)}`;
     case 'M/D':
     default:
       return `${d.month}/${d.day}`;

@@ -29,6 +29,33 @@ describe('날짜 서식', () => {
   it('모르는 서식이면 M/D로 대신한다', () => {
     expect(formatDate(d, '이상한값')).toBe(formatDate(d, 'M/D'));
   });
+
+  // 2027-03-05는 금요일이다.
+  it('요일 — 한글', () => {
+    expect(formatDate(d, 'ddd')).toBe('금');
+    expect(formatDate(d, 'dddd')).toBe('금요일');
+  });
+
+  it('요일 — 영어', () => {
+    expect(formatDate(d, 'ddd-en')).toBe('Fri');
+    expect(formatDate(d, 'dddd-en')).toBe('Friday');
+  });
+
+  it('월만', () => {
+    expect(formatDate(d, 'M')).toBe('3');
+    expect(formatDate(d, 'M월')).toBe('3월');
+  });
+
+  it('월 — 영어', () => {
+    expect(formatDate(d, 'MMM')).toBe('MAR');
+    expect(formatDate(d, 'MMMM')).toBe('March');
+  });
+
+  it('주차 — 1월 1일부터 7일씩 끊어 센다(2027-03-05는 10주차)', () => {
+    expect(formatDate(d, '주차')).toBe('10주차');
+    expect(formatDate(d, 'W')).toBe('W10');
+    expect(formatDate(d, 'Week')).toBe('Week 10');
+  });
 });
 
 describe('쪽의 자동 필드 채우기', () => {

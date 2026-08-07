@@ -92,8 +92,21 @@ export function dayOfWeek(d: CalendarDate): number {
   return new Date(toUtcMs(d)).getUTCDay();
 }
 
-function daysBetween(a: CalendarDate, b: CalendarDate): number {
+/** a에서 b까지 며칠인지. b가 이전이면 음수다. */
+export function daysBetween(a: CalendarDate, b: CalendarDate): number {
   return Math.round((toUtcMs(b) - toUtcMs(a)) / MS_PER_DAY);
+}
+
+/**
+ * 그 해의 몇 번째 주인지 — 1월 1일이 1주차 1일째다.
+ *
+ * ISO 8601처럼 요일을 맞춰 정렬하지 않는다. "1월 1일부터 7일씩 끊어 센
+ * 몇 번째 묶음인가"라는 가장 단순한 계산으로 충분하다(설계문서: "범용
+ * 계산식을 만드는 것보다 훨씬 적은 일로 훨씬 잘 동작한다").
+ */
+export function weekOfYear(d: CalendarDate): number {
+  const jan1: CalendarDate = { year: d.year, month: 1, day: 1 };
+  return Math.ceil((daysBetween(jan1, d) + 1) / 7);
 }
 
 /**

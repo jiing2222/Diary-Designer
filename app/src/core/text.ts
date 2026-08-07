@@ -87,12 +87,29 @@ export function displayText(t: TextObject): string {
   return t.field ? fieldPlaceholder(t.field) : t.text;
 }
 
-/** 자동 필드의 서식 목록. 지금은 날짜만 다룬다 — 8c에서 실제 계산과 함께 늘어난다. */
+/**
+ * 자동 필드의 서식 목록.
+ *
+ * 실제 계산은 core/format의 `formatDate`가 한다 — 여기 id가 그쪽 switch문의
+ * case와 정확히 같아야 한다. 요일·월·주차는 파생값이라 날짜 하나에서
+ * 바로 계산되고(설계문서 7장 서식 표), 따로 값을 입력받지 않는다.
+ */
 export const FIELD_FORMATS: { id: string; label: string }[] = [
   { id: 'D', label: '15' },
   { id: 'M/D', label: '3/15' },
   { id: 'M월 D일', label: '3월 15일' },
   { id: 'YYYY-MM-DD', label: '2027-03-15' },
+  { id: 'ddd', label: '월' },
+  { id: 'dddd', label: '월요일' },
+  { id: 'ddd-en', label: 'Mon' },
+  { id: 'dddd-en', label: 'Monday' },
+  { id: 'M', label: '3' },
+  { id: 'M월', label: '3월' },
+  { id: 'MMM', label: 'MAR' },
+  { id: 'MMMM', label: 'March' },
+  { id: '주차', label: '11주차' },
+  { id: 'W', label: 'W11' },
+  { id: 'Week', label: 'Week 11' },
 ];
 export const DEFAULT_FIELD_FORMAT = 'M/D';
 
