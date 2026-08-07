@@ -3,6 +3,7 @@ import { INSERT_PRESETS, PAPER_PRESETS, findPaperPreset } from './core/presets';
 import type { PunchSetting } from './core/punch';
 import { computeLayout, type Align, type Layout } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
+import { DEFAULT_FIELD_FORMAT } from './core/text';
 import { commit, initHistory, redo, undo, type History } from './core/history';
 import {
   defaultInsert,
@@ -202,13 +203,17 @@ interface Store extends Settings {
   /** 고른 글자들의 크기·정렬·색. */
   styleText: (patch: TextStyle) => void;
   /**
-   * 고른 글자들을 자동 필드로 만들거나(값을 주면) 되돌린다(`null`).
+   * 고른 글자들의 자동 필드를 켜거나(patch를 주면) 끈다(`null`).
+   *
+   * **patch는 부분 값이다 — 준 키만 바뀐다.** 여러 글자를 한꺼번에 골라
+   * 서식만 바꿔도 각자의 오프셋은 건드리지 않고 그대로 남는다 — 예전에는
+   * 통째로 덮어써서 서식만 바꿔도 전부 맨 위 글자의 오프셋을 따라갔다.
    *
    * `styleText`와 갈라둔 이유는 필드가 스타일(굵기·색 같은 겉모양)이 아니라
    * **글자의 값이 어디서 오는지**를 바꾸는 일이기 때문이다. 만들 때 앞으로 쓸
    * 글자에 기본값으로 씌우는 것도 아니다 — 이미 있는 글자를 선택해서 켠다.
    */
-  setField: (field: { offset: number; format: string } | null) => void;
+  setField: (patch: Partial<{ offset: number; format: string }> | null) => void;
   /** 앞으로 쓸 글자의 모양. */
   setTextDraftStyle: (patch: TextStyle) => void;
   /** 등록을 마친 글꼴을 목록에 넣는다. 파일 읽기는 fonts/registry가 이미 끝냈다. */
@@ -570,17 +575,20 @@ export const useStore = create<Store>((set) => ({
       return commitObjects(s, next);
     }),
 
-  setField: (field) =>
+  setField: (patch) =>
     set((s) => {
       if (s.selectedIds.length === 0) return {};
       const next = activeObjects(s).map((o) => {
         if (o.type !== 'text' || !s.selectedIds.includes(o.id)) return o;
-        if (field === null) {
+        if (patch === null) {
           const merged = { ...o };
           delete merged.field;
           return merged;
         }
-        return { ...o, field };
+        // 준 키만 덮어쓴다. 오프셋은 그대로 두고 서식만 바꾸는 경우가 그렇다 —
+        // 통째로 넣으면 여러 글자를 골랐을 때 전부 같은 오프셋으로 튄다.
+        const base = o.field ?? { offset: 0, format: DEFAULT_FIELD_FORMAT };
+        return { ...o, field: { ...base, ...patch } };
       });
       return commitObjects(s, next);
     }),

@@ -219,6 +219,11 @@ function LineControls({
  *
  * 여러 개를 골랐는데 일부만 필드면 체크박스를 어중간한(indeterminate) 상태로
  * 보여준다. 그 상태에서 누르면 전부 켠다.
+ *
+ * **오프셋과 서식은 따로 "섞임"을 본다.** 여러 글자를 골랐을 때 서식이 같아도
+ * 오프셋은 저마다 다른 것이 흔하다(같은 쪽의 서로 다른 요일 칸 등) — 서식만
+ * 고쳐도 각자의 오프셋이 살아남아야 한다. `setField`가 준 키만 바꾸므로,
+ * 여기서도 실제로 바뀐 키만 넘긴다.
  */
 function FieldControls({ texts }: { texts: TextObject[] }) {
   const setField = useStore((s) => s.setField);
@@ -226,13 +231,15 @@ function FieldControls({ texts }: { texts: TextObject[] }) {
 
   const allOn = texts.every((t) => t.field);
   const noneOn = texts.every((t) => !t.field);
-  const mixed = !allOn && !noneOn;
+  const onMixed = !allOn && !noneOn;
 
   useEffect(() => {
-    if (checkRef.current) checkRef.current.indeterminate = mixed;
-  }, [mixed]);
+    if (checkRef.current) checkRef.current.indeterminate = onMixed;
+  }, [onMixed]);
 
   const first = texts[0].field;
+  const offsetMixed = allOn && !texts.every((t) => t.field?.offset === first?.offset);
+  const formatMixed = allOn && !texts.every((t) => t.field?.format === first?.format);
 
   return (
     <div className="field-controls">
@@ -258,21 +265,21 @@ function FieldControls({ texts }: { texts: TextObject[] }) {
               type="number"
               min={0}
               step={1}
-              value={mixed ? '' : (first?.offset ?? 0)}
-              placeholder={mixed ? '—' : undefined}
+              value={offsetMixed ? '' : (first?.offset ?? 0)}
+              placeholder={offsetMixed ? '—' : undefined}
               onChange={(e) => {
                 const offset = Math.max(0, Math.round(Number(e.target.value) || 0));
-                setField({ offset, format: first?.format ?? DEFAULT_FIELD_FORMAT });
+                setField({ offset });
               }}
             />
             <span>번째</span>
           </label>
 
           <select
-            value={mixed ? '' : (first?.format ?? DEFAULT_FIELD_FORMAT)}
-            onChange={(e) => setField({ offset: first?.offset ?? 0, format: e.target.value })}
+            value={formatMixed ? '' : (first?.format ?? DEFAULT_FIELD_FORMAT)}
+            onChange={(e) => setField({ format: e.target.value })}
           >
-            {mixed && <option value="">—</option>}
+            {formatMixed && <option value="">—</option>}
             {FIELD_FORMATS.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.label}

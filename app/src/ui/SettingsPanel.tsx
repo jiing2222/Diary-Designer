@@ -270,7 +270,7 @@ function DatasetGroup({ dataset, layout }: { dataset: Dataset; layout: { count: 
   return (
     <>
       <Row label="기간">
-        <div className="cells-row">
+        <div className="date-range">
           <input type="date" value={dataset.start} onChange={(e) => patch({ start: e.target.value })} />
           <input type="date" value={dataset.end} onChange={(e) => patch({ end: e.target.value })} />
         </div>

@@ -560,4 +560,30 @@ describe('자동 필드', () => {
     s().undo();
     expect(text().field).toBeUndefined();
   });
+
+  it('여러 개를 골라 서식만 바꿔도 각자의 오프셋은 그대로다', () => {
+    // 통째로 덮어쓰던 예전 버그: 서식만 바꿔도 전부 맨 위 글자의 오프셋을
+    // 따라갔다. 이제는 준 키(format)만 바뀌어야 한다.
+    s().addTemplate();
+    s().commitText({ x: 0, y: 0, width: 10, height: 10, text: '월' });
+    const a = at().objects.present[0].id;
+    s().commitText({ x: 20, y: 0, width: 10, height: 10, text: '화' });
+    const b = at().objects.present[1].id;
+
+    s().select([a]);
+    s().setField({ offset: 0, format: 'D' });
+    s().select([b]);
+    s().setField({ offset: 3, format: 'D' });
+
+    s().select([a, b]);
+    s().setField({ format: 'M/D' });
+
+    const fieldOf = (id: string) => {
+      const o = at().objects.present.find((x) => x.id === id);
+      if (!o || o.type !== 'text') throw new Error('글자가 없습니다');
+      return o.field;
+    };
+    expect(fieldOf(a)).toEqual({ offset: 0, format: 'M/D' });
+    expect(fieldOf(b)).toEqual({ offset: 3, format: 'M/D' });
+  });
 });
