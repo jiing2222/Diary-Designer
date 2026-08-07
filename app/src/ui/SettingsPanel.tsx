@@ -12,7 +12,7 @@ import {
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
 import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
 import { capacityPerSheet, sheetsNeeded } from '../core/template';
-import { datasetPages, type DateDataset } from '../core/dataset';
+import { datasetPages, type CalendarDataset, type DateDataset } from '../core/dataset';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
 import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon, RepeatIcon } from './icons';
@@ -196,6 +196,12 @@ function defaultDataset(): DateDataset {
   return { kind: 'date', perPage: 7, start: `${year}-01-01`, end: `${year}-12-31`, step: 'day' };
 }
 
+/** 월간 달력을 처음 켤 때 보여줄 기본값. */
+function defaultCalendarDataset(): CalendarDataset {
+  const year = new Date().getFullYear() + 1;
+  return { kind: 'calendar', year, weekStart: 'sun', showAdjacent: true };
+}
+
 function RepeatGroup() {
   const s = useStore();
   const repeat = useRepeat();
@@ -247,10 +253,31 @@ function RepeatGroup() {
         </>
       )}
 
-      {repeat.mode === 'dataset' && repeat.dataset.kind === 'date' && (
-        <DatasetGroup dataset={repeat.dataset} layout={layout} />
+      {repeat.mode === 'dataset' && (
+        <>
+          <Row label="데이터 종류">
+            <select
+              value={repeat.dataset.kind}
+              onChange={(e) => {
+                const kind = e.target.value;
+                s.patchRepeat({
+                  mode: 'dataset',
+                  dataset: kind === 'calendar' ? defaultCalendarDataset() : defaultDataset(),
+                });
+              }}
+            >
+              <option value="date">날짜 — 위클리·데일리 등</option>
+              <option value="calendar">월간 달력</option>
+            </select>
+          </Row>
+          {repeat.dataset.kind === 'date' && (
+            <DatasetGroup dataset={repeat.dataset} layout={layout} />
+          )}
+          {repeat.dataset.kind === 'calendar' && (
+            <CalendarDatasetGroup dataset={repeat.dataset} layout={layout} />
+          )}
+        </>
       )}
-      {/* dataset.kind === 'calendar' 화면은 10b에서 붙인다. */}
     </>
   );
 }
@@ -295,6 +322,84 @@ function DatasetGroup({ dataset, layout }: { dataset: DateDataset; layout: { cou
           onChange={(n) => patch({ perPage: Math.max(1, Math.round(n)) })}
         />
       </Row>
+      <CutStackRows />
+      <div className="readout">
+        <span>
+          총 <b>{pages}쪽</b>이니 한 장에 <b>{layout.count}쪽</b>이면{' '}
+          <b>{sheetsNeeded(pages, layout.count)}장</b>이 필요합니다.
+        </span>
+        <span className="muted">
+          마지막 쪽에서 데이터가 모자란 자동 필드는 빈 채로 찍힙니다.
+        </span>
+      </div>
+    </>
+  );
+}
+
+/**
+ * 월간 달력 — 6주(42칸) 그리드가 매달 자동으로 채워진다(core/dataset의
+ * `calendarCellAt`). 편집 화면에서 표 도구로 6행 7열을 만들고, 자동 필드
+ * 도구(F)로 칸마다 오프셋 0~41을 순서대로 찍는다. "몇 월인지" 보여줄
+ * 글자는 속성 막대의 "월 제목" 토글로 따로 켠다(core/dataset.ts 10a 참고).
+ */
+function CalendarDatasetGroup({
+  dataset,
+  layout,
+}: {
+  dataset: CalendarDataset;
+  layout: { count: number };
+}) {
+  const s = useStore();
+  const patch = (p: Partial<CalendarDataset>) =>
+    s.patchRepeat({ mode: 'dataset', dataset: { ...dataset, ...p } });
+  const pages = datasetPages(dataset);
+
+  return (
+    <>
+      <Row label="연도">
+        <Num value={dataset.year} step={1} min={1} unit="년" onChange={(n) => patch({ year: Math.round(n) })} />
+      </Row>
+      <Row label="시작 요일" hint="달력 칸의 맨 왼쪽 줄이 무슨 요일인지">
+        <select
+          value={dataset.weekStart}
+          onChange={(e) => patch({ weekStart: e.target.value as CalendarDataset['weekStart'] })}
+        >
+          <option value="sun">일요일</option>
+          <option value="mon">월요일</option>
+        </select>
+      </Row>
+      <Row label="이전·다음 달" hint="이번 달이 아닌 칸에도 그 달 날짜를 보여줄지. 끄면 빈 칸이다">
+        <Check
+          checked={dataset.showAdjacent}
+          onChange={(v) => patch({ showAdjacent: v })}
+          label="날짜 표시"
+        />
+      </Row>
+      <CutStackRows />
+      <div className="readout">
+        <span>
+          1년 12달이니 한 장에 <b>{layout.count}쪽</b>이면{' '}
+          <b>{sheetsNeeded(pages, layout.count)}장</b>이 필요합니다.
+        </span>
+        <span className="muted">
+          달력 칸은 6주(42칸)로 고정입니다. 표 도구로 6행 7열을 만들고 자동 필드
+          도구(F)로 순서대로 찍으면 오프셋이 저절로 0~41이 됩니다.
+        </span>
+      </div>
+    </>
+  );
+}
+
+/**
+ * 겹치기 배치(순서·무더기) — 날짜형·달력형이 함께 쓴다.
+ *
+ * 데이터셋 종류와 무관하게 "인쇄할 때 장을 어떻게 채울지"를 정하는 값이라
+ * store에 전역으로 하나만 있다(cutStack·cutStackGroup).
+ */
+function CutStackRows() {
+  const s = useStore();
+  return (
+    <>
       <Row
         label="순서"
         hint="겹치기면 칸마다 이어진 구간을 담당해서, 자른 뒤 그 칸의 무더기를 쌓기만 해도 순서대로 읽힙니다"
@@ -318,15 +423,6 @@ function DatasetGroup({ dataset, layout }: { dataset: DateDataset; layout: { cou
           />
         </Row>
       )}
-      <div className="readout">
-        <span>
-          총 <b>{pages}쪽</b>이니 한 장에 <b>{layout.count}쪽</b>이면{' '}
-          <b>{sheetsNeeded(pages, layout.count)}장</b>이 필요합니다.
-        </span>
-        <span className="muted">
-          마지막 쪽에서 데이터가 모자란 자동 필드는 빈 채로 찍힙니다.
-        </span>
-      </div>
     </>
   );
 }
