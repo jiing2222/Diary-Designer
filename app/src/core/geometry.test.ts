@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout, mirrorLayout } from './layout';
+import { backSafeZoneMirror, computeLayout, mirrorLayout } from './layout';
 import { holeCenterX, holeCentersY, suggestGroupGap, type PunchSetting } from './punch';
 import { INSERT_PRESETS } from './presets';
 
@@ -181,6 +181,34 @@ describe('양면 배치 — 칸 뒤집기', () => {
     const back = mirrorLayout(front, 210);
     const xs = (l: typeof front) => [...new Set(l.slots.map((s) => s.x))].sort((a, b) => a - b);
     expect(xs(back)).toEqual(xs(front).map((x) => expect.closeTo(x, 6)));
+  });
+
+  it('M5(62×105)는 A4에서 실제로 회전 배치가 된다', () => {
+    // 이 사실 자체가 버그의 전제다 — M6은 안 눕고 M5는 눕는다.
+    const layout = computeLayout({
+      paperWidth: 210,
+      paperHeight: 297,
+      insertWidth: 62,
+      insertHeight: 105,
+      gap: 0,
+      printMargin: 0,
+      allowRotate: true,
+      align: 'center',
+    });
+    expect(layout.rotated).toBe(true);
+  });
+});
+
+describe('뒷면 안전영역·타공을 뒤집을지 — 회전 배치', () => {
+  it('회전하지 않은 배치는 뒤집는다', () => {
+    expect(backSafeZoneMirror(false)).toBe(true);
+  });
+
+  it('회전 배치는 뒤집지 않는다', () => {
+    // 칸을 90도 눕히면 속지의 가로축(구멍 쪽)이 용지의 세로축과 겹친다.
+    // 용지를 좌우로 뒤집는 것은 그 축에 영향을 주지 않는다 — 뒤집으면
+    // 오히려 구멍이 반대편으로 튄다(M5에서 실제로 났던 사고).
+    expect(backSafeZoneMirror(true)).toBe(false);
   });
 });
 

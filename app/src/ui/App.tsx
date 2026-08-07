@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore } from '../store';
 import { capacityPerSheet, filledSlots, frontBackFilled, sheetsNeeded } from '../core/template';
-import { mirrorLayout } from '../core/layout';
+import { backSafeZoneMirror, mirrorLayout } from '../core/layout';
 import { datasetPages } from '../core/dataset';
 import { resolveObjectsForPage } from '../core/format';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
@@ -421,7 +421,8 @@ export function App() {
                   ) : (
                     // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 좌우만 뒤집는다.
                     // 칸 안의 내용(도트·글자)은 뒤집지 않지만, 안전영역·타공 안내는
-                    // mirror로 오른쪽에 표시한다(설계문서 8장).
+                    // mirror로 오른쪽에 표시한다(설계문서 8장) — 회전 배치면
+                    // backSafeZoneMirror가 그 축을 뒤집지 않는다.
                     <PaperPreview
                       paper={{ ...s.paper, width, height }}
                       insert={active.insert}
@@ -435,7 +436,7 @@ export function App() {
                       showRuler={s.showRuler}
                       unprintable={s.unprintable}
                       mode={printPreview ? 'print' : 'edit'}
-                      mirror
+                      mirror={backSafeZoneMirror(layout.rotated)}
                     />
                   )}
                 </div>

@@ -26,7 +26,7 @@ import {
   splitLines,
   valignOf,
 } from '../core/text';
-import { mirrorLayout, type Layout } from '../core/layout';
+import { backSafeZoneMirror, mirrorLayout, type Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import { capacityPerSheet, filledSlots, frontBackFilled, sheetsNeeded } from '../core/template';
@@ -262,6 +262,8 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   // 칸 위치만 좌우로 뒤집은 배치. 재단선도 여기서 다시 계산해야 앞뒤가 같은
   // 자리에서 잘린다(core/layout의 mirrorLayout 주석 참고).
   const backLayout = duplex ? mirrorLayout(input.layout, input.paperWidth) : null;
+  // core/layout의 backSafeZoneMirror 참고 — 회전 배치면 뒤집지 않는다.
+  const backMirror = backSafeZoneMirror(input.layout.rotated);
 
   /**
    * 한 면(앞 또는 뒤)을 그린다. 페이지·배치·칸 내용 판단 함수만 갈아끼운다.
@@ -327,7 +329,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
           const p = sheet * slotsPerSheet + i;
           return input.datasetBackOverrides?.get(p) ?? input.defaultBack ?? BLANK_SLOT;
         };
-        drawSide(backPage, backLayout, resolveDatasetBack, true);
+        drawSide(backPage, backLayout, resolveDatasetBack, backMirror);
       }
       continue;
     }
@@ -344,7 +346,12 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
 
     if (duplex && backLayout) {
       const backPage = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
-      drawSide(backPage, backLayout, (i) => (i < back ? resolveBackSlot(i) : BLANK_SLOT), true);
+      drawSide(
+        backPage,
+        backLayout,
+        (i) => (i < back ? resolveBackSlot(i) : BLANK_SLOT),
+        backMirror,
+      );
     }
   }
 

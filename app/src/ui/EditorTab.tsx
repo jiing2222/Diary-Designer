@@ -623,6 +623,10 @@ export function EditorTab() {
             grid={grid}
             objects={objects}
             safeZoneWidth={insert.punch.safeZoneWidth}
+            // 뒷면이면 항상 뒤집는다. 여기서는 실제로 회전 배치(90도 눕혀서
+            // 넣는 칸)가 될지 알 수 없다 — 양식은 용지를 모른다(설계문서 3장).
+            // 회전 배치일 때만 다른 축을 다뤄야 한다는 것은 인쇄 미리보기·
+            // PDF(용지를 아는 곳, core/layout의 backSafeZoneMirror)가 대신 챙긴다.
             mirror={side === 'back'}
             // 고치는 중인 글자는 감춘다. 입력칸이 같은 자리에 겹쳐 있어서, 둘 다
             // 보이면 어느 게 지금 치는 내용인지 헷갈린다. 목록에서 빼지 않고

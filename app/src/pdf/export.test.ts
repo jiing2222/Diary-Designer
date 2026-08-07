@@ -637,6 +637,45 @@ describe('양면 인쇄', () => {
     });
     expect(avoided.byteLength).toBeLessThan(full.byteLength);
   });
+
+  it('회전 배치(M5 등)에서도 양면이 안전하게 그려진다', async () => {
+    // M5(62×105)는 A4에서 실제로 회전 배치가 된다(core/geometry.test.ts로 확인).
+    // 회전 배치면 뒷면의 안전영역을 뒤집지 않아야 한다(core/layout의
+    // backSafeZoneMirror) — 여기서는 그 배선이 죽지 않고 정상적으로 두 쪽
+    // (앞·뒤)을 만들어내는지만 스모크로 확인한다. 정확한 방향은
+    // core/geometry.test.ts의 backSafeZoneMirror 테스트가 잰다.
+    const rotatedLayout = computeLayout({
+      paperWidth: 210,
+      paperHeight: 297,
+      insertWidth: 62,
+      insertHeight: 105,
+      gap: 0,
+      printMargin: 0,
+      allowRotate: true,
+      align: 'center',
+    });
+    expect(rotatedLayout.rotated).toBe(true);
+
+    const doc = await PDFDocument.load(
+      await buildPdf({
+        paperWidth: 210,
+        paperHeight: 297,
+        layout: rotatedLayout,
+        dotGrid: { ...DEFAULT_DOT_GRID, avoidSafeZone: true },
+        objects: [],
+        safeZoneWidth: 10,
+        cropMark: 'none',
+        showRuler: false,
+        duplex: true,
+        defaultBack: {
+          dotGrid: { ...DEFAULT_DOT_GRID, avoidSafeZone: true },
+          objects: [],
+          safeZoneWidth: 10,
+        },
+      }),
+    );
+    expect(doc.getPageCount()).toBe(2);
+  });
 });
 
 describe('세트형 — 데이터셋', () => {

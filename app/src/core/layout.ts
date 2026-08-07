@@ -110,3 +110,23 @@ export function mirrorLayout(layout: Layout, paperWidth: Mm): Layout {
     slots: layout.slots.map((s) => ({ ...s, x: paperWidth - s.x - s.width })),
   };
 }
+
+/**
+ * 뒷면에서 안전영역·타공 안내를 뒤집을지(core/grid의 `gridArea`, core/punch의
+ * `holeCenterX`가 받는 `mirror`).
+ *
+ * **회전 배치(`layout.rotated`)면 뒤집지 않는다.** 칸을 90도 눕혀서 넣으면
+ * 속지의 가로축(구멍이 있는 축)이 용지의 세로축과 겹친다. 용지를 좌우로
+ * 뒤집는 물리적 동작은 그 축에 영향을 주지 않으므로, 뒤집으면 오히려 구멍이
+ * 반대편으로 튄다 — M5처럼 회전 배치가 되는 규격에서 실제로 났던 사고다.
+ *
+ * (세로축은 이론상 뒤집혀야 하지만, 구멍이 상하로 대칭 배치라 대개 눈에 띄는
+ * 차이가 없어 지금은 손대지 않는다.)
+ *
+ * 인쇄 미리보기(PaperPreview)와 PDF(pdf/export.ts)가 함께 쓴다. 편집 화면은
+ * 이 값을 쓰지 않는다 — 양식은 용지를 몰라서(설계문서 3장) 회전 배치가 될지
+ * 알 수 없기 때문이다.
+ */
+export function backSafeZoneMirror(rotated: boolean): boolean {
+  return !rotated;
+}
