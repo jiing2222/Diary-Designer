@@ -69,8 +69,8 @@ export function splitLines(text: string): string[] {
 }
 
 /** 자동 필드가 편집 화면에서 보이는 자리표시(설계문서 7장). 진짜 값이 아니다. */
-export function fieldPlaceholder(field: { offset: number }): string {
-  return `⟨+${field.offset}⟩`;
+export function fieldPlaceholder(field: { offset: number; title?: boolean }): string {
+  return field.title ? '⟨월⟩' : `⟨+${field.offset}⟩`;
 }
 
 /**
@@ -93,8 +93,11 @@ export const FIELD_FORMATS: { id: string; label: string }[] = [
   { id: 'M/D', label: '3/15' },
   { id: 'M월 D일', label: '3월 15일' },
   { id: 'YYYY-MM-DD', label: '2027-03-15' },
+  { id: 'YYYY년 M월', label: '2027년 3월' },
 ];
 export const DEFAULT_FIELD_FORMAT = 'M/D';
+/** 월간 달력의 "월 제목" 필드에 기본으로 켜는 서식. */
+export const DEFAULT_TITLE_FORMAT = 'YYYY년 M월';
 
 /** 글꼴 자체가 세로로 차지하는 높이. 줄 간격의 하한이다. */
 export function naturalLineHeight(size: Mm): Mm {

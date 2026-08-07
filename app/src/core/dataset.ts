@@ -19,7 +19,7 @@ export interface CalendarDate {
   day: number;
 }
 
-export interface Dataset {
+export interface DateDataset {
   kind: 'date';
   /** 한 쪽이 소비하는 개수. 위클리 = 7, 데일리 = 1. */
   perPage: number;
@@ -28,6 +28,23 @@ export interface Dataset {
   end: string;
   step: 'day' | 'week' | 'month';
 }
+
+/**
+ * 월간 달력 — 한 쪽이 한 달이다(설계문서 7장, "월간 달력은 따로 처리한다").
+ *
+ * 매달 1일이 시작하는 요일이 달라서 날짜 하나하나를 순서대로 셀 수 없다.
+ * 대신 항상 6주(42칸) 그리드로 고정하고, 그 칸이 몇 월 며칠인지는
+ * `calendarCellAt`이 매달 새로 계산한다.
+ */
+export interface CalendarDataset {
+  kind: 'calendar';
+  year: number;
+  weekStart: 'sun' | 'mon';
+  /** 이번 달이 아닌 칸(지난달 끝자락·다음달 시작)을 채울지. 꺼져 있으면 빈 칸(null)이다. */
+  showAdjacent: boolean;
+}
+
+export type Dataset = DateDataset | CalendarDataset;
 
 /** "2027-01-01" → { year: 2027, month: 1, day: 1 }. */
 export function parseDate(s: string): CalendarDate {
@@ -84,7 +101,7 @@ function daysBetween(a: CalendarDate, b: CalendarDate): number {
  * start가 end보다 뒤면 0이다 — 잘못 입력했다고 음수를 돌려주면 나머지 계산이
  * 전부 깨진다.
  */
-export function datasetLength(dataset: Dataset): number {
+export function datasetLength(dataset: DateDataset): number {
   const start = parseDate(dataset.start);
   const end = parseDate(dataset.end);
   if (compareDates(start, end) > 0) return 0;
@@ -99,7 +116,7 @@ export function datasetLength(dataset: Dataset): number {
 }
 
 /** 데이터셋에서 절대 인덱스(0부터)의 날짜. 범위 밖이면 null. */
-export function dateAt(dataset: Dataset, index: number): CalendarDate | null {
+export function dateAt(dataset: DateDataset, index: number): CalendarDate | null {
   if (index < 0 || index >= datasetLength(dataset)) return null;
   const start = parseDate(dataset.start);
   if (dataset.step === 'day') return addDays(start, index);
@@ -113,12 +130,51 @@ export function dateAt(dataset: Dataset, index: number): CalendarDate | null {
  * 마지막 쪽에서 오프셋이 데이터 끝을 넘어가면(예: 53쪽째 위클리의 마지막
  * 한두 칸) null이다 — 그 칸은 비워둔다.
  */
-export function dateAtOffset(dataset: Dataset, page: number, offset: number): CalendarDate | null {
+export function dateAtOffset(dataset: DateDataset, page: number, offset: number): CalendarDate | null {
   return dateAt(dataset, page * dataset.perPage + offset);
 }
 
-/** 이 데이터셋이 몇 쪽인지. `ceil(총 개수 ÷ perPage)`(설계문서 7장). */
+/**
+ * 이 데이터셋이 몇 쪽인지.
+ *
+ * 날짜형은 `ceil(총 개수 ÷ perPage)`(설계문서 7장). 월간 달력은 1년
+ * 12달이라 언제나 12쪽이다.
+ */
 export function datasetPages(dataset: Dataset): number {
+  if (dataset.kind === 'calendar') return 12;
   if (dataset.perPage <= 0) return 0;
   return Math.ceil(datasetLength(dataset) / dataset.perPage);
+}
+
+/** 월간 달력 그리드 한 칸의 크기. 항상 6주 × 7일로 고정한다. */
+export const CALENDAR_GRID_SIZE = 42;
+
+/**
+ * 달력 그리드의 이 칸(0~41, 왼쪽 위부터 한 줄씩)에 해당하는 날짜.
+ *
+ * `page`는 몇 월인지(0부터, 0 = 1월). 그 칸이 이번 달이 아니고
+ * `showAdjacent`가 꺼져 있으면 null이다(빈 칸으로 찍힌다). 범위 밖
+ * 오프셋(42 이상)도 null이다.
+ */
+export function calendarCellAt(
+  dataset: CalendarDataset,
+  page: number,
+  offset: number,
+): CalendarDate | null {
+  if (offset < 0 || offset >= CALENDAR_GRID_SIZE) return null;
+  const month = page + 1;
+  const first = { year: dataset.year, month, day: 1 };
+  const firstWeekday = dayOfWeek(first); // 0(일)~6(토)
+  // weekStart가 월요일이면 월요일이 칸 0이 되도록 요일을 한 칸씩 당긴다.
+  const startCol = dataset.weekStart === 'mon' ? (firstWeekday + 6) % 7 : firstWeekday;
+  const gridStart = addDays(first, -startCol);
+  const date = addDays(gridStart, offset);
+  const inMonth = date.year === dataset.year && date.month === month;
+  if (!inMonth && !dataset.showAdjacent) return null;
+  return date;
+}
+
+/** 이 쪽(달)의 제목에 쓸 날짜 — 언제나 그 달 1일이다. showAdjacent와 무관하다. */
+export function calendarTitleAt(dataset: CalendarDataset, page: number): CalendarDate {
+  return { year: dataset.year, month: page + 1, day: 1 };
 }

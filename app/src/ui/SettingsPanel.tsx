@@ -12,7 +12,7 @@ import {
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
 import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
 import { capacityPerSheet, sheetsNeeded } from '../core/template';
-import { datasetPages, type Dataset } from '../core/dataset';
+import { datasetPages, type DateDataset } from '../core/dataset';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
 import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon, RepeatIcon } from './icons';
@@ -191,7 +191,7 @@ function InsertGroup() {
  * 순간 인쇄하기 탭의 낱장 조합(칸 배정) UI가 사라지고 매수 안내로 바뀐다.
  */
 /** 세트형을 처음 켤 때 보여줄 기본값. 다이어리는 보통 다음 해를 만든다. */
-function defaultDataset(): Dataset {
+function defaultDataset(): DateDataset {
   const year = new Date().getFullYear() + 1;
   return { kind: 'date', perPage: 7, start: `${year}-01-01`, end: `${year}-12-31`, step: 'day' };
 }
@@ -247,7 +247,10 @@ function RepeatGroup() {
         </>
       )}
 
-      {repeat.mode === 'dataset' && <DatasetGroup dataset={repeat.dataset} layout={layout} />}
+      {repeat.mode === 'dataset' && repeat.dataset.kind === 'date' && (
+        <DatasetGroup dataset={repeat.dataset} layout={layout} />
+      )}
+      {/* dataset.kind === 'calendar' 화면은 10b에서 붙인다. */}
     </>
   );
 }
@@ -262,9 +265,10 @@ function RepeatGroup() {
  * **양면이어도 장수 계산에서 칸 수가 두 배로 늘지 않는다.** 칸 하나가 한
  * 쪽의 앞뒤일 뿐이라 반복 인쇄와 계산이 다르다(pdf/export.ts 참고).
  */
-function DatasetGroup({ dataset, layout }: { dataset: Dataset; layout: { count: number } }) {
+function DatasetGroup({ dataset, layout }: { dataset: DateDataset; layout: { count: number } }) {
   const s = useStore();
-  const patch = (p: Partial<Dataset>) => s.patchRepeat({ mode: 'dataset', dataset: { ...dataset, ...p } });
+  const patch = (p: Partial<DateDataset>) =>
+    s.patchRepeat({ mode: 'dataset', dataset: { ...dataset, ...p } });
   const pages = datasetPages(dataset);
 
   return (
@@ -276,7 +280,7 @@ function DatasetGroup({ dataset, layout }: { dataset: Dataset; layout: { count: 
         </div>
       </Row>
       <Row label="간격" hint="한 칸이 며칠 치인지. 위클리는 하루, 달마다 한 칸이면 달">
-        <select value={dataset.step} onChange={(e) => patch({ step: e.target.value as Dataset['step'] })}>
+        <select value={dataset.step} onChange={(e) => patch({ step: e.target.value as DateDataset['step'] })}>
           <option value="day">하루</option>
           <option value="week">한 주</option>
           <option value="month">한 달</option>

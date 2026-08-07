@@ -98,8 +98,12 @@ export interface TextObject {
    * 그대로 남아 있다 — 다시 끄면 원래 글자로 돌아온다. 실제로 보이는 값은
    * core/text의 `displayText`가 정한다: 편집 화면은 언제나 `⟨+오프셋⟩` 자리표시,
    * 인쇄 미리보기·PDF는 데이터셋에서 뽑은 진짜 값(8c에서 붙는다).
+   *
+   * `title`은 월간 달력 전용이다. 켜면 `offset`을 무시하고 그 쪽이 속한
+   * 달의 1일을 가리킨다 — 달력 그리드 42칸 중 어느 칸도 "몇 월인지"를
+   * 안정적으로 가리키지 않기 때문이다(10단계).
    */
-  field?: { offset: number; format: string };
+  field?: { offset: number; format: string; title?: boolean };
 }
 
 export type DiaryObject = LineObject | TextObject;

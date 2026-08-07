@@ -94,6 +94,10 @@ describe('자동 필드 자리표시', () => {
     expect(fieldPlaceholder({ offset: 6 })).toBe('⟨+6⟩');
   });
 
+  it('월 제목 필드는 오프셋 대신 전용 자리표시를 보여준다', () => {
+    expect(fieldPlaceholder({ offset: 0, title: true })).toBe('⟨월⟩');
+  });
+
   it('필드가 없으면 원래 글자를 그대로 보여준다', () => {
     expect(displayText(base)).toBe('원래 글자');
   });

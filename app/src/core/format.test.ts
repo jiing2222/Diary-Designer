@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatDate, resolveObjectsForPage } from './format';
-import { parseDate, type Dataset } from './dataset';
+import { parseDate, type CalendarDataset, type Dataset } from './dataset';
 import type { DiaryObject, TextObject } from './objects';
 
 describe('날짜 서식', () => {
@@ -20,6 +20,10 @@ describe('날짜 서식', () => {
 
   it('YYYY-MM-DD — 두 자리로 채운다', () => {
     expect(formatDate(d, 'YYYY-MM-DD')).toBe('2027-03-05');
+  });
+
+  it('YYYY년 M월 — 월 제목용', () => {
+    expect(formatDate(d, 'YYYY년 M월')).toBe('2027년 3월');
   });
 
   it('모르는 서식이면 M/D로 대신한다', () => {
@@ -81,5 +85,58 @@ describe('쪽의 자동 필드 채우기', () => {
     const resolved = resolveObjectsForPage([bold], weekly, 0);
     expect((resolved[0] as TextObject).bold).toBe(true);
     expect((resolved[0] as TextObject).color).toBe('#ff0000');
+  });
+});
+
+describe('월간 달력 쪽의 자동 필드 채우기', () => {
+  const calendar: CalendarDataset = { kind: 'calendar', year: 2027, weekStart: 'sun', showAdjacent: true };
+  const hideAdjacent: CalendarDataset = { ...calendar, showAdjacent: false };
+
+  const cell = (offset: number, format = 'D'): TextObject => ({
+    id: `c${offset}`,
+    type: 'text',
+    x: 0,
+    y: 0,
+    width: 10,
+    height: 10,
+    text: '자리표시였던 글자',
+    field: { offset, format },
+  });
+
+  const title = (format = 'YYYY년 M월'): TextObject => ({
+    id: 'title',
+    type: 'text',
+    x: 0,
+    y: 0,
+    width: 10,
+    height: 10,
+    text: '자리표시였던 글자',
+    field: { offset: 0, format, title: true },
+  });
+
+  it('그리드 칸은 오프셋이 가리키는 날짜의 일(day)을 보여준다', () => {
+    // 3월(page=2), 일요일 시작: 칸1이 3/1이다.
+    const resolved = resolveObjectsForPage([cell(1)], calendar, 2);
+    expect((resolved[0] as TextObject).text).toBe('1');
+  });
+
+  it('지난달 칸도 showAdjacent가 켜져 있으면 날짜를 보여준다', () => {
+    const resolved = resolveObjectsForPage([cell(0)], calendar, 2);
+    expect((resolved[0] as TextObject).text).toBe('28'); // 2/28
+  });
+
+  it('showAdjacent를 끄면 이번 달이 아닌 칸은 빈 문자열이다', () => {
+    const resolved = resolveObjectsForPage([cell(0)], hideAdjacent, 2);
+    expect((resolved[0] as TextObject).text).toBe('');
+  });
+
+  it('title 필드는 오프셋과 무관하게 그 쪽의 달을 보여준다', () => {
+    const resolved = resolveObjectsForPage([title()], calendar, 2);
+    expect((resolved[0] as TextObject).text).toBe('2027년 3월');
+  });
+
+  it('title 필드도 채운 뒤에는 field가 없다', () => {
+    const resolved = resolveObjectsForPage([title()], calendar, 2);
+    expect((resolved[0] as TextObject).field).toBeUndefined();
   });
 });

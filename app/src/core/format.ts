@@ -1,4 +1,4 @@
-import { dateAtOffset, type CalendarDate, type Dataset } from './dataset';
+import { calendarCellAt, calendarTitleAt, dateAtOffset, type CalendarDate, type Dataset } from './dataset';
 import { isText, type DiaryObject } from './objects';
 
 /**
@@ -16,10 +16,26 @@ export function formatDate(d: CalendarDate, formatId: string): string {
       return `${d.month}월 ${d.day}일`;
     case 'YYYY-MM-DD':
       return `${d.year}-${pad2(d.month)}-${pad2(d.day)}`;
+    case 'YYYY년 M월':
+      return `${d.year}년 ${d.month}월`;
     case 'M/D':
     default:
       return `${d.month}/${d.day}`;
   }
+}
+
+/**
+ * 이 자동 필드가 가리키는 날짜. 데이터셋 종류에 따라 계산이 다르다.
+ *
+ * 월간 달력은 `title`이면 오프셋과 무관하게 그 쪽(달)의 1일을, 아니면
+ * 42칸 그리드에서 그 오프셋의 칸을 본다. 날짜형은 오프셋이 그대로
+ * "이 쪽의 몇 번째 값"이다.
+ */
+function dateForField(dataset: Dataset, page: number, field: { offset: number; title?: boolean }): CalendarDate | null {
+  if (dataset.kind === 'calendar') {
+    return field.title ? calendarTitleAt(dataset, page) : calendarCellAt(dataset, page, field.offset);
+  }
+  return dateAtOffset(dataset, page, field.offset);
 }
 
 /**
@@ -39,7 +55,7 @@ export function resolveObjectsForPage(
 ): DiaryObject[] {
   return objects.map((o) => {
     if (!isText(o) || !o.field) return o;
-    const date = dateAtOffset(dataset, page, o.field.offset);
+    const date = dateForField(dataset, page, o.field);
     const text = date ? formatDate(date, o.field.format) : '';
     const { field: _field, ...rest } = o;
     return { ...rest, text };
