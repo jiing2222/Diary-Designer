@@ -112,6 +112,18 @@ export function TableIcon() {
   );
 }
 
+/** 자동 필드 — 편집 화면의 자리표시(⟨+0⟩)와 같은 꺾쇠·더하기 모양. */
+export function FieldIcon() {
+  return (
+    <svg {...box} strokeWidth={1.5}>
+      <path d="M7.5 5 L3.5 10 L7.5 15" />
+      <path d="M12.5 5 L16.5 10 L12.5 15" />
+      <line x1={10} y1={8.3} x2={10} y2={11.7} />
+      <line x1={8.3} y1={10} x2={11.7} y2={10} />
+    </svg>
+  );
+}
+
 /** 반복 — 겹쳐 쌓인 종이 두 장. 여러 장 찍는다는 뜻이다. 다른 아이콘처럼 선으로만 그린다. */
 export function RepeatIcon() {
   return (

@@ -101,8 +101,9 @@ export function StyleBar({
   const pickedTexts = picked.filter(isText);
   const size = boundsOfObjects(picked);
 
-  // 글자를 골랐거나 글자 도구를 쓰는 중이면 글자 속성을, 아니면 선 속성을 보여준다.
-  const showText = tool === 'text' || (pickedTexts.length > 0 && pickedLines.length === 0);
+  // 글자를 골랐거나 글자·자동 필드 도구를 쓰는 중이면 글자 속성을, 아니면 선 속성을 보여준다.
+  const showText =
+    tool === 'text' || tool === 'field' || (pickedTexts.length > 0 && pickedLines.length === 0);
 
   return (
     <div className="stylebar">
@@ -117,7 +118,13 @@ export function StyleBar({
         </>
       ) : (
         <span className="picked-count muted-label">
-          {tool === 'text' ? '쓸 글자' : tool === 'table' ? '그릴 표' : '그릴 선'}
+          {tool === 'text'
+            ? '쓸 글자'
+            : tool === 'table'
+              ? '그릴 표'
+              : tool === 'field'
+                ? '찍을 자동 필드'
+                : '그릴 선'}
         </span>
       )}
 

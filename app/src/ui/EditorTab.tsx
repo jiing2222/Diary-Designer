@@ -17,12 +17,12 @@ import {
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm } from '../core/units';
-import { newTextStyle } from '../core/text';
+import { DEFAULT_FIELD_FORMAT, fieldPlaceholder, newTextStyle } from '../core/text';
 import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type Side } from '../store';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
-import { CursorIcon, LineIcon, TableIcon, TextIcon } from './icons';
+import { CursorIcon, FieldIcon, LineIcon, TableIcon, TextIcon } from './icons';
 import { measureTextBox } from './measureText';
 import { familyOf } from '../fonts/registry';
 import { PX_PER_MM_AT_100 } from './pixels';
@@ -87,6 +87,12 @@ export function EditorTab() {
   const [hover, setHover] = useState<Point | null>(null);
   /** 선의 첫 점을 찍어둔 상태. 다음 클릭에서 선이 완성된다. */
   const [pending, setPending] = useState<Point | null>(null);
+  /**
+   * 자동 필드 도구에서 다음에 찍을 오프셋. 찍을 때마다 하나씩 늘어난다 —
+   * 위클리 한 쪽의 7칸을 순서대로 찍으면 저절로 0~6이 매겨진다. 도구로
+   * 새로 들어올 때마다 0부터 다시 센다.
+   */
+  const [nextFieldOffset, setNextFieldOffset] = useState(0);
   /** 지금 끌고 있는 몸짓. 판단은 ref로, 미리보기는 state로 한다. */
   const dragRef = useRef<Drag | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -176,6 +182,8 @@ export function EditorTab() {
     setPending(null);
     setDragBoth(null);
     finishEditing();
+    // 자동 필드 도구로 들어올 때마다 0부터 다시 센다.
+    if (tool === 'field') setNextFieldOffset(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool]);
 
@@ -210,11 +218,12 @@ export function EditorTab() {
        * ⌘T·⌘N·⌘W는 웹페이지가 preventDefault로 막을 수도 없다.
        */
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      // 왼손만으로 셋 다 닿는 자리에 둔다. L은 오른손 끝이라 멀어서 D로 옮겼다.
+      // 왼손만으로 다 닿는 자리에 둔다. L은 오른손 끝이라 멀어서 D로 옮겼다.
       if (e.key.toLowerCase() === 'v') setTool('select');
       if (e.key.toLowerCase() === 'd') setTool('draw');
       if (e.key.toLowerCase() === 't') setTool('text');
       if (e.key.toLowerCase() === 'g') setTool('table');
+      if (e.key.toLowerCase() === 'f') setTool('field');
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -317,6 +326,18 @@ export function EditorTab() {
       }
       // 입력 중이었다면 먼저 확정한다. 그래야 빈 상자가 남지 않는다.
       finishEditing();
+      if (snap) setDragBoth({ kind: 'textbox', from: snap, to: snap });
+      return;
+    }
+
+    if (tool === 'field') {
+      // 이미 있는 글자를 클릭하면 고르기만 한다 — 자동 필드는 타이핑할 게
+      // 없으니 새로 겹쳐 쓰는 대신 속성 막대에서 만지도록 안내한다.
+      const hit = hitAt(raw);
+      if (hit) {
+        select([hit.id]);
+        return;
+      }
       if (snap) setDragBoth({ kind: 'textbox', from: snap, to: snap });
       return;
     }
@@ -426,7 +447,18 @@ export function EditorTab() {
             width: Math.abs(d.to.x - d.from.x),
             height: Math.abs(d.to.y - d.from.y),
           };
-      if (box) setEditing({ box, text: '', style: draftStyle });
+      if (!box) return;
+
+      if (tool === 'field') {
+        // 타이핑 없이 바로 확정한다. 오프셋은 자동으로 매겨지고 찍을 때마다
+        // 하나씩 늘어난다 — 칸을 순서대로 찍으면 위클리 7칸이 저절로 0~6이 된다.
+        const field = { offset: nextFieldOffset, format: DEFAULT_FIELD_FORMAT };
+        commitText({ ...box, text: fieldPlaceholder(field), field, ...draftStyle });
+        setNextFieldOffset((n) => n + 1);
+        return;
+      }
+
+      setEditing({ box, text: '', style: draftStyle });
       return;
     }
 
@@ -478,10 +510,12 @@ export function EditorTab() {
   const grip = drag?.kind === 'handle' ? drag : null;
   const textDrag = drag?.kind === 'textbox' ? drag : null;
 
-  // 글자 도구에서 마우스가 올라간 칸. 어디에 쓰일지 미리 보여준다.
+  // 글자·자동 필드 도구에서 마우스가 올라간 칸. 어디에 쓰일지 미리 보여준다.
   // 이미 상자를 끄는 중이면 그 몸짓(textDrag)이 같은 자리를 대신 보여준다.
   const hoverCell =
-    tool === 'text' && hover && !editing && !textDrag ? cellAt(lattice, hover.x, hover.y) : null;
+    (tool === 'text' || tool === 'field') && hover && !editing && !textDrag
+      ? cellAt(lattice, hover.x, hover.y)
+      : null;
 
   // 지금 그리는 것의 치수. 면이면 가로 × 세로, 선이면 길이.
   const sizeLabel = (() => {
@@ -531,9 +565,16 @@ export function EditorTab() {
           <ToolBtn on={tool === 'text'} onClick={() => setTool('text')} title="글자 (T)">
             <TextIcon />
           </ToolBtn>
+          <ToolBtn on={tool === 'field'} onClick={() => setTool('field')} title="자동 필드 (F)">
+            <FieldIcon />
+          </ToolBtn>
         </div>
 
-        {selectedIds.length > 0 || tool === 'draw' || tool === 'table' || tool === 'text' ? (
+        {selectedIds.length > 0 ||
+        tool === 'draw' ||
+        tool === 'table' ||
+        tool === 'text' ||
+        tool === 'field' ? (
           <StyleBar
             editing={editing}
             setEditingStyle={setEditingStyle}

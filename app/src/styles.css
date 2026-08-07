@@ -234,7 +234,8 @@ button.ghost:disabled {
 }
 
 .insert-sheet.draw,
-.insert-sheet.table {
+.insert-sheet.table,
+.insert-sheet.field {
   cursor: crosshair;
 }
 
