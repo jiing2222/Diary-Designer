@@ -848,4 +848,67 @@ describe('세트형 — 데이터셋', () => {
       expect(doc.getPageCount()).toBe(4); // 2장 × 2쪽
     });
   });
+
+  describe('월간 달력 오브젝트', () => {
+    // 42칸·요일·제목은 전부 글자로 그려진다 — 글꼴이 없으면 아무것도 안
+    // 그려진다(drawTexts와 같은 규칙). 자리·날짜 계산의 정확성은
+    // core/calendar.test.ts·core/dataset.test.ts가 촘촘히 잰다. 여기서는
+    // 배선(글꼴을 심으려 하는지, 장수가 안전하게 나오는지)만 본다 — 실제
+    // 글자 모양은 진짜 글꼴 파일 없이는 확인할 방법이 없다(이 프로젝트의
+    // PDF 테스트 전체가 그렇다).
+    const calendarSlot: SlotContent = {
+      dotGrid: DEFAULT_DOT_GRID,
+      objects: [{ id: 'cal1', type: 'calendar', x: 5, y: 5, width: 60, height: 80 }],
+      safeZoneWidth: 10,
+    };
+
+    it('글자가 하나도 없어도 달력만 있으면 글꼴을 심으려 한다', async () => {
+      // 망가진 글꼴 바이트라 embedFont가 시도되면 던진다 — drawTexts만 보던
+      // 예전 조건이면 텍스트가 없으니 시도조차 안 해서 조용히 통과했을 것이다.
+      await expect(
+        buildPdf({
+          ...base,
+          fontBytes: new Uint8Array([1, 2, 3]),
+          datasetOverrides: new Map([[0, calendarSlot]]),
+          datasetPages: 1,
+          calendarYear: 2027,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('글꼴을 안 주면(글자 없음과 같은 대접) 정상적으로 만들어진다', async () => {
+      const bytes = await buildPdf({
+        ...base,
+        datasetOverrides: new Map([[0, calendarSlot]]),
+        datasetPages: 1,
+        calendarYear: 2027,
+      });
+      expect(bytes.byteLength).toBeGreaterThan(0);
+    });
+
+    it('calendarYear가 없어도(연결 전) 안전하게 만들어진다', async () => {
+      const bytes = await buildPdf({
+        ...base,
+        datasetOverrides: new Map([[0, calendarSlot]]),
+        datasetPages: 1,
+      });
+      expect(bytes.byteLength).toBeGreaterThan(0);
+    });
+
+    it('장수는 달력 오브젝트 유무와 무관하다', async () => {
+      const doc = await PDFDocument.load(
+        await buildPdf({
+          ...base,
+          datasetOverrides: new Map([
+            [0, calendarSlot],
+            [1, calendarSlot],
+            [2, calendarSlot],
+          ]),
+          datasetPages: 3,
+          calendarYear: 2027,
+        }),
+      );
+      expect(doc.getPageCount()).toBe(2); // 3쪽 · 칸 2개 → 2장, 세트형 규칙 그대로
+    });
+  });
 });

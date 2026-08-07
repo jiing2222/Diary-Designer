@@ -51,7 +51,10 @@ import {
   TEXT_COLOR,
   hexToRgb,
 } from '../core/style';
-import { isLine, isText, type DiaryObject, type TextObject } from '../core/objects';
+import { isCalendar, isLine, isText, type DiaryObject, type TextObject } from '../core/objects';
+import { calendarLayout, showAdjacentOf, weekdayLabels, weekdayLangOf, weekStartOf } from '../core/calendar';
+import { calendarCellAt, calendarTitleAt } from '../core/dataset';
+import { formatDate } from '../core/format';
 
 /**
  * PDF 생성.
@@ -159,6 +162,15 @@ interface ExportInput {
   /** 데이터셋의 총 쪽수. `datasetOverrides`와 함께 쓴다. */
   datasetPages?: number;
   /**
+   * 월간 달력 데이터셋의 연도.
+   *
+   * 달력 오브젝트(`CalendarObject`)는 자동 필드와 달리 `datasetOverrides`
+   * 안에서 이미 값이 채워진 글자로 바뀌어 있지 않다 — 오브젝트 자체는
+   * 그대로 두고 **그릴 때** 이 연도와 칸의 쪽 번호로 날짜를 계산한다.
+   * 달력형 데이터셋일 때만 정해진다.
+   */
+  calendarYear?: number;
+  /**
    * 겹치기 배치 — 세트형에서 칸마다 연속된 구간을 담당하도록 쪽 순서를
    * 재배열할지(core/template의 `cutStackPage`). 꺼져 있으면(기본) 지금까지처럼
    * 장을 가로질러 순서대로(칸0·칸1·... 장마다 반복) 채운다.
@@ -240,10 +252,12 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
       : []),
   ];
   const texts = allObjects.flatMap((list) => list.filter(isText));
+  // 달력도 글자로 그려진다 — 글자 하나 없이 달력만 있는 양식도 글꼴을 심어야 한다.
+  const calendars = allObjects.flatMap((list) => list.filter(isCalendar));
   let bodyFont: PDFFont | null = null;
   let boldFont: PDFFont | null = null;
   const userFonts = new Map<string, PDFFont>();
-  if (texts.length > 0 && input.fontBytes) {
+  if ((texts.length > 0 || calendars.length > 0) && input.fontBytes) {
     doc.registerFontkit(fontkit);
     bodyFont = await doc.embedFont(input.fontBytes, { subset: false });
     // 굵기마다 파일이 따로다. 굵은 글자가 하나도 없으면 심지 않는다.
@@ -292,6 +306,12 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     layout: Layout,
     resolveForSheet: (i: number) => SlotContent,
     mirror: boolean,
+    /**
+     * 이 장의 칸이 가리키는 쪽 번호. 세트형일 때만 있다 — 달력 오브젝트는
+     * 자동 필드와 달리 그릴 때 이 번호로 날짜를 직접 계산하기 때문이다
+     * (`calendarYear`와 함께 쓴다, ExportInput 주석 참고).
+     */
+    pageFor: ((i: number) => number | null) | null,
   ) {
     // 층 순서가 화면과 같아야 한다. 도트 → 선 → 글자.
     // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
@@ -305,6 +325,9 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
         { regular: bodyFont, bold: boldFont, user: userFonts },
         flipY,
       );
+      if (pageFor && input.calendarYear !== undefined) {
+        drawCalendars(page, layout, resolveForSheet, pageFor, input.calendarYear, bodyFont, flipY);
+      }
     }
 
     // 재단선과 눈금자는 속지 내용이 아니라 용지 위의 표시라 장마다 그 위에 얹는다.
@@ -347,7 +370,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
         const p = pageFor(i);
         return p === null ? BLANK_SLOT : (input.datasetOverrides!.get(p) ?? BLANK_SLOT);
       };
-      drawSide(page, input.layout, resolveDatasetSlot, false);
+      drawSide(page, input.layout, resolveDatasetSlot, false, pageFor);
 
       if (duplex && backLayout) {
         const backPage = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
@@ -357,7 +380,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
             ? BLANK_SLOT
             : (input.datasetBackOverrides?.get(p) ?? input.defaultBack ?? BLANK_SLOT);
         };
-        drawSide(backPage, backLayout, resolveDatasetBack, true);
+        drawSide(backPage, backLayout, resolveDatasetBack, true, pageFor);
       }
       continue;
     }
@@ -370,11 +393,11 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
       ? frontBackFilled(sheet, input.totalSlots, slotsPerSheet, duplex)
       : { front: slotsPerSheet, back: slotsPerSheet };
 
-    drawSide(page, input.layout, (i) => (i < front ? resolveSlot(i) : BLANK_SLOT), false);
+    drawSide(page, input.layout, (i) => (i < front ? resolveSlot(i) : BLANK_SLOT), false, null);
 
     if (duplex && backLayout) {
       const backPage = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
-      drawSide(backPage, backLayout, (i) => (i < back ? resolveBackSlot(i) : BLANK_SLOT), true);
+      drawSide(backPage, backLayout, (i) => (i < back ? resolveBackSlot(i) : BLANK_SLOT), true, null);
     }
   }
 
@@ -527,6 +550,87 @@ function drawTexts(
           // 돌리므로 이 차이가 화면에서는 안 보이다가 인쇄물에서만 드러났다.
           rotate: degrees(layout.rotated ? 90 : 0),
         });
+      });
+    }
+
+    page.pushOperators(popGraphicsState());
+  });
+}
+
+/**
+ * 월간 달력.
+ *
+ * 자리는 core/calendar의 `calendarLayout(o)`가 정한다 — 화면(InsertView의
+ * `CalendarLayer`)과 같은 함수다. 다른 점은 `cx`가 SVG의 text-anchor="middle"
+ * 대신 폭을 재서 왼쪽 끝을 직접 계산한다는 것뿐이다(drawTexts와 같은 이유).
+ *
+ * `pageFor(i)`가 이 칸의 쪽 번호(달, 0부터)를 알려준다 — 자동 필드처럼
+ * 미리 값을 채운 오브젝트를 받는 게 아니라, 그릴 때 이 번호와 `year`로
+ * 직접 날짜를 계산한다.
+ */
+function drawCalendars(
+  page: PDFPage,
+  layout: Layout,
+  resolveSlot: (i: number) => SlotContent,
+  pageFor: (i: number) => number | null,
+  year: number,
+  font: PDFFont,
+  flipY: (y: Mm) => Mm,
+) {
+  layout.slots.forEach((slot, i) => {
+    const calendars = resolveSlot(i).objects.filter(isCalendar);
+    if (calendars.length === 0) return;
+    const datasetPage = pageFor(i);
+    if (datasetPage === null) return;
+
+    const insert = insertSizeOf(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated);
+
+    const corners = [
+      place.map(0, 0),
+      place.map(insert.width, 0),
+      place.map(insert.width, insert.height),
+      place.map(0, insert.height),
+    ].map((p) => ({ x: mmToPt(p.x), y: mmToPt(flipY(p.y)) }));
+
+    page.pushOperators(
+      pushGraphicsState(),
+      moveTo(corners[0].x, corners[0].y),
+      lineTo(corners[1].x, corners[1].y),
+      lineTo(corners[2].x, corners[2].y),
+      lineTo(corners[3].x, corners[3].y),
+      closePath(),
+      clip(),
+      endPath(),
+    );
+
+    for (const o of calendars) {
+      const geo = calendarLayout(o);
+      const weekStart = weekStartOf(o);
+      const labels = weekdayLabels(weekdayLangOf(o), weekStart);
+      const title = formatDate(calendarTitleAt(year, datasetPage), 'YYYY년 M월');
+      const textColor = o.color ? color(o.color) : TEXT;
+
+      const drawCentered = (text: string, localCx: Mm, localBaseline: Mm) => {
+        if (text === '') return;
+        const width = ptToMm(font.widthOfTextAtSize(text, mmToPt(geo.fontSize)));
+        const p = place.map(o.x + localCx - width / 2, o.y + localBaseline);
+        page.drawText(text, {
+          x: mmToPt(p.x),
+          y: mmToPt(flipY(p.y)),
+          size: mmToPt(geo.fontSize),
+          font,
+          color: textColor,
+          rotate: degrees(layout.rotated ? 90 : 0),
+        });
+      };
+
+      drawCentered(title, geo.title.cx, geo.title.baseline);
+      labels.forEach((label, li) => drawCentered(label, geo.weekdays[li].cx, geo.weekdays[li].baseline));
+      geo.days.forEach((pos, di) => {
+        const date = calendarCellAt(year, datasetPage, di, weekStart, showAdjacentOf(o));
+        if (!date) return;
+        drawCentered(String(date.day), pos.cx, pos.baseline);
       });
     }
 

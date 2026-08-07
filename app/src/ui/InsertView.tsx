@@ -63,6 +63,7 @@ export function InsertView({
   mode = 'edit',
   mirror = false,
   hiddenId,
+  calendarContext,
 }: {
   insert: { width: Mm; height: Mm };
   grid: DotGrid;
@@ -79,6 +80,12 @@ export function InsertView({
    * 판정이 DOM의 `<text>`를 훑어 찾으므로 편집 중인 글자를 영영 집을 수 없게 된다.
    */
   hiddenId?: string;
+  /**
+   * 월간 달력이 실제로 보여줄 연도·쪽(달, 0부터). 세트형 인쇄 미리보기가
+   * 넘긴다 — 없으면(편집 화면 등) `CalendarLayer`가 오늘이 속한 달을
+   * 자리표시로 보여준다(자동 필드의 `⟨+0⟩`과 같은 이유).
+   */
+  calendarContext?: { year: number; page: number };
 }) {
   const clipId = useId();
   // 'print' 모드는 인쇄 여부(grid.print)를 따르고, 'edit'는 작업 중 표시 여부(grid.showOnScreen)를 따른다.
@@ -111,7 +118,7 @@ export function InsertView({
       </clipPath>
       <g clipPath={mode === 'print' ? `url(#${clipId})` : undefined}>
         <TextLayer objects={objects.filter(isText)} hiddenId={hiddenId} />
-        <CalendarLayer objects={objects.filter(isCalendar)} />
+        <CalendarLayer objects={objects.filter(isCalendar)} context={calendarContext} />
       </g>
     </>
   );
@@ -182,15 +189,20 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
  * 자리는 core/calendar의 `calendarLayout(o)`가 정한다 — 박스 크기만 보고
  * 제목·요일 머리글·42칸의 자리와 글자 크기를 낸다. PDF도 같은 함수를 쓴다.
  *
- * **편집 화면은 아직 실제 데이터셋과 연결되지 않는다.** 자동 필드가
- * `⟨+0⟩` 자리표시를 보여주는 것과 같은 이유로, 여기서는 지금 달을 미리
- * 보여준다 — 실제로 몇 년치가 찍힐지는 인쇄하기 탭의 데이터셋(연도)이
- * 정한다.
+ * **`context`가 없으면(편집 화면 등) 오늘이 속한 달을 자리표시로 보여준다** —
+ * 자동 필드가 `⟨+0⟩`을 보여주는 것과 같은 이유다. 세트형 인쇄 미리보기는
+ * 실제 연도·쪽을 넘긴다.
  */
-function CalendarLayer({ objects }: { objects: CalendarObject[] }) {
+function CalendarLayer({
+  objects,
+  context,
+}: {
+  objects: CalendarObject[];
+  context?: { year: number; page: number };
+}) {
   const now = new Date();
-  const previewYear = now.getFullYear();
-  const previewPage = now.getMonth(); // 0~11
+  const previewYear = context?.year ?? now.getFullYear();
+  const previewPage = context?.page ?? now.getMonth(); // 0~11
 
   return (
     <g

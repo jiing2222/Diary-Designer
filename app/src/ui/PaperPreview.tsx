@@ -14,6 +14,8 @@ export interface PreviewSlotContent {
   insert: InsertSetting;
   dotGrid: DotGrid;
   objects: DiaryObject[];
+  /** 세트형·월간 달력일 때만 쓴다. 이 칸이 가리키는 쪽(달, 0부터). */
+  calendarPage?: number;
 }
 
 interface Props {
@@ -45,6 +47,8 @@ interface Props {
    * 않으므로 호출하는 쪽이 core/layout의 mirrorLayout으로 미리 뒤집어 넘긴다.
    */
   mirror?: boolean;
+  /** 월간 달력 데이터셋의 연도. `slotOverrides`의 `calendarPage`와 함께 쓴다. */
+  calendarYear?: number;
 }
 
 /**
@@ -65,6 +69,7 @@ export function PaperPreview({
   slotOverrides,
   mode = 'edit',
   mirror = false,
+  calendarYear,
 }: Props) {
   const { width: pw, height: ph } = paper;
 
@@ -114,6 +119,11 @@ export function PaperPreview({
                 safeZoneWidth={punch.safeZoneWidth}
                 mode={mode}
                 mirror={mirror}
+                calendarContext={
+                  content.calendarPage !== undefined && calendarYear !== undefined
+                    ? { year: calendarYear, page: content.calendarPage }
+                    : undefined
+                }
               />
 
               {mode === 'edit' && (

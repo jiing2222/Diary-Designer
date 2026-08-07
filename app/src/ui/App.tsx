@@ -158,6 +158,7 @@ export function App() {
         insert: active.insert,
         dotGrid: active.dotGrid,
         objects: resolveObjectsForPage(active.objects.present, dataset, page),
+        calendarPage: page,
       });
       previewBackOverrides.set(
         i,
@@ -166,6 +167,7 @@ export function App() {
               insert: active.insert,
               dotGrid: active.back.dotGrid,
               objects: resolveObjectsForPage(active.back.objects.present, dataset, page),
+              calendarPage: page,
             }
           : {
               insert: active.insert,
@@ -286,6 +288,7 @@ export function App() {
         datasetOverrides,
         datasetBackOverrides,
         datasetPages: printMode === 'dataset' ? totalPages : undefined,
+        calendarYear: dataset?.kind === 'calendar' ? dataset.year : undefined,
         // 겹치기 배치도 세트형에서만 의미가 있다 — 반복 인쇄·낱장 조합은 모든
         // 칸의 내용이 같아 순서가 결과에 영향을 주지 않는다.
         cutStack: printMode === 'dataset' ? s.cutStack : undefined,
@@ -436,6 +439,7 @@ export function App() {
                       showRuler={s.showRuler}
                       unprintable={s.unprintable}
                       mode={printPreview ? 'print' : 'edit'}
+                      calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
                     />
                   ) : (
                     // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 뒤집는다(회전
@@ -457,6 +461,7 @@ export function App() {
                       unprintable={s.unprintable}
                       mode={printPreview ? 'print' : 'edit'}
                       mirror
+                      calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
                     />
                   )}
                 </div>
