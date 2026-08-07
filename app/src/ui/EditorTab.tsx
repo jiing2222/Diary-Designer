@@ -18,17 +18,7 @@ import {
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm } from '../core/units';
 import { DEFAULT_FIELD_FORMAT, fieldPlaceholder, newTextStyle } from '../core/text';
-import { backSafeZoneMirror } from '../core/layout';
-import {
-  selectLayout,
-  useDotGrid,
-  useHasBack,
-  useInsert,
-  useObjects,
-  useSide,
-  useStore,
-  type Side,
-} from '../store';
+import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type Side } from '../store';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
@@ -73,17 +63,6 @@ export function EditorTab() {
   const history = useObjects();
   const side = useSide();
   const hasBack = useHasBack();
-  /**
-   * 지금 인쇄 설정(용지 크기 등)대로 뽑으면 이 속지가 회전 배치(90도 눕혀서
-   * 넣는 배치)가 되는지. **양식 자체는 여전히 용지를 모른다** — 이건 지금
-   * 세션의 인쇄 설정을 잠깐 참고하는 화면(ui) 쪽 판단일 뿐, Template에
-   * 저장되는 값이 아니다.
-   *
-   * 뒷면 타공 안내를 뒤집을지 정하는 데 쓴다(backSafeZoneMirror). 참고하는
-   * 값일 뿐이라 나중에 다른 용지로 인쇄하면 실제와 달라질 수 있다 — 그래도
-   * 아무것도 모르는 것보다는 지금 설정 기준으로 맞혀보는 편이 낫다.
-   */
-  const rotated = useStore((s) => selectLayout(s).rotated);
   const setSide = useStore((s) => s.setSide);
   const addBack = useStore((s) => s.addBack);
   const removeBack = useStore((s) => s.removeBack);
@@ -137,7 +116,7 @@ export function EditorTab() {
 
   const objects = history.present;
   const lattice = gridLattice(
-    gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back' && backSafeZoneMirror(rotated)),
+    gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back'),
     grid.spacing,
     grid.minMargin,
     grid.toEdge,
@@ -685,9 +664,11 @@ export function EditorTab() {
             grid={grid}
             objects={objects}
             safeZoneWidth={insert.punch.safeZoneWidth}
-            // 뒷면이면, 지금 인쇄 설정 기준으로 회전 배치가 아닐 때만 뒤집는다
-            // (core/layout의 backSafeZoneMirror — 인쇄 미리보기·PDF와 같은 판단).
-            mirror={side === 'back' && backSafeZoneMirror(rotated)}
+            // 뒷면이면 항상 뒤집는다. 뒤집는 축(좌우/상하)은 인쇄 화면에서
+            // core/layout의 mirrorLayout이 정한다 — 편집 화면은 칸 하나만
+            // 보여줄 뿐 용지 배치를 모르므로, 속지 자신의 가로축(구멍이 있는
+            // 축)을 뒤집는다는 사실만 다루면 된다.
+            mirror={side === 'back'}
             // 고치는 중인 글자는 감춘다. 입력칸이 같은 자리에 겹쳐 있어서, 둘 다
             // 보이면 어느 게 지금 치는 내용인지 헷갈린다. 목록에서 빼지 않고
             // 감추기만 하는 이유는 InsertView의 hiddenId 주석에 있다.
@@ -698,7 +679,7 @@ export function EditorTab() {
             width={insert.width}
             height={insert.height}
             punch={insert.punch}
-            mirror={side === 'back' && backSafeZoneMirror(rotated)}
+            mirror={side === 'back'}
           />
 
           {/* 고른 것 표시. 옮기거나 끝점을 끄는 중이면 갈 자리에 미리 보여준다.

@@ -11,7 +11,6 @@ import {
 } from '../store';
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
 import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
-import { backSafeZoneMirror } from '../core/layout';
 import { capacityPerSheet, sheetsNeeded } from '../core/template';
 import { datasetPages, type Dataset } from '../core/dataset';
 import type { Dash } from '../core/objects';
@@ -508,10 +507,8 @@ function CellCountRow() {
   const insert = useInsert();
   const grid = useDotGrid();
   const side = useSide();
-  // 지금 인쇄 설정 기준으로 회전 배치가 될지 — EditorTab의 같은 판단 참고.
-  const mirror = side === 'back' && backSafeZoneMirror(selectLayout(s).rotated);
 
-  const area = gridArea(insert, grid, insert.punch.safeZoneWidth, mirror);
+  const area = gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back');
   const { cols, rows } = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
   const margin = grid.toEdge ? 0 : grid.minMargin;
 
@@ -534,11 +531,8 @@ function GridReadout() {
   const insert = useInsert();
   const grid = useDotGrid();
   const side = useSide();
-  // 지금 인쇄 설정 기준으로 회전 배치가 될지 — EditorTab의 같은 판단 참고.
-  const rotated = useStore((s) => selectLayout(s).rotated);
-  const mirror = side === 'back' && backSafeZoneMirror(rotated);
 
-  const area = gridArea(insert, grid, insert.punch.safeZoneWidth, mirror);
+  const area = gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back');
   const { xs, ys, cols, rows } = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
 
   if (xs.length === 0 || ys.length === 0) {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore } from '../store';
 import { capacityPerSheet, filledSlots, frontBackFilled, sheetsNeeded } from '../core/template';
-import { backSafeZoneMirror, mirrorLayout } from '../core/layout';
+import { mirrorLayout } from '../core/layout';
 import { datasetPages } from '../core/dataset';
 import { resolveObjectsForPage } from '../core/format';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
@@ -419,10 +419,11 @@ export function App() {
                       mode={printPreview ? 'print' : 'edit'}
                     />
                   ) : (
-                    // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 좌우만 뒤집는다.
-                    // 칸 안의 내용(도트·글자)은 뒤집지 않지만, 안전영역·타공 안내는
-                    // mirror로 오른쪽에 표시한다(설계문서 8장) — 회전 배치면
-                    // backSafeZoneMirror가 그 축을 뒤집지 않는다.
+                    // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 뒤집는다(회전
+                    // 배치가 아니면 좌우, 회전 배치면 상하). 칸 안의 내용(도트·글자)은
+                    // 뒤집지 않지만, 안전영역·타공 안내는 항상 mirror로 표시한다
+                    // (설계문서 8장) — mirrorLayout이 이미 회전 여부를 반영했으므로
+                    // 이쪽은 회전과 무관하게 항상 켠다.
                     <PaperPreview
                       paper={{ ...s.paper, width, height }}
                       insert={active.insert}
@@ -431,12 +432,12 @@ export function App() {
                       }
                       objects={active.back?.objects.present ?? []}
                       slotOverrides={previewBackOverrides.size > 0 ? previewBackOverrides : undefined}
-                      layout={mirrorLayout(layout, width)}
+                      layout={mirrorLayout(layout, width, height)}
                       cropMark={s.cropMark}
                       showRuler={s.showRuler}
                       unprintable={s.unprintable}
                       mode={printPreview ? 'print' : 'edit'}
-                      mirror={backSafeZoneMirror(layout.rotated)}
+                      mirror
                     />
                   )}
                 </div>

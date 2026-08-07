@@ -97,36 +97,24 @@ export function computeLayout(input: LayoutInput): Layout {
 /**
  * 양면 인쇄에서 뒷면의 칸 배치.
  *
- * 왼쪽에 구멍이 있는 속지를 양면으로 뽑으면, 종이를 뒤집었을 때 구멍이
- * 오른쪽에서 다시 맞물려야 한다(설계문서 8장). 칸의 **위치만** 좌우로
- * 뒤집는다 — `x' = 용지폭 − x − 칸폭`. 칸 안의 내용까지 뒤집으면 안 된다.
+ * 프린터가 종이를 물리적으로 뒤집는 축은 **긴 가장자리 기준(좌우 뒤집기)**과
+ * **짧은 가장자리 기준(상하 뒤집기)** 두 가지가 있다(프린터 설정에서 고른다).
+ * 어느 쪽을 쓰든 속지 각 칸이 인쇄되는 실제 종이 방향과 맞아야 하므로, 여기서는
+ * **회전 배치(`layout.rotated`)가 아니면 좌우, 회전 배치면 상하**로 뒤집는다.
+ *
+ * 칸을 90도 눕혀서 넣으면(회전 배치) 속지의 가로축(구멍이 있는 축)이 용지의
+ * 세로축과 겹친다. 그래서 좌우 뒤집기는 그 축에 영향을 주지 않아 구멍이 반대편
+ * 으로 튀지만, 상하 뒤집기를 쓰면 다시 속지의 가로축이 정확히 뒤집힌다 —
+ * 회전이 아니든 회전이든, **속지 자신의 가로축(구멍이 있는 축)은 항상 뒤집힌다**는
+ * 뜻이다. 실제로 M5(회전 배치가 되는 규격)를 상하 뒤집기로 인쇄해보고 확인했다.
+ *
+ * 칸 **안의 내용**(그린 것)은 어느 경우든 뒤집지 않는다 — 위치만 옮긴다.
  *
  * 절취선(core/crop)은 칸 좌표만 보고 계산하므로, 이 배치를 그대로 넘기면
  * 절취선도 저절로 앞뒤가 맞는 자리에 나온다 — 따로 뒤집는 코드가 필요 없다.
  */
-export function mirrorLayout(layout: Layout, paperWidth: Mm): Layout {
-  return {
-    ...layout,
-    slots: layout.slots.map((s) => ({ ...s, x: paperWidth - s.x - s.width })),
-  };
-}
-
-/**
- * 뒷면에서 안전영역·타공 안내를 뒤집을지(core/grid의 `gridArea`, core/punch의
- * `holeCenterX`가 받는 `mirror`).
- *
- * **회전 배치(`layout.rotated`)면 뒤집지 않는다.** 칸을 90도 눕혀서 넣으면
- * 속지의 가로축(구멍이 있는 축)이 용지의 세로축과 겹친다. 용지를 좌우로
- * 뒤집는 물리적 동작은 그 축에 영향을 주지 않으므로, 뒤집으면 오히려 구멍이
- * 반대편으로 튄다 — M5처럼 회전 배치가 되는 규격에서 실제로 났던 사고다.
- *
- * (세로축은 이론상 뒤집혀야 하지만, 구멍이 상하로 대칭 배치라 대개 눈에 띄는
- * 차이가 없어 지금은 손대지 않는다.)
- *
- * 인쇄 미리보기(PaperPreview)와 PDF(pdf/export.ts)가 함께 쓴다. 편집 화면은
- * 이 값을 쓰지 않는다 — 양식은 용지를 몰라서(설계문서 3장) 회전 배치가 될지
- * 알 수 없기 때문이다.
- */
-export function backSafeZoneMirror(rotated: boolean): boolean {
-  return !rotated;
+export function mirrorLayout(layout: Layout, paperWidth: Mm, paperHeight: Mm): Layout {
+  return layout.rotated
+    ? { ...layout, slots: layout.slots.map((s) => ({ ...s, y: paperHeight - s.y - s.height })) }
+    : { ...layout, slots: layout.slots.map((s) => ({ ...s, x: paperWidth - s.x - s.width })) };
 }
