@@ -33,10 +33,11 @@ import {
   type Box,
   type CalendarObject,
   type CalendarStyle,
-  type DiaryObject,
-  type ImageObject,
   type CheckboxObject,
   type CheckboxStyle,
+  type CornerRoundness,
+  type DiaryObject,
+  type ImageObject,
   type LineSeg,
   type LineStyle,
   type ShapeObject,
@@ -106,12 +107,17 @@ interface Settings {
    */
   selectedIds: string[];
   /**
-   * 앞으로 그을 선의 모양.
+   * 앞으로 그을 선(또는 둥글기를 주면 도형)의 모양.
    *
    * 값이 없는 키는 core/style의 기본값을 따른다. 그린 선에도 그 키가 들어가지 않으므로,
    * 나중에 기본값을 바꾸면 그때 그은 선들도 같이 따라온다.
+   *
+   * `roundness`는 LineObject에는 없는 속성이다 — 그리기 도구로 사각형을
+   * 끌 때, 이 값이 0(또는 없음)이면 지금까지처럼 선 4개를, 1 이상이면
+   * 도형(ShapeObject) 하나를 만들지 결정하는 데만 쓰인다("도형은 그리기
+   * 모드에 합친다"). 도형이 만들어지면 `width`는 그 도형의 `strokeWidth`가 된다.
    */
-  drawStyle: LineStyle;
+  drawStyle: DrawStyle;
   /** 앞으로 찍을 체크박스의 모양. drawStyle의 체크박스 판이다. */
   checkboxDraftStyle: CheckboxStyle;
   /** 앞으로 쓸 글자의 모양. drawStyle의 글자 판이다. */
@@ -234,8 +240,8 @@ interface Store extends Settings {
   reshapeSelected: (id: string, end: 1 | 2, p: { x: Mm; y: Mm }) => void;
   /** 고른 선들의 굵기·색·모양. 값이 undefined면 기본값으로 되돌린다. */
   styleSelected: (patch: LineStyle) => void;
-  /** 앞으로 그을 선의 모양. */
-  setDrawStyle: (patch: LineStyle) => void;
+  /** 앞으로 그을 선(또는 둥글기를 주면 도형)의 모양. */
+  setDrawStyle: (patch: DrawStyle) => void;
   /**
    * 글자 상자를 확정한다.
    *
@@ -324,9 +330,11 @@ export type Tool =
   | 'field'
   | 'calendar'
   | 'image'
-  | 'shape'
   | 'checkbox';
 export type Side = 'front' | 'back';
+
+/** 그리기 도구의 다음 몸짓에 쓰일 모양 — LineStyle에 도형 여부를 가르는 둥글기만 더한다. */
+export type DrawStyle = LineStyle & { roundness?: CornerRoundness };
 
 /** 더 이상 존재하지 않는 id를 선택 목록에서 걷어낸다. */
 function prune(ids: string[], objects: DiaryObject[]): string[] {
@@ -766,7 +774,13 @@ export const useStore = create<Store>((set) => ({
 
   commitShape: (box) =>
     set((s) => {
+      // 도형은 그리기 도구의 drawStyle에서 나온다(둥글기가 있어야 여기까지
+      // 온다) — width는 그대로 도형의 strokeWidth가 된다.
       const next: ShapeObject = { id: newId('sh'), type: 'shape', ...box };
+      if (s.drawStyle.roundness) next.roundness = s.drawStyle.roundness;
+      if (s.drawStyle.width !== undefined) next.strokeWidth = s.drawStyle.width;
+      if (s.drawStyle.color !== undefined) next.color = s.drawStyle.color;
+      if (s.drawStyle.dash !== undefined) next.dash = s.drawStyle.dash;
       // 달력·이미지와 같은 이유로 곧바로 고른 상태로 둔다.
       return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
     }),

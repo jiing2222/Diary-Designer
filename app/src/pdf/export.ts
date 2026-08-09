@@ -831,8 +831,12 @@ function drawShapes(
         scale: PT_PER_MM,
         rotate: degrees(layout.rotated ? 90 : 0),
         borderColor: color(strokeColorOf(o)),
-        borderWidth: mmToPt(strokeW),
-        borderDashArray: dashPattern(strokeDashOf(o), strokeW)?.map(mmToPt),
+        // 굵기·점선도 scale 옵션이 적용되는 좌표계 "안"에서 적용된다(pdf-lib이
+        // scale을 먼저 CTM에 얹은 다음 line width를 그 안에서 잰다) — 그래서
+        // pt로 미리 바꾸면 scale만큼 한 번 더 곱해져 실제보다 훨씬 굵게
+        // 인쇄된다. 경로 좌표처럼 mm 그대로 넘겨야 scale이 딱 한 번만 먹는다.
+        borderWidth: strokeW,
+        borderDashArray: dashPattern(strokeDashOf(o), strokeW),
         borderLineCap: OBJECT_LINE_CAP === 'round' ? LineCapStyle.Round : LineCapStyle.Butt,
       });
     }
@@ -890,7 +894,8 @@ function drawCheckboxes(
         scale: PT_PER_MM,
         rotate: degrees(layout.rotated ? 90 : 0),
         borderColor: color(strokeColorOf(o)),
-        borderWidth: mmToPt(strokeW),
+        // drawShapes와 같은 이유 — scale 안에서 잰다. mm 그대로 넘긴다.
+        borderWidth: strokeW,
         borderLineCap: OBJECT_LINE_CAP === 'round' ? LineCapStyle.Round : LineCapStyle.Butt,
       });
     }

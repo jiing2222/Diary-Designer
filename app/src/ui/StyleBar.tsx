@@ -11,6 +11,7 @@ import {
   type CalendarObject,
   type CalendarStyle,
   type CheckboxStyle,
+  type CornerRoundness,
   type ImageObject,
   type LineObject,
   type LineStyle,
@@ -123,9 +124,11 @@ export function StyleBar({
   const size = boundsOfObjects(picked);
 
   // 무엇 하나를 골랐거나 그 도구를 쓰는 중이면 그 속성을, 아니면 선 속성을 보여준다.
+  // 도형은 따로 도구가 없다 — 그리기 도구로 만들어진 뒤에는 선과 달리
+  // 골랐을 때만(선과 함께 고르지 않았을 때만) 자기 속성 막대를 보여준다.
   const showCalendar = tool === 'calendar' || pickedCalendars.length > 0;
   const showImage = !showCalendar && (tool === 'image' || pickedImages.length > 0);
-  const showShape = !showCalendar && !showImage && (tool === 'shape' || pickedShapes.length > 0);
+  const showShape = !showCalendar && !showImage && pickedShapes.length > 0 && pickedLines.length === 0;
   const showCheckbox =
     !showCalendar && !showImage && !showShape && (tool === 'checkbox' || pickedCheckboxes.length > 0);
   const showText =
@@ -158,10 +161,10 @@ export function StyleBar({
                   ? '그릴 달력'
                   : tool === 'image'
                     ? '놓을 이미지'
-                    : tool === 'shape'
-                      ? '그릴 도형'
-                      : tool === 'checkbox'
-                        ? '찍을 체크박스'
+                    : tool === 'checkbox'
+                      ? '찍을 체크박스'
+                      : tool === 'draw' && drawStyle.roundness
+                        ? '그릴 도형'
                         : '그릴 선'}
         </span>
       )}
@@ -189,11 +192,35 @@ export function StyleBar({
           />
         </>
       ) : (
-        <LineControls
-          lines={pickedLines}
-          draft={picked.length === 0 ? drawStyle : null}
-          apply={picked.length > 0 ? styleSelected : setDrawStyle}
-        />
+        <>
+          <LineControls
+            lines={pickedLines}
+            draft={picked.length === 0 ? drawStyle : null}
+            apply={picked.length > 0 ? styleSelected : setDrawStyle}
+          />
+          {/* 둥글기는 사각형을 "앞으로" 끌 때만 뜻이 있다 — 이미 그은 선은
+              선 4개일 뿐이라 나중에 둥글게 되돌릴 수 없다. 그래서 아무것도
+              고르지 않은 그리기 도구에서만 보여준다. 0(각짐)이면 지금처럼
+              선 4개, 1 이상이면 사각형을 끌 때 도형(ShapeObject) 하나가
+              된다 — 도형은 따로 도구를 두지 않고 여기 합쳤다. */}
+          {picked.length === 0 && tool === 'draw' && (
+            <select
+              value={drawStyle.roundness ? String(drawStyle.roundness) : ''}
+              onChange={(e) =>
+                setDrawStyle({
+                  roundness: e.target.value ? (Number(e.target.value) as CornerRoundness) : undefined,
+                })
+              }
+              title="모서리 둥글기 — 각짐이면 사각형을 끌 때 선 4개가, 그 이상이면 도형 하나가 됩니다"
+            >
+              <option value="">각짐(선)</option>
+              <option value="1">둥글기 1</option>
+              <option value="2">둥글기 2</option>
+              <option value="3">둥글기 3</option>
+              <option value="4">원·타원</option>
+            </select>
+          )}
+        </>
       )}
     </div>
   );

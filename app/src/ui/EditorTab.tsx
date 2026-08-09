@@ -39,7 +39,6 @@ import {
   FieldIcon,
   ImageIcon,
   LineIcon,
-  ShapeIcon,
   TableIcon,
   TextIcon,
 } from './icons';
@@ -109,6 +108,7 @@ export function EditorTab() {
   const commitImage = useStore((s) => s.commitImage);
   const draftImageId = useStore((s) => s.draftImageId);
   const commitShape = useStore((s) => s.commitShape);
+  const drawStyle = useStore((s) => s.drawStyle);
   const commitCheckboxes = useStore((s) => s.commitCheckboxes);
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
@@ -311,7 +311,6 @@ export function EditorTab() {
       if (e.key.toLowerCase() === 'f') setTool('field');
       if (e.key.toLowerCase() === 'c') setTool('calendar');
       if (e.key.toLowerCase() === 'i') setTool('image');
-      if (e.key.toLowerCase() === 's') setTool('shape');
       if (e.key.toLowerCase() === 'x') setTool('checkbox');
     }
     window.addEventListener('keydown', onKey);
@@ -529,8 +528,8 @@ export function EditorTab() {
       return;
     }
 
-    if (tool === 'calendar' || tool === 'image' || tool === 'shape') {
-      // 방금 놓은(또는 고른) 달력·이미지·도형이면 모서리 손잡이가 몸통보다 먼저다 —
+    if (tool === 'calendar' || tool === 'image') {
+      // 방금 놓은(또는 고른) 달력·이미지면 모서리 손잡이가 몸통보다 먼저다 —
       // 도구를 select로 바꾸지 않고도 이어서 바로 크기를 다듬을 수 있다.
       const boxGripHit = boxHandleAt(raw);
       if (boxGripHit) {
@@ -658,7 +657,7 @@ export function EditorTab() {
       // 한 점에서 뗐으면 그 점이 든 칸 하나, 끌었으면 걸친 칸 전체가 상자다.
       const same = d.from.x === d.to.x && d.from.y === d.to.y;
 
-      if (tool === 'calendar' || tool === 'image' || tool === 'shape') {
+      if (tool === 'calendar' || tool === 'image') {
         // 표처럼 실제로 끌어야 만들어진다 — 그냥 눌렀다 뗀 칸 하나는 너무 작다.
         if (same) return;
         let box = {
@@ -670,7 +669,6 @@ export function EditorTab() {
         // 이미지는, 정렬선이 강조된 5초 동안이면 가운데를 그 줄에 맞춘다.
         if (tool === 'image' && logoLineEmphasis) box = centerOnLogoLine(box);
         if (tool === 'calendar') commitCalendar(box);
-        else if (tool === 'shape') commitShape(box);
         // 이미지 도구인데 아직 등록·선택한 이미지가 없으면 아무 일도 하지 않는다.
         else if (draftImageId) commitImage(box, draftImageId);
         return;
@@ -734,10 +732,21 @@ export function EditorTab() {
       return;
     }
 
-    // 그리기 — 같은 점에서 뗐으면 클릭(선), 다른 점이면 끌기(면)
+    // 그리기 — 같은 점에서 뗐으면 클릭(선), 다른 점이면 끌기(면).
+    // 둥글기(drawStyle.roundness)를 정해뒀으면 면 대신 도형 하나를 만든다
+    // — 도형은 이 그리기 도구에 합쳐져 있다, 따로 도구가 없다.
     const moved = d.from.x !== d.to.x || d.from.y !== d.to.y;
     if (moved) {
-      drawLines(rectLines(d.from, d.to));
+      if (drawStyle.roundness) {
+        commitShape({
+          x: Math.min(d.from.x, d.to.x),
+          y: Math.min(d.from.y, d.to.y),
+          width: Math.abs(d.to.x - d.from.x),
+          height: Math.abs(d.to.y - d.from.y),
+        });
+      } else {
+        drawLines(rectLines(d.from, d.to));
+      }
       setPending(null);
       return;
     }
@@ -863,9 +872,6 @@ export function EditorTab() {
           <ToolBtn on={tool === 'image'} onClick={() => setTool('image')} title="이미지 (I)">
             <ImageIcon />
           </ToolBtn>
-          <ToolBtn on={tool === 'shape'} onClick={() => setTool('shape')} title="도형 (S)">
-            <ShapeIcon />
-          </ToolBtn>
           <ToolBtn on={tool === 'checkbox'} onClick={() => setTool('checkbox')} title="체크박스 (X)">
             <CheckboxIcon />
           </ToolBtn>
@@ -878,7 +884,6 @@ export function EditorTab() {
         tool === 'field' ||
         tool === 'calendar' ||
         tool === 'image' ||
-        tool === 'shape' ||
         tool === 'checkbox' ? (
           <StyleBar
             editing={editing}

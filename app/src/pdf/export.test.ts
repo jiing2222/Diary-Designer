@@ -1,10 +1,37 @@
+/// <reference types="node" />
 import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
+import { inflateSync } from 'node:zlib';
+import { Buffer } from 'node:buffer';
 import { buildPdf, type SlotContent } from './export';
 import { computeLayout } from '../core/layout';
 import { DEFAULT_DOT_GRID } from '../core/grid';
 import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from '../core/style';
 import { MM_TO_PT } from '../core/units';
+
+/**
+ * 완성된 PDF 바이트에서 `w`(선 굵기 지정) 연산자의 값을 전부 꺼낸다.
+ *
+ * pdf-lib이 압축한 스트림(FlateDecode)을 직접 풀어서 본다 — glyph가 그
+ * 방향으로 눕는지는 인쇄해봐야 알지만, 굵기는 그냥 숫자라 이렇게 기계로
+ * 확인할 수 있다. drawSvgPath에 scale 옵션을 쓰면 그 굵기 값도 같은
+ * 배율로 다시 늘어나므로(9단계였나, 실제로 한 번 이 값을 pt로 미리
+ * 바꿔 넘겼다가 인쇄물에서 선이 훨씬 굵게 나온 적이 있다), 그 회귀를
+ * 여기서 잡는다.
+ */
+function contentStreamWidths(bytes: Uint8Array): number[] {
+  const text = Buffer.from(bytes).toString('latin1');
+  const widths: number[] = [];
+  for (const m of text.matchAll(/stream\r?\n([\s\S]*?)endstream/g)) {
+    try {
+      const inflated = inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1');
+      for (const w of inflated.matchAll(/([\d.]+) w\b/g)) widths.push(Number(w[1]));
+    } catch {
+      // FlateDecode가 아닌 스트림(이미지 등)은 건너뛴다.
+    }
+  }
+  return widths;
+}
 
 const layout = computeLayout({
   paperWidth: 210,
@@ -1099,6 +1126,16 @@ describe('도형', () => {
     });
     expect(bytes.byteLength).toBeGreaterThan(0);
   });
+
+  it('테두리 굵기가 화면과 같은 mm로 찍힌다 — pt로 미리 바꾸면 안 된다', async () => {
+    // drawSvgPath의 scale 옵션이 이미 mm→pt를 하므로, 굵기를 여기서 또
+    // mmToPt로 바꾸면 scale만큼 한 번 더 곱해져 인쇄물에서 훨씬 굵어진다.
+    const bytes = await buildPdf({
+      ...base,
+      objects: [{ id: 'sh1', type: 'shape' as const, x: 5, y: 5, width: 30, height: 20, strokeWidth: 0.2 }],
+    });
+    expect(contentStreamWidths(bytes)).toContain(0.2);
+  });
 });
 
 describe('체크박스', () => {
@@ -1133,5 +1170,13 @@ describe('체크박스', () => {
       objects: [{ id: 'ch1', type: 'checkbox' as const, x: 5, y: 5, width: 8, height: 8, icon: 'star' as const }],
     });
     expect(bytes.byteLength).toBeGreaterThan(0);
+  });
+
+  it('테두리 굵기가 화면과 같은 mm로 찍힌다 — 도형과 같은 회귀 검사', async () => {
+    const bytes = await buildPdf({
+      ...base,
+      objects: [{ id: 'ch1', type: 'checkbox' as const, x: 5, y: 5, width: 8, height: 8, strokeWidth: 0.2 }],
+    });
+    expect(contentStreamWidths(bytes)).toContain(0.2);
   });
 });
