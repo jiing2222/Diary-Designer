@@ -899,25 +899,6 @@ select,
   opacity: 0.6;
 }
 
-/* "로고 칸" 버튼을 누르면 잠깐 켜진다 — 늘 옅게 보이는 점선이라 놓치기 쉬워서 잠깐 도드라지게 한다. */
-.logo-line-emphasis {
-  animation: logo-line-pulse 1.3s ease-in-out 2;
-}
-
-@keyframes logo-line-pulse {
-  0%,
-  100% {
-    stroke-width: 0.25;
-    stroke-dasharray: 1.5 1;
-    opacity: 0.6;
-  }
-  50% {
-    stroke-width: 0.9;
-    stroke-dasharray: none;
-    opacity: 1;
-  }
-}
-
 /* 절취선의 색과 굵기는 core/style.ts가 정한다. PDF와 같은 값을 써야 하므로
    여기에 적지 않고 PaperPreview가 직접 넣는다. */
 
