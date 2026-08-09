@@ -10,18 +10,25 @@ import type { Mm } from './units';
  * 계산이어야 한다.
  */
 
+/** 테두리만 있는 것들의 공통 모양 — 도형·체크박스가 함께 쓴다. */
+interface Stroked {
+  strokeWidth?: Mm;
+  color?: string;
+  dash?: Dash;
+}
+
 /** 테두리 굵기. 정하지 않았으면 기본값(선과 같다). */
-export function strokeWidthOf(o: ShapeObject): Mm {
+export function strokeWidthOf(o: Stroked): Mm {
   return o.strokeWidth ?? OBJECT_LINE_WIDTH;
 }
 
 /** 테두리 색. 정하지 않았으면 기본값(선과 같다). */
-export function strokeColorOf(o: ShapeObject): string {
+export function strokeColorOf(o: Stroked): string {
   return o.color ?? OBJECT_LINE_COLOR;
 }
 
 /** 테두리 점선 모양. 정하지 않았으면 실선. */
-export function strokeDashOf(o: ShapeObject): Dash {
+export function strokeDashOf(o: Stroked): Dash {
   return o.dash ?? 'solid';
 }
 

@@ -42,6 +42,7 @@ import {
 import { insertSizeOf, placeSlot } from '../core/place';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import { cornerRadiusOf, roundedRectPath, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
+import { checkboxPath, iconOf } from '../core/checkbox';
 import {
   CONTENT_COLOR,
   CROP_COLOR,
@@ -57,6 +58,7 @@ import {
 import {
   imageRotateOf,
   isCalendar,
+  isCheckbox,
   isImage,
   isLine,
   isShape,
@@ -341,11 +343,12 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
      */
     pageFor: ((i: number) => number | null) | null,
   ) {
-    // 층 순서가 화면과 같아야 한다. 도트 → 선 → 도형 → 이미지 → 글자.
+    // 층 순서가 화면과 같아야 한다. 도트 → 선 → 도형 → 체크박스 → 이미지 → 글자.
     // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
     drawDotGrid(page, layout, resolveForSheet, flipY, mirror);
     drawObjects(page, layout, resolveForSheet, flipY);
     drawShapes(page, layout, resolveForSheet, flipY);
+    drawCheckboxes(page, layout, resolveForSheet, flipY);
     drawImages(page, layout, resolveForSheet, embeddedImages, flipY);
     if (bodyFont) {
       drawTexts(
@@ -830,6 +833,64 @@ function drawShapes(
         borderColor: color(strokeColorOf(o)),
         borderWidth: mmToPt(strokeW),
         borderDashArray: dashPattern(strokeDashOf(o), strokeW)?.map(mmToPt),
+        borderLineCap: OBJECT_LINE_CAP === 'round' ? LineCapStyle.Round : LineCapStyle.Butt,
+      });
+    }
+
+    page.pushOperators(popGraphicsState());
+  });
+}
+
+/**
+ * 체크박스 도장.
+ *
+ * drawShapes와 완전히 같은 방식이다 — `checkboxPath`가 만든 경로 문자열은
+ * 화면(ui/InsertView의 `CheckboxLayer`)과 같다. 아이콘마다 모양은 달라도
+ * 배선(자리·회전·굵기·색)은 도형과 다를 게 없어서 그대로 옮겨왔다.
+ */
+function drawCheckboxes(
+  page: PDFPage,
+  layout: Layout,
+  resolveSlot: (i: number) => SlotContent,
+  flipY: (y: Mm) => Mm,
+) {
+  const PT_PER_MM = mmToPt(1);
+  layout.slots.forEach((slot, i) => {
+    const objects = resolveSlot(i).objects.filter(isCheckbox);
+    if (objects.length === 0) return;
+
+    const insert = insertSizeOf(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated);
+
+    const corners = [
+      place.map(0, 0),
+      place.map(insert.width, 0),
+      place.map(insert.width, insert.height),
+      place.map(0, insert.height),
+    ].map((p) => ({ x: mmToPt(p.x), y: mmToPt(flipY(p.y)) }));
+
+    page.pushOperators(
+      pushGraphicsState(),
+      moveTo(corners[0].x, corners[0].y),
+      lineTo(corners[1].x, corners[1].y),
+      lineTo(corners[2].x, corners[2].y),
+      lineTo(corners[3].x, corners[3].y),
+      closePath(),
+      clip(),
+      endPath(),
+    );
+
+    for (const o of objects) {
+      const path = checkboxPath(iconOf(o), { x: 0, y: 0, width: o.width, height: o.height });
+      const strokeW = strokeWidthOf(o);
+      const p = place.map(o.x, o.y);
+      page.drawSvgPath(path, {
+        x: mmToPt(p.x),
+        y: mmToPt(flipY(p.y)),
+        scale: PT_PER_MM,
+        rotate: degrees(layout.rotated ? 90 : 0),
+        borderColor: color(strokeColorOf(o)),
+        borderWidth: mmToPt(strokeW),
         borderLineCap: OBJECT_LINE_CAP === 'round' ? LineCapStyle.Round : LineCapStyle.Butt,
       });
     }

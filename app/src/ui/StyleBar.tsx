@@ -3,12 +3,14 @@ import {
   boundsOfObjects,
   imageRotateOf,
   isCalendar,
+  isCheckbox,
   isImage,
   isLine,
   isShape,
   isText,
   type CalendarObject,
   type CalendarStyle,
+  type CheckboxStyle,
   type ImageObject,
   type LineObject,
   type LineStyle,
@@ -93,6 +95,9 @@ export function StyleBar({
   const drawStyle = useStore((s) => s.drawStyle);
   const setDrawStyle = useStore((s) => s.setDrawStyle);
   const setTextDraftStyle = useStore((s) => s.setTextDraftStyle);
+  const checkboxDraftStyle = useStore((s) => s.checkboxDraftStyle);
+  const setCheckboxDraftStyle = useStore((s) => s.setCheckboxDraftStyle);
+  const styleCheckbox = useStore((s) => s.styleCheckbox);
   const tool = useStore((s) => s.tool);
 
   // 입력 중인 상자가 있으면 그것부터 — 지금 쓰고 있는 글자를 고치는 게 우선이다.
@@ -114,16 +119,20 @@ export function StyleBar({
   const pickedCalendars = picked.filter(isCalendar);
   const pickedImages = picked.filter(isImage);
   const pickedShapes = picked.filter(isShape);
+  const pickedCheckboxes = picked.filter(isCheckbox);
   const size = boundsOfObjects(picked);
 
   // 무엇 하나를 골랐거나 그 도구를 쓰는 중이면 그 속성을, 아니면 선 속성을 보여준다.
   const showCalendar = tool === 'calendar' || pickedCalendars.length > 0;
   const showImage = !showCalendar && (tool === 'image' || pickedImages.length > 0);
   const showShape = !showCalendar && !showImage && (tool === 'shape' || pickedShapes.length > 0);
+  const showCheckbox =
+    !showCalendar && !showImage && !showShape && (tool === 'checkbox' || pickedCheckboxes.length > 0);
   const showText =
     !showCalendar &&
     !showImage &&
     !showShape &&
+    !showCheckbox &&
     (tool === 'text' || tool === 'field' || (pickedTexts.length > 0 && pickedLines.length === 0));
 
   return (
@@ -151,7 +160,9 @@ export function StyleBar({
                     ? '놓을 이미지'
                     : tool === 'shape'
                       ? '그릴 도형'
-                      : '그릴 선'}
+                      : tool === 'checkbox'
+                        ? '찍을 체크박스'
+                        : '그릴 선'}
         </span>
       )}
 
@@ -161,6 +172,11 @@ export function StyleBar({
         <ImageControls images={pickedImages} />
       ) : showShape ? (
         <ShapeControls shapes={pickedShapes} />
+      ) : showCheckbox ? (
+        <CheckboxControls
+          items={pickedCheckboxes.length > 0 ? pickedCheckboxes : [checkboxDraftStyle]}
+          apply={pickedCheckboxes.length > 0 ? styleCheckbox : setCheckboxDraftStyle}
+        />
       ) : showText ? (
         <>
           {/* 이미 만든 글자를 골랐을 때만 자동 필드로 바꿀 수 있다. 아직 쓰는
@@ -394,6 +410,73 @@ function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
         <option value="">실선</option>
         <option value="dashed">파선</option>
         <option value="dotted">점선</option>
+      </select>
+    </>
+  );
+}
+
+/**
+ * 체크박스 아이콘 모양·테두리 굵기·색.
+ *
+ * TextControls와 같은 틀이다(`items`·`apply`) — 아직 찍은 체크박스가
+ * 없어도(도구만 고른 상태) **다음에 찍을 모양**을 여기서 미리 고를 수
+ * 있다. 매번 네모로 찍고 하나하나 고치는 게 아니라, 별을 찍고 싶으면
+ * 찍기 전에 별을 고르는 쪽이 자연스럽다.
+ */
+function CheckboxControls({
+  items,
+  apply,
+}: {
+  items: CheckboxStyle[];
+  apply: (patch: CheckboxStyle) => void;
+}) {
+  const mixed = (key: keyof CheckboxStyle) => items.length > 1 && !items.every((o) => o[key] === items[0][key]);
+  const val = (key: 'strokeWidth' | 'color', dflt: number | string) => {
+    if (mixed(key)) return 'mixed';
+    const v = items[0][key] ?? dflt;
+    return v === dflt ? '' : String(v);
+  };
+
+  return (
+    <>
+      <select
+        value={mixed('icon') ? 'mixed' : (items[0].icon ?? 'square')}
+        onChange={(e) => apply({ icon: e.target.value as CheckboxStyle['icon'] })}
+        title="아이콘 모양"
+      >
+        {mixed('icon') && <option value="mixed">—</option>}
+        <option value="square">네모</option>
+        <option value="circle">동그라미</option>
+        <option value="triangle">세모</option>
+        <option value="diamond">다이아</option>
+        <option value="star">별</option>
+        <option value="heart">하트</option>
+      </select>
+
+      <select
+        value={val('strokeWidth', OBJECT_LINE_WIDTH)}
+        onChange={(e) => apply({ strokeWidth: e.target.value ? Number(e.target.value) : undefined })}
+        title="테두리 굵기"
+      >
+        {mixed('strokeWidth') && <option value="mixed">—</option>}
+        {WIDTHS.map((w) => (
+          <option key={w} value={w === OBJECT_LINE_WIDTH ? '' : w}>
+            {w}mm
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={val('color', OBJECT_LINE_COLOR)}
+        onChange={(e) => apply({ color: e.target.value || undefined })}
+        title="테두리 색"
+      >
+        {mixed('color') && <option value="mixed">—</option>}
+        {COLORS.map((c) => (
+          <option key={c.id} value={c.id === OBJECT_LINE_COLOR ? '' : c.id}>
+            {c.label}
+          </option>
+        ))}
       </select>
     </>
   );

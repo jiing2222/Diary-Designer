@@ -157,6 +157,16 @@ export function ShapeIcon() {
   );
 }
 
+/** 체크박스 — 네모 안에 체크 표시. */
+export function CheckboxIcon() {
+  return (
+    <svg {...box}>
+      <rect x={3.5} y={3.5} width={13} height={13} rx={1.5} />
+      <path d="M6.5 10.3 L9 13 L14 7.5" />
+    </svg>
+  );
+}
+
 /** 반복 — 겹쳐 쌓인 종이 두 장. 여러 장 찍는다는 뜻이다. 다른 아이콘처럼 선으로만 그린다. */
 export function RepeatIcon() {
   return (

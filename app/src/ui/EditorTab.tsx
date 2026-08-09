@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { cellAt, gridArea, gridLattice, tableLines, tableSize } from '../core/grid';
+import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize } from '../core/grid';
+import { checkboxIconBox } from '../core/checkbox';
 import { holeCenterX } from '../core/punch';
 import { moveDelta, snapToLattice } from '../core/snap';
 import { canRedo, canUndo } from '../core/history';
@@ -11,6 +12,7 @@ import {
   growBox,
   imageRotateOf,
   isBoxResizable,
+  isBoxShaped,
   isImage,
   isLine,
   isLocked,
@@ -30,7 +32,17 @@ import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type 
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
-import { CalendarIcon, CursorIcon, FieldIcon, ImageIcon, LineIcon, ShapeIcon, TableIcon, TextIcon } from './icons';
+import {
+  CalendarIcon,
+  CheckboxIcon,
+  CursorIcon,
+  FieldIcon,
+  ImageIcon,
+  LineIcon,
+  ShapeIcon,
+  TableIcon,
+  TextIcon,
+} from './icons';
 import { measureTextBox } from './measureText';
 import { familyOf } from '../fonts/registry';
 import { PX_PER_MM_AT_100 } from './pixels';
@@ -97,6 +109,7 @@ export function EditorTab() {
   const commitImage = useStore((s) => s.commitImage);
   const draftImageId = useStore((s) => s.draftImageId);
   const commitShape = useStore((s) => s.commitShape);
+  const commitCheckboxes = useStore((s) => s.commitCheckboxes);
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
   const userFonts = useStore((s) => s.userFonts);
@@ -299,6 +312,7 @@ export function EditorTab() {
       if (e.key.toLowerCase() === 'c') setTool('calendar');
       if (e.key.toLowerCase() === 'i') setTool('image');
       if (e.key.toLowerCase() === 's') setTool('shape');
+      if (e.key.toLowerCase() === 'x') setTool('checkbox');
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -414,7 +428,7 @@ export function EditorTab() {
     }
 
     for (const o of [...objects].reverse()) {
-      if (!isBoxResizable(o) || isLocked(o)) continue;
+      if (!isBoxShaped(o) || isLocked(o)) continue;
       const b = boxOf(o);
       // 이미지는 돌아가 있을 수 있다 — 회전 전 좌표로 되돌려 상자와 견준다.
       const test = toLocal(o, p);
@@ -470,9 +484,20 @@ export function EditorTab() {
     if (!raw) return;
     e.currentTarget.setPointerCapture(e.pointerId);
 
+    // 이미 찍은 체크박스를 클릭하면(달력·이미지·도형처럼) 고르고 옮길 수
+    // 있게 한다 — 빈 곳이면 표와 같은 몸짓(칸 범위 드래그)으로 새로 찍는다.
+    if (tool === 'checkbox') {
+      const hit = hitAt(raw);
+      if (hit) {
+        startMove(hit, raw, e);
+        return;
+      }
+      if (snap) setDragBoth({ kind: 'draw', from: snap, to: snap });
+      return;
+    }
+
     // 표도 몸짓은 그리기(면)와 똑같이 점에서 끄는 드래그다. 그 사이에서
-    // 실제로 무엇이 생기는지(테두리만인지 안쪽 칸 선까지인지)는 onUp이
-    // 지금 도구를 보고 가른다.
+    // 실제로 무엇이 생기는지는 onUp이 지금 도구를 보고 가른다.
     if (tool === 'draw' || tool === 'table') {
       if (snap) setDragBoth({ kind: 'draw', from: snap, to: snap });
       return;
@@ -696,6 +721,19 @@ export function EditorTab() {
       return;
     }
 
+    /*
+     * 체크박스 — 표와 같은 몸짓(칸 범위 드래그)이지만, 안쪽 칸 선 대신
+     * 칸마다 하나씩 아이콘을 찍는다. 표와 같은 이유로 끌지 않으면(점
+     * 하나) 아무 일도 하지 않는다 — 1칸이라도 그 칸의 두 대각 모서리를
+     * 끌어야 찍힌다.
+     */
+    if (tool === 'checkbox') {
+      if (d.from.x !== d.to.x || d.from.y !== d.to.y) {
+        commitCheckboxes(cellsIn(lattice, d.from, d.to).map(checkboxIconBox));
+      }
+      return;
+    }
+
     // 그리기 — 같은 점에서 뗐으면 클릭(선), 다른 점이면 끌기(면)
     const moved = d.from.x !== d.to.x || d.from.y !== d.to.y;
     if (moved) {
@@ -732,11 +770,11 @@ export function EditorTab() {
   }
 
   const marquee = drag?.kind === 'marquee' ? rectOf(drag.from, drag.to) : null;
-  // 표를 끄는 중이면 미리보기도 안쪽 칸 선까지 함께 보여준다 — 몇 칸짜리
-  // 표가 될지 손을 떼기 전에 알아야 한다.
+  // 표·체크박스를 끄는 중이면 미리보기도 안쪽 칸 선까지 함께 보여준다 —
+  // 몇 칸짜리(체크박스면 몇 개가 찍힐지)를 손을 떼기 전에 알아야 한다.
   const ghost =
     drag?.kind === 'draw'
-      ? tool === 'table'
+      ? tool === 'table' || tool === 'checkbox'
         ? tableLines(lattice, drag.from, drag.to)
         : rectLines(drag.from, drag.to)
       : null;
@@ -767,10 +805,10 @@ export function EditorTab() {
   // 지금 그리는 것의 치수. 면이면 가로 × 세로, 선이면 길이.
   const sizeLabel = (() => {
     if (drag?.kind === 'draw') {
-      // 표는 mm가 아니라 몇 칸인지가 더 궁금하다. 그리기(선·면)는 지금처럼 mm.
-      if (tool === 'table') {
+      // 표·체크박스는 mm가 아니라 몇 칸인지가 더 궁금하다. 그리기(선·면)는 지금처럼 mm.
+      if (tool === 'table' || tool === 'checkbox') {
         const { cols, rows } = tableSize(lattice, drag.from, drag.to);
-        return `${cols} × ${rows}칸`;
+        return tool === 'checkbox' ? `${cols * rows}개` : `${cols} × ${rows}칸`;
       }
       return sizeLabelOf(rectLines(drag.from, drag.to));
     }
@@ -828,6 +866,9 @@ export function EditorTab() {
           <ToolBtn on={tool === 'shape'} onClick={() => setTool('shape')} title="도형 (S)">
             <ShapeIcon />
           </ToolBtn>
+          <ToolBtn on={tool === 'checkbox'} onClick={() => setTool('checkbox')} title="체크박스 (X)">
+            <CheckboxIcon />
+          </ToolBtn>
         </div>
 
         {selectedIds.length > 0 ||
@@ -837,7 +878,8 @@ export function EditorTab() {
         tool === 'field' ||
         tool === 'calendar' ||
         tool === 'image' ||
-        tool === 'shape' ? (
+        tool === 'shape' ||
+        tool === 'checkbox' ? (
           <StyleBar
             editing={editing}
             setEditingStyle={setEditingStyle}

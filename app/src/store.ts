@@ -35,6 +35,8 @@ import {
   type CalendarStyle,
   type DiaryObject,
   type ImageObject,
+  type CheckboxObject,
+  type CheckboxStyle,
   type LineSeg,
   type LineStyle,
   type ShapeObject,
@@ -110,6 +112,8 @@ interface Settings {
    * 나중에 기본값을 바꾸면 그때 그은 선들도 같이 따라온다.
    */
   drawStyle: LineStyle;
+  /** 앞으로 찍을 체크박스의 모양. drawStyle의 체크박스 판이다. */
+  checkboxDraftStyle: CheckboxStyle;
   /** 앞으로 쓸 글자의 모양. drawStyle의 글자 판이다. */
   textDraftStyle: TextStyle;
   /**
@@ -282,6 +286,12 @@ interface Store extends Settings {
   commitShape: (box: Box) => void;
   /** 고른 도형들의 둥글기·테두리 굵기·색·모양. */
   styleShape: (patch: ShapeStyle) => void;
+  /** 앞으로 찍을 체크박스의 모양. */
+  setCheckboxDraftStyle: (patch: CheckboxStyle) => void;
+  /** 걸친 칸마다 하나씩 새 체크박스 오브젝트를 만든다(표처럼 범위 드래그). */
+  commitCheckboxes: (boxes: Box[]) => void;
+  /** 고른 체크박스들의 아이콘·테두리 굵기·색. */
+  styleCheckbox: (patch: CheckboxStyle) => void;
   /** 저장 파일에서 읽은 양식들로 통째로 갈아끼운다. */
   loadProject: (p: SavedProject) => void;
   undo: () => void;
@@ -306,7 +316,16 @@ interface Store extends Settings {
   patchUnprintable: (p: Partial<UnprintableSetting>) => void;
 }
 
-export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar' | 'image' | 'shape';
+export type Tool =
+  | 'select'
+  | 'draw'
+  | 'text'
+  | 'table'
+  | 'field'
+  | 'calendar'
+  | 'image'
+  | 'shape'
+  | 'checkbox';
 export type Side = 'front' | 'back';
 
 /** 더 이상 존재하지 않는 id를 선택 목록에서 걷어낸다. */
@@ -458,6 +477,7 @@ export const useStore = create<Store>((set) => ({
   tool: 'draw',
   selectedIds: [],
   drawStyle: {},
+  checkboxDraftStyle: {},
   textDraftStyle: {},
   userFonts: [],
   userImages: [],
@@ -758,6 +778,36 @@ export const useStore = create<Store>((set) => ({
         if (o.type !== 'shape' || !s.selectedIds.includes(o.id)) return o;
         const merged = { ...o, ...patch };
         for (const k of Object.keys(patch) as (keyof ShapeStyle)[]) {
+          if (patch[k] === undefined) delete merged[k];
+        }
+        return merged;
+      });
+      return commitObjects(s, next);
+    }),
+
+  setCheckboxDraftStyle: (patch) =>
+    set((s) => ({ checkboxDraftStyle: { ...s.checkboxDraftStyle, ...patch } })),
+
+  commitCheckboxes: (boxes) =>
+    set((s) => {
+      if (boxes.length === 0) return {};
+      const next: CheckboxObject[] = boxes.map((box) => ({
+        id: newId('ch'),
+        type: 'checkbox',
+        ...box,
+        ...s.checkboxDraftStyle,
+      }));
+      // 표와 같은 이유로 찍자마자 전부 고른 상태로 둔다.
+      return { ...commitObjects(s, [...activeObjects(s), ...next]), selectedIds: next.map((o) => o.id) };
+    }),
+
+  styleCheckbox: (patch) =>
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      const next = activeObjects(s).map((o) => {
+        if (o.type !== 'checkbox' || !s.selectedIds.includes(o.id)) return o;
+        const merged = { ...o, ...patch };
+        for (const k of Object.keys(patch) as (keyof CheckboxStyle)[]) {
           if (patch[k] === undefined) delete merged[k];
         }
         return merged;

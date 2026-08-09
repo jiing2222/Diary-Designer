@@ -1100,3 +1100,38 @@ describe('도형', () => {
     expect(bytes.byteLength).toBeGreaterThan(0);
   });
 });
+
+describe('체크박스', () => {
+  const base = {
+    paperWidth: 210,
+    paperHeight: 297,
+    layout,
+    dotGrid: DEFAULT_DOT_GRID,
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+
+  // 아이콘 모양 자체(꼭짓점·곡선)는 core/checkbox.test.ts가 이미 꼼꼼히
+  // 잰다. 여기서는 pdf-lib의 drawSvgPath로 넘기는 배선이 아이콘마다
+  // 안전한지만 본다 — 특히 하트(베지어)와 별(꺾인 점 10개)이 문제없는지.
+  it.each(['square', 'circle', 'triangle', 'diamond', 'star', 'heart'] as const)(
+    '%s 아이콘도 안전하게 만들어진다',
+    async (icon) => {
+      const bytes = await buildPdf({
+        ...base,
+        objects: [{ id: 'ch1', type: 'checkbox' as const, x: 5, y: 5, width: 8, height: 8, icon }],
+      });
+      expect(bytes.byteLength).toBeGreaterThan(0);
+    },
+  );
+
+  it('회전 배치(M5 등)에서도 안전하게 만들어진다', async () => {
+    const bytes = await buildPdf({
+      ...base,
+      layout: { ...layout, rotated: true },
+      objects: [{ id: 'ch1', type: 'checkbox' as const, x: 5, y: 5, width: 8, height: 8, icon: 'star' as const }],
+    });
+    expect(bytes.byteLength).toBeGreaterThan(0);
+  });
+});

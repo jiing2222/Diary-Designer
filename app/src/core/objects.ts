@@ -206,7 +206,39 @@ export interface ShapeObject {
   locked?: boolean;
 }
 
-export type DiaryObject = LineObject | TextObject | CalendarObject | ImageObject | ShapeObject;
+/** 체크박스에 찍을 수 있는 아이콘 모양. */
+export type CheckboxIcon = 'square' | 'circle' | 'triangle' | 'diamond' | 'star' | 'heart';
+
+/**
+ * 체크박스 — 표처럼 칸 범위를 드래그하면 그 칸마다 하나씩 찍히는 도장.
+ *
+ * 인쇄물이라 켜고 끄는 상태(토글)가 없다 — 나중에 손으로 표시한다. 상자는
+ * 도장 찍힌 칸 자체가 아니라 그 칸보다 살짝 작게 줄인 자리다(core/checkbox의
+ * `checkboxIconBox`가 찍을 때 미리 계산해 넣는다).
+ */
+export interface CheckboxObject {
+  id: string;
+  type: 'checkbox';
+  x: Mm;
+  y: Mm;
+  width: Mm;
+  height: Mm;
+  /** 아이콘 모양. 정하지 않았으면 네모. */
+  icon?: CheckboxIcon;
+  /** 테두리 굵기·색. ShapeObject와 같은 규칙 — 값이 없으면 core/shape의 기본값. */
+  strokeWidth?: Mm;
+  color?: string;
+  /** 잠갔는가. LineObject의 `locked` 참고. */
+  locked?: boolean;
+}
+
+export type DiaryObject =
+  | LineObject
+  | TextObject
+  | CalendarObject
+  | ImageObject
+  | ShapeObject
+  | CheckboxObject;
 
 export function isLine(o: DiaryObject): o is LineObject {
   return o.type === 'line';
@@ -228,9 +260,18 @@ export function isShape(o: DiaryObject): o is ShapeObject {
   return o.type === 'shape';
 }
 
-/** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 글자는 아직 아니다(만들 때만 크기가 정해진다). */
+export function isCheckbox(o: DiaryObject): o is CheckboxObject {
+  return o.type === 'checkbox';
+}
+
+/** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 글자·체크박스는 아직 아니다(만들 때만 크기가 정해진다). */
 export function isBoxResizable(o: DiaryObject): o is CalendarObject | ImageObject | ShapeObject {
   return isCalendar(o) || isImage(o) || isShape(o);
+}
+
+/** 자기 상자(x·y·width·height)로 클릭 판정을 하는 오브젝트인가. 크기조정 가능 여부와는 다르다 — 체크박스는 상자로 골라지지만 손잡이는 없다. */
+export function isBoxShaped(o: DiaryObject): o is CalendarObject | ImageObject | ShapeObject | CheckboxObject {
+  return isBoxResizable(o) || isCheckbox(o);
 }
 
 /** 잠겼는가. 정하지 않았으면(대부분) 잠기지 않은 것이다. */
@@ -263,6 +304,8 @@ export type CalendarStyle = Partial<
 export type ImageStyle = Partial<Pick<ImageObject, 'rotate'>>;
 /** 도형마다 따로 정할 수 있는 것들. */
 export type ShapeStyle = Partial<Pick<ShapeObject, 'roundness' | 'strokeWidth' | 'color' | 'dash'>>;
+/** 체크박스마다 따로 정할 수 있는 것들. */
+export type CheckboxStyle = Partial<Pick<CheckboxObject, 'icon' | 'strokeWidth' | 'color'>>;
 
 /**
  * undefined인 키를 걷어낸다. 객체에 값이 없어야 기본값을 따라간다.

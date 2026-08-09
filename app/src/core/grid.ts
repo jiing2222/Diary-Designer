@@ -420,3 +420,24 @@ export function tableLines(lattice: Lattice, a: Dot, b: Dot): Segment[] {
   for (const x of xs) lines.push({ x1: x, y1: top, x2: x, y2: bottom });
   return lines;
 }
+
+/**
+ * 두 점 사이에 걸친 칸 하나하나의 자리. 위 줄, 왼쪽부터 순서대로.
+ *
+ * `tableSize`·`tableLines`와 같은 격자점(`between`)을 본다 — 몇 칸인지와
+ * 실제 칸의 자리가 서로 다른 계산에서 나오면 언젠가 어긋난다. 체크박스
+ * 도장처럼 범위 안 칸마다 하나씩 무언가를 놓을 때 쓴다.
+ */
+export function cellsIn(lattice: Lattice, a: Dot, b: Dot): Area[] {
+  const xs = between(lattice.xs, a.x, b.x);
+  const ys = between(lattice.ys, a.y, b.y);
+  if (xs.length < 2 || ys.length < 2) return [];
+
+  const areas: Area[] = [];
+  for (let ri = 0; ri < ys.length - 1; ri++) {
+    for (let ci = 0; ci < xs.length - 1; ci++) {
+      areas.push({ x: xs[ci], y: ys[ri], width: xs[ci + 1] - xs[ci], height: ys[ri + 1] - ys[ri] });
+    }
+  }
+  return areas;
+}
