@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeLayout, mirrorLayout } from './layout';
-import { holeCenterX, holeCentersY, suggestGroupGap, type PunchSetting } from './punch';
+import { holeCenterX, holeCentersY, logoSlotAreas, suggestGroupGap, type PunchSetting } from './punch';
 import { INSERT_PRESETS } from './presets';
 
 const punch = (holeCount: number, groupGap: number | null, markSize: number): PunchSetting => ({
@@ -303,5 +303,49 @@ describe('타공 위치', () => {
     const m5 = holeCentersY(105, punch(5, null, 4));
     const m5tri = holeCentersY(105, punch(5, null, 4));
     expect(m5tri).toEqual(m5);
+  });
+});
+
+describe('로고 칸 자리', () => {
+  it('M6 — 고른 배치라 맨 위·맨 아래 여백에 하나씩 난다', () => {
+    // M6: 125mm, 구멍 6개, 균등 배치. 첫 구멍 15mm, 마지막 구멍 110mm.
+    const areas = logoSlotAreas(80, 125, punch(6, null, 4));
+    expect(areas).toHaveLength(2);
+    expect(areas[0]).toEqual({ x: 0, y: 2, width: 10, height: 9 });
+    expect(areas[1]).toEqual({ x: 0, y: 114, width: 10, height: 9 });
+  });
+
+  it('M5 — 마찬가지로 위아래 두 자리다', () => {
+    const areas = logoSlotAreas(62, 105, punch(5, null, 4));
+    expect(areas).toHaveLength(2);
+    expect(areas[0]).toEqual({ x: 0, y: 2, width: 10, height: 8.5 });
+    expect(areas[1]).toEqual({ x: 0, y: 94.5, width: 10, height: 8.5 });
+  });
+
+  it('A5 — 3+3 묶음 사이 한 자리만 난다', () => {
+    // A5: 210mm, 구멍 6개, 묶음 사이 간격 70mm. 3번째 구멍 70mm, 4번째 140mm.
+    const areas = logoSlotAreas(148, 210, punch(6, 70, 6));
+    expect(areas).toHaveLength(1);
+    expect(areas[0]).toEqual({ x: 0, y: 75, width: 10, height: 60 });
+  });
+
+  it('뒷면(mirror)이면 오른쪽 끝 기준으로 뒤집는다', () => {
+    const front = logoSlotAreas(80, 125, punch(6, null, 4));
+    const back = logoSlotAreas(80, 125, punch(6, null, 4), true);
+    expect(back[0].x).toBe(80 - 10);
+    expect(back[0].y).toBe(front[0].y);
+    expect(back[0].width).toBe(front[0].width);
+  });
+
+  it('안전영역이 0이면(구멍 안내를 안 쓰면) 자리를 내지 않는다', () => {
+    const areas = logoSlotAreas(80, 125, { ...punch(6, null, 4), safeZoneWidth: 0 });
+    expect(areas).toHaveLength(0);
+  });
+
+  it('여백이 너무 좁으면(최소 높이 8mm 미만) 그 자리는 빠진다', () => {
+    // DA9(80mm, 구멍 3개)는 여백이 넉넉하다 — 일부러 속지를 작게 줄여 좁힌다.
+    // 구멍 span 38mm + 여유 8mm뿐이라 위아래 각각 2mm씩만 남는다(8mm 문턱 미만).
+    const areas = logoSlotAreas(60, 46, punch(3, null, 4));
+    expect(areas).toHaveLength(0);
   });
 });

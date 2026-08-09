@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cellAt, gridArea, gridLattice, tableLines, tableSize } from '../core/grid';
+import { logoSlotAreas } from '../core/punch';
 import { moveDelta, snapToLattice } from '../core/snap';
 import { canRedo, canUndo } from '../core/history';
 import {
@@ -142,6 +143,10 @@ export function EditorTab() {
   // core가 세어준다. 끝까지 채울 때 가장자리에 붙는 잘린 띠는 칸이 아니다.
   const cellCols = lattice.cols;
   const cellRows = lattice.rows;
+
+  // 로고 칸 자리. PunchGuide가 같은 함수로 이미 점선을 보여주고 있다 — "로고 칸"
+  // 버튼은 그 자리 중 첫 번째에 글자를 바로 쓸 수 있게 연다.
+  const logoAreas = logoSlotAreas(insert.width, insert.height, insert.punch, side === 'back');
 
   // 새로 쓸 글자에 붙일 스타일. 줄 간격을 따로 정해두지 않았으면 지금 도트 간격이 새겨진다.
   const draftStyle = newTextStyle(textDraftStyle, grid.spacing);
@@ -683,6 +688,21 @@ export function EditorTab() {
           </span>
         )}
 
+        <button
+          className="ghost"
+          onClick={() => {
+            if (logoAreas.length === 0) return;
+            // 타공 옆 첫 자리에 바로 타이핑할 수 있게 연다. 타공부분이 위로
+            // 오게 종이를 돌렸을 때 바로 읽히도록 회전을 미리 걸어둔다 —
+            // 뒷면은 구멍이 반대쪽(오른쪽)이라 회전 방향도 반대다.
+            finishEditing();
+            setEditing({ box: logoAreas[0], text: '', style: { ...draftStyle, rotate: side === 'back' ? 90 : 270 } });
+          }}
+          disabled={logoAreas.length === 0}
+          title="타공 옆 여백에 로고·텍스트 칸을 만듭니다. 이미지는 점선 자리를 보고 직접 끌어다 놓으세요"
+        >
+          로고 칸
+        </button>
         <button
           className="ghost"
           onClick={deleteSelected}

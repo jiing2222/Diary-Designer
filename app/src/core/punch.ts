@@ -95,3 +95,54 @@ export function topMargin(insertHeight: Mm, punch: PunchSetting): Mm {
   const centers = holeCentersY(insertHeight, punch);
   return centers[0] - punch.markSize / 2;
 }
+
+/** 로고 칸과 구멍 사이에 남기는 최소 여백. */
+const LOGO_GAP: Mm = 2;
+/** 이보다 낮아지면 로고 칸으로 쓸모없다고 보고 그 자리를 아예 내지 않는다. */
+const LOGO_MIN_HEIGHT: Mm = 8;
+
+/**
+ * 로고·텍스트를 놓기 좋은 자리 — 안전영역(구멍이 있는 폭) 안에서, 구멍과
+ * 겹치지 않는 빈 칸.
+ *
+ * 구멍이 고르게 한 줄로 배치된 규격(`groupGap`이 null — M5·M6·DA9 등)은
+ * 맨 위 구멍 위, 맨 아래 구멍 아래에 여백이 남는다 — 그 두 자리에 하나씩
+ * 낸다. 3+3 묶음 배치 규격(`groupGap`이 있는 A5·TA6·DA6 등)은 두 묶음
+ * 사이에 이미 여백이 있어 그 한 자리만 낸다.
+ *
+ * 자리가 나올 만큼 여백이 없으면(속지가 작거나 안전영역이 좁으면) 그
+ * 자리는 빠진다 — 억지로 좁은 칸을 만들지 않는다.
+ */
+export function logoSlotAreas(
+  insertWidth: Mm,
+  insertHeight: Mm,
+  punch: PunchSetting,
+  mirror = false,
+): { x: Mm; y: Mm; width: Mm; height: Mm }[] {
+  const safeZoneWidth = punch.safeZoneWidth;
+  if (safeZoneWidth <= 0) return [];
+
+  const centers = holeCentersY(insertHeight, punch);
+  if (centers.length === 0) return [];
+
+  const x = mirror ? insertWidth - safeZoneWidth : 0;
+  const half = punch.markSize / 2;
+  const areas: { x: Mm; y: Mm; width: Mm; height: Mm }[] = [];
+
+  const addBox = (top: Mm, bottom: Mm) => {
+    const height = bottom - top - LOGO_GAP * 2;
+    if (height >= LOGO_MIN_HEIGHT) {
+      areas.push({ x, y: top + LOGO_GAP, width: safeZoneWidth, height });
+    }
+  };
+
+  if (punch.groupGap === null) {
+    addBox(0, centers[0] - half);
+    addBox(centers[centers.length - 1] + half, insertHeight);
+  } else {
+    const groupSize = punch.holeCount / 2;
+    addBox(centers[groupSize - 1] + half, centers[groupSize] - half);
+  }
+
+  return areas;
+}
