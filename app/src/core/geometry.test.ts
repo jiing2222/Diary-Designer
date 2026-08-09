@@ -307,45 +307,39 @@ describe('타공 위치', () => {
 });
 
 describe('로고 칸 자리', () => {
-  it('M6 — 고른 배치라 맨 위·맨 아래 여백에 하나씩 난다', () => {
-    // M6: 125mm, 구멍 6개, 균등 배치. 첫 구멍 15mm, 마지막 구멍 110mm.
+  it('M6 — 구멍이 6개면 인접한 쌍마다(5곳) 하나씩 난다', () => {
+    // M6: 125mm, 구멍 6개, 균등 배치(15, 34, 53, 72, 91, 110).
     const areas = logoSlotAreas(80, 125, punch(6, null, 4));
-    expect(areas).toHaveLength(2);
-    expect(areas[0]).toEqual({ x: 0, y: 2, width: 10, height: 9 });
-    expect(areas[1]).toEqual({ x: 0, y: 114, width: 10, height: 9 });
+    expect(areas).toHaveLength(5);
+    expect(areas[0]).toEqual({ x: 2, y: 19.5, width: 6, height: 10 });
+    expect(areas[1]).toEqual({ x: 2, y: 38.5, width: 6, height: 10 });
+    expect(areas[4]).toEqual({ x: 2, y: 95.5, width: 6, height: 10 });
   });
 
-  it('M5 — 마찬가지로 위아래 두 자리다', () => {
+  it('M5 — 구멍이 5개면 4곳이다', () => {
     const areas = logoSlotAreas(62, 105, punch(5, null, 4));
-    expect(areas).toHaveLength(2);
-    expect(areas[0]).toEqual({ x: 0, y: 2, width: 10, height: 8.5 });
-    expect(areas[1]).toEqual({ x: 0, y: 94.5, width: 10, height: 8.5 });
+    expect(areas).toHaveLength(4);
+    expect(areas[0]).toEqual({ x: 2, y: 19, width: 6, height: 10 });
+    expect(areas[3]).toEqual({ x: 2, y: 76, width: 6, height: 10 });
   });
 
-  it('A5 — 3+3 묶음 사이 한 자리만 난다', () => {
+  it('A5 — 3+3 묶음 사이 큰 빈 공간 한가운데 한 자리만 난다', () => {
     // A5: 210mm, 구멍 6개, 묶음 사이 간격 70mm. 3번째 구멍 70mm, 4번째 140mm.
     const areas = logoSlotAreas(148, 210, punch(6, 70, 6));
     expect(areas).toHaveLength(1);
-    expect(areas[0]).toEqual({ x: 0, y: 75, width: 10, height: 60 });
+    expect(areas[0]).toEqual({ x: 3, y: 100, width: 6, height: 10 });
   });
 
   it('뒷면(mirror)이면 오른쪽 끝 기준으로 뒤집는다', () => {
     const front = logoSlotAreas(80, 125, punch(6, null, 4));
     const back = logoSlotAreas(80, 125, punch(6, null, 4), true);
-    expect(back[0].x).toBe(80 - 10);
+    // 구멍 자체가 뒤집히는 것과 같은 자리(holeCenterX)를 기준으로 움직인다.
+    expect(back[0].x).toBe(80 - 5 - 3); // holeCenterX(mirror) - width/2
     expect(back[0].y).toBe(front[0].y);
     expect(back[0].width).toBe(front[0].width);
   });
 
-  it('안전영역이 0이면(구멍 안내를 안 쓰면) 자리를 내지 않는다', () => {
-    const areas = logoSlotAreas(80, 125, { ...punch(6, null, 4), safeZoneWidth: 0 });
-    expect(areas).toHaveLength(0);
-  });
-
-  it('여백이 너무 좁으면(최소 높이 8mm 미만) 그 자리는 빠진다', () => {
-    // DA9(80mm, 구멍 3개)는 여백이 넉넉하다 — 일부러 속지를 작게 줄여 좁힌다.
-    // 구멍 span 38mm + 여유 8mm뿐이라 위아래 각각 2mm씩만 남는다(8mm 문턱 미만).
-    const areas = logoSlotAreas(60, 46, punch(3, null, 4));
-    expect(areas).toHaveLength(0);
+  it('구멍이 하나뿐이면 인접한 쌍이 없어 자리도 없다', () => {
+    expect(logoSlotAreas(60, 80, punch(1, null, 4))).toHaveLength(0);
   });
 });

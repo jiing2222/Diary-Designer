@@ -20,8 +20,8 @@ import {
   type TextStyle,
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
-import { roundMm } from '../core/units';
-import { DEFAULT_FIELD_FORMAT, fieldPlaceholder, newTextStyle } from '../core/text';
+import { ptToMm, roundMm } from '../core/units';
+import { DEFAULT_FIELD_FORMAT, fieldPlaceholder, newTextStyle, rotateOf } from '../core/text';
 import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type Side } from '../store';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
@@ -49,6 +49,8 @@ import {
 } from './gestures';
 
 const ZOOMS = [50, 75, 100, 150, 200, 300, 400];
+/** 로고 칸(6×10mm)이 작아서, "로고 칸" 버튼이 여는 글자의 기본 크기는 앱 기본(9pt)보다 작다. */
+const LOGO_TEXT_SIZE_PT = 6;
 
 /**
  * 양식 만들기 화면.
@@ -694,9 +696,21 @@ export function EditorTab() {
             if (logoAreas.length === 0) return;
             // 타공 옆 첫 자리에 바로 타이핑할 수 있게 연다. 타공부분이 위로
             // 오게 종이를 돌렸을 때 바로 읽히도록 회전을 미리 걸어둔다 —
-            // 뒷면은 구멍이 반대쪽(오른쪽)이라 회전 방향도 반대다.
+            // 뒷면은 구멍이 반대쪽(오른쪽)이라 회전 방향도 반대다. 칸이
+            // 6×10mm로 작아서 지금 쓰던 글자 크기 대신 6pt·가운데 정렬을
+            // 기본값으로 둔다.
             finishEditing();
-            setEditing({ box: logoAreas[0], text: '', style: { ...draftStyle, rotate: side === 'back' ? 90 : 270 } });
+            setEditing({
+              box: logoAreas[0],
+              text: '',
+              style: {
+                ...draftStyle,
+                size: ptToMm(LOGO_TEXT_SIZE_PT),
+                align: 'center',
+                valign: 'middle',
+                rotate: side === 'back' ? 90 : 270,
+              },
+            });
           }}
           disabled={logoAreas.length === 0}
           title="타공 옆 여백에 로고·텍스트 칸을 만듭니다. 이미지는 점선 자리를 보고 직접 끌어다 놓으세요"
@@ -1052,6 +1066,12 @@ function TextInput({
   const at = svg.getBoundingClientRect();
   const left = at.left - wrap.left + box.x * scale;
   const top = at.top - wrap.top + box.y * scale;
+  // 회전한 글자를 고치는 중이면 입력칸도 같이 돌아가 있어야 한다 — 안 그러면
+  // 타이핑하는 자리와 실제로 저장될 자리가 달라 보여서 "상자 밖에서 고치는"
+  // 것처럼 보인다. CSS의 rotate() 부호는 core/text의 textRotationOf가 화면에
+  // 쓰는 SVG matrix()와 같은 손 방향이다(둘 다 브라우저 좌표계라 그대로 맞는다).
+  const rotate = rotateOf(editing.style);
+  const cssRotate = rotate === 90 ? 90 : rotate === 270 ? -90 : 0;
 
   return (
     <textarea
@@ -1069,6 +1089,8 @@ function TextInput({
         // 이 글자에 새겨둔 줄 간격을 그대로 쓴다 — 타이핑 중과 커밋 후가
         // 같은 자리로 보여야 한다.
         lineHeight: `${(editing.style.lineHeight ?? size) * scale}px`,
+        transform: cssRotate ? `rotate(${cssRotate}deg)` : undefined,
+        transformOrigin: cssRotate ? 'center' : undefined,
       }}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={(e) => {
