@@ -13,6 +13,7 @@ import {
   TEXT_COLOR,
 } from '../core/style';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
+import { cornerRadiusOf, roundedRectPath, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
 import { calendarLayout, weekdayLabels, weekdayLangOf, weekStartOf, showAdjacentOf } from '../core/calendar';
 import { calendarCellAt, calendarTitleAt } from '../core/dataset';
 import { formatDate } from '../core/format';
@@ -35,12 +36,14 @@ import {
   isCalendar,
   isImage,
   isLine,
+  isShape,
   isText,
   rotationOf,
   type CalendarObject,
   type DiaryObject,
   type ImageObject,
   type LineObject,
+  type ShapeObject,
   type TextObject,
 } from '../core/objects';
 import type { Mm } from '../core/units';
@@ -122,11 +125,34 @@ export function InsertView({
         <rect x={0} y={0} width={insert.width} height={insert.height} />
       </clipPath>
       <g clipPath={mode === 'print' ? `url(#${clipId})` : undefined}>
+        <ShapeLayer objects={objects.filter(isShape)} />
         <ImageLayer objects={objects.filter(isImage)} />
         <TextLayer objects={objects.filter(isText)} hiddenId={hiddenId} />
         <CalendarLayer objects={objects.filter(isCalendar)} context={calendarContext} />
       </g>
     </>
+  );
+}
+
+/** 도형(사각형·타원) — 둥글기에 따라 core/shape의 `roundedRectPath`가 만든 경로 하나로 그린다. */
+function ShapeLayer({ objects }: { objects: ShapeObject[] }) {
+  return (
+    <g strokeLinecap={OBJECT_LINE_CAP}>
+      {objects.map((o) => {
+        const { rx, ry } = cornerRadiusOf(o, roundnessOf(o));
+        const width = strokeWidthOf(o);
+        return (
+          <path
+            key={o.id}
+            d={roundedRectPath(o, rx, ry)}
+            fill="none"
+            stroke={strokeColorOf(o)}
+            strokeWidth={width}
+            strokeDasharray={dashPattern(strokeDashOf(o), width)?.join(' ')}
+          />
+        );
+      })}
+    </g>
   );
 }
 

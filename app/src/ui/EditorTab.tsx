@@ -30,7 +30,7 @@ import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type 
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
-import { CalendarIcon, CursorIcon, FieldIcon, ImageIcon, LineIcon, TableIcon, TextIcon } from './icons';
+import { CalendarIcon, CursorIcon, FieldIcon, ImageIcon, LineIcon, ShapeIcon, TableIcon, TextIcon } from './icons';
 import { measureTextBox } from './measureText';
 import { familyOf } from '../fonts/registry';
 import { PX_PER_MM_AT_100 } from './pixels';
@@ -96,6 +96,7 @@ export function EditorTab() {
   const commitCalendar = useStore((s) => s.commitCalendar);
   const commitImage = useStore((s) => s.commitImage);
   const draftImageId = useStore((s) => s.draftImageId);
+  const commitShape = useStore((s) => s.commitShape);
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
   const userFonts = useStore((s) => s.userFonts);
@@ -297,6 +298,7 @@ export function EditorTab() {
       if (e.key.toLowerCase() === 'f') setTool('field');
       if (e.key.toLowerCase() === 'c') setTool('calendar');
       if (e.key.toLowerCase() === 'i') setTool('image');
+      if (e.key.toLowerCase() === 's') setTool('shape');
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -502,8 +504,8 @@ export function EditorTab() {
       return;
     }
 
-    if (tool === 'calendar' || tool === 'image') {
-      // 방금 놓은(또는 고른) 달력·이미지면 모서리 손잡이가 몸통보다 먼저다 —
+    if (tool === 'calendar' || tool === 'image' || tool === 'shape') {
+      // 방금 놓은(또는 고른) 달력·이미지·도형이면 모서리 손잡이가 몸통보다 먼저다 —
       // 도구를 select로 바꾸지 않고도 이어서 바로 크기를 다듬을 수 있다.
       const boxGripHit = boxHandleAt(raw);
       if (boxGripHit) {
@@ -631,7 +633,7 @@ export function EditorTab() {
       // 한 점에서 뗐으면 그 점이 든 칸 하나, 끌었으면 걸친 칸 전체가 상자다.
       const same = d.from.x === d.to.x && d.from.y === d.to.y;
 
-      if (tool === 'calendar' || tool === 'image') {
+      if (tool === 'calendar' || tool === 'image' || tool === 'shape') {
         // 표처럼 실제로 끌어야 만들어진다 — 그냥 눌렀다 뗀 칸 하나는 너무 작다.
         if (same) return;
         let box = {
@@ -643,6 +645,7 @@ export function EditorTab() {
         // 이미지는, 정렬선이 강조된 5초 동안이면 가운데를 그 줄에 맞춘다.
         if (tool === 'image' && logoLineEmphasis) box = centerOnLogoLine(box);
         if (tool === 'calendar') commitCalendar(box);
+        else if (tool === 'shape') commitShape(box);
         // 이미지 도구인데 아직 등록·선택한 이미지가 없으면 아무 일도 하지 않는다.
         else if (draftImageId) commitImage(box, draftImageId);
         return;
@@ -822,6 +825,9 @@ export function EditorTab() {
           <ToolBtn on={tool === 'image'} onClick={() => setTool('image')} title="이미지 (I)">
             <ImageIcon />
           </ToolBtn>
+          <ToolBtn on={tool === 'shape'} onClick={() => setTool('shape')} title="도형 (S)">
+            <ShapeIcon />
+          </ToolBtn>
         </div>
 
         {selectedIds.length > 0 ||
@@ -830,7 +836,8 @@ export function EditorTab() {
         tool === 'text' ||
         tool === 'field' ||
         tool === 'calendar' ||
-        tool === 'image' ? (
+        tool === 'image' ||
+        tool === 'shape' ? (
           <StyleBar
             editing={editing}
             setEditingStyle={setEditingStyle}

@@ -147,6 +147,16 @@ export function CalendarIcon() {
   );
 }
 
+/** 도형 — 각진 사각형과 원이 겹친 모양. 둥글기 0~4단계(사각형→원)를 그대로 보여준다. */
+export function ShapeIcon() {
+  return (
+    <svg {...box}>
+      <rect x={3.5} y={3.5} width={10} height={10} />
+      <circle cx={13} cy={13} r={4.5} />
+    </svg>
+  );
+}
+
 /** 반복 — 겹쳐 쌓인 종이 두 장. 여러 장 찍는다는 뜻이다. 다른 아이콘처럼 선으로만 그린다. */
 export function RepeatIcon() {
   return (

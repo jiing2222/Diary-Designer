@@ -5,12 +5,15 @@ import {
   isCalendar,
   isImage,
   isLine,
+  isShape,
   isText,
   type CalendarObject,
   type CalendarStyle,
   type ImageObject,
   type LineObject,
   type LineStyle,
+  type ShapeObject,
+  type ShapeStyle,
   type TextObject,
   type TextStyle,
 } from '../core/objects';
@@ -29,6 +32,7 @@ import {
   naturalLineHeight,
 } from '../core/text';
 import { showAdjacentOf, weekdayLangOf, weekStartOf } from '../core/calendar';
+import { roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
 import { FONT_ACCEPT, hasFont, registerFont } from '../fonts/registry';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
@@ -109,14 +113,17 @@ export function StyleBar({
   const pickedTexts = picked.filter(isText);
   const pickedCalendars = picked.filter(isCalendar);
   const pickedImages = picked.filter(isImage);
+  const pickedShapes = picked.filter(isShape);
   const size = boundsOfObjects(picked);
 
   // 무엇 하나를 골랐거나 그 도구를 쓰는 중이면 그 속성을, 아니면 선 속성을 보여준다.
   const showCalendar = tool === 'calendar' || pickedCalendars.length > 0;
   const showImage = !showCalendar && (tool === 'image' || pickedImages.length > 0);
+  const showShape = !showCalendar && !showImage && (tool === 'shape' || pickedShapes.length > 0);
   const showText =
     !showCalendar &&
     !showImage &&
+    !showShape &&
     (tool === 'text' || tool === 'field' || (pickedTexts.length > 0 && pickedLines.length === 0));
 
   return (
@@ -142,7 +149,9 @@ export function StyleBar({
                   ? '그릴 달력'
                   : tool === 'image'
                     ? '놓을 이미지'
-                    : '그릴 선'}
+                    : tool === 'shape'
+                      ? '그릴 도형'
+                      : '그릴 선'}
         </span>
       )}
 
@@ -150,6 +159,8 @@ export function StyleBar({
         <CalendarControls calendars={pickedCalendars} />
       ) : showImage ? (
         <ImageControls images={pickedImages} />
+      ) : showShape ? (
+        <ShapeControls shapes={pickedShapes} />
       ) : showText ? (
         <>
           {/* 이미 만든 글자를 골랐을 때만 자동 필드로 바꿀 수 있다. 아직 쓰는
@@ -305,6 +316,85 @@ function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
         />
         이전·다음 달 표시
       </label>
+    </>
+  );
+}
+
+/**
+ * 도형의 모서리 둥글기·테두리 굵기·색·모양.
+ *
+ * 달력과 같은 이유로 그린 도형이 없으면(도구만 고른 상태) 아무 조작칸도
+ * 없다 — 만들기 전 기본값을 바꿔 둘 자리가 없다. 값은 core/shape의
+ * 접근자로 읽는다 — 화면(ShapeLayer)·PDF(drawShapes)와 같은 함수라
+ * "정하지 않아서 기본값"과 "기본값을 직접 골라 정함"이 항상 같게 보인다.
+ */
+function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
+  const styleShape = useStore((s) => s.styleShape);
+  const editing = shapes.length > 0;
+  const first = shapes[0];
+
+  const roundnessMixed = editing && !shapes.every((o) => roundnessOf(o) === roundnessOf(first));
+  const strokeWidthMixed = editing && !shapes.every((o) => strokeWidthOf(o) === strokeWidthOf(first));
+  const colorMixed = editing && !shapes.every((o) => strokeColorOf(o) === strokeColorOf(first));
+  const dashMixed = editing && !shapes.every((o) => strokeDashOf(o) === strokeDashOf(first));
+
+  if (!editing) {
+    return null;
+  }
+
+  return (
+    <>
+      <select
+        value={roundnessMixed ? 'mixed' : roundnessOf(first)}
+        onChange={(e) =>
+          styleShape({ roundness: (e.target.value ? Number(e.target.value) : undefined) as ShapeStyle['roundness'] })
+        }
+        title="모서리 둥글기"
+      >
+        {roundnessMixed && <option value="mixed">—</option>}
+        <option value={0}>각짐</option>
+        <option value={1}>둥글기 1</option>
+        <option value={2}>둥글기 2</option>
+        <option value={3}>둥글기 3</option>
+        <option value={4}>원·타원</option>
+      </select>
+
+      <select
+        value={strokeWidthMixed ? 'mixed' : strokeWidthOf(first) === OBJECT_LINE_WIDTH ? '' : strokeWidthOf(first)}
+        onChange={(e) => styleShape({ strokeWidth: e.target.value ? Number(e.target.value) : undefined })}
+        title="테두리 굵기"
+      >
+        {strokeWidthMixed && <option value="mixed">—</option>}
+        {WIDTHS.map((w) => (
+          <option key={w} value={w === OBJECT_LINE_WIDTH ? '' : w}>
+            {w}mm
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={colorMixed ? 'mixed' : strokeColorOf(first) === OBJECT_LINE_COLOR ? '' : strokeColorOf(first)}
+        onChange={(e) => styleShape({ color: e.target.value || undefined })}
+        title="테두리 색"
+      >
+        {colorMixed && <option value="mixed">—</option>}
+        {COLORS.map((c) => (
+          <option key={c.id} value={c.id === OBJECT_LINE_COLOR ? '' : c.id}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={dashMixed ? 'mixed' : strokeDashOf(first) === 'solid' ? '' : strokeDashOf(first)}
+        onChange={(e) => styleShape({ dash: (e.target.value || undefined) as ShapeStyle['dash'] })}
+        title="테두리 모양"
+      >
+        {dashMixed && <option value="mixed">—</option>}
+        <option value="">실선</option>
+        <option value="dashed">파선</option>
+        <option value="dotted">점선</option>
+      </select>
     </>
   );
 }

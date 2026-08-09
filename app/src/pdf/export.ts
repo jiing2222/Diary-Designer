@@ -41,6 +41,7 @@ import {
 } from '../core/template';
 import { insertSizeOf, placeSlot } from '../core/place';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
+import { cornerRadiusOf, roundedRectPath, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
 import {
   CONTENT_COLOR,
   CROP_COLOR,
@@ -58,6 +59,7 @@ import {
   isCalendar,
   isImage,
   isLine,
+  isShape,
   isText,
   pdfRotateOf,
   rotationOf,
@@ -339,10 +341,11 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
      */
     pageFor: ((i: number) => number | null) | null,
   ) {
-    // 층 순서가 화면과 같아야 한다. 도트 → 선 → 이미지 → 글자.
+    // 층 순서가 화면과 같아야 한다. 도트 → 선 → 도형 → 이미지 → 글자.
     // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
     drawDotGrid(page, layout, resolveForSheet, flipY, mirror);
     drawObjects(page, layout, resolveForSheet, flipY);
+    drawShapes(page, layout, resolveForSheet, flipY);
     drawImages(page, layout, resolveForSheet, embeddedImages, flipY);
     if (bodyFont) {
       drawTexts(
@@ -761,6 +764,73 @@ function drawImages(
         width: mmToPt(o.width),
         height: mmToPt(o.height),
         rotate: degrees((layout.rotated ? 90 : 0) + pdfRotateOf(rotate)),
+      });
+    }
+
+    page.pushOperators(popGraphicsState());
+  });
+}
+
+/**
+ * 도형(사각형·타원).
+ *
+ * `roundedRectPath`가 만든 경로 문자열은 화면(ui/InsertView의 `ShapeLayer`)과
+ * 완전히 같다 — 둥근 정도가 다시 어긋나지 않는다. pdf-lib의 `drawSvgPath`는
+ * SVG처럼 y축이 아래로 향하는 경로를 받아 스스로 뒤집으므로(`scale(1,-1)`),
+ * 경로 자체는 상자의 왼쪽 위를 원점으로 한 mm 그대로 넘기고, `scale` 옵션으로
+ * pt로 바꾸며, `x`·`y`로 그 원점을 place.map이 정한 자리로 옮긴다.
+ *
+ * 회전 배치(`layout.rotated`)만 반영한다 — 도형 자신의 회전은 아직 없다.
+ * drawTexts·drawImages와 같은 방식(place.map으로 원점을 옮기고, rotate
+ * 옵션으로 그림 자체를 돌린다)이라 회전 배치에서도 같은 자리에 그려질
+ * 것으로 보이지만, 이 조합으로 실제 인쇄까지 확인한 것은 아니다.
+ */
+function drawShapes(
+  page: PDFPage,
+  layout: Layout,
+  resolveSlot: (i: number) => SlotContent,
+  flipY: (y: Mm) => Mm,
+) {
+  const PT_PER_MM = mmToPt(1);
+  layout.slots.forEach((slot, i) => {
+    const objects = resolveSlot(i).objects.filter(isShape);
+    if (objects.length === 0) return;
+
+    const insert = insertSizeOf(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated);
+
+    const corners = [
+      place.map(0, 0),
+      place.map(insert.width, 0),
+      place.map(insert.width, insert.height),
+      place.map(0, insert.height),
+    ].map((p) => ({ x: mmToPt(p.x), y: mmToPt(flipY(p.y)) }));
+
+    page.pushOperators(
+      pushGraphicsState(),
+      moveTo(corners[0].x, corners[0].y),
+      lineTo(corners[1].x, corners[1].y),
+      lineTo(corners[2].x, corners[2].y),
+      lineTo(corners[3].x, corners[3].y),
+      closePath(),
+      clip(),
+      endPath(),
+    );
+
+    for (const o of objects) {
+      const { rx, ry } = cornerRadiusOf(o, roundnessOf(o));
+      const path = roundedRectPath({ x: 0, y: 0, width: o.width, height: o.height }, rx, ry);
+      const strokeW = strokeWidthOf(o);
+      const p = place.map(o.x, o.y);
+      page.drawSvgPath(path, {
+        x: mmToPt(p.x),
+        y: mmToPt(flipY(p.y)),
+        scale: PT_PER_MM,
+        rotate: degrees(layout.rotated ? 90 : 0),
+        borderColor: color(strokeColorOf(o)),
+        borderWidth: mmToPt(strokeW),
+        borderDashArray: dashPattern(strokeDashOf(o), strokeW)?.map(mmToPt),
+        borderLineCap: OBJECT_LINE_CAP === 'round' ? LineCapStyle.Round : LineCapStyle.Butt,
       });
     }
 

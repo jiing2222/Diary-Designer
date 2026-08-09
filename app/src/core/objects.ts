@@ -178,7 +178,35 @@ export interface ImageObject {
   locked?: boolean;
 }
 
-export type DiaryObject = LineObject | TextObject | CalendarObject | ImageObject;
+/** 도형의 모서리 둥글기 단계. 0(각짐)~3(점점 더 둥긂), 4(원·타원). core/shape의 `cornerRadiusOf` 참고. */
+export type CornerRoundness = 0 | 1 | 2 | 3 | 4;
+
+/**
+ * 도형 — 사각형과 타원을 하나로 다룬다.
+ *
+ * `roundness`를 0에서 4까지 올리면 각진 사각형이 점점 둥근 사각형을
+ * 거쳐 4에서 원·타원이 된다 — 사각형·타원을 서로 다른 종류로 나누지
+ * 않고 값 하나로 잇는다(core/shape의 `roundedRectPath`). 지금은 테두리만
+ * 그린다 — 채우기는 없다.
+ */
+export interface ShapeObject {
+  id: string;
+  type: 'shape';
+  x: Mm;
+  y: Mm;
+  width: Mm;
+  height: Mm;
+  /** 모서리 둥글기. 정하지 않았으면 0(각짐). */
+  roundness?: CornerRoundness;
+  /** 테두리 굵기·색·모양. LineObject와 같은 규칙 — 값이 없으면 core/shape의 기본값. */
+  strokeWidth?: Mm;
+  color?: string;
+  dash?: Dash;
+  /** 잠갔는가. LineObject의 `locked` 참고. */
+  locked?: boolean;
+}
+
+export type DiaryObject = LineObject | TextObject | CalendarObject | ImageObject | ShapeObject;
 
 export function isLine(o: DiaryObject): o is LineObject {
   return o.type === 'line';
@@ -196,9 +224,13 @@ export function isImage(o: DiaryObject): o is ImageObject {
   return o.type === 'image';
 }
 
+export function isShape(o: DiaryObject): o is ShapeObject {
+  return o.type === 'shape';
+}
+
 /** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 글자는 아직 아니다(만들 때만 크기가 정해진다). */
-export function isBoxResizable(o: DiaryObject): o is CalendarObject | ImageObject {
-  return isCalendar(o) || isImage(o);
+export function isBoxResizable(o: DiaryObject): o is CalendarObject | ImageObject | ShapeObject {
+  return isCalendar(o) || isImage(o) || isShape(o);
 }
 
 /** 잠겼는가. 정하지 않았으면(대부분) 잠기지 않은 것이다. */
@@ -229,6 +261,8 @@ export type CalendarStyle = Partial<
 >;
 /** 이미지마다 따로 정할 수 있는 것들. */
 export type ImageStyle = Partial<Pick<ImageObject, 'rotate'>>;
+/** 도형마다 따로 정할 수 있는 것들. */
+export type ShapeStyle = Partial<Pick<ShapeObject, 'roundness' | 'strokeWidth' | 'color' | 'dash'>>;
 
 /**
  * undefined인 키를 걷어낸다. 객체에 값이 없어야 기본값을 따라간다.

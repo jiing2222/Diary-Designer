@@ -1058,3 +1058,45 @@ describe('회전한 이미지', () => {
     expect(bytes.byteLength).toBeGreaterThan(0);
   });
 });
+
+describe('도형', () => {
+  const base = {
+    paperWidth: 210,
+    paperHeight: 297,
+    layout,
+    dotGrid: DEFAULT_DOT_GRID,
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+
+  // 둥근 정도가 실제로 어느 모양이 되는지(core/shape의 cornerRadiusOf·
+  // roundedRectPath)는 core/shape.test.ts가 이미 꼼꼼히 잰다. 여기서는
+  // pdf-lib의 drawSvgPath로 넘기는 배선이 각 단계에서 안전한지만 본다.
+  it.each([0, 1, 2, 3, 4] as const)('둥글기 %i단계도 안전하게 만들어진다', async (roundness) => {
+    const bytes = await buildPdf({
+      ...base,
+      objects: [
+        {
+          id: 'sh1',
+          type: 'shape' as const,
+          x: 5,
+          y: 5,
+          width: 30,
+          height: 20,
+          roundness,
+        },
+      ],
+    });
+    expect(bytes.byteLength).toBeGreaterThan(0);
+  });
+
+  it('회전 배치(M5 등)에서도 안전하게 만들어진다', async () => {
+    const bytes = await buildPdf({
+      ...base,
+      layout: { ...layout, rotated: true },
+      objects: [{ id: 'sh1', type: 'shape' as const, x: 5, y: 5, width: 30, height: 20, roundness: 2 }],
+    });
+    expect(bytes.byteLength).toBeGreaterThan(0);
+  });
+});

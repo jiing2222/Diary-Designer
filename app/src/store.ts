@@ -37,6 +37,8 @@ import {
   type ImageObject,
   type LineSeg,
   type LineStyle,
+  type ShapeObject,
+  type ShapeStyle,
   type TextObject,
   type TextStyle,
 } from './core/objects';
@@ -276,6 +278,10 @@ interface Store extends Settings {
   styleImage: (imageId: string) => void;
   /** 고른 이미지들의 회전 각도(도, 시계 방향)를 바꾼다. 0이면 값을 아예 지운다. */
   styleImageRotate: (rotate: number) => void;
+  /** 새 도형 오브젝트를 이 박스 크기로 만든다. */
+  commitShape: (box: Box) => void;
+  /** 고른 도형들의 둥글기·테두리 굵기·색·모양. */
+  styleShape: (patch: ShapeStyle) => void;
   /** 저장 파일에서 읽은 양식들로 통째로 갈아끼운다. */
   loadProject: (p: SavedProject) => void;
   undo: () => void;
@@ -300,7 +306,7 @@ interface Store extends Settings {
   patchUnprintable: (p: Partial<UnprintableSetting>) => void;
 }
 
-export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar' | 'image';
+export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar' | 'image' | 'shape';
 export type Side = 'front' | 'back';
 
 /** 더 이상 존재하지 않는 id를 선택 목록에서 걷어낸다. */
@@ -733,6 +739,27 @@ export const useStore = create<Store>((set) => ({
         const merged: ImageObject = { ...o, rotate };
         // 0이면 키 자체를 지운다 — 손대지 않은 이미지와 같은 모양이 된다.
         if (rotate === 0) delete merged.rotate;
+        return merged;
+      });
+      return commitObjects(s, next);
+    }),
+
+  commitShape: (box) =>
+    set((s) => {
+      const next: ShapeObject = { id: newId('sh'), type: 'shape', ...box };
+      // 달력·이미지와 같은 이유로 곧바로 고른 상태로 둔다.
+      return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
+    }),
+
+  styleShape: (patch) =>
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      const next = activeObjects(s).map((o) => {
+        if (o.type !== 'shape' || !s.selectedIds.includes(o.id)) return o;
+        const merged = { ...o, ...patch };
+        for (const k of Object.keys(patch) as (keyof ShapeStyle)[]) {
+          if (patch[k] === undefined) delete merged[k];
+        }
         return merged;
       });
       return commitObjects(s, next);
