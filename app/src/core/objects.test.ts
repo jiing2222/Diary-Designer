@@ -7,9 +7,11 @@ import {
   distanceToSegment,
   growBox,
   moveSegment,
+  pdfRotateOf,
   rectLines,
   reshape,
   resizeBox,
+  rotationOf,
   segmentLength,
   sameSegment,
   segmentInRect,
@@ -306,5 +308,80 @@ describe('잠금', () => {
   it('locked: false도 잠기지 않은 것이다', () => {
     const line = { id: 'l1', type: 'line' as const, x1: 0, y1: 0, x2: 10, y2: 0, locked: false };
     expect(isLocked(line)).toBe(false);
+  });
+});
+
+describe('상자 회전', () => {
+  // x:20 y:40 w:30 h:10 → 가운데(35, 45).
+  const rbox = { x: 20, y: 40, width: 30, height: 10 };
+
+  it('회전 없으면(0) 그대로다', () => {
+    const t = rotationOf(rbox, 0);
+    expect(t.svg).toBe('');
+    expect(t.map({ x: 1, y: 2 })).toEqual({ x: 1, y: 2 });
+  });
+
+  it('90도 — 상자 가운데는 축이라 그대로, 왼쪽 위는 옮겨간다', () => {
+    const t = rotationOf(rbox, 90);
+    expect(t.map({ x: 35, y: 45 })).toEqual({ x: 35, y: 45 });
+    expect(t.map({ x: 20, y: 40 })).toEqual({ x: 40, y: 30 });
+    expect(t.svg).toBe('matrix(0 1 -1 0 80 10)');
+  });
+
+  it('270도 — 가운데는 그대로, 왼쪽 위는 90도와 반대쪽으로 옮겨간다', () => {
+    const t = rotationOf(rbox, 270);
+    expect(t.map({ x: 35, y: 45 })).toEqual({ x: 35, y: 45 });
+    expect(t.map({ x: 20, y: 40 })).toEqual({ x: 30, y: 60 });
+    expect(t.svg).toBe('matrix(0 -1 1 0 -10 80)');
+  });
+
+  it('180도 — 가운데를 기준으로 정확히 마주보는 자리로 뒤집힌다(왼쪽 위 ↔ 오른쪽 아래)', () => {
+    const t = rotationOf(rbox, 180);
+    expect(t.map({ x: 35, y: 45 })).toEqual({ x: 35, y: 45 });
+    expect(t.map({ x: 20, y: 40 })).toEqual({ x: 50, y: 50 }); // 원래 오른쪽 아래 자리
+    expect(t.svg).toBe('matrix(-1 0 0 -1 70 90)');
+  });
+
+  it('0·90·180·270도는 부동소수점 오차 없이 정확한 정수 계수를 낸다', () => {
+    // Math.cos(Math.PI/2)는 정확히 0이 아니다 — 특수 각도를 따로 계산해야
+    // "회전 없음"이어야 할 값에 아주 작은 회전이 섞여 들어가지 않는다.
+    for (const deg of [90, 180, 270]) {
+      const [a, b, c, d] = rotationOf(rbox, deg)
+        .svg.replace('matrix(', '')
+        .split(' ')
+        .map(Number);
+      for (const n of [a, b, c, d]) expect(Number.isInteger(n)).toBe(true);
+    }
+  });
+
+  it('이미지처럼 임의 각도(45도)도 돌아간다 — 가운데는 그대로, 거리는 보존된다', () => {
+    const t = rotationOf(rbox, 45);
+    const center = { x: 35, y: 45 };
+    expect(t.map(center).x).toBeCloseTo(center.x, 9);
+    expect(t.map(center).y).toBeCloseTo(center.y, 9);
+
+    // 회전은 가운데로부터의 거리를 보존한다.
+    const p = { x: 20, y: 40 };
+    const before = Math.hypot(p.x - center.x, p.y - center.y);
+    const moved = t.map(p);
+    const after = Math.hypot(moved.x - center.x, moved.y - center.y);
+    expect(after).toBeCloseTo(before, 9);
+  });
+
+  it('360도는 0도와 같다(꽉 채운 한 바퀴)', () => {
+    expect(rotationOf(rbox, 360).svg).toBe('');
+  });
+});
+
+describe('PDF 회전 각도', () => {
+  it('270도가 회전 배치와 같은 손 방향(9b 수정 4에서 인쇄로 검증된 조합)이라 90도를 그대로 쓰고, 90도는 그 거울상이라 -90도를 쓴다', () => {
+    expect(pdfRotateOf(0)).toBe(0);
+    expect(pdfRotateOf(90)).toBe(-90);
+    expect(pdfRotateOf(270)).toBe(90);
+  });
+
+  it('임의 각도는 부호만 반대로, 더 작은 크기의 동치 각도로 정규화한다', () => {
+    expect(pdfRotateOf(45)).toBe(-45);
+    expect(pdfRotateOf(200)).toBe(160); // -200과 같은 회전이지만 크기가 더 작다
   });
 });

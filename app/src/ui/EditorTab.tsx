@@ -9,20 +9,23 @@ import {
   cleanStyle,
   distanceToSegment,
   growBox,
+  imageRotateOf,
   isBoxResizable,
+  isImage,
   isLine,
   isLocked,
   isText,
   objectInRect,
   rectLines,
   resizeBox,
+  rotationOf,
   type Corner,
   type DiaryObject,
   type TextStyle,
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm, type Mm } from '../core/units';
-import { DEFAULT_FIELD_FORMAT, fieldPlaceholder, newTextStyle, rotateOf, textRotationOf } from '../core/text';
+import { DEFAULT_FIELD_FORMAT, fieldPlaceholder, newTextStyle, rotateOf } from '../core/text';
 import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type Side } from '../store';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
@@ -153,21 +156,21 @@ export function EditorTab() {
   const cellRows = lattice.rows;
 
   // 로고 정렬선 — 구멍과 같은 세로줄. PunchGuide가 이미 점선으로 보여주고
-  // 있다. 텍스트·이미지를 새로 놓을 때 이 줄 근처면 달라붙는다(snapToLogoLine).
+  // 있다. 텍스트·이미지 상자를 새로 놓을 때 그 상자의 가운데가 이 줄 근처면
+  // 정확히 그 줄에 맞춰진다(centerOnLogoLine).
   const logoLineX = holeCenterX(insert.punch, insert.width, side === 'back');
 
   /**
-   * 텍스트·이미지를 새로 놓을 때, 정렬선 근처면 가로 자리를 그 줄에 맞춘다.
+   * 텍스트·이미지 상자의 **가운데**가 정렬선 근처면 그 줄에 정확히 맞춘다.
    *
-   * **커서의 실제 자리(`raw`)로 가까운지 재야 한다.** 격자에 이미 붙은 점
-   * (`snap`)으로 재면, 격자점이 우연히 이 줄 3mm 안에 있을 때만 붙어서
-   * 대부분은 아예 작동하지 않는다 — 격자 간격·여백에 따라 그런 점이 없는
-   * 경우가 흔하다. 줄 근처면 격자가 없어도(칸이 없어도) 붙는다 — 이 줄은
-   * 격자와 무관한 안내선이다.
+   * 끄는 동안의 두 점(from·to)을 각각 줄에 붙이면 안 된다 — 둘 다 같은
+   * x로 고정되어 상자 폭이 0이 되어버린다. 그래서 폭·높이를 다 정한
+   * **완성된 상자**를 놓고, 그 가운데 x만 검사해서 옮긴다 — 폭은 그대로
+   * 두고 왼쪽 x만 밀어서 가운데를 줄에 맞춘다.
    */
-  function snapToLogoLine(raw: Point, snap: Point | null): Point | null {
-    if (Math.abs(raw.x - logoLineX) <= LOGO_LINE_SNAP) return { x: logoLineX, y: snap?.y ?? raw.y };
-    return snap;
+  function centerOnLogoLine<T extends { x: Mm; width: Mm }>(box: T): T {
+    const cx = box.x + box.width / 2;
+    return Math.abs(cx - logoLineX) <= LOGO_LINE_SNAP ? { ...box, x: logoLineX - box.width / 2 } : box;
   }
 
   // 새로 쓸 글자에 붙일 스타일. 줄 간격을 따로 정해두지 않았으면 지금 도트 간격이 새겨진다.
@@ -296,6 +299,27 @@ export function EditorTab() {
   const lone =
     selectedIds.length === 1 ? (objects.find((o) => o.id === selectedIds[0]) ?? null) : null;
 
+  /** 이 오브젝트 자신의 회전 각도. 글자·이미지만 돈다. */
+  function rotationDegOf(o: DiaryObject): number {
+    if (isText(o)) return rotateOf(o);
+    if (isImage(o)) return imageRotateOf(o);
+    return 0;
+  }
+
+  /**
+   * 화면(회전 후) 좌표를 이 오브젝트의 원래(회전 전, 자기 상자 기준) 좌표로
+   * 되돌린다. 클릭 판정·모서리 손잡이·크기조정을 전부 이 "되돌린 자리"
+   * 기준으로 계산한다 — 그래야 core/objects의 `resizeBox` 같은 계산을 회전
+   * 여부와 상관없이 그대로 쓸 수 있다. 반대로(보여줄 때) 돌리는 쪽은 그리는
+   * 자리에서 `rotationOf`를 직접 쓴다 — 크기조정 중에는 상자가 저장된
+   * 값과 다를 수 있어(미리보기), 이 오브젝트의 저장된 상자가 아니라
+   * **그 순간의 상자**를 축으로 돌려야 하기 때문이다.
+   */
+  function toLocal(o: DiaryObject, p: Point): Point {
+    const rot = rotationDegOf(o);
+    return rot === 0 ? p : rotationOf(boxOf(o), -rot).map(p);
+  }
+
   function handleAt(p: Point): { id: string; end: 1 | 2 } | null {
     if (!lone || !isLine(lone)) return null;
     const d1 = Math.hypot(p.x - lone.x1, p.y - lone.y1);
@@ -305,10 +329,16 @@ export function EditorTab() {
     return null;
   }
 
-  /** 딱 하나 고른 상자(달력·이미지)의 네 모서리 손잡이. 선의 끝점 손잡이와 짝이다. */
+  /**
+   * 딱 하나 고른 상자(달력·이미지)의 네 모서리 손잡이. 선의 끝점 손잡이와 짝이다.
+   *
+   * 이미지는 돌아가 있을 수 있다 — 화면 좌표(`p`)를 먼저 그 이미지의
+   * 원래(회전 전) 좌표로 되돌린 다음, 항상 원래 좌표에 있는 네 모서리와 견준다.
+   */
   function boxHandleAt(p: Point): { id: string; corner: Corner } | null {
     if (!lone || !isBoxResizable(lone)) return null;
     const b = boxOf(lone);
+    const test = toLocal(lone, p);
     const corners: { corner: Corner; x: number; y: number }[] = [
       { corner: 'nw', x: b.x, y: b.y },
       { corner: 'ne', x: b.x + b.width, y: b.y },
@@ -316,7 +346,7 @@ export function EditorTab() {
       { corner: 'se', x: b.x + b.width, y: b.y + b.height },
     ];
     for (const c of corners) {
-      if (Math.hypot(p.x - c.x, p.y - c.y) <= HANDLE_GRAB) return { id: lone.id, corner: c.corner };
+      if (Math.hypot(test.x - c.x, test.y - c.y) <= HANDLE_GRAB) return { id: lone.id, corner: c.corner };
     }
     return null;
   }
@@ -338,11 +368,9 @@ export function EditorTab() {
         const found = objects.find((o) => o.id === el.dataset.id);
         if (!found || !isText(found) || isLocked(found)) continue;
         // getBBox()는 <text>의 회전 전(자기 상자 기준) 자리를 돌려준다 — 화면에
-        // 보이는 회전한 자리가 아니다. 그래서 클릭 지점을 반대 방향으로 먼저
-        // 돌려 "회전 전이라면 어디를 짚은 셈인지"로 바꾼 다음 견준다. 90도와
-        // 270도는 서로의 역회전이라(같은 축을 반대로 돈다) 그대로 바꿔 쓸 수 있다.
-        const rotate = rotateOf(found);
-        const test = rotate === 0 ? p : textRotationOf(boxOf(found), rotate === 90 ? 270 : 90).map(p);
+        // 보이는 회전한 자리가 아니다. 그래서 클릭 지점을 반대로 먼저 돌려
+        // "회전 전이라면 어디를 짚은 셈인지"로 바꾼 다음 견준다.
+        const test = toLocal(found, p);
         const b = el.getBBox();
         if (test.x >= b.x && test.x <= b.x + b.width && test.y >= b.y && test.y <= b.y + b.height) {
           return found;
@@ -353,7 +381,9 @@ export function EditorTab() {
     for (const o of [...objects].reverse()) {
       if (!isBoxResizable(o) || isLocked(o)) continue;
       const b = boxOf(o);
-      if (p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height) return o;
+      // 이미지는 돌아가 있을 수 있다 — 회전 전 좌표로 되돌려 상자와 견준다.
+      const test = toLocal(o, p);
+      if (test.x >= b.x && test.x <= b.x + b.width && test.y >= b.y && test.y <= b.y + b.height) return o;
     }
 
     let best: DiaryObject | null = null;
@@ -423,8 +453,7 @@ export function EditorTab() {
       }
       // 입력 중이었다면 먼저 확정한다. 그래야 빈 상자가 남지 않는다.
       finishEditing();
-      const s = snapToLogoLine(raw, snap);
-      if (s) setDragBoth({ kind: 'textbox', from: s, to: s });
+      if (snap) setDragBoth({ kind: 'textbox', from: snap, to: snap });
       return;
     }
 
@@ -445,7 +474,9 @@ export function EditorTab() {
       // 도구를 select로 바꾸지 않고도 이어서 바로 크기를 다듬을 수 있다.
       const boxGripHit = boxHandleAt(raw);
       if (boxGripHit) {
-        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to: raw });
+        // 크기조정은 회전 전 자리 기준으로 계산한다(resizeBox와 짝이 맞아야 한다).
+        const to = lone ? toLocal(lone, raw) : raw;
+        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to });
         return;
       }
       // 이미 있는 것을 클릭하면 고르고, 끌면 옮길 수 있게 한다.
@@ -454,8 +485,7 @@ export function EditorTab() {
         startMove(hit, raw, e);
         return;
       }
-      const s = tool === 'image' ? snapToLogoLine(raw, snap) : snap;
-      if (s) setDragBoth({ kind: 'textbox', from: s, to: s });
+      if (snap) setDragBoth({ kind: 'textbox', from: snap, to: snap });
       return;
     }
 
@@ -463,7 +493,8 @@ export function EditorTab() {
     // 늘이려다 매번 통째로 옮겨진다 — 끝점 손잡이와 같은 이유다.
     const boxGripHit = boxHandleAt(raw);
     if (boxGripHit) {
-      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to: raw });
+      const to = lone ? toLocal(lone, raw) : raw;
+      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to });
       return;
     }
 
@@ -492,12 +523,12 @@ export function EditorTab() {
     if (!d || !raw) return;
 
     if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox' || d.kind === 'boxHandle') {
-      let snap = snapped(e);
-      // 글자·이미지를 놓는 중이고 정렬선 근처면 끌리는 동안에도 계속 달라붙는다.
-      if (d.kind === 'textbox' && (tool === 'text' || tool === 'image')) {
-        snap = snapToLogoLine(raw, snap);
-      }
-      if (snap) setDragBoth({ ...d, to: snap });
+      const snap = snapped(e);
+      if (!snap) return;
+      // 모서리를 끄는 대상이 돌아가 있으면(이미지) 회전 전 자리로 되돌려서 저장한다.
+      const target = d.kind === 'boxHandle' ? objects.find((o) => o.id === d.id) : null;
+      const to = target ? toLocal(target, snap) : snap;
+      setDragBoth({ ...d, to });
     } else if (d.kind === 'marquee') {
       setDragBoth({ ...d, to: raw });
     } else {
@@ -559,19 +590,21 @@ export function EditorTab() {
       if (tool === 'calendar' || tool === 'image') {
         // 표처럼 실제로 끌어야 만들어진다 — 그냥 눌렀다 뗀 칸 하나는 너무 작다.
         if (same) return;
-        const box = {
+        let box = {
           x: Math.min(d.from.x, d.to.x),
           y: Math.min(d.from.y, d.to.y),
           width: Math.abs(d.to.x - d.from.x),
           height: Math.abs(d.to.y - d.from.y),
         };
+        // 이미지는 가운데가 정렬선 근처면 그 줄에 맞춘다 — 달력은 대상이 아니다.
+        if (tool === 'image') box = centerOnLogoLine(box);
         if (tool === 'calendar') commitCalendar(box);
         // 이미지 도구인데 아직 등록·선택한 이미지가 없으면 아무 일도 하지 않는다.
         else if (draftImageId) commitImage(box, draftImageId);
         return;
       }
 
-      const box = same
+      let box = same
         ? cellAt(lattice, d.from.x, d.from.y)
         : {
             x: Math.min(d.from.x, d.to.x),
@@ -580,6 +613,8 @@ export function EditorTab() {
             height: Math.abs(d.to.y - d.from.y),
           };
       if (!box) return;
+      // 텍스트는 가운데가 정렬선 근처면 그 줄에 맞춘다 — 자동 필드는 대상이 아니다.
+      if (tool === 'text') box = centerOnLogoLine(box);
 
       if (tool === 'field') {
         // 타이핑 없이 바로 확정한다. 오프셋은 자동으로 매겨지고 찍을 때마다
@@ -662,6 +697,16 @@ export function EditorTab() {
   const grip = drag?.kind === 'handle' ? drag : null;
   const boxGrip = drag?.kind === 'boxHandle' ? drag : null;
   const textDrag = drag?.kind === 'textbox' ? drag : null;
+  // 끄는 중인 상자의 미리보기 — 텍스트·이미지는 실제로 놓일 때와 똑같이
+  // 정렬선에 맞춰 보여준다. 그래야 손을 떼기 전에 결과를 미리 볼 수 있다.
+  const textDragBox = textDrag && {
+    x: Math.min(textDrag.from.x, textDrag.to.x),
+    y: Math.min(textDrag.from.y, textDrag.to.y),
+    width: Math.abs(textDrag.to.x - textDrag.from.x) || grid.spacing,
+    height: Math.abs(textDrag.to.y - textDrag.from.y) || grid.spacing,
+  };
+  const textDragPreview =
+    textDragBox && (tool === 'text' || tool === 'image') ? centerOnLogoLine(textDragBox) : textDragBox;
 
   // 글자·자동 필드 도구에서 마우스가 올라간 칸. 어디에 쓰일지 미리 보여준다.
   // 이미 상자를 끄는 중이면 그 몸짓(textDrag)이 같은 자리를 대신 보여준다.
@@ -880,7 +925,8 @@ export function EditorTab() {
           />
 
           {/* 고른 것 표시. 옮기거나 끝점을 끄는 중이면 갈 자리에 미리 보여준다.
-              선은 선 자체를, 글자는 상자를 두른다. */}
+              선은 선 자체를, 글자·이미지는 상자를 두른다 — 돌아가 있으면
+              테두리도 같은 만큼 돈다(글자·이미지 자신과 같은 축·각도). */}
           <g className="picked">
             {objects
               .filter((o) => selectedIds.includes(o.id))
@@ -889,15 +935,17 @@ export function EditorTab() {
                   const s = preview(o, nudge, grip);
                   return <line key={o.id} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />;
                 }
-                const b = previewBox({ id: o.id, ...boxOf(o) }, boxGrip);
+                const raw = previewBox({ id: o.id, ...boxOf(o) }, boxGrip);
+                const b = { ...raw, x: raw.x + (nudge?.dx ?? 0), y: raw.y + (nudge?.dy ?? 0) };
+                const rot = rotationDegOf(o);
+                const rect = (
+                  <rect key={rot === 0 ? o.id : undefined} x={b.x} y={b.y} width={b.width} height={b.height} />
+                );
+                if (rot === 0) return rect;
                 return (
-                  <rect
-                    key={o.id}
-                    x={b.x + (nudge?.dx ?? 0)}
-                    y={b.y + (nudge?.dy ?? 0)}
-                    width={b.width}
-                    height={b.height}
-                  />
+                  <g key={o.id} transform={rotationOf(b, rot).svg}>
+                    {rect}
+                  </g>
                 );
               })}
           </g>
@@ -925,17 +973,24 @@ export function EditorTab() {
               );
             })()}
 
-          {/* 모서리 손잡이. 달력·이미지 하나만 골랐을 때만 나온다 — 끝점 손잡이와 짝이다. */}
+          {/*
+            모서리 손잡이. 달력·이미지 하나만 골랐을 때만 나온다 — 끝점
+            손잡이와 짝이다. 이미지가 돌아가 있으면 손잡이도 같이 돈
+            자리에 그린다 — 안 그러면 눈에 보이는 모서리와 실제로 잡히는
+            자리(boxHandleAt)가 어긋난다.
+          */}
           {lone &&
             isBoxResizable(lone) &&
             (() => {
               const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
+              const rot = rotationDegOf(lone);
+              const toDisplay = rot === 0 ? null : rotationOf(b, rot);
               const corners = [
                 { x: b.x, y: b.y },
                 { x: b.x + b.width, y: b.y },
                 { x: b.x, y: b.y + b.height },
                 { x: b.x + b.width, y: b.y + b.height },
-              ];
+              ].map((c) => (toDisplay ? toDisplay.map(c) : c));
               return (
                 <g className="handles">
                   {corners.map((c, i) => (
@@ -998,12 +1053,12 @@ export function EditorTab() {
               className="text-hover"
             />
           )}
-          {textDrag && (
+          {textDragPreview && (
             <rect
-              x={Math.min(textDrag.from.x, textDrag.to.x)}
-              y={Math.min(textDrag.from.y, textDrag.to.y)}
-              width={Math.abs(textDrag.to.x - textDrag.from.x) || grid.spacing}
-              height={Math.abs(textDrag.to.y - textDrag.from.y) || grid.spacing}
+              x={textDragPreview.x}
+              y={textDragPreview.y}
+              width={textDragPreview.width}
+              height={textDragPreview.height}
               className="text-drag"
             />
           )}
@@ -1137,7 +1192,7 @@ function TextInput({
   const top = at.top - wrap.top + box.y * scale;
   // 회전한 글자를 고치는 중이면 입력칸도 같이 돌아가 있어야 한다 — 안 그러면
   // 타이핑하는 자리와 실제로 저장될 자리가 달라 보여서 "상자 밖에서 고치는"
-  // 것처럼 보인다. CSS의 rotate() 부호는 core/text의 textRotationOf가 화면에
+  // 것처럼 보인다. CSS의 rotate() 부호는 core/objects의 rotationOf가 화면에
   // 쓰는 SVG matrix()와 같은 손 방향이다(둘 다 브라우저 좌표계라 그대로 맞는다).
   const rotate = rotateOf(editing.style);
   const cssRotate = rotate === 90 ? 90 : rotate === 270 ? -90 : 0;

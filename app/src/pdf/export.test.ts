@@ -1000,7 +1000,7 @@ describe('회전한 글자', () => {
     rotate: 90 as const,
   };
 
-  // 자리·회전 손 방향의 정확성은 core/text.test.ts의 textRotationOf가 이미
+  // 자리·회전 손 방향의 정확성은 core/objects.test.ts의 rotationOf가 이미
   // 꼼꼼히 잰다. 여기서는 배선(회전이 있어도 안전하게 만들어지는지)만 본다 —
   // 실제 글자 모양은 진짜 글꼴 파일 없이는 확인할 방법이 없다(이 파일의
   // 기존 방식과 같다).
@@ -1018,5 +1018,43 @@ describe('회전한 글자', () => {
     await expect(
       buildPdf({ ...base, objects: [rotatedText], fontBytes: new Uint8Array([1, 2, 3]) }),
     ).rejects.toThrow();
+  });
+});
+
+describe('회전한 이미지', () => {
+  const base = {
+    paperWidth: 210,
+    paperHeight: 297,
+    layout,
+    dotGrid: DEFAULT_DOT_GRID,
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+  const rotatedImage = {
+    id: 'im1',
+    type: 'image' as const,
+    x: 5,
+    y: 5,
+    width: 30,
+    height: 20,
+    imageId: 'img1',
+    rotate: 37,
+  };
+
+  // 자리·회전 손 방향의 정확성은 core/objects.test.ts의 rotationOf가 이미
+  // 꼼꼼히 잰다. 여기서는 배선(자유로운 각도로 돌려도 안전하게 만들어지는지)만 본다.
+  it('자유로운 각도(37도)로 돌린 이미지도 안전하게 만들어진다', async () => {
+    const bytes = await buildPdf({
+      ...base,
+      objects: [rotatedImage],
+      userImages: new Map([['img1', { bytes: TINY_PNG, kind: 'png' }]]),
+    });
+    expect(bytes.byteLength).toBeGreaterThan(0);
+  });
+
+  it('등록된 파일이 없어도(회전 여부와 무관하게) 안전하게 건너뛴다', async () => {
+    const bytes = await buildPdf({ ...base, objects: [rotatedImage] });
+    expect(bytes.byteLength).toBeGreaterThan(0);
   });
 });

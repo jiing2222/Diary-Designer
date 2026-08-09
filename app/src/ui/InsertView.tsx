@@ -28,14 +28,15 @@ import {
   rotateOf,
   sizeOf,
   splitLines,
-  textRotationOf,
   valignOf,
 } from '../core/text';
 import {
+  imageRotateOf,
   isCalendar,
   isImage,
   isLine,
   isText,
+  rotationOf,
   type CalendarObject,
   type DiaryObject,
   type ImageObject,
@@ -146,21 +147,33 @@ function ImageLayer({ objects }: { objects: ImageObject[] }) {
     <>
       {objects.map((o) => {
         const img = userImages.find((i) => i.id === o.imageId);
-        if (img?.url) {
-          return (
-            <image
-              key={o.id}
-              href={img.url}
-              x={o.x}
-              y={o.y}
-              width={o.width}
-              height={o.height}
-              preserveAspectRatio="none"
-            />
-          );
-        }
+        const rotate = imageRotateOf(o);
+        const el = img?.url ? (
+          <image
+            key={rotate === 0 ? o.id : undefined}
+            href={img.url}
+            x={o.x}
+            y={o.y}
+            width={o.width}
+            height={o.height}
+            preserveAspectRatio="none"
+          />
+        ) : (
+          <rect
+            key={rotate === 0 ? o.id : undefined}
+            x={o.x}
+            y={o.y}
+            width={o.width}
+            height={o.height}
+            className="image-missing"
+          />
+        );
+        // 글자와 같은 이유로 자기 상자 가운데를 축으로 통째로 돌린다.
+        if (rotate === 0) return el;
         return (
-          <rect key={o.id} x={o.x} y={o.y} width={o.width} height={o.height} className="image-missing" />
+          <g key={o.id} transform={rotationOf(o, rotate).svg}>
+            {el}
+          </g>
         );
       })}
     </>
@@ -226,7 +239,7 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
         // 한 단계다 — 위의 자리 계산(x·baselines)은 회전과 무관하게 그대로다.
         if (rotate === 0) return el;
         return (
-          <g key={t.id} transform={textRotationOf(t, rotate).svg}>
+          <g key={t.id} transform={rotationOf(t, rotate).svg}>
             {el}
           </g>
         );

@@ -113,7 +113,7 @@ export interface TextObject {
    *
    * 상자의 가운데를 축으로 돈다. 정렬·줄바꿈 등 다른 계산은 전부 회전하지
    * 않은 자기 상자 기준 그대로다 — 회전은 그린 결과를 통째로 돌리는
-   * 마지막 한 단계일 뿐이다(core/text의 `textRotationOf`).
+   * 마지막 한 단계일 뿐이다(이 파일의 `rotationOf`).
    */
   rotate?: 90 | 270;
   /** 잠갔는가. LineObject의 `locked` 참고 — 모든 오브젝트 종류가 같은 규칙을 쓴다. */
@@ -166,6 +166,14 @@ export interface ImageObject {
   width: Mm;
   height: Mm;
   imageId: string;
+  /**
+   * 자유로운 각도(도, 시계 방향). 정하지 않았으면 0.
+   *
+   * 글자(0·90·270도만)와 달리 이미지는 어떤 각도든 된다 — 사진·로고를
+   * 비스듬히 놓는 것은 흔한 일이라 굳이 90도 단위로 막을 이유가 없다.
+   * 계산은 글자와 같은 `rotationOf`·`pdfRotateOf`를 그대로 쓴다.
+   */
+  rotate?: number;
   /** 잠갔는가. LineObject의 `locked` 참고. */
   locked?: boolean;
 }
@@ -198,6 +206,11 @@ export function isLocked(o: DiaryObject): boolean {
   return o.locked ?? false;
 }
 
+/** 이미지의 회전 각도(도, 시계 방향). 정하지 않았으면 0. */
+export function imageRotateOf(o: { rotate?: number }): number {
+  return o.rotate ?? 0;
+}
+
 /** 선마다 따로 정할 수 있는 것들. 키가 있고 값이 undefined면 기본값을 따른다. */
 export type LineStyle = Partial<Pick<LineObject, 'width' | 'color' | 'dash'>>;
 /**
@@ -214,6 +227,8 @@ export type TextStyle = Partial<
 export type CalendarStyle = Partial<
   Pick<CalendarObject, 'weekStart' | 'showAdjacent' | 'weekdayLang' | 'color'>
 >;
+/** 이미지마다 따로 정할 수 있는 것들. */
+export type ImageStyle = Partial<Pick<ImageObject, 'rotate'>>;
 
 /**
  * undefined인 키를 걷어낸다. 객체에 값이 없어야 기본값을 따라간다.
@@ -421,6 +436,85 @@ export function resizeBox(box: Box, corner: Corner, to: { x: Mm; y: Mm }): Box {
   const x = to.x >= opposite.x ? opposite.x : opposite.x - width;
   const y = to.y >= opposite.y ? opposite.y : opposite.y - height;
   return { x, y, width, height };
+}
+
+/** 화면(SVG 행렬)·PDF(좌표 변환)가 함께 쓰는 회전 변환. core/place의 `Placement`와 같은 모양이다. */
+export interface RotationTransform {
+  /** 회전 전 좌표 → 회전 후 좌표. PDF가 쓴다. */
+  map(p: { x: Mm; y: Mm }): { x: Mm; y: Mm };
+  /** 같은 변환의 SVG 표현. 빈 문자열이면 안 돌림. */
+  svg: string;
+}
+
+/**
+ * 상자를 그 가운데를 축으로, 시계 방향으로 `degrees`도만큼 돌리는 변환.
+ *
+ * 글자(90·270도만)·이미지(자유로운 각도) 둘 다 이 함수 하나를 쓴다 —
+ * **화면과 PDF가 반드시 같은 손 방향으로 돌아야 한다.** core/place의
+ * `placeSlot`과 똑같은 방식으로 여섯 숫자 하나에서 `map`(PDF용 좌표
+ * 계산)과 `svg`(화면용 행렬)를 함께 낸다 — 따로 계산하면 언젠가 어긋난다.
+ *
+ * 0·90·180·270도는 부동소수점 오차 없이 정확한 값(0, 1, -1)으로
+ * 계산한다 — `Math.cos(Math.PI/2)`는 부동소수점 오차로 정확히 0이
+ * 아니어서, 그대로 쓰면 "회전 없음"이어야 할 값에 아주 작은 회전이
+ * 섞여 들어간다.
+ *
+ * 90도(시계 방향)는 회전 배치(core/layout의 `mirrorLayout`이 쓰는 그
+ * 회전)의 **거울상**이다 — 손 방향(반시계)이 반대라 부호가 다르다.
+ * 270도가 오히려 회전 배치와 같은 손 방향이라, PDF에서 짝지어 쓰는
+ * 각도(`pdfRotateOf`)는 270도 쪽이 9b 수정 4에서 이미 인쇄로 검증된
+ * 조합(`rotate: degrees(90)`)을 그대로 재사용한다. 90도 쪽(거울상)과
+ * 그 사이의 임의 각도는 아직 인쇄로 확인하지 못했다.
+ */
+export function rotationOf(box: Box, degrees: number): RotationTransform {
+  const norm = ((degrees % 360) + 360) % 360;
+  if (norm === 0) return { map: (p) => p, svg: '' };
+
+  let cos: number;
+  let sin: number;
+  if (norm === 90) {
+    cos = 0;
+    sin = 1;
+  } else if (norm === 180) {
+    cos = -1;
+    sin = 0;
+  } else if (norm === 270) {
+    cos = 0;
+    sin = -1;
+  } else {
+    const rad = (norm * Math.PI) / 180;
+    cos = Math.cos(rad);
+    sin = Math.sin(rad);
+  }
+
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const a = cos;
+  const b = sin;
+  const c = -sin;
+  const d = cos;
+  const e = cx - cx * cos + cy * sin;
+  const f = cy - cx * sin - cy * cos;
+
+  return {
+    map: (p) => ({ x: a * p.x + c * p.y + e, y: b * p.x + d * p.y + f }),
+    svg: `matrix(${a} ${b} ${c} ${d} ${e} ${f})`,
+  };
+}
+
+/**
+ * PDF에서 이 회전과 함께 써야 하는 기울임 각도(pdf-lib의 `rotate`).
+ *
+ * `rotationOf`가 자리(좌표)를 옮기지만, pdf-lib은 글자·그림 자체를 그
+ * 방향으로 돌려 그리라고 따로 말해주지 않으면 언제나 원래 방향으로
+ * 그린다. 부호가 반대라 `-degrees`가 기본이지만, **9b 수정 4에서
+ * 검증된 값(270도 → 90)과 정확히 같은 숫자가 나오도록** −180~180
+ * 범위로 정규화한다 — `-270`도 수학적으로는 `90`과 같은 회전이지만,
+ * 검증된 바로 그 숫자를 그대로 재사용하는 편이 더 믿을 만하다.
+ */
+export function pdfRotateOf(degrees: number): number {
+  const n = ((-degrees % 360) + 360) % 360;
+  return n > 180 ? n - 360 : n;
 }
 
 /**

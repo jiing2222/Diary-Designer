@@ -12,10 +12,8 @@ import {
   lineBaselines,
   lineHeightOf,
   newTextStyle,
-  pdfRotateDegreesOf,
   rotateOf,
   splitLines,
-  textRotationOf,
 } from './text';
 import type { TextObject } from './objects';
 import { TEXT_ASCENT, TEXT_DESCENT, TEXT_SIZE } from './style';
@@ -249,37 +247,11 @@ describe('여러 줄 블록', () => {
 });
 
 describe('글자 회전', () => {
-  // x:20 y:40 w:30 h:10 → 가운데(35, 45).
-  const rbox = { x: 20, y: 40, width: 30, height: 10 };
-
-  it('회전 없으면(0) 그대로다', () => {
-    const t = textRotationOf(rbox, 0);
-    expect(t.svg).toBe('');
-    expect(t.map({ x: 1, y: 2 })).toEqual({ x: 1, y: 2 });
-  });
-
-  it('90도 — 상자 가운데는 축이라 그대로, 왼쪽 위는 옮겨간다', () => {
-    const t = textRotationOf(rbox, 90);
-    expect(t.map({ x: 35, y: 45 })).toEqual({ x: 35, y: 45 });
-    expect(t.map({ x: 20, y: 40 })).toEqual({ x: 40, y: 30 });
-    expect(t.svg).toBe('matrix(0 1 -1 0 80 10)');
-  });
-
-  it('270도 — 가운데는 그대로, 왼쪽 위는 90도와 반대쪽으로 옮겨간다', () => {
-    const t = textRotationOf(rbox, 270);
-    expect(t.map({ x: 35, y: 45 })).toEqual({ x: 35, y: 45 });
-    expect(t.map({ x: 20, y: 40 })).toEqual({ x: 30, y: 60 });
-    expect(t.svg).toBe('matrix(0 -1 1 0 -10 80)');
-  });
-
+  // 회전 계산 자체(rotationOf·pdfRotateOf)는 core/objects.test.ts가 잰다 —
+  // 글자·이미지가 함께 쓰는 공용 계산이라 그쪽으로 옮겼다. 여기서는 글자
+  // 전용 접근자만 본다.
   it('rotateOf — 정하지 않았으면 0', () => {
     expect(rotateOf({})).toBe(0);
     expect(rotateOf({ rotate: 90 })).toBe(90);
-  });
-
-  it('pdfRotateDegreesOf — 270도가 회전 배치와 같은 손 방향(9b 수정 4에서 인쇄로 검증된 조합)이라 90도를 그대로 쓰고, 90도는 그 거울상이라 -90도를 쓴다', () => {
-    expect(pdfRotateDegreesOf(0)).toBe(0);
-    expect(pdfRotateDegreesOf(90)).toBe(-90);
-    expect(pdfRotateDegreesOf(270)).toBe(90);
   });
 });

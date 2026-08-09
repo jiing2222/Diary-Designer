@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   boundsOfObjects,
+  imageRotateOf,
   isCalendar,
   isImage,
   isLine,
@@ -323,12 +324,18 @@ function ImageControls({ images }: { images: ImageObject[] }) {
   const draftImageId = useStore((s) => s.draftImageId);
   const setDraftImageId = useStore((s) => s.setDraftImageId);
   const styleImage = useStore((s) => s.styleImage);
+  const styleImageRotate = useStore((s) => s.styleImageRotate);
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
   const editingExisting = images.length > 0;
   const first = editingExisting ? images[0].imageId : (draftImageId ?? '');
   const mixed = editingExisting && !images.every((i) => i.imageId === first);
+
+  // 회전은 이미 놓인 이미지에만 뜬다 — 아직 박스가 없는 "다음에 놓을
+  // 이미지" 상태에는 돌릴 상자 자체가 없다.
+  const rotateMixed = editingExisting && !images.every((i) => imageRotateOf(i) === imageRotateOf(images[0]));
+  const rotateValue = editingExisting && !rotateMixed ? imageRotateOf(images[0]) : null;
 
   function pick(id: string) {
     if (editingExisting) styleImage(id);
@@ -391,6 +398,18 @@ function ImageControls({ images }: { images: ImageObject[] }) {
           e.target.value = '';
         }}
       />
+
+      {editingExisting && (
+        <NumField
+          value={rotateValue}
+          unit="도"
+          title="회전 — 자유로운 각도로 돌립니다(시계 방향)"
+          min={-360}
+          max={360}
+          step={1}
+          onChange={(v) => styleImageRotate(v)}
+        />
+      )}
     </>
   );
 }

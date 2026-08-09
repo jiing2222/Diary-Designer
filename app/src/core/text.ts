@@ -68,62 +68,18 @@ export function splitLines(text: string): string[] {
   return text.split('\n');
 }
 
-/** 0(안 돌림) · 90(시계 방향) · 270(반시계 방향). 180은 뒤집힌 글자라 실용성이 없어 뺐다. */
+/**
+ * 0(안 돌림) · 90(시계 방향) · 270(반시계 방향). 180은 뒤집힌 글자라 실용성이
+ * 없어 뺐다.
+ *
+ * 실제 회전 계산(자리·PDF 각도)은 core/objects의 `rotationOf`·`pdfRotateOf`가
+ * 한다 — 이미지도 같은 계산을 쓴다(이미지는 임의 각도까지 허용한다).
+ */
 export type TextRotate = 0 | 90 | 270;
 
 /** 회전이 없으면(정하지 않았으면) 0. */
 export function rotateOf(t: { rotate?: TextRotate }): TextRotate {
   return t.rotate ?? 0;
-}
-
-/** 화면(SVG 행렬)·PDF(좌표 변환)가 함께 쓰는 회전 변환. core/place의 `Placement`와 같은 모양이다. */
-export interface TextTransform {
-  /** 회전 전 좌표 → 회전 후 좌표. PDF가 쓴다. */
-  map(p: { x: Mm; y: Mm }): { x: Mm; y: Mm };
-  /** 같은 변환의 SVG 표현. 빈 문자열이면 안 돌림. */
-  svg: string;
-}
-
-/**
- * 이 글자 상자를 90도 단위로 돌리는 변환. 축은 **상자의 가운데**다.
- *
- * **화면과 PDF가 반드시 같은 손 방향으로 돌아야 한다.** core/place의
- * `placeSlot`과 똑같은 방식으로 여섯 숫자 하나에서 `map`(PDF용 좌표 계산)과
- * `svg`(화면용 행렬)를 함께 낸다 — 따로 계산하면 언젠가 어긋난다.
- *
- * 90도(시계 방향)는 회전 배치(core/layout의 `mirrorLayout`이 쓰는 그 회전)의
- * **거울상**이다 — 손 방향(반시계)이 반대라 부호가 다르다. 270도가 오히려
- * 회전 배치와 같은 손 방향이라, PDF에서 짝지어 쓰는 각도(`pdfRotateDegreesOf`)는
- * 270도 쪽이 9b 수정 4에서 이미 인쇄로 검증된 조합(`rotate: degrees(90)`)을
- * 그대로 재사용한다. 90도 쪽(거울상)은 아직 인쇄로 확인하지 못했다.
- */
-export function textRotationOf(box: { x: Mm; y: Mm; width: Mm; height: Mm }, rotate: TextRotate): TextTransform {
-  if (rotate === 0) return { map: (p) => p, svg: '' };
-
-  const cx = box.x + box.width / 2;
-  const cy = box.y + box.height / 2;
-  const [a, b, c, d, e, f] =
-    rotate === 90
-      ? [0, 1, -1, 0, cx + cy, cy - cx] // 시계 방향
-      : [0, -1, 1, 0, cx - cy, cx + cy]; // 반시계 방향 — 회전 배치와 같은 손 방향
-
-  return {
-    map: (p) => ({ x: a * p.x + c * p.y + e, y: b * p.x + d * p.y + f }),
-    svg: `matrix(${a} ${b} ${c} ${d} ${e} ${f})`,
-  };
-}
-
-/**
- * PDF에서 이 회전과 함께 써야 하는 글자 기울임 각도(pdf-lib의 `rotate`).
- *
- * `textRotationOf`가 자리(좌표)를 옮기지만, pdf-lib은 글자 자체를 그 방향으로
- * 돌려 그리라고 따로 말해주지 않으면 언제나 가로로 눕혀 그린다 — drawTexts가
- * 회전 배치에서 이미 겪은 문제와 같다. 두 각도가 반드시 짝이 맞아야 한다.
- */
-export function pdfRotateDegreesOf(rotate: TextRotate): number {
-  if (rotate === 90) return -90;
-  if (rotate === 270) return 90;
-  return 0;
 }
 
 /** 자동 필드가 편집 화면에서 보이는 자리표시(설계문서 7장). 진짜 값이 아니다. */

@@ -274,6 +274,8 @@ interface Store extends Settings {
   commitImage: (box: Box, imageId: string) => void;
   /** 고른 이미지들의 사진을 바꾼다. */
   styleImage: (imageId: string) => void;
+  /** 고른 이미지들의 회전 각도(도, 시계 방향)를 바꾼다. 0이면 값을 아예 지운다. */
+  styleImageRotate: (rotate: number) => void;
   /** 저장 파일에서 읽은 양식들로 통째로 갈아끼운다. */
   loadProject: (p: SavedProject) => void;
   undo: () => void;
@@ -720,6 +722,19 @@ export const useStore = create<Store>((set) => ({
       const next = activeObjects(s).map((o) =>
         o.type === 'image' && s.selectedIds.includes(o.id) ? { ...o, imageId } : o,
       );
+      return commitObjects(s, next);
+    }),
+
+  styleImageRotate: (rotate) =>
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      const next = activeObjects(s).map((o) => {
+        if (o.type !== 'image' || !s.selectedIds.includes(o.id)) return o;
+        const merged: ImageObject = { ...o, rotate };
+        // 0이면 키 자체를 지운다 — 손대지 않은 이미지와 같은 모양이 된다.
+        if (rotate === 0) delete merged.rotate;
+        return merged;
+      });
       return commitObjects(s, next);
     }),
 

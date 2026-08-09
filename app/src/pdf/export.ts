@@ -24,11 +24,9 @@ import {
   leftOf,
   lineBaselines,
   lineHeightOf,
-  pdfRotateDegreesOf,
   rotateOf,
   sizeOf,
   splitLines,
-  textRotationOf,
   valignOf,
 } from '../core/text';
 import { mirrorLayout, type Layout } from '../core/layout';
@@ -55,7 +53,17 @@ import {
   TEXT_COLOR,
   hexToRgb,
 } from '../core/style';
-import { isCalendar, isImage, isLine, isText, type DiaryObject, type TextObject } from '../core/objects';
+import {
+  imageRotateOf,
+  isCalendar,
+  isImage,
+  isLine,
+  isText,
+  pdfRotateOf,
+  rotationOf,
+  type DiaryObject,
+  type TextObject,
+} from '../core/objects';
 import { calendarLayout, showAdjacentOf, weekdayLabels, weekdayLangOf, weekStartOf } from '../core/calendar';
 import { calendarCellAt, calendarTitleAt } from '../core/dataset';
 import { formatDate } from '../core/format';
@@ -554,7 +562,7 @@ function drawTexts(
       const font = fontFor(t, fonts);
 
       const rotate = rotateOf(t);
-      const localRotation = textRotationOf(t, rotate);
+      const localRotation = rotationOf(t, rotate);
 
       lines.forEach((line, i) => {
         if (line === '') return;
@@ -575,7 +583,7 @@ function drawTexts(
           // 차이가 화면에서는 안 보이다가 인쇄물에서만 드러났다. 두 회전(글자
           // 자신 + 회전 배치)의 각도를 더한다 — 방향(부호)이 같은 각도끼리는
           // 그냥 더하면 합쳐진 회전이 나온다.
-          rotate: degrees((layout.rotated ? 90 : 0) + pdfRotateDegreesOf(rotate)),
+          rotate: degrees((layout.rotated ? 90 : 0) + pdfRotateOf(rotate)),
         });
       });
     }
@@ -742,13 +750,17 @@ function drawImages(
     for (const o of objects) {
       const img = images.get(o.imageId);
       if (!img) continue;
-      const p = place.map(o.x, o.y + o.height);
+      // 글자와 같은 순서다 — 먼저 이미지 자신의 회전(자유로운 각도)을 상자
+      // 가운데 축으로 적용하고, 그다음 place.map으로 칸 배치를 반영한다.
+      const rotate = imageRotateOf(o);
+      const local = rotationOf(o, rotate).map({ x: o.x, y: o.y + o.height });
+      const p = place.map(local.x, local.y);
       page.drawImage(img, {
         x: mmToPt(p.x),
         y: mmToPt(flipY(p.y)),
         width: mmToPt(o.width),
         height: mmToPt(o.height),
-        rotate: degrees(layout.rotated ? 90 : 0),
+        rotate: degrees((layout.rotated ? 90 : 0) + pdfRotateOf(rotate)),
       });
     }
 
