@@ -978,3 +978,45 @@ describe('사용자 이미지 오브젝트', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('회전한 글자', () => {
+  const base = {
+    paperWidth: 210,
+    paperHeight: 297,
+    layout,
+    dotGrid: DEFAULT_DOT_GRID,
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+  const rotatedText = {
+    id: 't1',
+    type: 'text' as const,
+    x: 5,
+    y: 5,
+    width: 30,
+    height: 10,
+    text: '로고',
+    rotate: 90 as const,
+  };
+
+  // 자리·회전 손 방향의 정확성은 core/text.test.ts의 textRotationOf가 이미
+  // 꼼꼼히 잰다. 여기서는 배선(회전이 있어도 안전하게 만들어지는지)만 본다 —
+  // 실제 글자 모양은 진짜 글꼴 파일 없이는 확인할 방법이 없다(이 파일의
+  // 기존 방식과 같다).
+  it('90도 회전한 글자가 있어도 글꼴 없이 안전하게 만들어진다', async () => {
+    const bytes = await buildPdf({ ...base, objects: [rotatedText] });
+    expect(bytes.byteLength).toBeGreaterThan(0);
+  });
+
+  it('270도도 마찬가지다', async () => {
+    const bytes = await buildPdf({ ...base, objects: [{ ...rotatedText, rotate: 270 as const }] });
+    expect(bytes.byteLength).toBeGreaterThan(0);
+  });
+
+  it('망가진 글꼴 바이트를 주면 회전 여부와 무관하게 시도하다 던진다', async () => {
+    await expect(
+      buildPdf({ ...base, objects: [rotatedText], fontBytes: new Uint8Array([1, 2, 3]) }),
+    ).rejects.toThrow();
+  });
+});

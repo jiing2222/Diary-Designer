@@ -617,6 +617,19 @@ function TextControls({
           </option>
         ))}
       </select>
+
+      <select
+        value={mixed('rotate') ? 'mixed' : String(items[0].rotate ?? 0)}
+        onChange={(e) =>
+          pick({ rotate: e.target.value === '0' ? undefined : (Number(e.target.value) as 90 | 270) })
+        }
+        title="회전 — 타공 방향에 맞춰 세워 쓰는 글자 등에 쓴다"
+      >
+        {mixed('rotate') && <option value="mixed">—</option>}
+        <option value="0">회전 없음</option>
+        <option value="90">90도</option>
+        <option value="270">270도</option>
+      </select>
     </>
   );
 }

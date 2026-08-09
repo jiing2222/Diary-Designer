@@ -100,6 +100,14 @@ export interface TextObject {
    * 인쇄 미리보기·PDF는 데이터셋에서 뽑은 진짜 값(8c에서 붙는다).
    */
   field?: { offset: number; format: string };
+  /**
+   * 90도 단위 회전 — 0(정하지 않았으면 이 값)·90(시계 방향)·270(반시계 방향).
+   *
+   * 상자의 가운데를 축으로 돈다. 정렬·줄바꿈 등 다른 계산은 전부 회전하지
+   * 않은 자기 상자 기준 그대로다 — 회전은 그린 결과를 통째로 돌리는
+   * 마지막 한 단계일 뿐이다(core/text의 `textRotationOf`).
+   */
+  rotate?: 90 | 270;
 }
 
 export type WeekdayLang = 'kr' | 'en' | 'hanja';
@@ -181,7 +189,7 @@ export type LineStyle = Partial<Pick<LineObject, 'width' | 'color' | 'dash'>>;
  * 똑같이 객체에 새겨져 따라다닌다.
  */
 export type TextStyle = Partial<
-  Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight' | 'bold' | 'font'>
+  Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight' | 'bold' | 'font' | 'rotate'>
 >;
 /** 달력마다 따로 정할 수 있는 것들. */
 export type CalendarStyle = Partial<

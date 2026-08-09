@@ -24,8 +24,11 @@ import {
   leftOf,
   lineBaselines,
   lineHeightOf,
+  pdfRotateDegreesOf,
+  rotateOf,
   sizeOf,
   splitLines,
+  textRotationOf,
   valignOf,
 } from '../core/text';
 import { mirrorLayout, type Layout } from '../core/layout';
@@ -550,21 +553,29 @@ function drawTexts(
       // 만큼 폭도 넓어서, Regular로 재고 Bold로 그리면 가운데 정렬이 어긋난다.
       const font = fontFor(t, fonts);
 
+      const rotate = rotateOf(t);
+      const localRotation = textRotationOf(t, rotate);
+
       lines.forEach((line, i) => {
         if (line === '') return;
         const width = ptToMm(font.widthOfTextAtSize(line, mmToPt(size)));
-        const p = place.map(leftOf(t, alignOf(t), width), baselines[i]);
+        // 먼저 글자 자신의 회전(90/270)을 상자 가운데 축으로 적용하고, 그 다음
+        // place.map으로 칸 배치(회전 배치 포함)를 반영한다 — 순서가 바뀌면 안 된다.
+        const local = localRotation.map({ x: leftOf(t, alignOf(t), width), y: baselines[i] });
+        const p = place.map(local.x, local.y);
         page.drawText(line, {
           x: mmToPt(p.x),
           y: mmToPt(flipY(p.y)),
           size: mmToPt(size),
           font,
           color: t.color ? color(t.color) : TEXT,
-          // 자리는 place.map이 이미 회전 배치를 반영해 옮겨준다. 하지만 pdf-lib은
-          // 글자 자체를 그 방향으로 돌려 그리라고 따로 말해주지 않으면 언제나
-          // 가로로 눕혀 그린다 — 화면(SVG)은 <g transform>이 글자까지 통째로
-          // 돌리므로 이 차이가 화면에서는 안 보이다가 인쇄물에서만 드러났다.
-          rotate: degrees(layout.rotated ? 90 : 0),
+          // 자리는 두 map()이 이미 옮겨준다. 하지만 pdf-lib은 글자 자체를 그
+          // 방향으로 돌려 그리라고 따로 말해주지 않으면 언제나 가로로 눕혀
+          // 그린다 — 화면(SVG)은 <g transform>이 글자까지 통째로 돌리므로 이
+          // 차이가 화면에서는 안 보이다가 인쇄물에서만 드러났다. 두 회전(글자
+          // 자신 + 회전 배치)의 각도를 더한다 — 방향(부호)이 같은 각도끼리는
+          // 그냥 더하면 합쳐진 회전이 나온다.
+          rotate: degrees((layout.rotated ? 90 : 0) + pdfRotateDegreesOf(rotate)),
         });
       });
     }

@@ -25,8 +25,10 @@ import {
   displayText,
   lineBaselines,
   lineHeightOf,
+  rotateOf,
   sizeOf,
   splitLines,
+  textRotationOf,
   valignOf,
 } from '../core/text';
 import {
@@ -195,9 +197,10 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
         const lines = splitLines(displayText(t));
         const baselines = lineBaselines(t, size, valignOf(t), lines.length, lineHeightOf(t));
         const x = anchorX(t, align);
-        return (
+        const rotate = rotateOf(t);
+        const el = (
           <text
-            key={t.id}
+            key={rotate === 0 ? t.id : undefined}
             data-id={t.id}
             x={x}
             fontSize={size}
@@ -218,6 +221,14 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
               </tspan>
             ))}
           </text>
+        );
+        // 회전은 자기 상자 가운데를 축으로 그린 결과를 통째로 돌리는 마지막
+        // 한 단계다 — 위의 자리 계산(x·baselines)은 회전과 무관하게 그대로다.
+        if (rotate === 0) return el;
+        return (
+          <g key={t.id} transform={textRotationOf(t, rotate).svg}>
+            {el}
+          </g>
         );
       })}
     </g>
