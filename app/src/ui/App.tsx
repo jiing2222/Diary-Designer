@@ -21,7 +21,8 @@ import { RepeatPrint } from './RepeatPrint';
 import { buildPdf, downloadPdf, type SlotContent } from '../pdf/export';
 import { loadBodyFont, loadBoldFont } from '../fonts/load';
 import { fontBytes as fontBytes_ } from '../fonts/registry';
-import type { TextObject } from '../core/objects';
+import { imageBytes as imageBytes_, imageKind as imageKind_ } from '../images/registry';
+import type { ImageObject, TextObject } from '../core/objects';
 
 type Tab = 'gallery' | 'edit' | 'print';
 
@@ -245,6 +246,20 @@ export function App() {
         if (t.font && b) userFonts.set(t.font, b);
       }
 
+      // 이미지도 같은 방식이다 — 등록소에 없는 id(새로고침 뒤 다시 등록하지
+      // 않은 이미지)는 빠지고, PDF에서도 화면처럼 그 자리만 비게 된다.
+      const isImageObj = (o: { type: string }): o is ImageObject => o.type === 'image';
+      const allImages: ImageObject[] = uniqueTemplates.flatMap((t) => [
+        ...t.objects.present.filter(isImageObj),
+        ...(t.back?.objects.present.filter(isImageObj) ?? []),
+      ]);
+      const userImages = new Map<string, { bytes: ArrayBuffer; kind: 'png' | 'jpg' }>();
+      for (const o of allImages) {
+        const bytes = imageBytes_(o.imageId);
+        const kind = imageKind_(o.imageId);
+        if (bytes && kind) userImages.set(o.imageId, { bytes, kind });
+      }
+
       /*
        * 세트형 — 모든 쪽의 자동 필드를 실제 값으로 채운다.
        *
@@ -296,6 +311,7 @@ export function App() {
         fontBytes,
         boldFontBytes,
         userFonts,
+        userImages,
         safeZoneWidth: active.insert.punch.safeZoneWidth,
         cropMark: s.cropMark,
         showRuler: s.showRuler,

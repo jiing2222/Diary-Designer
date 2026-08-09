@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import {
   boundsOfObjects,
   isCalendar,
+  isImage,
   isLine,
   isText,
   type CalendarObject,
   type CalendarStyle,
+  type ImageObject,
   type LineObject,
   type LineStyle,
   type TextObject,
@@ -27,6 +29,7 @@ import {
 } from '../core/text';
 import { showAdjacentOf, weekdayLangOf, weekStartOf } from '../core/calendar';
 import { FONT_ACCEPT, hasFont, registerFont } from '../fonts/registry';
+import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
 import { useObjects, useStore } from '../store';
 import type { Editing } from './gestures';
@@ -104,12 +107,15 @@ export function StyleBar({
   const pickedLines = picked.filter(isLine);
   const pickedTexts = picked.filter(isText);
   const pickedCalendars = picked.filter(isCalendar);
+  const pickedImages = picked.filter(isImage);
   const size = boundsOfObjects(picked);
 
   // 무엇 하나를 골랐거나 그 도구를 쓰는 중이면 그 속성을, 아니면 선 속성을 보여준다.
   const showCalendar = tool === 'calendar' || pickedCalendars.length > 0;
+  const showImage = !showCalendar && (tool === 'image' || pickedImages.length > 0);
   const showText =
     !showCalendar &&
+    !showImage &&
     (tool === 'text' || tool === 'field' || (pickedTexts.length > 0 && pickedLines.length === 0));
 
   return (
@@ -133,12 +139,16 @@ export function StyleBar({
                 ? '찍을 자동 필드'
                 : tool === 'calendar'
                   ? '그릴 달력'
-                  : '그릴 선'}
+                  : tool === 'image'
+                    ? '놓을 이미지'
+                    : '그릴 선'}
         </span>
       )}
 
       {showCalendar ? (
         <CalendarControls calendars={pickedCalendars} />
+      ) : showImage ? (
+        <ImageControls images={pickedImages} />
       ) : showText ? (
         <>
           {/* 이미 만든 글자를 골랐을 때만 자동 필드로 바꿀 수 있다. 아직 쓰는
@@ -297,6 +307,96 @@ function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
     </>
   );
 }
+
+/**
+ * 이미지 고르기·등록.
+ *
+ * FontPicker와 같은 틀이다 — 목록 맨 아래의 `이미지 파일 추가…`가 파일 창을 연다.
+ *
+ * **이미 놓인 이미지를 골랐으면 그 오브젝트의 사진을 바꾼다.** 아직 아무것도
+ * 없으면(이미지 도구를 막 켠 상태) "다음에 놓을 이미지"로만 잡아둔다 — 박스를
+ * 그려야 비로소 오브젝트가 생긴다.
+ */
+function ImageControls({ images }: { images: ImageObject[] }) {
+  const userImages = useStore((s) => s.userImages);
+  const addUserImage = useStore((s) => s.addUserImage);
+  const draftImageId = useStore((s) => s.draftImageId);
+  const setDraftImageId = useStore((s) => s.setDraftImageId);
+  const styleImage = useStore((s) => s.styleImage);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const editingExisting = images.length > 0;
+  const first = editingExisting ? images[0].imageId : (draftImageId ?? '');
+  const mixed = editingExisting && !images.every((i) => i.imageId === first);
+
+  function pick(id: string) {
+    if (editingExisting) styleImage(id);
+    else setDraftImageId(id);
+  }
+
+  async function take(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    try {
+      // 저장 파일을 열면 이미지가 이름만 남는다. 같은 이름의 파일을 다시
+      // 등록하면 그때의 id를 물려받아 그 이미지를 쓰던 오브젝트가 되살아난다.
+      const name = file.name.replace(/\.[^.]+$/, '');
+      const orphan = userImages.find((i) => i.name === name && !hasImage(i.id));
+
+      const image = await registerImage(file, orphan?.id);
+      addUserImage(image);
+      // 방금 등록한 이미지를 바로 씌운다. 등록만 하고 또 고르게 하면 한 번 더 손이 간다.
+      pick(image.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '이미지를 읽지 못했습니다');
+    }
+  }
+
+  return (
+    <>
+      <select
+        value={mixed ? 'mixed' : first}
+        onChange={(e) => {
+          if (e.target.value === ADD_IMAGE) {
+            // 고른 값을 되돌려놓는다. 파일 창을 닫아버리면 아무 일도 없어야 한다.
+            e.target.value = mixed ? 'mixed' : first;
+            fileRef.current?.click();
+            return;
+          }
+          pick(e.target.value);
+        }}
+        title={error ?? '이미지'}
+        className={error ? 'has-error' : undefined}
+      >
+        {mixed && <option value="mixed">—</option>}
+        {!first && <option value="">이미지를 고르세요</option>}
+        {userImages.map((img) => (
+          <option key={img.id} value={img.id}>
+            {/* 저장 파일에서 이름만 살아 돌아온 것. 다시 등록해야 보인다. */}
+            {img.url ? img.name : `${img.name} (파일 없음)`}
+          </option>
+        ))}
+        <option value={ADD_IMAGE}>이미지 파일 추가…</option>
+      </select>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept={IMAGE_ACCEPT}
+        hidden
+        onChange={(e) => {
+          void take(e.target.files?.[0]);
+          // 같은 파일을 다시 고를 수 있게 비운다.
+          e.target.value = '';
+        }}
+      />
+    </>
+  );
+}
+
+/** 드롭다운에서 `파일 추가`를 뜻하는 값. 이미지 id와 부딪히지 않는 모양이면 된다. */
+const ADD_IMAGE = '__add_image__';
 
 /**
  * 자동 필드로 바꾸기.

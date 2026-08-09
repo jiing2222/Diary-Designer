@@ -124,6 +124,17 @@ export function FieldIcon() {
   );
 }
 
+/** 이미지 — 액자 안에 해와 산. */
+export function ImageIcon() {
+  return (
+    <svg {...box}>
+      <rect x={3.5} y={3.5} width={13} height={13} rx={1} />
+      <circle cx={7.5} cy={7.5} r={1.3} fill="currentColor" stroke="none" />
+      <path d="M3.5 13.5 L8 9 L11.5 12.5 L13.5 10.5 L16.5 13.5" />
+    </svg>
+  );
+}
+
 /** 달력 — 위에 고리 두 개, 머리글 줄이 나뉜 사각형. */
 export function CalendarIcon() {
   return (

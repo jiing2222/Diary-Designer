@@ -12,6 +12,7 @@ import {
   rgb,
   StandardFonts,
   type PDFFont,
+  type PDFImage,
   type PDFPage,
 } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
@@ -51,7 +52,7 @@ import {
   TEXT_COLOR,
   hexToRgb,
 } from '../core/style';
-import { isCalendar, isLine, isText, type DiaryObject, type TextObject } from '../core/objects';
+import { isCalendar, isImage, isLine, isText, type DiaryObject, type TextObject } from '../core/objects';
 import { calendarLayout, showAdjacentOf, weekdayLabels, weekdayLangOf, weekStartOf } from '../core/calendar';
 import { calendarCellAt, calendarTitleAt } from '../core/dataset';
 import { formatDate } from '../core/format';
@@ -89,6 +90,12 @@ interface ExportInput {
    * 파일마다 수 MB씩 불어난다.
    */
   userFonts?: Map<string, ArrayBuffer | Uint8Array>;
+  /**
+   * 사용자가 등록한 이미지. `ImageObject.imageId` → {파일 바이트, png/jpg}.
+   *
+   * userFonts와 같은 이유로 실제로 쓰이는 것만 담아 넘긴다.
+   */
+  userImages?: Map<string, { bytes: ArrayBuffer | Uint8Array; kind: 'png' | 'jpg' }>;
   /** 타공 안전영역 폭. 격자가 이 영역을 피할지는 dotGrid가 정한다. */
   safeZoneWidth: Mm;
   /**
@@ -272,6 +279,14 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     }
   }
 
+  // 이미지도 실제로 쓰이는 것만 심는다 — 글꼴과 같은 이유다.
+  const images = allObjects.flatMap((list) => list.filter(isImage));
+  const embeddedImages = new Map<string, PDFImage>();
+  for (const [id, file] of input.userImages ?? []) {
+    if (!images.some((o) => o.imageId === id)) continue;
+    embeddedImages.set(id, file.kind === 'png' ? await doc.embedPng(file.bytes) : await doc.embedJpg(file.bytes));
+  }
+
   // PDF는 Y축이 위로 증가한다. 문서 모델은 아래로 증가하므로 여기서 뒤집는다.
   // 이 변환은 익스포터 안에만 존재하고 모델은 알지 못한다.
   const flipY = (y: Mm): Mm => input.paperHeight - y;
@@ -313,10 +328,11 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
      */
     pageFor: ((i: number) => number | null) | null,
   ) {
-    // 층 순서가 화면과 같아야 한다. 도트 → 선 → 글자.
+    // 층 순서가 화면과 같아야 한다. 도트 → 선 → 이미지 → 글자.
     // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
     drawDotGrid(page, layout, resolveForSheet, flipY, mirror);
     drawObjects(page, layout, resolveForSheet, flipY);
+    drawImages(page, layout, resolveForSheet, embeddedImages, flipY);
     if (bodyFont) {
       drawTexts(
         page,
@@ -664,6 +680,68 @@ function drawObjects(
         lineCap: OBJECT_LINE_CAP === 'round' ? LineCapStyle.Round : LineCapStyle.Butt,
       });
     }
+  });
+}
+
+/**
+ * 사용자가 올린 이미지.
+ *
+ * 박스 그대로 늘려 그린다 — 좌우 비율은 지키지 않는다(화면의 ImageLayer와
+ * 같다). 왼쪽 아래 모서리를 기준점으로 잡는 것도 drawTexts와 같은 이유다 —
+ * place.map이 회전 배치를 반영해 그 점을 옮기고, rotate가 그림 자체를 돌린다.
+ *
+ * 이번 세션에 등록되지 않은(파일이 없는) 이미지는 건너뛴다. 화면은 점선
+ * 자리표시를 보여주지만 PDF에는 그릴 것이 없다.
+ *
+ * **속지 영역으로 자른다** — drawTexts와 같은 이유다. 이미지 박스도 손으로
+ * 옮기고 크기를 바꿀 수 있어 속지 밖으로 나갈 수 있다.
+ */
+function drawImages(
+  page: PDFPage,
+  layout: Layout,
+  resolveSlot: (i: number) => SlotContent,
+  images: Map<string, PDFImage>,
+  flipY: (y: Mm) => Mm,
+) {
+  layout.slots.forEach((slot, i) => {
+    const objects = resolveSlot(i).objects.filter(isImage);
+    if (objects.length === 0) return;
+
+    const insert = insertSizeOf(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated);
+
+    const corners = [
+      place.map(0, 0),
+      place.map(insert.width, 0),
+      place.map(insert.width, insert.height),
+      place.map(0, insert.height),
+    ].map((p) => ({ x: mmToPt(p.x), y: mmToPt(flipY(p.y)) }));
+
+    page.pushOperators(
+      pushGraphicsState(),
+      moveTo(corners[0].x, corners[0].y),
+      lineTo(corners[1].x, corners[1].y),
+      lineTo(corners[2].x, corners[2].y),
+      lineTo(corners[3].x, corners[3].y),
+      closePath(),
+      clip(),
+      endPath(),
+    );
+
+    for (const o of objects) {
+      const img = images.get(o.imageId);
+      if (!img) continue;
+      const p = place.map(o.x, o.y + o.height);
+      page.drawImage(img, {
+        x: mmToPt(p.x),
+        y: mmToPt(flipY(p.y)),
+        width: mmToPt(o.width),
+        height: mmToPt(o.height),
+        rotate: degrees(layout.rotated ? 90 : 0),
+      });
+    }
+
+    page.pushOperators(popGraphicsState());
   });
 }
 

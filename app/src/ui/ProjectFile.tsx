@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
-import { missingFonts, readProject, toProject } from '../core/project';
+import { missingFonts, missingImages, readProject, toProject } from '../core/project';
 import { hasFont } from '../fonts/registry';
+import { hasImage } from '../images/registry';
 import { useStore } from '../store';
 
 /**
@@ -35,6 +36,7 @@ export function ProjectFile() {
         unprintable: store.unprintable,
       },
       fonts: store.userFonts.map((f) => ({ id: f.id, name: f.name })),
+      images: store.userImages.map((i) => ({ id: i.id, name: i.name })),
     });
 
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
@@ -61,13 +63,19 @@ export function ProjectFile() {
 
       store.loadProject(parsed.ok);
 
-      // 글꼴은 이름만 담긴다. 무엇을 다시 등록해야 하는지 알려준다.
-      const missing = missingFonts(parsed.ok, hasFont);
+      // 글꼴·이미지는 이름만 담긴다. 무엇을 다시 등록해야 하는지 알려준다.
+      const missingF = missingFonts(parsed.ok, hasFont);
+      const missingI = missingImages(parsed.ok, hasImage);
+      const parts = [
+        missingF.length > 0 && `글꼴 ${missingF.length}개(${missingF.join(', ')})`,
+        missingI.length > 0 && `이미지 ${missingI.length}개(${missingI.join(', ')})`,
+      ].filter((p): p is string => !!p);
+
       setNotice(
-        missing.length > 0
+        parts.length > 0
           ? {
               kind: 'warn',
-              text: `불러왔습니다. 글꼴 ${missing.length}개를 다시 등록해야 합니다 — ${missing.join(', ')}. 같은 이름으로 등록하면 그 글자들이 되살아납니다.`,
+              text: `불러왔습니다. ${parts.join(', ')}를 다시 등록해야 합니다. 같은 이름으로 등록하면 되살아납니다.`,
             }
           : { kind: 'ok', text: `양식 ${parsed.ok.templates.length}개를 불러왔습니다.` },
       );

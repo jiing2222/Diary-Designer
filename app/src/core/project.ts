@@ -32,6 +32,11 @@ export interface SavedFont {
   name: string;
 }
 
+export interface SavedImage {
+  id: string;
+  name: string;
+}
+
 export interface SavedTemplate {
   id: string;
   name: string;
@@ -53,6 +58,13 @@ export interface SavedProject {
   print: Record<string, unknown>;
   /** 쓰인 글꼴의 이름. 파일은 담지 않는다. */
   fonts: SavedFont[];
+  /**
+   * 쓰인 이미지의 이름. 파일은 담지 않는다(글꼴과 같은 이유 — 라이선스, 파일 크기).
+   *
+   * **옛 파일(이미지 오브젝트가 생기기 전)에는 없다.** 없으면 빈 목록으로 읽는다 —
+   * 이 파일 맨 위의 원칙("없는 값은 기본값으로 채운다")을 그대로 따른다.
+   */
+  images?: SavedImage[];
 }
 
 /** 지금 상태를 저장 파일 모양으로. */
@@ -60,6 +72,7 @@ export function toProject(input: {
   templates: Template[];
   print: Record<string, unknown>;
   fonts: SavedFont[];
+  images?: SavedImage[];
 }): SavedProject {
   return {
     version: PROJECT_VERSION,
@@ -78,12 +91,19 @@ export function toProject(input: {
     // 실제로 쓰인 글꼴만 담는다. 등록만 해놓고 안 쓴 것까지 적어두면
     // 불러올 때 필요하지도 않은 파일을 찾게 만든다.
     fonts: input.fonts.filter((f) => usesFont(input.templates, f.id)),
+    images: (input.images ?? []).filter((i) => usesImage(input.templates, i.id)),
   };
 }
 
 function usesFont(templates: Template[], id: string): boolean {
   return templates.some((t) =>
     t.objects.present.some((o) => o.type === 'text' && o.font === id),
+  );
+}
+
+function usesImage(templates: Template[], id: string): boolean {
+  return templates.some((t) =>
+    t.objects.present.some((o) => o.type === 'image' && o.imageId === id),
   );
 }
 
@@ -158,4 +178,9 @@ export function toTemplates(p: SavedProject): Template[] {
  */
 export function missingFonts(p: SavedProject, have: (id: string) => boolean): string[] {
   return (p.fonts ?? []).filter((f) => !have(f.id)).map((f) => f.name);
+}
+
+/** 다시 등록해야 하는 이미지 이름들. missingFonts와 같은 이유다. */
+export function missingImages(p: SavedProject, have: (id: string) => boolean): string[] {
+  return (p.images ?? []).filter((i) => !have(i.id)).map((i) => i.name);
 }

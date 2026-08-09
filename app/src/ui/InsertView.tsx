@@ -31,10 +31,12 @@ import {
 } from '../core/text';
 import {
   isCalendar,
+  isImage,
   isLine,
   isText,
   type CalendarObject,
   type DiaryObject,
+  type ImageObject,
   type LineObject,
   type TextObject,
 } from '../core/objects';
@@ -117,9 +119,48 @@ export function InsertView({
         <rect x={0} y={0} width={insert.width} height={insert.height} />
       </clipPath>
       <g clipPath={mode === 'print' ? `url(#${clipId})` : undefined}>
+        <ImageLayer objects={objects.filter(isImage)} />
         <TextLayer objects={objects.filter(isText)} hiddenId={hiddenId} />
         <CalendarLayer objects={objects.filter(isCalendar)} context={calendarContext} />
       </g>
+    </>
+  );
+}
+
+/**
+ * 사용자가 올린 이미지.
+ *
+ * 박스 그대로 늘려 그린다 — 좌우 비율은 지키지 않는다(core/objects의
+ * `ImageObject` 참고, 크기조정에서 비율을 고정하지 않기로 했다).
+ *
+ * **이번 세션에 등록한 파일이 없으면(저장 파일을 열고 아직 다시 등록하지
+ * 않았으면) 점선 자리만 보여준다.** 등록한 글꼴이 없을 때 기본 글꼴로
+ * 대신하는 것과 달리, 이미지는 대신할 것이 없어서 자리라도 남겨야
+ * 사용자가 "여기 뭔가 있었다"는 걸 알 수 있다.
+ */
+function ImageLayer({ objects }: { objects: ImageObject[] }) {
+  const userImages = useStore((s) => s.userImages);
+  return (
+    <>
+      {objects.map((o) => {
+        const img = userImages.find((i) => i.id === o.imageId);
+        if (img?.url) {
+          return (
+            <image
+              key={o.id}
+              href={img.url}
+              x={o.x}
+              y={o.y}
+              width={o.width}
+              height={o.height}
+              preserveAspectRatio="none"
+            />
+          );
+        }
+        return (
+          <rect key={o.id} x={o.x} y={o.y} width={o.width} height={o.height} className="image-missing" />
+        );
+      })}
     </>
   );
 }

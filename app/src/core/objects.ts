@@ -131,7 +131,24 @@ export interface CalendarObject {
   color?: string;
 }
 
-export type DiaryObject = LineObject | TextObject | CalendarObject;
+/**
+ * 사용자가 올린 이미지.
+ *
+ * 박스(x, y, width, height)와 `imageId`(images/registry가 들고 있는 파일을
+ * 가리키는 id)뿐이다. 달력 오브젝트와 똑같이 모서리를 끌어 크기를 바꾼다
+ * (core/objects의 `resizeBox`, ui/gestures의 `boxHandle`을 그대로 함께 쓴다).
+ */
+export interface ImageObject {
+  id: string;
+  type: 'image';
+  x: Mm;
+  y: Mm;
+  width: Mm;
+  height: Mm;
+  imageId: string;
+}
+
+export type DiaryObject = LineObject | TextObject | CalendarObject | ImageObject;
 
 export function isLine(o: DiaryObject): o is LineObject {
   return o.type === 'line';
@@ -143,6 +160,15 @@ export function isText(o: DiaryObject): o is TextObject {
 
 export function isCalendar(o: DiaryObject): o is CalendarObject {
   return o.type === 'calendar';
+}
+
+export function isImage(o: DiaryObject): o is ImageObject {
+  return o.type === 'image';
+}
+
+/** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 글자는 아직 아니다(만들 때만 크기가 정해진다). */
+export function isBoxResizable(o: DiaryObject): o is CalendarObject | ImageObject {
+  return isCalendar(o) || isImage(o);
 }
 
 /** 선마다 따로 정할 수 있는 것들. 키가 있고 값이 undefined면 기본값을 따른다. */

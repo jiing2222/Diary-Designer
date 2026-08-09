@@ -912,3 +912,69 @@ describe('세트형 — 데이터셋', () => {
     });
   });
 });
+
+/** "iVBOR..." — 1×1 투명 PNG 67바이트. embedPng가 실제로 받아들이는지 보려면 진짜 PNG가 있어야 한다. */
+const TINY_PNG = Uint8Array.from(
+  atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='),
+  (c) => c.charCodeAt(0),
+);
+
+describe('사용자 이미지 오브젝트', () => {
+  const base = {
+    paperWidth: 210,
+    paperHeight: 297,
+    layout,
+    dotGrid: DEFAULT_DOT_GRID,
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+  const imageObjects = [{ id: 'im1', type: 'image' as const, x: 5, y: 5, width: 40, height: 30, imageId: 'img1' }];
+
+  it('등록된 파일이 없으면(새로고침 뒤 다시 등록 전) 건너뛰고 안전하게 만들어진다', async () => {
+    const bytes = await buildPdf({ ...base, objects: imageObjects });
+    expect(bytes.byteLength).toBeGreaterThan(0);
+  });
+
+  it('등록된 이미지를 심으면 파일 크기가 늘어난다', async () => {
+    const without = await buildPdf({ ...base, objects: imageObjects });
+    const withImage = await buildPdf({
+      ...base,
+      objects: imageObjects,
+      userImages: new Map([['img1', { bytes: TINY_PNG, kind: 'png' }]]),
+    });
+    expect(withImage.byteLength).toBeGreaterThan(without.byteLength);
+  });
+
+  it('실제로 쓰이지 않는 이미지는 등록돼 있어도 심지 않는다', async () => {
+    // 오브젝트는 img1을 가리키는데 등록된 건 img2뿐이다 — 아무것도 못 찾아서
+    // userFonts와 같은 "실제로 쓰인 것만" 규칙이 지켜지면 결과가 건너뛴 경우와 같아야 한다.
+    const unused = await buildPdf({
+      ...base,
+      objects: imageObjects,
+      userImages: new Map([['img2', { bytes: TINY_PNG, kind: 'png' }]]),
+    });
+    const skipped = await buildPdf({ ...base, objects: imageObjects });
+    expect(unused.byteLength).toBe(skipped.byteLength);
+  });
+
+  it('깨진 이미지 파일이면 던진다', async () => {
+    await expect(
+      buildPdf({
+        ...base,
+        objects: imageObjects,
+        userImages: new Map([['img1', { bytes: new Uint8Array([1, 2, 3]), kind: 'png' }]]),
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('jpg로 등록했으면 embedJpg 쪽을 탄다(깨진 바이트라 던진다)', async () => {
+    await expect(
+      buildPdf({
+        ...base,
+        objects: imageObjects,
+        userImages: new Map([['img1', { bytes: new Uint8Array([1, 2, 3]), kind: 'jpg' }]]),
+      }),
+    ).rejects.toThrow();
+  });
+});

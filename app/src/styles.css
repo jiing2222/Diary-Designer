@@ -421,6 +421,14 @@ button.ghost:disabled {
   pointer-events: none;
 }
 
+/* 저장 파일에서 이름만 살아 돌아온 이미지. 다시 등록해야 할 자리를 보여준다. */
+.image-missing {
+  fill: none;
+  stroke: #9e9e9e;
+  stroke-width: 0.25;
+  stroke-dasharray: 1.5 1;
+}
+
 /*
  * 글자 입력칸.
  * 상자와 같은 자리에 겹쳐 놓고, 결과와 같아 보이게 글꼴·크기를 맞춘다.

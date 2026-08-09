@@ -21,6 +21,7 @@ import {
 } from './core/template';
 import { toTemplates, type SavedProject } from './core/project';
 import { reserveIds } from './fonts/registry';
+import { reserveImageIds } from './images/registry';
 import {
   dedupe,
   isDegenerate,
@@ -33,6 +34,7 @@ import {
   type CalendarObject,
   type CalendarStyle,
   type DiaryObject,
+  type ImageObject,
   type LineSeg,
   type LineStyle,
   type TextObject,
@@ -41,6 +43,7 @@ import {
 import type { CropMode } from './core/crop';
 import type { Mm } from './core/units';
 import type { UserFont } from './fonts/registry';
+import type { UserImage } from './images/registry';
 
 interface PaperState {
   presetId: string;
@@ -114,6 +117,13 @@ interface Settings {
    * 버퍼를 넣으면 구독하는 컴포넌트마다 그것을 들여다보게 된다.
    */
   userFonts: UserFont[];
+  /** 이번 세션에 등록한 이미지 목록. 파일 바이트는 images/registry가 들고 있다(userFonts와 같은 이유). */
+  userImages: UserImage[];
+  /**
+   * 이미지 도구에서 다음에 놓을 이미지. 이미지를 등록하거나 목록에서
+   * 고르면 여기 담기고, 박스를 그리면 이 이미지로 커밋된다.
+   */
+  draftImageId: string | null;
   gap: Mm;
   allowRotate: boolean;
   align: Align;
@@ -248,6 +258,14 @@ interface Store extends Settings {
   styleCalendar: (patch: CalendarStyle) => void;
   /** 등록을 마친 글꼴을 목록에 넣는다. 파일 읽기는 fonts/registry가 이미 끝냈다. */
   addUserFont: (font: UserFont) => void;
+  /** 등록을 마친 이미지를 목록에 넣는다. 파일 읽기는 images/registry가 이미 끝냈다. */
+  addUserImage: (image: UserImage) => void;
+  /** 이미지 도구가 다음에 놓을 이미지. */
+  setDraftImageId: (id: string | null) => void;
+  /** 새 이미지 오브젝트를 이 박스 크기로 만든다. */
+  commitImage: (box: Box, imageId: string) => void;
+  /** 고른 이미지들의 사진을 바꾼다. */
+  styleImage: (imageId: string) => void;
   /** 저장 파일에서 읽은 양식들로 통째로 갈아끼운다. */
   loadProject: (p: SavedProject) => void;
   undo: () => void;
@@ -272,7 +290,7 @@ interface Store extends Settings {
   patchUnprintable: (p: Partial<UnprintableSetting>) => void;
 }
 
-export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar';
+export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar' | 'image';
 export type Side = 'front' | 'back';
 
 /** 더 이상 존재하지 않는 id를 선택 목록에서 걷어낸다. */
@@ -426,6 +444,8 @@ export const useStore = create<Store>((set) => ({
   drawStyle: {},
   textDraftStyle: {},
   userFonts: [],
+  userImages: [],
+  draftImageId: null,
   gap: 0,
   allowRotate: true,
   // 좌측 상단에 붙이면 자르는 횟수가 줄지만, 실제로 인쇄해보니 가운데가 낫다.
@@ -668,6 +688,33 @@ export const useStore = create<Store>((set) => ({
         : [...s.userFonts, font],
     })),
 
+  addUserImage: (image) =>
+    set((s) => ({
+      userImages: s.userImages.some((i) => i.id === image.id)
+        ? s.userImages.map((i) => (i.id === image.id ? image : i))
+        : [...s.userImages, image],
+    })),
+
+  setDraftImageId: (id) => set({ draftImageId: id }),
+
+  commitImage: (box, imageId) =>
+    set((s) => {
+      // 'im' 접두사를 쓴다 — images/registry가 등록한 파일의 id('img1' 등)와
+      // 헷갈리지 않게 다른 접두사를 쓴다.
+      const next: ImageObject = { id: newId('im'), type: 'image', ...box, imageId };
+      // 달력과 같은 이유로 곧바로 고른 상태로 둔다.
+      return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
+    }),
+
+  styleImage: (imageId) =>
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      const next = activeObjects(s).map((o) =>
+        o.type === 'image' && s.selectedIds.includes(o.id) ? { ...o, imageId } : o,
+      );
+      return commitObjects(s, next);
+    }),
+
   loadProject: (p) =>
     set((s) => {
       const templates = toTemplates(p);
@@ -675,12 +722,16 @@ export const useStore = create<Store>((set) => ({
       // 그때까지 그 글자들은 기본 글꼴로 보인다(fonts/registry의 familyOf).
       const fonts = p.fonts ?? [];
       reserveIds(fonts.map((f) => f.id));
+      // 이미지도 같은 사정이다 — 이름만 돌아오고, url이 없어 그때까지는 빈 채로 보인다.
+      const images = p.images ?? [];
+      reserveImageIds(images.map((i) => i.id));
       const print = p.print as Partial<Settings>;
       return {
         templates,
         activeId: templates[0]?.id ?? '',
         selectedIds: [],
         userFonts: fonts.map((f) => ({ ...f, family: `user-font-${f.id}` })),
+        userImages: images.map((i) => ({ ...i, url: '' })),
         // 용지·배치는 저장된 것이 있으면 덮어쓰고, 없는 값은 지금 것을 지킨다.
         ...print,
         paper: { ...s.paper, ...((p.print as { paper?: PaperState }).paper ?? {}) },

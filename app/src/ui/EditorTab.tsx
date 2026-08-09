@@ -8,7 +8,7 @@ import {
   cleanStyle,
   distanceToSegment,
   growBox,
-  isCalendar,
+  isBoxResizable,
   isLine,
   isText,
   objectInRect,
@@ -25,7 +25,7 @@ import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type 
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
-import { CalendarIcon, CursorIcon, FieldIcon, LineIcon, TableIcon, TextIcon } from './icons';
+import { CalendarIcon, CursorIcon, FieldIcon, ImageIcon, LineIcon, TableIcon, TextIcon } from './icons';
 import { measureTextBox } from './measureText';
 import { familyOf } from '../fonts/registry';
 import { PX_PER_MM_AT_100 } from './pixels';
@@ -80,6 +80,8 @@ export function EditorTab() {
   const reshapeSelected = useStore((s) => s.reshapeSelected);
   const commitText = useStore((s) => s.commitText);
   const commitCalendar = useStore((s) => s.commitCalendar);
+  const commitImage = useStore((s) => s.commitImage);
+  const draftImageId = useStore((s) => s.draftImageId);
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
   const userFonts = useStore((s) => s.userFonts);
@@ -231,6 +233,7 @@ export function EditorTab() {
       if (e.key.toLowerCase() === 'g') setTool('table');
       if (e.key.toLowerCase() === 'f') setTool('field');
       if (e.key.toLowerCase() === 'c') setTool('calendar');
+      if (e.key.toLowerCase() === 'i') setTool('image');
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -275,9 +278,9 @@ export function EditorTab() {
     return null;
   }
 
-  /** 딱 하나 고른 달력의 네 모서리 손잡이. 선의 끝점 손잡이와 짝이다. */
+  /** 딱 하나 고른 상자(달력·이미지)의 네 모서리 손잡이. 선의 끝점 손잡이와 짝이다. */
   function boxHandleAt(p: Point): { id: string; corner: Corner } | null {
-    if (!lone || !isCalendar(lone)) return null;
+    if (!lone || !isBoxResizable(lone)) return null;
     const b = boxOf(lone);
     const corners: { corner: Corner; x: number; y: number }[] = [
       { corner: 'nw', x: b.x, y: b.y },
@@ -299,7 +302,7 @@ export function EditorTab() {
    * getBBox()가 곧 mm를 돌려준다.
    *
    * 글자를 먼저 본다. 글자가 선 위에 얹혀 있을 때 글자를 집을 수 없으면 곤란하다.
-   * 달력은 자기 상자가 곧 자리라 글꼴이 그린 크기를 잴 필요가 없다.
+   * 달력·이미지는 자기 상자가 곧 자리라 글꼴이 그린 크기를 잴 필요가 없다.
    */
   function hitAt(p: Point): DiaryObject | null {
     const svg = svgRef.current;
@@ -314,7 +317,7 @@ export function EditorTab() {
     }
 
     for (const o of [...objects].reverse()) {
-      if (!isCalendar(o)) continue;
+      if (!isBoxResizable(o)) continue;
       const b = boxOf(o);
       if (p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height) return o;
     }
@@ -372,15 +375,15 @@ export function EditorTab() {
       return;
     }
 
-    if (tool === 'calendar') {
-      // 방금 놓은(또는 고른) 달력이면 모서리 손잡이가 몸통보다 먼저다 —
+    if (tool === 'calendar' || tool === 'image') {
+      // 방금 놓은(또는 고른) 달력·이미지면 모서리 손잡이가 몸통보다 먼저다 —
       // 도구를 select로 바꾸지 않고도 이어서 바로 크기를 다듬을 수 있다.
       const boxGripHit = boxHandleAt(raw);
       if (boxGripHit) {
         setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to: raw });
         return;
       }
-      // 이미 있는 달력을 클릭하면 고르기만 한다.
+      // 이미 있는 것을 클릭하면 고르기만 한다.
       const hit = hitAt(raw);
       if (hit) {
         select([hit.id]);
@@ -502,15 +505,18 @@ export function EditorTab() {
       // 한 점에서 뗐으면 그 점이 든 칸 하나, 끌었으면 걸친 칸 전체가 상자다.
       const same = d.from.x === d.to.x && d.from.y === d.to.y;
 
-      if (tool === 'calendar') {
+      if (tool === 'calendar' || tool === 'image') {
         // 표처럼 실제로 끌어야 만들어진다 — 그냥 눌렀다 뗀 칸 하나는 너무 작다.
         if (same) return;
-        commitCalendar({
+        const box = {
           x: Math.min(d.from.x, d.to.x),
           y: Math.min(d.from.y, d.to.y),
           width: Math.abs(d.to.x - d.from.x),
           height: Math.abs(d.to.y - d.from.y),
-        });
+        };
+        if (tool === 'calendar') commitCalendar(box);
+        // 이미지 도구인데 아직 등록·선택한 이미지가 없으면 아무 일도 하지 않는다.
+        else if (draftImageId) commitImage(box, draftImageId);
         return;
       }
 
@@ -604,7 +610,7 @@ export function EditorTab() {
       return sizeLabelOf(rectLines(drag.from, drag.to));
     }
     if (grip && lone && isLine(lone)) return sizeLabelOf([preview(lone, null, grip)]);
-    if (boxGrip && lone && isCalendar(lone)) {
+    if (boxGrip && lone && isBoxResizable(lone)) {
       const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
       return `${roundMm(b.width, 1)} × ${roundMm(b.height, 1)}mm`;
     }
@@ -651,6 +657,9 @@ export function EditorTab() {
           <ToolBtn on={tool === 'calendar'} onClick={() => setTool('calendar')} title="달력 (C)">
             <CalendarIcon />
           </ToolBtn>
+          <ToolBtn on={tool === 'image'} onClick={() => setTool('image')} title="이미지 (I)">
+            <ImageIcon />
+          </ToolBtn>
         </div>
 
         {selectedIds.length > 0 ||
@@ -658,7 +667,8 @@ export function EditorTab() {
         tool === 'table' ||
         tool === 'text' ||
         tool === 'field' ||
-        tool === 'calendar' ? (
+        tool === 'calendar' ||
+        tool === 'image' ? (
           <StyleBar
             editing={editing}
             setEditingStyle={setEditingStyle}
@@ -812,9 +822,9 @@ export function EditorTab() {
               );
             })()}
 
-          {/* 모서리 손잡이. 달력 하나만 골랐을 때만 나온다 — 끝점 손잡이와 짝이다. */}
+          {/* 모서리 손잡이. 달력·이미지 하나만 골랐을 때만 나온다 — 끝점 손잡이와 짝이다. */}
           {lone &&
-            isCalendar(lone) &&
+            isBoxResizable(lone) &&
             (() => {
               const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
               const corners = [
