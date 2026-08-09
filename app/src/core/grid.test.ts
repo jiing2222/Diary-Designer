@@ -10,6 +10,7 @@ import {
   spacingForCells,
   tableLines,
   tableSize,
+  tableSplit,
   type Area,
 } from './grid';
 
@@ -592,5 +593,54 @@ describe('칸 하나하나의 자리 — 체크박스 도장', () => {
 
   it('한 점이면 칸이 없다', () => {
     expect(cellsIn(lattice, { x: 5, y: 5 }, { x: 5, y: 5 })).toEqual([]);
+  });
+});
+
+describe('표를 테두리와 안쪽 칸 선으로 나누기 — 테두리만 도형(둥글기 가능)', () => {
+  const lattice = gridLattice(m6, 5);
+
+  it('한 칸이면 테두리만 있고 안쪽 선은 없다', () => {
+    const split = tableSplit(lattice, { x: 5, y: 5 }, { x: 10, y: 10 })!;
+    expect(split.border).toEqual({ x: 5, y: 5, width: 5, height: 5 });
+    expect(split.innerLines).toEqual([]);
+  });
+
+  it('여러 칸이면 테두리 하나 + 안쪽 칸 선 — 합치면 tableLines와 같은 선 개수다', () => {
+    const a = { x: 5, y: 5 };
+    const b = { x: 20, y: 15 };
+    const split = tableSplit(lattice, a, b)!;
+    const all = tableLines(lattice, a, b);
+    // 테두리 4개(가로 2 + 세로 2) + 안쪽 선 = 전체 선.
+    expect(split.innerLines.length + 4).toBe(all.length);
+    expect(split.border).toEqual({ x: 5, y: 5, width: 15, height: 10 });
+  });
+
+  it('안쪽 칸 선은 테두리 좌표를 포함하지 않는다', () => {
+    const a = { x: 5, y: 5 };
+    const b = { x: 20, y: 15 };
+    const split = tableSplit(lattice, a, b)!;
+    for (const l of split.innerLines) {
+      if (l.x1 === l.x2) {
+        // 세로 선 — 테두리 좌우 x와 달라야 한다.
+        expect(l.x1).not.toBe(split.border.x);
+        expect(l.x1).not.toBe(split.border.x + split.border.width);
+      } else {
+        expect(l.y1).not.toBe(split.border.y);
+        expect(l.y1).not.toBe(split.border.y + split.border.height);
+      }
+    }
+  });
+
+  it('한 줄로만 끌거나(테두리조차 없다) 한 점이면 null이다', () => {
+    expect(tableSplit(lattice, { x: 5, y: 5 }, { x: 20, y: 5 })).toBeNull();
+    expect(tableSplit(lattice, { x: 5, y: 5 }, { x: 5, y: 20 })).toBeNull();
+    expect(tableSplit(lattice, { x: 5, y: 5 }, { x: 5, y: 5 })).toBeNull();
+  });
+
+  it('시작점과 끝점 순서가 바뀌어도 같은 테두리가 나온다', () => {
+    const forward = tableSplit(lattice, { x: 5, y: 5 }, { x: 20, y: 15 })!;
+    const backward = tableSplit(lattice, { x: 20, y: 15 }, { x: 5, y: 5 })!;
+    expect(forward.border).toEqual(backward.border);
+    expect(forward.innerLines).toHaveLength(backward.innerLines.length);
   });
 });

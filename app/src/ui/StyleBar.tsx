@@ -199,12 +199,13 @@ export function StyleBar({
             apply={picked.length > 0 ? styleSelected : setDrawStyle}
           />
           {/* 사각형을 끌면(클릭해서 잇는 선과 달리) 항상 도형(ShapeObject)
-              하나가 된다 — 둥글기가 0(각짐)이어도 마찬가지다. 그래야
-              나중에 그 사각형을 골라 바로 둥글기를 바꿀 수 있다. 그래서
-              여기 있는 둥글기는 "다음에 끌 사각형"의 기본값일 뿐이고,
-              아무것도 고르지 않은 그리기 도구에서만 보여준다 — 이미
-              만든 도형의 둥글기는 그걸 고르면 뜨는 ShapeControls에서 바꾼다. */}
-          {picked.length === 0 && tool === 'draw' && (
+              하나가 된다 — 둥글기가 0(각짐)이어도 마찬가지다. 표의
+              테두리도 마찬가지다(tableSplit) — 안쪽 칸 선은 그대로 선이고
+              테두리만 도형이다. 그래서 여기 있는 둥글기는 "다음에 끌
+              사각형(또는 표 테두리)"의 기본값일 뿐이고, 아무것도 고르지
+              않은 그리기·표 도구에서만 보여준다 — 이미 만든 도형의
+              둥글기는 그걸 고르면 뜨는 ShapeControls에서 바꾼다. */}
+          {picked.length === 0 && (tool === 'draw' || tool === 'table') && (
             <select
               value={drawStyle.roundness ? String(drawStyle.roundness) : ''}
               onChange={(e) =>
@@ -212,7 +213,7 @@ export function StyleBar({
                   roundness: e.target.value ? (Number(e.target.value) as CornerRoundness) : undefined,
                 })
               }
-              title="모서리 둥글기 — 사각형을 끌 때 만들어질 도형의 둥글기입니다"
+              title="모서리 둥글기 — 사각형(또는 표 테두리)을 만들 때 쓰일 둥글기입니다"
             >
               <option value="">각짐</option>
               <option value="1">둥글기 1</option>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize } from '../core/grid';
+import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { checkboxIconBox } from '../core/checkbox';
 import { holeCenterX } from '../core/punch';
 import { moveDelta, snapToLattice } from '../core/snap';
@@ -698,7 +698,9 @@ export function EditorTab() {
     }
 
     /*
-     * 표 — 끈 범위의 안쪽 칸 선까지 전부 채운다.
+     * 표 — 끈 범위의 안쪽 칸 선까지 전부 채운다. 테두리는 도형(둥글기가
+     * 되는) 하나로, 안쪽 칸 선은 그대로 선으로 나눈다(tableSplit) —
+     * 테두리만 모서리를 둥글게 할 수 있어야 한다는 요청이었다.
      *
      * 표는 최소 2칸은 돼야 의미가 있으므로, 끌지 않고 그냥 눌렀다 뗐으면
      * (점 하나) 아무 일도 하지 않는다 — 그리기 도구의 "점 찍고 다음 점"
@@ -706,7 +708,14 @@ export function EditorTab() {
      */
     if (tool === 'table') {
       if (d.from.x !== d.to.x || d.from.y !== d.to.y) {
-        drawLines(tableLines(lattice, d.from, d.to));
+        const split = tableSplit(lattice, d.from, d.to);
+        if (split) {
+          commitShape(split.border);
+          if (split.innerLines.length > 0) drawLines(split.innerLines);
+        } else {
+          // 한 줄로만 끌었다(테두리조차 없다) — 선 하나 그대로.
+          drawLines(tableLines(lattice, d.from, d.to));
+        }
       }
       return;
     }

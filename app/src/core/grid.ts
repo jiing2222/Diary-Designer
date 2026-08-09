@@ -441,3 +441,39 @@ export function cellsIn(lattice: Lattice, a: Dot, b: Dot): Area[] {
   }
   return areas;
 }
+
+/** 표를 테두리(둥글기가 있는 도형)와 안쪽 칸 선으로 나눈 것. */
+export interface TableSplit {
+  /** 테두리 자리 — 도형(ShapeObject)으로 만든다. */
+  border: Area;
+  /** 테두리를 뺀 안쪽 가로·세로 분할선.*/
+  innerLines: Segment[];
+}
+
+/**
+ * 표를 테두리와 안쪽 칸 선으로 나눈다.
+ *
+ * 표의 테두리도 도형처럼 모서리를 둥글게 할 수 있어야 한다는 요청으로
+ * 생겼다 — `tableLines`가 돌려주는 선 뭉치에서 테두리 4개만 골라
+ * `ShapeObject` 하나로, 나머지는 그대로 `LineObject`로 남긴다.
+ *
+ * **테두리조차 없으면(한 줄로만 끌었거나 한 점이면) `null`이다** — 그때는
+ * `tableLines`가 이미 하듯 선 하나(또는 없음)로 그대로 둔다. 둥글게 할
+ * 상자 자체가 없기 때문이다.
+ */
+export function tableSplit(lattice: Lattice, a: Dot, b: Dot): TableSplit | null {
+  const xs = between(lattice.xs, a.x, b.x);
+  const ys = between(lattice.ys, a.y, b.y);
+  if (xs.length < 2 || ys.length < 2) return null;
+
+  const left = xs[0];
+  const right = xs[xs.length - 1];
+  const top = ys[0];
+  const bottom = ys[ys.length - 1];
+
+  const innerLines: Segment[] = [];
+  for (const y of ys.slice(1, -1)) innerLines.push({ x1: left, y1: y, x2: right, y2: y });
+  for (const x of xs.slice(1, -1)) innerLines.push({ x1: x, y1: top, x2: x, y2: bottom });
+
+  return { border: { x: left, y: top, width: right - left, height: bottom - top }, innerLines };
+}
