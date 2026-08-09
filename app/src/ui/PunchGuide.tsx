@@ -15,18 +15,22 @@ import type { Mm } from '../core/units';
  * **구멍과 같은 세로줄에 정렬선도 함께 보여준다.** 로고·텍스트를 그 줄에
  * 맞춰 놓으라는 안내다 — 정확한 자리를 자동으로 만들어주는 대신(칸이
  * 작아 정밀하게 집기 어려웠다), 이 줄 근처로 끌면 달라붙기만 한다
- * (`ui/EditorTab.tsx`의 `snapToLogoLine`).
+ * (`ui/EditorTab.tsx`의 `snapToLogoLine`). 늘 옅게 보이지만 눈에 띄지
+ * 않을 수 있어서, 편집 화면의 "로고 칸" 버튼을 누르면 `emphasizeLine`이
+ * 잠깐 켜져 이 줄만 도드라져 보인다 — 도구는 바뀌지 않는다.
  */
 export function PunchGuide({
   width,
   height,
   punch,
   mirror = false,
+  emphasizeLine = false,
 }: {
   width: Mm;
   height: Mm;
   punch: PunchSetting;
   mirror?: boolean;
+  emphasizeLine?: boolean;
 }) {
   if (!punch.show) return null;
 
@@ -38,7 +42,13 @@ export function PunchGuide({
     <g>
       <rect x={zoneX} y={0} width={punch.safeZoneWidth} height={height} className="safe-zone" />
       <line x1={edgeX} y1={0} x2={edgeX} y2={height} className="safe-zone-edge" />
-      <line x1={cx} y1={0} x2={cx} y2={height} className="logo-line" />
+      <line
+        x1={cx}
+        y1={0}
+        x2={cx}
+        y2={height}
+        className={emphasizeLine ? 'logo-line logo-line-emphasis' : 'logo-line'}
+      />
       {holeCentersY(height, punch).map((cy, i) => (
         <circle key={i} cx={cx} cy={cy} r={punch.markSize / 2} className="hole" />
       ))}

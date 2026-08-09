@@ -96,6 +96,8 @@ export function EditorTab() {
 
   const [zoom, setZoom] = useState(100);
   const svgRef = useRef<SVGSVGElement>(null);
+  /** "로고 칸" 버튼을 누르면 잠깐 켜진다 — 도구는 안 바꾸고 정렬선만 눈에 띄게 한다. */
+  const [logoLineEmphasis, setLogoLineEmphasis] = useState(false);
 
   /** 마우스가 붙을 자리 */
   const [hover, setHover] = useState<Point | null>(null);
@@ -754,6 +756,19 @@ export function EditorTab() {
 
         <button
           className="ghost"
+          onClick={() => {
+            // 도구는 그대로 두고 정렬선만 잠깐 눈에 띄게 한다 — 늘 보이는
+            // 점선이라 어디 있는지 놓치기 쉽다.
+            setLogoLineEmphasis(true);
+            setTimeout(() => setLogoLineEmphasis(false), 2600);
+          }}
+          disabled={!insert.punch.show}
+          title="타공 옆 정렬선을 잠깐 강조해서 보여줍니다. 텍스트·이미지를 그 줄 근처에 놓으면 달라붙습니다"
+        >
+          로고 칸
+        </button>
+        <button
+          className="ghost"
           onClick={deleteSelected}
           disabled={selectedIds.length === 0}
           title="지우기 (Delete)"
@@ -861,6 +876,7 @@ export function EditorTab() {
             height={insert.height}
             punch={insert.punch}
             mirror={side === 'back'}
+            emphasizeLine={logoLineEmphasis}
           />
 
           {/* 고른 것 표시. 옮기거나 끝점을 끄는 중이면 갈 자리에 미리 보여준다.
