@@ -215,6 +215,14 @@ interface Store extends Settings {
   drawLines: (segs: LineSeg[]) => void;
   select: (ids: string[]) => void;
   deleteSelected: () => void;
+  /**
+   * 고른 것들을 잠근다. 잠근 것은 클릭으로도 감싸기로도 골라지지 않는다
+   * (ui/EditorTab의 hitAt·marquee 필터) — 그래서 잠그는 순간 고른 상태를
+   * 비운다. 다시 손대려면 `unlockAll`로 전부 풀어야 한다.
+   */
+  lockSelected: () => void;
+  /** 잠긴 것을 전부 푼다. 하나씩 푸는 대신 전부 한 번에 — 목록 UI 없이도 되돌릴 수 있게. */
+  unlockAll: () => void;
   moveSelected: (dx: Mm, dy: Mm) => void;
   /** 고른 선 하나의 한쪽 끝을 옮긴다. */
   reshapeSelected: (id: string, end: 1 | 2, p: { x: Mm; y: Mm }) => void;
@@ -750,6 +758,28 @@ export const useStore = create<Store>((set) => ({
       if (s.selectedIds.length === 0) return {};
       const keep = activeObjects(s).filter((o) => !s.selectedIds.includes(o.id));
       return { ...commitObjects(s, keep), selectedIds: [] };
+    }),
+
+  lockSelected: () =>
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      const next = activeObjects(s).map((o) =>
+        s.selectedIds.includes(o.id) ? { ...o, locked: true } : o,
+      );
+      return { ...commitObjects(s, next), selectedIds: [] };
+    }),
+
+  unlockAll: () =>
+    set((s) => {
+      const cur = activeObjects(s);
+      if (!cur.some((o) => o.locked)) return {};
+      const next = cur.map((o) => {
+        if (!o.locked) return o;
+        const rest = { ...o };
+        delete rest.locked;
+        return rest;
+      });
+      return commitObjects(s, next);
     }),
 
   moveSelected: (dx, dy) =>

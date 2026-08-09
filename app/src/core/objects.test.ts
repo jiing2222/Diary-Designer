@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   boundsOf,
   isLine,
+  isLocked,
   dedupe,
   distanceToSegment,
   growBox,
@@ -288,5 +289,22 @@ describe('상자 모서리로 크기 바꾸기', () => {
     expect(resizeBox(box, 'ne', { x: 50, y: 0 })).toEqual({ x: 10, y: 0, width: 40, height: 40 });
     // 왼쪽 아래(sw)를 끌면 오른쪽 위(30,10)가 고정된다.
     expect(resizeBox(box, 'sw', { x: 0, y: 60 })).toEqual({ x: 0, y: 10, width: 30, height: 50 });
+  });
+});
+
+describe('잠금', () => {
+  it('정하지 않았으면 잠기지 않은 것이다', () => {
+    const line = { id: 'l1', type: 'line' as const, x1: 0, y1: 0, x2: 10, y2: 0 };
+    expect(isLocked(line)).toBe(false);
+  });
+
+  it('locked: true면 잠긴 것이다', () => {
+    const line = { id: 'l1', type: 'line' as const, x1: 0, y1: 0, x2: 10, y2: 0, locked: true };
+    expect(isLocked(line)).toBe(true);
+  });
+
+  it('locked: false도 잠기지 않은 것이다', () => {
+    const line = { id: 'l1', type: 'line' as const, x1: 0, y1: 0, x2: 10, y2: 0, locked: false };
+    expect(isLocked(line)).toBe(false);
   });
 });

@@ -34,6 +34,14 @@ export interface LineObject extends LineSeg {
   width?: Mm;
   color?: string;
   dash?: Dash;
+  /**
+   * 잠갔는가. 정하지 않았으면(대부분) 잠기지 않은 것이다.
+   *
+   * **포토샵의 레이어 잠금과 같은 생각이다.** 잠근 오브젝트는 클릭으로도,
+   * 감싸기(마퀴)로도 골라지지 않는다 — 나중에 다른 걸 작업하다 실수로
+   * 건드리지 않게 하기 위해서다. 잠금을 풀어야만 다시 손댈 수 있다.
+   */
+  locked?: boolean;
 }
 
 export type Align = 'left' | 'center' | 'right';
@@ -108,6 +116,8 @@ export interface TextObject {
    * 마지막 한 단계일 뿐이다(core/text의 `textRotationOf`).
    */
   rotate?: 90 | 270;
+  /** 잠갔는가. LineObject의 `locked` 참고 — 모든 오브젝트 종류가 같은 규칙을 쓴다. */
+  locked?: boolean;
 }
 
 export type WeekdayLang = 'kr' | 'en' | 'hanja';
@@ -137,6 +147,8 @@ export interface CalendarObject {
   /** 요일 이름 언어. 정하지 않았으면 한글. */
   weekdayLang?: WeekdayLang;
   color?: string;
+  /** 잠갔는가. LineObject의 `locked` 참고. */
+  locked?: boolean;
 }
 
 /**
@@ -154,6 +166,8 @@ export interface ImageObject {
   width: Mm;
   height: Mm;
   imageId: string;
+  /** 잠갔는가. LineObject의 `locked` 참고. */
+  locked?: boolean;
 }
 
 export type DiaryObject = LineObject | TextObject | CalendarObject | ImageObject;
@@ -177,6 +191,11 @@ export function isImage(o: DiaryObject): o is ImageObject {
 /** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 글자는 아직 아니다(만들 때만 크기가 정해진다). */
 export function isBoxResizable(o: DiaryObject): o is CalendarObject | ImageObject {
   return isCalendar(o) || isImage(o);
+}
+
+/** 잠겼는가. 정하지 않았으면(대부분) 잠기지 않은 것이다. */
+export function isLocked(o: DiaryObject): boolean {
+  return o.locked ?? false;
 }
 
 /** 선마다 따로 정할 수 있는 것들. 키가 있고 값이 undefined면 기본값을 따른다. */

@@ -891,13 +891,12 @@ select,
   stroke-width: 0.3;
 }
 
-/* 로고 칸 자리 안내(core/punch의 logoSlotAreas). 글자 도구와 같은 파란색 계열이다. */
-.logo-slot {
-  fill: #3568c9;
-  fill-opacity: 0.05;
+/* 로고·텍스트 정렬선(구멍과 같은 세로줄). 글자 도구와 같은 파란색 계열이다. */
+.logo-line {
   stroke: #3568c9;
-  stroke-width: 0.2;
+  stroke-width: 0.25;
   stroke-dasharray: 1.5 1;
+  opacity: 0.6;
 }
 
 /* 절취선의 색과 굵기는 core/style.ts가 정한다. PDF와 같은 값을 써야 하므로

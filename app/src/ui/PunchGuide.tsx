@@ -1,4 +1,4 @@
-import { holeCenterX, holeCentersY, logoSlotAreas, type PunchSetting } from '../core/punch';
+import { holeCenterX, holeCentersY, type PunchSetting } from '../core/punch';
 import type { Mm } from '../core/units';
 
 /**
@@ -12,9 +12,10 @@ import type { Mm } from '../core/units';
  * `mirror`가 켜지면(뒷면) 안전영역과 구멍이 오른쪽에 표시된다 — core/grid의
  * `gridArea`와 같은 방향으로 뒤집는다.
  *
- * **로고 칸 자리도 함께 보여준다**(core/punch의 `logoSlotAreas`) — 이미지는
- * 이 자리를 보고 직접 끌어다 놓는다. 텍스트는 "로고 칸 만들기" 버튼이
- * (`ui/EditorTab.tsx`) 이 자리에 정확히 맞춰 자동으로 만든다.
+ * **구멍과 같은 세로줄에 정렬선도 함께 보여준다.** 로고·텍스트를 그 줄에
+ * 맞춰 놓으라는 안내다 — 정확한 자리를 자동으로 만들어주는 대신(칸이
+ * 작아 정밀하게 집기 어려웠다), 이 줄 근처로 끌면 달라붙기만 한다
+ * (`ui/EditorTab.tsx`의 `snapToLogoLine`).
  */
 export function PunchGuide({
   width,
@@ -37,11 +38,9 @@ export function PunchGuide({
     <g>
       <rect x={zoneX} y={0} width={punch.safeZoneWidth} height={height} className="safe-zone" />
       <line x1={edgeX} y1={0} x2={edgeX} y2={height} className="safe-zone-edge" />
+      <line x1={cx} y1={0} x2={cx} y2={height} className="logo-line" />
       {holeCentersY(height, punch).map((cy, i) => (
         <circle key={i} cx={cx} cy={cy} r={punch.markSize / 2} className="hole" />
-      ))}
-      {logoSlotAreas(width, height, punch, mirror).map((a, i) => (
-        <rect key={i} x={a.x} y={a.y} width={a.width} height={a.height} className="logo-slot" />
       ))}
     </g>
   );

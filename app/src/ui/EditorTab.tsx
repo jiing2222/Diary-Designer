@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cellAt, gridArea, gridLattice, tableLines, tableSize } from '../core/grid';
-import { logoSlotAreas } from '../core/punch';
+import { holeCenterX } from '../core/punch';
 import { moveDelta, snapToLattice } from '../core/snap';
 import { canRedo, canUndo } from '../core/history';
 import {
@@ -11,6 +11,7 @@ import {
   growBox,
   isBoxResizable,
   isLine,
+  isLocked,
   isText,
   objectInRect,
   rectLines,
@@ -20,8 +21,8 @@ import {
   type TextStyle,
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
-import { ptToMm, roundMm } from '../core/units';
-import { DEFAULT_FIELD_FORMAT, fieldPlaceholder, newTextStyle, rotateOf } from '../core/text';
+import { roundMm, type Mm } from '../core/units';
+import { DEFAULT_FIELD_FORMAT, fieldPlaceholder, newTextStyle, rotateOf, textRotationOf } from '../core/text';
 import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type Side } from '../store';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
@@ -49,8 +50,8 @@ import {
 } from './gestures';
 
 const ZOOMS = [50, 75, 100, 150, 200, 300, 400];
-/** 로고 칸(6×10mm)이 작아서, "로고 칸" 버튼이 여는 글자의 기본 크기는 앱 기본(9pt)보다 작다. */
-const LOGO_TEXT_SIZE_PT = 6;
+/** 커서가 로고 정렬선에서 이만큼 안이면 달라붙는다. */
+const LOGO_LINE_SNAP: Mm = 3;
 
 /**
  * 양식 만들기 화면.
@@ -79,6 +80,8 @@ export function EditorTab() {
   const drawLines = useStore((s) => s.drawLines);
   const select = useStore((s) => s.select);
   const deleteSelected = useStore((s) => s.deleteSelected);
+  const lockSelected = useStore((s) => s.lockSelected);
+  const unlockAll = useStore((s) => s.unlockAll);
   const moveSelected = useStore((s) => s.moveSelected);
   const reshapeSelected = useStore((s) => s.reshapeSelected);
   const commitText = useStore((s) => s.commitText);
@@ -126,6 +129,7 @@ export function EditorTab() {
   const skipToolResetRef = useRef(false);
 
   const objects = history.present;
+  const lockedCount = objects.filter(isLocked).length;
   const lattice = gridLattice(
     gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back'),
     grid.spacing,
@@ -146,9 +150,14 @@ export function EditorTab() {
   const cellCols = lattice.cols;
   const cellRows = lattice.rows;
 
-  // 로고 칸 자리. PunchGuide가 같은 함수로 이미 점선을 보여주고 있다 — "로고 칸"
-  // 버튼은 그 자리 중 첫 번째에 글자를 바로 쓸 수 있게 연다.
-  const logoAreas = logoSlotAreas(insert.width, insert.height, insert.punch, side === 'back');
+  // 로고 정렬선 — 구멍과 같은 세로줄. PunchGuide가 이미 점선으로 보여주고
+  // 있다. 텍스트·이미지를 새로 놓을 때 이 줄 근처면 달라붙는다(snapToLogoLine).
+  const logoLineX = holeCenterX(insert.punch, insert.width, side === 'back');
+
+  /** 텍스트·이미지를 새로 놓을 때, 정렬선 근처면 가로 자리를 그 줄에 맞춘다. */
+  function snapToLogoLine(p: Point): Point {
+    return Math.abs(p.x - logoLineX) <= LOGO_LINE_SNAP ? { ...p, x: logoLineX } : p;
+  }
 
   // 새로 쓸 글자에 붙일 스타일. 줄 간격을 따로 정해두지 않았으면 지금 도트 간격이 새겨진다.
   const draftStyle = newTextStyle(textDraftStyle, grid.spacing);
@@ -315,16 +324,23 @@ export function EditorTab() {
     const svg = svgRef.current;
     if (svg) {
       for (const el of [...svg.querySelectorAll<SVGTextElement>('text[data-id]')].reverse()) {
+        const found = objects.find((o) => o.id === el.dataset.id);
+        if (!found || !isText(found) || isLocked(found)) continue;
+        // getBBox()는 <text>의 회전 전(자기 상자 기준) 자리를 돌려준다 — 화면에
+        // 보이는 회전한 자리가 아니다. 그래서 클릭 지점을 반대 방향으로 먼저
+        // 돌려 "회전 전이라면 어디를 짚은 셈인지"로 바꾼 다음 견준다. 90도와
+        // 270도는 서로의 역회전이라(같은 축을 반대로 돈다) 그대로 바꿔 쓸 수 있다.
+        const rotate = rotateOf(found);
+        const test = rotate === 0 ? p : textRotationOf(boxOf(found), rotate === 90 ? 270 : 90).map(p);
         const b = el.getBBox();
-        if (p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height) {
-          const found = objects.find((o) => o.id === el.dataset.id);
-          if (found) return found;
+        if (test.x >= b.x && test.x <= b.x + b.width && test.y >= b.y && test.y <= b.y + b.height) {
+          return found;
         }
       }
     }
 
     for (const o of [...objects].reverse()) {
-      if (!isBoxResizable(o)) continue;
+      if (!isBoxResizable(o) || isLocked(o)) continue;
       const b = boxOf(o);
       if (p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height) return o;
     }
@@ -332,7 +348,7 @@ export function EditorTab() {
     let best: DiaryObject | null = null;
     let bestGap = GRAB;
     for (const o of objects) {
-      if (!isLine(o)) continue;
+      if (!isLine(o) || isLocked(o)) continue;
       const gap = distanceToSegment(o, p.x, p.y);
       if (gap <= bestGap) {
         best = o;
@@ -366,7 +382,10 @@ export function EditorTab() {
       }
       // 입력 중이었다면 먼저 확정한다. 그래야 빈 상자가 남지 않는다.
       finishEditing();
-      if (snap) setDragBoth({ kind: 'textbox', from: snap, to: snap });
+      if (snap) {
+        const s = snapToLogoLine(snap);
+        setDragBoth({ kind: 'textbox', from: s, to: s });
+      }
       return;
     }
 
@@ -396,7 +415,10 @@ export function EditorTab() {
         select([hit.id]);
         return;
       }
-      if (snap) setDragBoth({ kind: 'textbox', from: snap, to: snap });
+      if (snap) {
+        const s = tool === 'image' ? snapToLogoLine(snap) : snap;
+        setDragBoth({ kind: 'textbox', from: s, to: s });
+      }
       return;
     }
 
@@ -452,7 +474,11 @@ export function EditorTab() {
     if (!d || !raw) return;
 
     if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox' || d.kind === 'boxHandle') {
-      const snap = snapped(e);
+      let snap = snapped(e);
+      // 글자·이미지를 놓는 중이고 정렬선 근처면 끌리는 동안에도 계속 달라붙는다.
+      if (snap && d.kind === 'textbox' && (tool === 'text' || tool === 'image')) {
+        snap = snapToLogoLine(snap);
+      }
       if (snap) setDragBoth({ ...d, to: snap });
     } else if (d.kind === 'marquee') {
       setDragBoth({ ...d, to: raw });
@@ -551,7 +577,7 @@ export function EditorTab() {
     }
 
     if (d.kind === 'marquee') {
-      const inside = objects.filter((o) => objectInRect(o, rectOf(d.from, d.to)));
+      const inside = objects.filter((o) => !isLocked(o) && objectInRect(o, rectOf(d.from, d.to)));
       select(e.shiftKey ? merge(selectedIds, inside.map((o) => o.id)) : inside.map((o) => o.id));
       return;
     }
@@ -583,6 +609,26 @@ export function EditorTab() {
     } else {
       setPending(d.to);
     }
+  }
+
+  /**
+   * 속지 바깥(여백)에서 시작하는 드래그. 감싸기(마퀴)만 지원한다 — 도구가
+   * select일 때만 뜻이 있고, 속지 안에서 시작한 클릭은 svg 자신의
+   * onPointerDown이 이미 처리하므로 여기서는 건너뛴다.
+   *
+   * 손을 옮기고 떼는 나머지는 기존 onMove·onUp을 그대로 재사용한다 —
+   * 어느 태그가 손잡이를 쥐었는지와 무관하게 dragRef만 보고 판단하기
+   * 때문이다. svg에서 시작한 드래그도 이 div까지 거품처럼 올라오지만,
+   * 그때는 이미 dragRef가 비어 있어 조용히 아무 일도 하지 않는다.
+   */
+  function onOutsideDown(e: React.PointerEvent) {
+    if (tool !== 'select') return;
+    if (svgRef.current?.contains(e.target as Node)) return;
+    const raw = rawMm(e);
+    if (!raw) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    if (!e.shiftKey) select([]);
+    setDragBoth({ kind: 'marquee', from: raw, to: raw });
   }
 
   const marquee = drag?.kind === 'marquee' ? rectOf(drag.from, drag.to) : null;
@@ -692,39 +738,25 @@ export function EditorTab() {
 
         <button
           className="ghost"
-          onClick={() => {
-            if (logoAreas.length === 0) return;
-            // 타공 옆 첫 자리에 바로 타이핑할 수 있게 연다. 타공부분이 위로
-            // 오게 종이를 돌렸을 때 바로 읽히도록 회전을 미리 걸어둔다 —
-            // 뒷면은 구멍이 반대쪽(오른쪽)이라 회전 방향도 반대다. 칸이
-            // 6×10mm로 작아서 지금 쓰던 글자 크기 대신 6pt·가운데 정렬을
-            // 기본값으로 둔다.
-            finishEditing();
-            setEditing({
-              box: logoAreas[0],
-              text: '',
-              style: {
-                ...draftStyle,
-                size: ptToMm(LOGO_TEXT_SIZE_PT),
-                align: 'center',
-                valign: 'middle',
-                rotate: side === 'back' ? 90 : 270,
-              },
-            });
-          }}
-          disabled={logoAreas.length === 0}
-          title="타공 옆 여백에 로고·텍스트 칸을 만듭니다. 이미지는 점선 자리를 보고 직접 끌어다 놓으세요"
-        >
-          로고 칸
-        </button>
-        <button
-          className="ghost"
           onClick={deleteSelected}
           disabled={selectedIds.length === 0}
           title="지우기 (Delete)"
         >
           지우기
         </button>
+        <button
+          className="ghost"
+          onClick={lockSelected}
+          disabled={selectedIds.length === 0}
+          title="잠그면 클릭으로도 감싸기로도 골라지지 않습니다. 나중에 다른 작업을 하다 실수로 건드리지 않게 됩니다"
+        >
+          잠그기
+        </button>
+        {lockedCount > 0 && (
+          <button className="ghost" onClick={unlockAll} title="잠긴 것을 전부 풉니다">
+            잠긴 것 {lockedCount}개 · 전부 해제
+          </button>
+        )}
         <button className="ghost" onClick={undo} disabled={!canUndo(history)} title="실행취소 (⌘Z)">
           ↶
         </button>
@@ -741,7 +773,12 @@ export function EditorTab() {
         </select>
       </div>
 
-      <div className="editor-canvas">
+      <div
+        className="editor-canvas"
+        onPointerDown={onOutsideDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+      >
         <svg
           ref={svgRef}
           className={`insert-sheet ${tool}`}
