@@ -154,9 +154,18 @@ export function EditorTab() {
   // 있다. 텍스트·이미지를 새로 놓을 때 이 줄 근처면 달라붙는다(snapToLogoLine).
   const logoLineX = holeCenterX(insert.punch, insert.width, side === 'back');
 
-  /** 텍스트·이미지를 새로 놓을 때, 정렬선 근처면 가로 자리를 그 줄에 맞춘다. */
-  function snapToLogoLine(p: Point): Point {
-    return Math.abs(p.x - logoLineX) <= LOGO_LINE_SNAP ? { ...p, x: logoLineX } : p;
+  /**
+   * 텍스트·이미지를 새로 놓을 때, 정렬선 근처면 가로 자리를 그 줄에 맞춘다.
+   *
+   * **커서의 실제 자리(`raw`)로 가까운지 재야 한다.** 격자에 이미 붙은 점
+   * (`snap`)으로 재면, 격자점이 우연히 이 줄 3mm 안에 있을 때만 붙어서
+   * 대부분은 아예 작동하지 않는다 — 격자 간격·여백에 따라 그런 점이 없는
+   * 경우가 흔하다. 줄 근처면 격자가 없어도(칸이 없어도) 붙는다 — 이 줄은
+   * 격자와 무관한 안내선이다.
+   */
+  function snapToLogoLine(raw: Point, snap: Point | null): Point | null {
+    if (Math.abs(raw.x - logoLineX) <= LOGO_LINE_SNAP) return { x: logoLineX, y: snap?.y ?? raw.y };
+    return snap;
   }
 
   // 새로 쓸 글자에 붙일 스타일. 줄 간격을 따로 정해두지 않았으면 지금 도트 간격이 새겨진다.
@@ -358,6 +367,36 @@ export function EditorTab() {
     return best;
   }
 
+  /**
+   * 이미 있는 것을 클릭했을 때 — 고르고, 끌면 옮길 수 있게 몸짓을 시작한다.
+   *
+   * 달력·이미지 도구에서도 이 몸짓을 그대로 쓴다. 예전엔 그 도구일 때
+   * 고르기만 하고 옮기기는 시작하지 않아서, 도구를 select로 바꾸지 않으면
+   * 방금 놓은 것을 끌어 옮길 수 없는 버그가 있었다.
+   */
+  function startMove(hit: DiaryObject, raw: Point, e: React.PointerEvent) {
+    if (e.shiftKey) {
+      select(toggleId(selectedIds, hit.id));
+      return;
+    }
+    // 이미 고른 것 중 하나면 선택을 그대로 두고 함께 끈다.
+    if (!selectedIds.includes(hit.id)) select([hit.id]);
+    // 격자에 앉힐 기준점 — 함께 옮길 것들을 감싸는 네모의 왼쪽 위.
+    // select()는 다음 렌더에나 반영되므로 지금 고른 것을 여기서 직접 센다.
+    const ids = selectedIds.includes(hit.id) ? selectedIds : [hit.id];
+    const box = boundsOfObjects(objects.filter((o) => ids.includes(o.id)));
+    setDragBoth({
+      kind: 'move',
+      origin: raw,
+      anchor: box ? { x: box.x, y: box.y } : raw,
+      dx: 0,
+      dy: 0,
+      hitId: hit.id,
+      free: false,
+      moved: false,
+    });
+  }
+
   function onDown(e: React.PointerEvent) {
     const raw = rawMm(e);
     const snap = snapped(e);
@@ -382,10 +421,8 @@ export function EditorTab() {
       }
       // 입력 중이었다면 먼저 확정한다. 그래야 빈 상자가 남지 않는다.
       finishEditing();
-      if (snap) {
-        const s = snapToLogoLine(snap);
-        setDragBoth({ kind: 'textbox', from: s, to: s });
-      }
+      const s = snapToLogoLine(raw, snap);
+      if (s) setDragBoth({ kind: 'textbox', from: s, to: s });
       return;
     }
 
@@ -409,16 +446,14 @@ export function EditorTab() {
         setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to: raw });
         return;
       }
-      // 이미 있는 것을 클릭하면 고르기만 한다.
+      // 이미 있는 것을 클릭하면 고르고, 끌면 옮길 수 있게 한다.
       const hit = hitAt(raw);
       if (hit) {
-        select([hit.id]);
+        startMove(hit, raw, e);
         return;
       }
-      if (snap) {
-        const s = tool === 'image' ? snapToLogoLine(snap) : snap;
-        setDragBoth({ kind: 'textbox', from: s, to: s });
-      }
+      const s = tool === 'image' ? snapToLogoLine(raw, snap) : snap;
+      if (s) setDragBoth({ kind: 'textbox', from: s, to: s });
       return;
     }
 
@@ -441,26 +476,7 @@ export function EditorTab() {
     // 고르기 — 선 위에서 시작하면 옮기기, 빈 곳이면 감싸기
     const hit = hitAt(raw);
     if (hit) {
-      if (e.shiftKey) {
-        select(toggleId(selectedIds, hit.id));
-        return;
-      }
-      // 이미 고른 것 중 하나면 선택을 그대로 두고 함께 끈다.
-      if (!selectedIds.includes(hit.id)) select([hit.id]);
-      // 격자에 앉힐 기준점 — 함께 옮길 것들을 감싸는 네모의 왼쪽 위.
-      // select()는 다음 렌더에나 반영되므로 지금 고른 것을 여기서 직접 센다.
-      const ids = selectedIds.includes(hit.id) ? selectedIds : [hit.id];
-      const box = boundsOfObjects(objects.filter((o) => ids.includes(o.id)));
-      setDragBoth({
-        kind: 'move',
-        origin: raw,
-        anchor: box ? { x: box.x, y: box.y } : raw,
-        dx: 0,
-        dy: 0,
-        hitId: hit.id,
-        free: false,
-        moved: false,
-      });
+      startMove(hit, raw, e);
       return;
     }
     if (!e.shiftKey) select([]);
@@ -476,8 +492,8 @@ export function EditorTab() {
     if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox' || d.kind === 'boxHandle') {
       let snap = snapped(e);
       // 글자·이미지를 놓는 중이고 정렬선 근처면 끌리는 동안에도 계속 달라붙는다.
-      if (snap && d.kind === 'textbox' && (tool === 'text' || tool === 'image')) {
-        snap = snapToLogoLine(snap);
+      if (d.kind === 'textbox' && (tool === 'text' || tool === 'image')) {
+        snap = snapToLogoLine(raw, snap);
       }
       if (snap) setDragBoth({ ...d, to: snap });
     } else if (d.kind === 'marquee') {
