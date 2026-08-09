@@ -108,7 +108,6 @@ export function EditorTab() {
   const commitImage = useStore((s) => s.commitImage);
   const draftImageId = useStore((s) => s.draftImageId);
   const commitShape = useStore((s) => s.commitShape);
-  const drawStyle = useStore((s) => s.drawStyle);
   const commitCheckboxes = useStore((s) => s.commitCheckboxes);
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
@@ -732,21 +731,18 @@ export function EditorTab() {
       return;
     }
 
-    // 그리기 — 같은 점에서 뗐으면 클릭(선), 다른 점이면 끌기(면).
-    // 둥글기(drawStyle.roundness)를 정해뒀으면 면 대신 도형 하나를 만든다
-    // — 도형은 이 그리기 도구에 합쳐져 있다, 따로 도구가 없다.
+    // 그리기 — 같은 점에서 뗐으면 클릭(선을 잇는다), 다른 점이면
+    // 끌기(사각형 = 도형 하나). 도형은 이 그리기 도구에 합쳐져 있다,
+    // 따로 도구가 없다 — 끌어서 나온 사각형은 둥글기가 0(각짐)이어도
+    // 그냥 도형 하나로 다뤄서, 나중에 골라 둥글기를 바로 바꿀 수 있다.
     const moved = d.from.x !== d.to.x || d.from.y !== d.to.y;
     if (moved) {
-      if (drawStyle.roundness) {
-        commitShape({
-          x: Math.min(d.from.x, d.to.x),
-          y: Math.min(d.from.y, d.to.y),
-          width: Math.abs(d.to.x - d.from.x),
-          height: Math.abs(d.to.y - d.from.y),
-        });
-      } else {
-        drawLines(rectLines(d.from, d.to));
-      }
+      commitShape({
+        x: Math.min(d.from.x, d.to.x),
+        y: Math.min(d.from.y, d.to.y),
+        width: Math.abs(d.to.x - d.from.x),
+        height: Math.abs(d.to.y - d.from.y),
+      });
       setPending(null);
       return;
     }

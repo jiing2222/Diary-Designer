@@ -198,11 +198,12 @@ export function StyleBar({
             draft={picked.length === 0 ? drawStyle : null}
             apply={picked.length > 0 ? styleSelected : setDrawStyle}
           />
-          {/* 둥글기는 사각형을 "앞으로" 끌 때만 뜻이 있다 — 이미 그은 선은
-              선 4개일 뿐이라 나중에 둥글게 되돌릴 수 없다. 그래서 아무것도
-              고르지 않은 그리기 도구에서만 보여준다. 0(각짐)이면 지금처럼
-              선 4개, 1 이상이면 사각형을 끌 때 도형(ShapeObject) 하나가
-              된다 — 도형은 따로 도구를 두지 않고 여기 합쳤다. */}
+          {/* 사각형을 끌면(클릭해서 잇는 선과 달리) 항상 도형(ShapeObject)
+              하나가 된다 — 둥글기가 0(각짐)이어도 마찬가지다. 그래야
+              나중에 그 사각형을 골라 바로 둥글기를 바꿀 수 있다. 그래서
+              여기 있는 둥글기는 "다음에 끌 사각형"의 기본값일 뿐이고,
+              아무것도 고르지 않은 그리기 도구에서만 보여준다 — 이미
+              만든 도형의 둥글기는 그걸 고르면 뜨는 ShapeControls에서 바꾼다. */}
           {picked.length === 0 && tool === 'draw' && (
             <select
               value={drawStyle.roundness ? String(drawStyle.roundness) : ''}
@@ -211,9 +212,9 @@ export function StyleBar({
                   roundness: e.target.value ? (Number(e.target.value) as CornerRoundness) : undefined,
                 })
               }
-              title="모서리 둥글기 — 각짐이면 사각형을 끌 때 선 4개가, 그 이상이면 도형 하나가 됩니다"
+              title="모서리 둥글기 — 사각형을 끌 때 만들어질 도형의 둥글기입니다"
             >
-              <option value="">각짐(선)</option>
+              <option value="">각짐</option>
               <option value="1">둥글기 1</option>
               <option value="2">둥글기 2</option>
               <option value="3">둥글기 3</option>

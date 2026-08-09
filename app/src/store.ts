@@ -107,15 +107,17 @@ interface Settings {
    */
   selectedIds: string[];
   /**
-   * 앞으로 그을 선(또는 둥글기를 주면 도형)의 모양.
+   * 앞으로 그을 선의 모양이자, 앞으로 끌 도형의 모양.
    *
    * 값이 없는 키는 core/style의 기본값을 따른다. 그린 선에도 그 키가 들어가지 않으므로,
    * 나중에 기본값을 바꾸면 그때 그은 선들도 같이 따라온다.
    *
-   * `roundness`는 LineObject에는 없는 속성이다 — 그리기 도구로 사각형을
-   * 끌 때, 이 값이 0(또는 없음)이면 지금까지처럼 선 4개를, 1 이상이면
-   * 도형(ShapeObject) 하나를 만들지 결정하는 데만 쓰인다("도형은 그리기
-   * 모드에 합친다"). 도형이 만들어지면 `width`는 그 도형의 `strokeWidth`가 된다.
+   * **그리기 도구로 클릭해서 이으면 선, 사각형으로 끌면 도형이다** — 도형은
+   * 따로 도구를 두지 않고 여기 합쳤다. 끌어서 나온 사각형은 둥글기가
+   * 0(각짐)이어도 도형(ShapeObject) 하나로 만든다 — 그래야 나중에 그
+   * 사각형을 골라 둥글기를 바로 바꿀 수 있다(선 4개였다면 나중에 하나로
+   * 묶어 둥글게 할 수 없다). `roundness`는 LineObject에는 없는 속성이라,
+   * 도형이 만들어질 때만 옮겨 붙는다. `width`는 그 도형의 `strokeWidth`가 된다.
    */
   drawStyle: DrawStyle;
   /** 앞으로 찍을 체크박스의 모양. drawStyle의 체크박스 판이다. */
@@ -774,8 +776,8 @@ export const useStore = create<Store>((set) => ({
 
   commitShape: (box) =>
     set((s) => {
-      // 도형은 그리기 도구의 drawStyle에서 나온다(둥글기가 있어야 여기까지
-      // 온다) — width는 그대로 도형의 strokeWidth가 된다.
+      // 도형은 그리기 도구를 사각형으로 끌 때 만들어진다 — drawStyle의
+      // 값을 그대로 물려받는다. width는 그대로 도형의 strokeWidth가 된다.
       const next: ShapeObject = { id: newId('sh'), type: 'shape', ...box };
       if (s.drawStyle.roundness) next.roundness = s.drawStyle.roundness;
       if (s.drawStyle.width !== undefined) next.strokeWidth = s.drawStyle.width;
