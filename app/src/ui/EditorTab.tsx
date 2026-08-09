@@ -53,8 +53,13 @@ import {
 } from './gestures';
 
 const ZOOMS = [50, 75, 100, 150, 200, 300, 400];
-/** 커서가 로고 정렬선에서 이만큼 안이면 달라붙는다. */
+/** 상자 가운데가 로고 정렬선에서 이만큼 안이면 달라붙는다. */
 const LOGO_LINE_SNAP: Mm = 3;
+/** "로고 칸" 버튼을 누르면 정렬선이 이만큼(ms) 강조되고, 그 사이에만 정렬선에 달라붙는다. */
+const LOGO_LINE_EMPHASIS_MS = 5000;
+/** 방향키로 미세이동할 때 한 번에 움직이는 양. ⇧를 누르면 이 값의 10배다. */
+const NUDGE_STEP: Mm = 0.5;
+const NUDGE_STEP_SHIFT: Mm = 5;
 
 /**
  * 양식 만들기 화면.
@@ -156,8 +161,10 @@ export function EditorTab() {
   const cellRows = lattice.rows;
 
   // 로고 정렬선 — 구멍과 같은 세로줄. PunchGuide가 이미 점선으로 보여주고
-  // 있다. 텍스트·이미지 상자를 새로 놓을 때 그 상자의 가운데가 이 줄 근처면
-  // 정확히 그 줄에 맞춰진다(centerOnLogoLine).
+  // 있다. "로고 칸" 버튼을 눌러 정렬선이 강조된 5초 동안에만(logoLineEmphasis)
+  // 텍스트·이미지 상자의 가운데가 이 줄 근처로 오면 정확히 그 줄에 맞춰진다
+  // (centerOnLogoLine) — 늘 켜두면 그 칸 근처에 다른 것을 놓을 때마다
+  // 뜻하지 않게 달라붙는다.
   const logoLineX = holeCenterX(insert.punch, insert.width, side === 'back');
 
   /**
@@ -244,6 +251,32 @@ export function EditorTab() {
         e.preventDefault();
         deleteSelected();
       }
+      // 방향키로 미세이동. ⇧를 누르면 큰 걸음(NUDGE_STEP_SHIFT), 아니면
+      // 작은 걸음(NUDGE_STEP)이다. ⌘·Ctrl과 함께면(브라우저 단축키일 수
+      // 있어) 건드리지 않는다.
+      if (!e.metaKey && !e.ctrlKey && selectedIds.length > 0) {
+        const step = e.shiftKey ? NUDGE_STEP_SHIFT : NUDGE_STEP;
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          moveSelected(-step, 0);
+          return;
+        }
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          moveSelected(step, 0);
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          moveSelected(0, -step);
+          return;
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          moveSelected(0, step);
+          return;
+        }
+      }
       /*
        * 도구 단축키는 **글쇠 하나로만** 받는다.
        *
@@ -267,7 +300,7 @@ export function EditorTab() {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [undo, redo, deleteSelected, select, setTool]);
+  }, [undo, redo, deleteSelected, select, setTool, moveSelected, selectedIds]);
 
   /**
    * 마우스 위치를 속지 좌표(mm)로.
@@ -566,9 +599,20 @@ export function EditorTab() {
       // 옮겨진 것으로 친다.
       if (!d.moved) {
         if (d.hitId) select([d.hitId]);
-      } else {
-        moveSelected(d.dx, d.dy);
+        return;
       }
+      let { dx, dy } = d;
+      // 정렬선이 강조된 5초 동안, 딱 하나 고른 텍스트·이미지를 옮기는 중이면
+      // 그 가운데가 줄 근처로 오는 순간 정확히 그 줄에 맞춘다. 여럿을
+      // 한꺼번에 옮길 때는(lone이 없다) 어느 것 기준으로 맞출지 애매해
+      // 손대지 않는다.
+      if (logoLineEmphasis && lone && (isText(lone) || isImage(lone))) {
+        const b = boxOf(lone);
+        const moved = { ...b, x: b.x + dx };
+        const centered = centerOnLogoLine(moved);
+        dx += centered.x - moved.x;
+      }
+      moveSelected(dx, dy);
       return;
     }
 
@@ -596,8 +640,8 @@ export function EditorTab() {
           width: Math.abs(d.to.x - d.from.x),
           height: Math.abs(d.to.y - d.from.y),
         };
-        // 이미지는 가운데가 정렬선 근처면 그 줄에 맞춘다 — 달력은 대상이 아니다.
-        if (tool === 'image') box = centerOnLogoLine(box);
+        // 이미지는, 정렬선이 강조된 5초 동안이면 가운데를 그 줄에 맞춘다.
+        if (tool === 'image' && logoLineEmphasis) box = centerOnLogoLine(box);
         if (tool === 'calendar') commitCalendar(box);
         // 이미지 도구인데 아직 등록·선택한 이미지가 없으면 아무 일도 하지 않는다.
         else if (draftImageId) commitImage(box, draftImageId);
@@ -613,8 +657,8 @@ export function EditorTab() {
             height: Math.abs(d.to.y - d.from.y),
           };
       if (!box) return;
-      // 텍스트는 가운데가 정렬선 근처면 그 줄에 맞춘다 — 자동 필드는 대상이 아니다.
-      if (tool === 'text') box = centerOnLogoLine(box);
+      // 텍스트는, 정렬선이 강조된 5초 동안이면 가운데를 그 줄에 맞춘다.
+      if (tool === 'text' && logoLineEmphasis) box = centerOnLogoLine(box);
 
       if (tool === 'field') {
         // 타이핑 없이 바로 확정한다. 오프셋은 자동으로 매겨지고 찍을 때마다
@@ -697,8 +741,8 @@ export function EditorTab() {
   const grip = drag?.kind === 'handle' ? drag : null;
   const boxGrip = drag?.kind === 'boxHandle' ? drag : null;
   const textDrag = drag?.kind === 'textbox' ? drag : null;
-  // 끄는 중인 상자의 미리보기 — 텍스트·이미지는 실제로 놓일 때와 똑같이
-  // 정렬선에 맞춰 보여준다. 그래야 손을 떼기 전에 결과를 미리 볼 수 있다.
+  // 끄는 중인 상자의 미리보기 — 정렬선이 강조된 5초 동안이면 실제로 놓일
+  // 때와 똑같이 정렬선에 맞춰 보여준다. 그래야 손을 떼기 전에 결과를 미리 볼 수 있다.
   const textDragBox = textDrag && {
     x: Math.min(textDrag.from.x, textDrag.to.x),
     y: Math.min(textDrag.from.y, textDrag.to.y),
@@ -706,7 +750,9 @@ export function EditorTab() {
     height: Math.abs(textDrag.to.y - textDrag.from.y) || grid.spacing,
   };
   const textDragPreview =
-    textDragBox && (tool === 'text' || tool === 'image') ? centerOnLogoLine(textDragBox) : textDragBox;
+    textDragBox && logoLineEmphasis && (tool === 'text' || tool === 'image')
+      ? centerOnLogoLine(textDragBox)
+      : textDragBox;
 
   // 글자·자동 필드 도구에서 마우스가 올라간 칸. 어디에 쓰일지 미리 보여준다.
   // 이미 상자를 끄는 중이면 그 몸짓(textDrag)이 같은 자리를 대신 보여준다.
@@ -802,13 +848,15 @@ export function EditorTab() {
         <button
           className="ghost"
           onClick={() => {
-            // 도구는 그대로 두고 정렬선만 잠깐 눈에 띄게 한다 — 늘 보이는
-            // 점선이라 어디 있는지 놓치기 쉽다.
+            // 5초 동안 정렬선이 눈에 띄게 도드라지고, 그 사이에만 텍스트·
+            // 이미지를 만들거나 옮기면 가운데가 그 줄에 달라붙는다. 늘
+            // 켜두지 않는 이유는 그 칸 근처에 다른 것을 놓을 때마다
+            // 뜻하지 않게 끌려가지 않게 하기 위해서다.
             setLogoLineEmphasis(true);
-            setTimeout(() => setLogoLineEmphasis(false), 2600);
+            setTimeout(() => setLogoLineEmphasis(false), LOGO_LINE_EMPHASIS_MS);
           }}
           disabled={!insert.punch.show}
-          title="타공 옆 정렬선을 잠깐 강조해서 보여줍니다. 텍스트·이미지를 그 줄 근처에 놓으면 달라붙습니다"
+          title="5초 동안 정렬선을 강조하고, 그 사이에 텍스트·이미지를 만들거나 옮기면 가운데가 그 줄에 달라붙습니다"
         >
           로고 칸
         </button>
