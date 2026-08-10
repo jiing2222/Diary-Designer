@@ -26,6 +26,7 @@ import {
   dedupe,
   isDegenerate,
   isLine,
+  isText,
   moveObject,
   newId,
   reshape,
@@ -270,12 +271,16 @@ interface Store extends Settings {
   /** 새 달력 오브젝트를 이 박스 크기로 만든다. */
   commitCalendar: (box: Box) => void;
   /**
-   * 상자 모양 오브젝트(글자·달력) 하나의 크기·자리를 통째로 바꾼다.
+   * 상자 모양 오브젝트(글자·달력·이미지·도형) 하나의 크기·자리를 통째로 바꾼다.
    *
    * 모서리 손잡이로 끄는 동안은 미리보기만 하고(gestures의 `previewBox`),
    * 손을 뗄 때 이 액션으로 한 번만 진짜 값을 바꾼다 — 다른 몸짓들과 같은 규칙이다.
+   *
+   * `extra`는 상자 말고 같이 바뀌는 값이 있을 때만 쓴다 — 글자는 세로 비율로
+   * 글자 크기(`size`)·줄 간격(`lineHeight`)도 같이 바뀐다(`ui/EditorTab.tsx`의
+   * `resizeTextBox`). 상자와 한 번의 되돌리기(undo)로 묶으려고 여기서 함께 받는다.
    */
-  resizeObject: (id: string, box: Box) => void;
+  resizeObject: (id: string, box: Box, extra?: Partial<TextObject>) => void;
   /** 고른 달력들의 시작 요일·이전달 표시·요일 언어·색. */
   styleCalendar: (patch: CalendarStyle) => void;
   /** 등록을 마친 글꼴을 목록에 넣는다. 파일 읽기는 fonts/registry가 이미 끝냈다. */
@@ -703,12 +708,18 @@ export const useStore = create<Store>((set) => ({
       return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
     }),
 
-  resizeObject: (id, box) =>
+  resizeObject: (id, box, extra) =>
     set((s) => {
       const cur = activeObjects(s);
       const target = cur.find((o) => o.id === id);
       if (!target || isLine(target)) return {};
-      return commitObjects(s, cur.map((o) => (o.id === id ? { ...o, ...box } : o)));
+      return commitObjects(
+        s,
+        cur.map((o) => {
+          if (o.id !== id) return o;
+          return isText(o) ? { ...o, ...box, ...extra } : { ...o, ...box };
+        }),
+      );
     }),
 
   styleCalendar: (patch) =>

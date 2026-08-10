@@ -273,9 +273,11 @@ export function isCheckbox(o: DiaryObject): o is CheckboxObject {
   return o.type === 'checkbox';
 }
 
-/** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 글자·체크박스는 아직 아니다(만들 때만 크기가 정해진다). */
-export function isBoxResizable(o: DiaryObject): o is CalendarObject | ImageObject | ShapeObject {
-  return isCalendar(o) || isImage(o) || isShape(o);
+/** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 체크박스는 아직 아니다(찍을 때만 크기가 정해진다). */
+export function isBoxResizable(
+  o: DiaryObject,
+): o is CalendarObject | ImageObject | ShapeObject | TextObject {
+  return isCalendar(o) || isImage(o) || isShape(o) || isText(o);
 }
 
 /** 자기 상자(x·y·width·height)로 클릭 판정을 하는 오브젝트인가. 크기조정 가능 여부와는 다르다 — 체크박스는 상자로 골라지지만 손잡이는 없다. */
@@ -466,19 +468,18 @@ export function boundsOfObjects(objs: DiaryObject[]): Box | null {
 }
 
 /**
- * 글자 상자를 필요한 만큼 키운다.
+ * 글자 상자를 입력 중인 글자에 맞춘다 — 커지기도, 줄어들기도 한다.
  *
  * 칸 하나만 누르고 길게 쓰면 매번 손으로 상자를 늘리는 건 불편하다. 입력하는 동안
- * 실제로 필요한 크기(`required`)를 재서, 모자라면 격자 칸 단위로 키운다.
+ * 실제로 필요한 크기(`required`)를 재서 격자 칸 단위로 맞춘다.
  *
- * **왼쪽 위(x, y)는 절대 움직이지 않는다.** 처음 누른 자리가 기준이고, 자라는
- * 방향은 오른쪽·아래쪽뿐이다. 그리고 **줄어들지는 않는다** — 글자를 지워도 상자가
- * 따라 줄면 입력하는 동안 화면이 계속 흔들린다. 최종 크기는 확정할 때 정해진다.
+ * **왼쪽 위(x, y)는 절대 움직이지 않는다.** 처음 누른 자리가 기준이고, 늘거나
+ * 주는 방향은 오른쪽·아래쪽뿐이다.
  *
  * 속지 밖으로는 자라지 않는다. 그 너머는 화면·PDF 양쪽에서 잘려 보이지 않는 자리라
  * 상자를 키워봐야 의미가 없다.
  */
-export function growBox(
+export function fitBox(
   base: Box,
   spacing: Mm,
   required: { width: Mm; height: Mm },
@@ -486,11 +487,9 @@ export function growBox(
   maxHeight: Mm,
 ): Box {
   const quantize = (v: Mm) => (spacing > 0 ? Math.ceil(v / spacing) * spacing : v);
-  const width = Math.min(Math.max(base.width, quantize(required.width)), Math.max(spacing, maxWidth - base.x));
-  const height = Math.min(
-    Math.max(base.height, quantize(required.height)),
-    Math.max(spacing, maxHeight - base.y),
-  );
+  const floor = spacing > 0 ? spacing : MIN_BOX_SIZE;
+  const width = Math.min(Math.max(floor, quantize(required.width)), Math.max(floor, maxWidth - base.x));
+  const height = Math.min(Math.max(floor, quantize(required.height)), Math.max(floor, maxHeight - base.y));
   return { ...base, width, height };
 }
 

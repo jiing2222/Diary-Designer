@@ -5,7 +5,7 @@ import {
   isLocked,
   dedupe,
   distanceToSegment,
-  growBox,
+  fitBox,
   moveSegment,
   pdfRotateOf,
   rectLines,
@@ -201,39 +201,39 @@ describe('겹친 선 정리', () => {
   });
 });
 
-describe('글자 상자 키우기', () => {
+describe('글자 상자를 내용에 맞추기(fitBox)', () => {
   const base = { x: 20, y: 30, width: 5, height: 5 };
 
   it('필요한 만큼 키운다', () => {
-    const grown = growBox(base, 5, { width: 22, height: 5 }, 80, 125);
+    const fit = fitBox(base, 5, { width: 22, height: 5 }, 80, 125);
     // 22mm를 담으려면 5mm칸이 5개(25mm) 필요하다.
-    expect(grown.width).toBe(25);
-    expect(grown.height).toBe(5);
+    expect(fit.width).toBe(25);
+    expect(fit.height).toBe(5);
   });
 
   it('왼쪽 위는 움직이지 않는다', () => {
-    const grown = growBox(base, 5, { width: 40, height: 20 }, 80, 125);
-    expect(grown.x).toBe(20);
-    expect(grown.y).toBe(30);
+    const fit = fitBox(base, 5, { width: 40, height: 20 }, 80, 125);
+    expect(fit.x).toBe(20);
+    expect(fit.y).toBe(30);
   });
 
-  it('필요한 것이 이미 있는 크기보다 작으면 줄어들지 않는다', () => {
+  it('필요한 것이 이미 있는 크기보다 작으면 줄어든다 — growBox와 다른 점', () => {
     const bigger = { ...base, width: 30, height: 15 };
-    const grown = growBox(bigger, 5, { width: 8, height: 6 }, 80, 125);
-    expect(grown.width).toBe(30);
-    expect(grown.height).toBe(15);
+    const fit = fitBox(bigger, 5, { width: 8, height: 6 }, 80, 125);
+    expect(fit.width).toBe(10); // 8mm를 담으려면 5mm칸 2개(10mm)
+    expect(fit.height).toBe(10); // 6mm를 담으려면 5mm칸 2개(10mm)
   });
 
   it('속지 밖으로는 자라지 않는다', () => {
-    const grown = growBox(base, 5, { width: 200, height: 200 }, 80, 125);
-    expect(grown.x + grown.width).toBeLessThanOrEqual(80);
-    expect(grown.y + grown.height).toBeLessThanOrEqual(125);
+    const fit = fitBox(base, 5, { width: 200, height: 200 }, 80, 125);
+    expect(fit.x + fit.width).toBeLessThanOrEqual(80);
+    expect(fit.y + fit.height).toBeLessThanOrEqual(125);
   });
 
-  it('간격의 배수로 자란다', () => {
-    const grown = growBox(base, 5, { width: 23.4, height: 11 }, 80, 125);
-    expect(grown.width % 5).toBeCloseTo(0, 9);
-    expect(grown.height % 5).toBeCloseTo(0, 9);
+  it('간격의 배수로 맞춘다', () => {
+    const fit = fitBox(base, 5, { width: 23.4, height: 11 }, 80, 125);
+    expect(fit.width % 5).toBeCloseTo(0, 9);
+    expect(fit.height % 5).toBeCloseTo(0, 9);
   });
 });
 

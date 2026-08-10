@@ -9,7 +9,7 @@ import {
   boxOf,
   cleanStyle,
   distanceToSegment,
-  growBox,
+  fitBox,
   imageRotateOf,
   isBoxResizable,
   isBoxShaped,
@@ -21,13 +21,24 @@ import {
   rectLines,
   resizeBox,
   rotationOf,
+  type Box,
   type Corner,
   type DiaryObject,
+  type TextObject,
   type TextStyle,
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm, type Mm } from '../core/units';
-import { DEFAULT_FIELD_FORMAT, fieldPlaceholder, newTextStyle, rotateOf } from '../core/text';
+import {
+  DEFAULT_FIELD_FORMAT,
+  boldOf,
+  displayText,
+  fieldPlaceholder,
+  lineHeightOf,
+  newTextStyle,
+  rotateOf,
+  sizeOf,
+} from '../core/text';
 import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type Side } from '../store';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
@@ -189,6 +200,46 @@ export function EditorTab() {
   function centerOnLogoLine<T extends { x: Mm; width: Mm }>(box: T): T {
     const cx = box.x + box.width / 2;
     return Math.abs(cx - logoLineX) <= LOGO_LINE_SNAP ? { ...box, x: logoLineX - box.width / 2 } : box;
+  }
+
+  /**
+   * 글자 상자를 손잡이로 조절하면, 세로(높이) 비율만큼 글자 크기도 같이
+   * 바뀐다 — 달력이 상자 높이로 글자 크기를 정하는 것과 같은 생각이다.
+   * 가로만 늘리거나 줄이면 글자 크기는 그대로고 줄바꿈 폭(여백)만
+   * 바뀐다 — 자동 줄바꿈은 하지 않으므로 실제로 줄 수가 바뀌지는 않는다.
+   *
+   * **상자는 지금 글자가 실제로 필요로 하는 크기보다 작아지지 않는다.**
+   * 새 글자 크기에서 다시 재는 대신, 지금(옮기기 전) 크기에서 잰 값을
+   * 비율만큼 그대로 늘려 쓴다 — 자동 줄바꿈이 없어 줄 수가 바뀌지
+   * 않으므로 필요한 크기는 글자 크기에 정확히 비례한다(재측정과 같은
+   * 값이 나온다), 다시 젤 필요가 없다.
+   */
+  function resizeTextBox(
+    t: TextObject,
+    corner: Corner,
+    to: Point,
+  ): { box: Box; size: Mm; lineHeight: Mm | undefined } {
+    const oldBox = boxOf(t);
+    const rawBox = resizeBox(oldBox, corner, to);
+    const oldSize = sizeOf(t);
+    const required = measureTextBox(
+      displayText(t),
+      oldSize,
+      lineHeightOf(t),
+      boldOf(t),
+      familyOf(userFonts, t.font),
+    );
+    const heightRatio = rawBox.height / oldBox.height;
+    const box: Box = {
+      ...rawBox,
+      width: Math.max(rawBox.width, required.width * heightRatio),
+      height: Math.max(rawBox.height, required.height * heightRatio),
+    };
+    return {
+      box,
+      size: oldSize * heightRatio,
+      lineHeight: t.lineHeight !== undefined ? t.lineHeight * heightRatio : undefined,
+    };
   }
 
   // 새로 쓸 글자에 붙일 스타일. 줄 간격을 따로 정해두지 않았으면 지금 도트 간격이 새겨진다.
@@ -646,7 +697,12 @@ export function EditorTab() {
 
     if (d.kind === 'boxHandle') {
       const target = objects.find((o) => o.id === d.id);
-      if (target) resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to));
+      if (target && isText(target)) {
+        const { box, size, lineHeight } = resizeTextBox(target, d.corner, d.to);
+        resizeObject(d.id, box, { size, lineHeight });
+      } else if (target) {
+        resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to));
+      }
       return;
     }
 
@@ -1188,7 +1244,7 @@ export function EditorTab() {
             inputRef={textInputRef}
             onChange={(text) => {
               // 칸 하나만 누르고 길게 써도 매번 손으로 늘릴 필요가 없다 — 실제로
-              // 필요한 크기를 재서 모자라면 격자 칸 단위로 키운다. 왼쪽 위는 그대로다.
+              // 필요한 크기를 재서 상자를 맞춘다(늘기도, 줄기도 한다). 왼쪽 위는 그대로다.
               const size = editing.style.size ?? TEXT_SIZE;
               const required = measureTextBox(
                 text,
@@ -1197,7 +1253,7 @@ export function EditorTab() {
                 editing.style.bold,
                 familyOf(userFonts, editing.style.font),
               );
-              const box = growBox(editing.box, grid.spacing, required, insert.width, insert.height);
+              const box = fitBox(editing.box, grid.spacing, required, insert.width, insert.height);
               setEditing({ ...editing, text, box });
             }}
             onDone={finishEditing}
