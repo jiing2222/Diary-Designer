@@ -269,6 +269,7 @@ export function App() {
       ]);
       const userImages = new Map<string, { bytes: ArrayBuffer; kind: 'png' | 'jpg' }>();
       for (const o of allImages) {
+        if (!o.imageId) continue; // 아직 사진을 안 고른 빈 상자.
         const bytes = imageBytes_(o.imageId);
         const kind = imageKind_(o.imageId);
         if (bytes && kind) userImages.set(o.imageId, { bytes, kind });

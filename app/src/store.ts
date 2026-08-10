@@ -135,11 +135,6 @@ interface Settings {
   userFonts: UserFont[];
   /** 이번 세션에 등록한 이미지 목록. 파일 바이트는 images/registry가 들고 있다(userFonts와 같은 이유). */
   userImages: UserImage[];
-  /**
-   * 이미지 도구에서 다음에 놓을 이미지. 이미지를 등록하거나 목록에서
-   * 고르면 여기 담기고, 박스를 그리면 이 이미지로 커밋된다.
-   */
-  draftImageId: string | null;
   gap: Mm;
   allowRotate: boolean;
   align: Align;
@@ -288,10 +283,13 @@ interface Store extends Settings {
   addUserFont: (font: UserFont) => void;
   /** 등록을 마친 이미지를 목록에 넣는다. 파일 읽기는 images/registry가 이미 끝냈다. */
   addUserImage: (image: UserImage) => void;
-  /** 이미지 도구가 다음에 놓을 이미지. */
-  setDraftImageId: (id: string | null) => void;
-  /** 새 이미지 오브젝트를 이 박스 크기로 만든다. */
-  commitImage: (box: Box, imageId: string) => void;
+  /**
+   * 새 이미지 오브젝트를 이 박스 크기로 만든다.
+   *
+   * 사진 없이 빈 채로 만든다 — 달력·도형처럼 자리부터 그린다. 사진은
+   * 그 상자를 클릭해서(`styleImage`) 나중에 고른다.
+   */
+  commitImage: (box: Box) => void;
   /** 고른 이미지들의 사진을 바꾼다. */
   styleImage: (imageId: string) => void;
   /** 고른 이미지들의 회전 각도(도, 시계 방향)를 바꾼다. 0이면 값을 아예 지운다. */
@@ -506,7 +504,6 @@ export const useStore = create<Store>((set) => ({
   textDraftStyle: {},
   userFonts: [],
   userImages: [],
-  draftImageId: null,
   gap: 0,
   allowRotate: true,
   // 좌측 상단에 붙이면 자르는 횟수가 줄지만, 실제로 인쇄해보니 가운데가 낫다.
@@ -762,14 +759,13 @@ export const useStore = create<Store>((set) => ({
         : [...s.userImages, image],
     })),
 
-  setDraftImageId: (id) => set({ draftImageId: id }),
-
-  commitImage: (box, imageId) =>
+  commitImage: (box) =>
     set((s) => {
       // 'im' 접두사를 쓴다 — images/registry가 등록한 파일의 id('img1' 등)와
-      // 헷갈리지 않게 다른 접두사를 쓴다.
-      const next: ImageObject = { id: newId('im'), type: 'image', ...box, imageId };
-      // 달력과 같은 이유로 곧바로 고른 상태로 둔다.
+      // 헷갈리지 않게 다른 접두사를 쓴다. imageId는 아직 없다 — 곧바로 고른
+      // 상태로 두면(달력과 같은 이유) ui/StyleBar의 ImageControls가 빈
+      // 이미지가 선택된 것을 보고 파일 선택 창을 스스로 연다.
+      const next: ImageObject = { id: newId('im'), type: 'image', ...box };
       return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
     }),
 

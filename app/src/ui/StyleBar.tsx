@@ -547,35 +547,29 @@ function CheckboxControls({
 /**
  * 이미지 고르기·등록.
  *
- * FontPicker와 같은 틀이다 — 목록 맨 아래의 `이미지 파일 추가…`가 파일 창을 연다.
+ * 달력·도형과 같은 이유로 그린 이미지가 없으면(도구만 고른 상태) 아무
+ * 조작칸도 없다 — 상자부터 그려야 한다. FontPicker와 같은 틀이다 —
+ * 목록 맨 아래의 `이미지 파일 추가…`가 파일 창을 연다.
  *
- * **이미 놓인 이미지를 골랐으면 그 오브젝트의 사진을 바꾼다.** 아직 아무것도
- * 없으면(이미지 도구를 막 켠 상태) "다음에 놓을 이미지"로만 잡아둔다 — 박스를
- * 그려야 비로소 오브젝트가 생긴다.
+ * **빈 이미지(막 그려서 아직 사진이 없는 상자)를 하나만 고르면 파일
+ * 선택 창이 저절로 뜬다.** 상자를 그리자마자 곧바로 고른 상태가 되므로
+ * (`commitImage`), 그리는 즉시 창이 뜨는 것처럼 보인다 — 사진을 먼저
+ * 고르고 상자를 그리던 예전 순서를 뒤집었다.
  */
 function ImageControls({ images }: { images: ImageObject[] }) {
   const userImages = useStore((s) => s.userImages);
   const addUserImage = useStore((s) => s.addUserImage);
-  const draftImageId = useStore((s) => s.draftImageId);
-  const setDraftImageId = useStore((s) => s.setDraftImageId);
   const styleImage = useStore((s) => s.styleImage);
   const styleImageRotate = useStore((s) => s.styleImageRotate);
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const editingExisting = images.length > 0;
-  const first = editingExisting ? images[0].imageId : (draftImageId ?? '');
-  const mixed = editingExisting && !images.every((i) => i.imageId === first);
+  const editing = images.length > 0;
+  const first = editing ? (images[0].imageId ?? '') : '';
+  const mixed = editing && !images.every((i) => (i.imageId ?? '') === first);
 
-  // 회전은 이미 놓인 이미지에만 뜬다 — 아직 박스가 없는 "다음에 놓을
-  // 이미지" 상태에는 돌릴 상자 자체가 없다.
-  const rotateMixed = editingExisting && !images.every((i) => imageRotateOf(i) === imageRotateOf(images[0]));
-  const rotateValue = editingExisting && !rotateMixed ? imageRotateOf(images[0]) : null;
-
-  function pick(id: string) {
-    if (editingExisting) styleImage(id);
-    else setDraftImageId(id);
-  }
+  const rotateMixed = editing && !images.every((i) => imageRotateOf(i) === imageRotateOf(images[0]));
+  const rotateValue = editing && !rotateMixed ? imageRotateOf(images[0]) : null;
 
   async function take(file: File | undefined) {
     if (!file) return;
@@ -589,10 +583,23 @@ function ImageControls({ images }: { images: ImageObject[] }) {
       const image = await registerImage(file, orphan?.id);
       addUserImage(image);
       // 방금 등록한 이미지를 바로 씌운다. 등록만 하고 또 고르게 하면 한 번 더 손이 간다.
-      pick(image.id);
+      styleImage(image.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : '이미지를 읽지 못했습니다');
     }
+  }
+
+  // 빈 이미지 상자 하나만 고른 상태가 되면(막 그렸거나, 나중에 다시 클릭해도)
+  // 파일 선택 창을 스스로 연다 — "상자를 클릭하면 불러오기 창이 뜬다"는
+  // 요청을 이렇게 구현했다. id를 키로 써서, 같은 상자를 다시 골랐을
+  // 때만 다시 열리고 리렌더마다 열리지 않는다.
+  const soleEmptyImageId = images.length === 1 && !images[0].imageId ? images[0].id : null;
+  useEffect(() => {
+    if (soleEmptyImageId) fileRef.current?.click();
+  }, [soleEmptyImageId]);
+
+  if (!editing) {
+    return null;
   }
 
   return (
@@ -606,7 +613,7 @@ function ImageControls({ images }: { images: ImageObject[] }) {
             fileRef.current?.click();
             return;
           }
-          pick(e.target.value);
+          styleImage(e.target.value);
         }}
         title={error ?? '이미지'}
         className={error ? 'has-error' : undefined}
@@ -634,7 +641,7 @@ function ImageControls({ images }: { images: ImageObject[] }) {
         }}
       />
 
-      {editingExisting && (
+      {editing && (
         <NumField
           value={rotateValue}
           unit="도"

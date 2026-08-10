@@ -115,7 +115,6 @@ export function EditorTab() {
   const commitText = useStore((s) => s.commitText);
   const commitCalendar = useStore((s) => s.commitCalendar);
   const commitImage = useStore((s) => s.commitImage);
-  const draftImageId = useStore((s) => s.draftImageId);
   const commitShape = useStore((s) => s.commitShape);
   const commitTable = useStore((s) => s.commitTable);
   const commitCheckboxes = useStore((s) => s.commitCheckboxes);
@@ -726,8 +725,9 @@ export function EditorTab() {
           height: Math.abs(d.to.y - d.from.y),
         };
         if (tool === 'calendar') commitCalendar(box);
-        // 이미지 도구인데 아직 등록·선택한 이미지가 없으면 아무 일도 하지 않는다.
-        else if (draftImageId) commitImage(box, draftImageId);
+        // 이미지는 사진 없이 빈 채로 만든다 — 상자를 클릭하면 파일 선택
+        // 창이 뜬다(ui/StyleBar의 ImageControls).
+        else commitImage(box);
         return;
       }
 

@@ -166,6 +166,10 @@ export interface CalendarObject {
  * 박스(x, y, width, height)와 `imageId`(images/registry가 들고 있는 파일을
  * 가리키는 id)뿐이다. 달력 오브젝트와 똑같이 모서리를 끌어 크기를 바꾼다
  * (core/objects의 `resizeBox`, ui/gestures의 `boxHandle`을 그대로 함께 쓴다).
+ *
+ * **`imageId`는 정하지 않을 수 있다.** 달력·도형처럼 자리부터 그린 뒤(빈
+ * 상자, 점선 자리표시로 보인다), 그 상자를 클릭하면 파일 선택 창이 뜬다 —
+ * 사진을 먼저 골라야 상자를 그릴 수 있던 것과 반대 순서다.
  */
 export interface ImageObject {
   id: string;
@@ -174,7 +178,7 @@ export interface ImageObject {
   y: Mm;
   width: Mm;
   height: Mm;
-  imageId: string;
+  imageId?: string;
   /**
    * 자유로운 각도(도, 시계 방향). 정하지 않았으면 0.
    *

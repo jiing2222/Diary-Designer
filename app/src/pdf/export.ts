@@ -757,6 +757,7 @@ function drawImages(
     );
 
     for (const o of objects) {
+      if (!o.imageId) continue; // 아직 사진을 안 고른 빈 상자 — 화면과 같은 이유로 건너뛴다.
       const img = images.get(o.imageId);
       if (!img) continue;
       // 글자와 같은 순서다 — 먼저 이미지 자신의 회전(자유로운 각도)을 상자
