@@ -292,6 +292,16 @@ interface Store extends Settings {
   commitImage: (box: Box) => void;
   /** 고른 이미지들의 사진을 바꾼다. */
   styleImage: (imageId: string) => void;
+  /**
+   * 방금 클릭한 빈 이미지 상자의 id — 파일 선택 창을 스스로 열라는 신호다.
+   *
+   * 선택 상태(selectedIds)만으로는 "같은 상자를 다시 클릭했다"를 구분할
+   * 수 없다(값이 그대로면 리액트가 이펙트를 다시 부르지 않는다). 그래서
+   * 클릭할 때마다 이 값을 새로 세팅하고, 연 뒤에는(ImageControls) 다시
+   * null로 되돌려 다음 클릭에서도 켜지게 한다.
+   */
+  pickImageFor: string | null;
+  requestImagePick: (id: string | null) => void;
   /** 고른 이미지들의 회전 각도(도, 시계 방향)를 바꾼다. 0이면 값을 아예 지운다. */
   styleImageRotate: (rotate: number) => void;
   /** 새 도형 오브젝트를 이 박스 크기로 만든다. */
@@ -763,10 +773,15 @@ export const useStore = create<Store>((set) => ({
     set((s) => {
       // 'im' 접두사를 쓴다 — images/registry가 등록한 파일의 id('img1' 등)와
       // 헷갈리지 않게 다른 접두사를 쓴다. imageId는 아직 없다 — 곧바로 고른
-      // 상태로 두면(달력과 같은 이유) ui/StyleBar의 ImageControls가 빈
-      // 이미지가 선택된 것을 보고 파일 선택 창을 스스로 연다.
+      // 상태로 두고(달력과 같은 이유) pickImageFor도 함께 세팅한다 —
+      // ui/StyleBar의 ImageControls가 이 신호를 보고 파일 선택 창을 스스로
+      // 연다(빈 이미지 상자를 나중에 다시 클릭했을 때와 같은 신호다).
       const next: ImageObject = { id: newId('im'), type: 'image', ...box };
-      return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
+      return {
+        ...commitObjects(s, [...activeObjects(s), next]),
+        selectedIds: [next.id],
+        pickImageFor: next.id,
+      };
     }),
 
   styleImage: (imageId) =>
@@ -777,6 +792,9 @@ export const useStore = create<Store>((set) => ({
       );
       return commitObjects(s, next);
     }),
+
+  pickImageFor: null,
+  requestImagePick: (id) => set({ pickImageFor: id }),
 
   styleImageRotate: (rotate) =>
     set((s) => {

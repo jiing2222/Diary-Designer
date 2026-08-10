@@ -186,8 +186,14 @@ button.ghost:disabled {
   width: auto;
 }
 
-/* .picked-count와 같은 이유로 select와 같은 padding·투명 테두리를 둔다. */
+/*
+ * .picked-count와 같은 이유로 select와 같은 padding·투명 테두리를 둔다.
+ * min-width는 다른 도구(드롭다운 여럿이 늘어선 줄)와 나란히 놓고 봐도
+ * 이 줄만 유난히 좁아 보이지 않게 하는 값이다 — 실제 안의 글자보다
+ * 넓어도 상관없다, 그냥 자리만 맞추는 것이다.
+ */
 .editor-hint {
+  min-width: 420px;
   padding: 4px 6px;
   border: 1px solid transparent;
   font-size: 12px;
@@ -264,7 +270,9 @@ button.ghost:disabled {
 
 .insert-sheet.draw,
 .insert-sheet.table,
-.insert-sheet.field {
+.insert-sheet.field,
+.insert-sheet.image,
+.insert-sheet.checkbox {
   cursor: crosshair;
 }
 
@@ -397,7 +405,12 @@ button.ghost:disabled {
   white-space: nowrap;
 }
 
+/*
+ * 달력처럼 아직 그린 게 없으면 이 글자 하나만 뜬다(조작칸이 없다) — 그때도
+ * 다른 도구(드롭다운 여럿)와 나란히 봐서 좁아 보이지 않게 최소 폭을 둔다.
+ */
 .picked-count.muted-label {
+  min-width: 420px;
   color: var(--muted);
   font-weight: 500;
 }
@@ -473,9 +486,14 @@ button.ghost:disabled {
   pointer-events: none;
 }
 
-/* 저장 파일에서 이름만 살아 돌아온 이미지. 다시 등록해야 할 자리를 보여준다. */
+/*
+ * 아직 사진을 안 고른 빈 이미지 상자(또는 저장 파일에서 이름만 살아
+ * 돌아온 이미지). 화면에서만 회색으로 채워 자리를 보여준다 — 인쇄에는
+ * 아예 그리지 않는다(pdf/export.ts의 drawImages, imageId가 없으면 건너뛴다).
+ */
 .image-missing {
-  fill: none;
+  fill: #9e9e9e;
+  fill-opacity: 0.15;
   stroke: #9e9e9e;
   stroke-width: 0.25;
   stroke-dasharray: 1.5 1;

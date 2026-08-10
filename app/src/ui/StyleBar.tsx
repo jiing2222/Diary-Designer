@@ -126,14 +126,22 @@ export function StyleBar({
   // 무엇 하나를 골랐거나 그 도구를 쓰는 중이면 그 속성을, 아니면 선 속성을 보여준다.
   // 도형은 따로 도구가 없다 — 그리기 도구로 만들어진 뒤에는 선과 달리
   // 골랐을 때만(선과 함께 고르지 않았을 때만) 자기 속성 막대를 보여준다.
+  // 다만 표(테두리 도형 + 안쪽 칸 선을 함께 고른 상태)는 예외다 —
+  // showTable이 먼저 그 조합을 가로챈다.
   const showCalendar = tool === 'calendar' || pickedCalendars.length > 0;
   const showImage = !showCalendar && (tool === 'image' || pickedImages.length > 0);
-  const showShape = !showCalendar && !showImage && pickedShapes.length > 0 && pickedLines.length === 0;
+  const showTable = !showCalendar && !showImage && pickedShapes.length > 0 && pickedLines.length > 0;
+  const showShape = !showCalendar && !showImage && !showTable && pickedShapes.length > 0;
   const showCheckbox =
-    !showCalendar && !showImage && !showShape && (tool === 'checkbox' || pickedCheckboxes.length > 0);
+    !showCalendar &&
+    !showImage &&
+    !showTable &&
+    !showShape &&
+    (tool === 'checkbox' || pickedCheckboxes.length > 0);
   const showText =
     !showCalendar &&
     !showImage &&
+    !showTable &&
     !showShape &&
     !showCheckbox &&
     (tool === 'text' || tool === 'field' || (pickedTexts.length > 0 && pickedLines.length === 0));
@@ -173,6 +181,8 @@ export function StyleBar({
         <CalendarControls calendars={pickedCalendars} />
       ) : showImage ? (
         <ImageControls images={pickedImages} />
+      ) : showTable ? (
+        <TableControls shapes={pickedShapes} lines={pickedLines} />
       ) : showShape ? (
         <ShapeControls shapes={pickedShapes} />
       ) : showCheckbox ? (
@@ -478,6 +488,92 @@ function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
 }
 
 /**
+ * 표 — 테두리(도형)와 안쪽 칸 선을 함께 고쳤을 때 둘 다 같이 바뀌게 한다.
+ *
+ * 표를 그으면 테두리는 `ShapeObject`, 안쪽 칸 선은 여러 개의 `LineObject`로
+ * 나뉜다(core/grid의 `tableSplit`) — 서로 다른 종류라 `styleShape`·
+ * `styleSelected`도 따로다. 굵기·색·모양은 둘 다에게 그대로 적용하고,
+ * 둥글기만 테두리(도형)에만 적용한다 — 안쪽 칸 선은 둥글게 할 수 없다.
+ */
+function TableControls({ shapes, lines }: { shapes: ShapeObject[]; lines: LineObject[] }) {
+  const styleShape = useStore((s) => s.styleShape);
+  const styleSelected = useStore((s) => s.styleSelected);
+  const first = shapes[0];
+
+  const strokeWidthMixed =
+    !shapes.every((o) => strokeWidthOf(o) === strokeWidthOf(first)) ||
+    !lines.every((o) => (o.width ?? OBJECT_LINE_WIDTH) === strokeWidthOf(first));
+  const colorMixed =
+    !shapes.every((o) => strokeColorOf(o) === strokeColorOf(first)) ||
+    !lines.every((o) => (o.color ?? OBJECT_LINE_COLOR) === strokeColorOf(first));
+  const dashMixed =
+    !shapes.every((o) => strokeDashOf(o) === strokeDashOf(first)) ||
+    !lines.every((o) => (o.dash ?? 'solid') === strokeDashOf(first));
+  const roundnessMixed = !shapes.every((o) => roundnessOf(o) === roundnessOf(first));
+
+  const apply = (patch: { strokeWidth?: Mm; color?: string; dash?: LineStyle['dash'] }) => {
+    styleShape(patch);
+    styleSelected({ width: patch.strokeWidth, color: patch.color, dash: patch.dash as LineStyle['dash'] });
+  };
+
+  return (
+    <>
+      <select
+        value={strokeWidthMixed ? 'mixed' : strokeWidthOf(first) === OBJECT_LINE_WIDTH ? '' : strokeWidthOf(first)}
+        onChange={(e) => apply({ strokeWidth: e.target.value ? Number(e.target.value) : undefined })}
+        title="굵기 — 테두리·안쪽 칸 선 둘 다"
+      >
+        {strokeWidthMixed && <option value="mixed">—</option>}
+        {WIDTHS.map((w) => (
+          <option key={w} value={w === OBJECT_LINE_WIDTH ? '' : w}>
+            {w}mm
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={colorMixed ? 'mixed' : strokeColorOf(first) === OBJECT_LINE_COLOR ? '' : strokeColorOf(first)}
+        onChange={(e) => apply({ color: e.target.value || undefined })}
+        title="색 — 테두리·안쪽 칸 선 둘 다"
+      >
+        {colorMixed && <option value="mixed">—</option>}
+        {COLORS.map((c) => (
+          <option key={c.id} value={c.id === OBJECT_LINE_COLOR ? '' : c.id}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={dashMixed ? 'mixed' : strokeDashOf(first) === 'solid' ? '' : strokeDashOf(first)}
+        onChange={(e) => apply({ dash: (e.target.value || undefined) as LineStyle['dash'] })}
+        title="모양 — 테두리·안쪽 칸 선 둘 다"
+      >
+        {dashMixed && <option value="mixed">—</option>}
+        <option value="">실선</option>
+        <option value="dashed">파선</option>
+        <option value="dotted">점선</option>
+      </select>
+
+      <select
+        value={roundnessMixed ? 'mixed' : roundnessOf(first)}
+        onChange={(e) =>
+          styleShape({ roundness: (e.target.value ? Number(e.target.value) : undefined) as ShapeStyle['roundness'] })
+        }
+        title="테두리 모서리 둥글기 — 안쪽 칸 선은 둥글게 할 수 없다"
+      >
+        {roundnessMixed && <option value="mixed">—</option>}
+        <option value={0}>각짐</option>
+        <option value={1}>둥글기 1</option>
+        <option value={2}>둥글기 2</option>
+        <option value={3}>둥글기 3</option>
+        <option value={4}>원·타원</option>
+      </select>
+    </>
+  );
+}
+
+/**
  * 체크박스 아이콘 모양·테두리 굵기·색.
  *
  * TextControls와 같은 틀이다(`items`·`apply`) — 아직 찍은 체크박스가
@@ -561,6 +657,8 @@ function ImageControls({ images }: { images: ImageObject[] }) {
   const addUserImage = useStore((s) => s.addUserImage);
   const styleImage = useStore((s) => s.styleImage);
   const styleImageRotate = useStore((s) => s.styleImageRotate);
+  const pickImageFor = useStore((s) => s.pickImageFor);
+  const requestImagePick = useStore((s) => s.requestImagePick);
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -589,14 +687,17 @@ function ImageControls({ images }: { images: ImageObject[] }) {
     }
   }
 
-  // 빈 이미지 상자 하나만 고른 상태가 되면(막 그렸거나, 나중에 다시 클릭해도)
-  // 파일 선택 창을 스스로 연다 — "상자를 클릭하면 불러오기 창이 뜬다"는
-  // 요청을 이렇게 구현했다. id를 키로 써서, 같은 상자를 다시 골랐을
-  // 때만 다시 열리고 리렌더마다 열리지 않는다.
-  const soleEmptyImageId = images.length === 1 && !images[0].imageId ? images[0].id : null;
+  // 빈 이미지 상자를 그렸거나(commitImage) 이미지 도구로 다시 클릭하면
+  // (EditorTab.tsx의 onDown) store의 pickImageFor에 그 상자 id가 신호로
+  // 온다 — 파일 선택 창을 스스로 열고 신호를 지운다. 선택 상태만으로는
+  // "같은 상자를 또 눌렀다"를 구분할 수 없어서(값이 그대로면 리액트가
+  // 반응하지 않는다) 클릭마다 새로 오는 이 신호를 따로 쓴다.
   useEffect(() => {
-    if (soleEmptyImageId) fileRef.current?.click();
-  }, [soleEmptyImageId]);
+    if (pickImageFor && images.length === 1 && images[0].id === pickImageFor) {
+      fileRef.current?.click();
+      requestImagePick(null);
+    }
+  }, [pickImageFor, images, requestImagePick]);
 
   if (!editing) {
     return null;

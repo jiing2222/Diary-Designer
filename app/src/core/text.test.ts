@@ -90,9 +90,33 @@ describe('자동 필드 자리표시', () => {
     text: '원래 글자',
   };
 
-  it('자리표시는 오프셋을 담은 꺾쇠 표시다', () => {
-    expect(fieldPlaceholder({ offset: 0 })).toBe('⟨+0⟩');
-    expect(fieldPlaceholder({ offset: 6 })).toBe('⟨+6⟩');
+  it('자리표시는 오프셋을 담은 꺾쇠 표시다 — 서식 갈래 글자가 앞에 붙는다', () => {
+    expect(fieldPlaceholder({ offset: 0, format: 'M/D' })).toBe('⟨+D0⟩');
+    expect(fieldPlaceholder({ offset: 6, format: 'D' })).toBe('⟨+D6⟩');
+  });
+
+  it('날짜 하나를 통째로 가리키는 서식은 전부 "일"(D)로 묶는다', () => {
+    for (const format of ['D', 'M/D', 'M월 D일', 'YYYY-MM-DD']) {
+      expect(fieldPlaceholder({ offset: 0, format })).toBe('⟨+D0⟩');
+    }
+  });
+
+  it('요일 서식은 DW다', () => {
+    for (const format of ['ddd', 'dddd', 'ddd-en', 'dddd-en']) {
+      expect(fieldPlaceholder({ offset: 0, format })).toBe('⟨+DW0⟩');
+    }
+  });
+
+  it('월 서식은 M이다', () => {
+    for (const format of ['M', 'M월', 'MMM', 'MMMM']) {
+      expect(fieldPlaceholder({ offset: 0, format })).toBe('⟨+M0⟩');
+    }
+  });
+
+  it('주 서식은 W다', () => {
+    for (const format of ['주차', 'W', 'Week']) {
+      expect(fieldPlaceholder({ offset: 0, format })).toBe('⟨+W0⟩');
+    }
   });
 
   it('필드가 없으면 원래 글자를 그대로 보여준다', () => {
@@ -102,7 +126,7 @@ describe('자동 필드 자리표시', () => {
   it('필드가 있으면 원래 글자 대신 자리표시를 보여준다', () => {
     // text는 지워지지 않는다 — field를 떼면 원래 글자로 돌아온다.
     const field = { ...base, field: { offset: 2, format: 'M/D' } };
-    expect(displayText(field)).toBe('⟨+2⟩');
+    expect(displayText(field)).toBe('⟨+D2⟩');
     expect(field.text).toBe('원래 글자');
   });
 });

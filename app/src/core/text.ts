@@ -82,9 +82,28 @@ export function rotateOf(t: { rotate?: TextRotate }): TextRotate {
   return t.rotate ?? 0;
 }
 
-/** 자동 필드가 편집 화면에서 보이는 자리표시(설계문서 7장). 진짜 값이 아니다. */
-export function fieldPlaceholder(field: { offset: number }): string {
-  return `⟨+${field.offset}⟩`;
+/**
+ * 서식(FIELD_FORMATS의 id)이 어느 파생값 갈래인지 — 자리표시 앞에 붙일
+ * 글자를 고르는 데 쓴다. 날짜 하나를 통째로 가리키는 것(D, M/D, M월
+ * D일, YYYY-MM-DD)은 전부 "일"로 묶는다 — 연속한 날마다 값이 바뀌는
+ * 정도가 같기 때문이다.
+ */
+function fieldCategory(format: string): 'DW' | 'M' | 'W' | 'D' {
+  if (['ddd', 'dddd', 'ddd-en', 'dddd-en'].includes(format)) return 'DW';
+  if (['M', 'M월', 'MMM', 'MMMM'].includes(format)) return 'M';
+  if (['주차', 'W', 'Week'].includes(format)) return 'W';
+  return 'D';
+}
+
+/**
+ * 자동 필드가 편집 화면에서 보이는 자리표시(설계문서 7장). 진짜 값이 아니다.
+ *
+ * 서식 갈래 글자(일 D·요일 DW·월 M·주 W)를 오프셋 앞에 붙인다 — 오프셋만
+ * 보이면 같은 쪽에 월·주·요일 필드를 함께 놓았을 때(전부 0으로 시작하기
+ * 쉽다) 서로 구분이 안 된다.
+ */
+export function fieldPlaceholder(field: { offset: number; format: string }): string {
+  return `⟨+${fieldCategory(field.format)}${field.offset}⟩`;
 }
 
 /**

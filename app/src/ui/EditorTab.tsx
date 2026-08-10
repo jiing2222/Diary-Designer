@@ -115,6 +115,7 @@ export function EditorTab() {
   const commitText = useStore((s) => s.commitText);
   const commitCalendar = useStore((s) => s.commitCalendar);
   const commitImage = useStore((s) => s.commitImage);
+  const requestImagePick = useStore((s) => s.requestImagePick);
   const commitShape = useStore((s) => s.commitShape);
   const commitTable = useStore((s) => s.commitTable);
   const commitCheckboxes = useStore((s) => s.commitCheckboxes);
@@ -595,6 +596,10 @@ export function EditorTab() {
       // 이미 있는 것을 클릭하면 고르고, 끌면 옮길 수 있게 한다.
       const hit = hitAt(raw);
       if (hit) {
+        // 이미지 도구로 빈 이미지 상자를 클릭하면 파일 선택 창을 다시 연다
+        // — 선택 상태만으로는 "같은 상자를 또 눌렀다"를 구분할 수 없어서
+        // (값이 그대로면 리액트가 반응하지 않는다) 누를 때마다 신호를 새로 보낸다.
+        if (tool === 'image' && isImage(hit) && !hit.imageId) requestImagePick(hit.id);
         startMove(hit, raw, e);
         return;
       }
