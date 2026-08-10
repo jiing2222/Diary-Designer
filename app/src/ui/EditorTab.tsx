@@ -843,90 +843,94 @@ export function EditorTab() {
     <div className="editor">
       <SideBar side={side} setSide={setSide} hasBack={hasBack} removeBack={removeBack} />
       <div className="editor-bar">
-        <div className="tools">
-          <ToolBtn on={tool === 'select'} onClick={() => setTool('select')} title="고르기 (V)">
-            <CursorIcon />
-          </ToolBtn>
-          <ToolBtn on={tool === 'draw'} onClick={() => setTool('draw')} title="그리기 (D)">
-            <LineIcon />
-          </ToolBtn>
-          <ToolBtn on={tool === 'table'} onClick={() => setTool('table')} title="표 (G)">
-            <TableIcon />
-          </ToolBtn>
-          <ToolBtn on={tool === 'text'} onClick={() => setTool('text')} title="글자 (T)">
-            <TextIcon />
-          </ToolBtn>
-          <ToolBtn on={tool === 'field'} onClick={() => setTool('field')} title="자동 필드 (F)">
-            <FieldIcon />
-          </ToolBtn>
-          <ToolBtn on={tool === 'calendar'} onClick={() => setTool('calendar')} title="달력 (C)">
-            <CalendarIcon />
-          </ToolBtn>
-          <ToolBtn on={tool === 'image'} onClick={() => setTool('image')} title="이미지 (I)">
-            <ImageIcon />
-          </ToolBtn>
-          <ToolBtn on={tool === 'checkbox'} onClick={() => setTool('checkbox')} title="체크박스 (X)">
-            <CheckboxIcon />
-          </ToolBtn>
+        <div className="editor-bar-tools">
+          <div className="tools">
+            <ToolBtn on={tool === 'select'} onClick={() => setTool('select')} title="고르기 (V)">
+              <CursorIcon />
+            </ToolBtn>
+            <ToolBtn on={tool === 'draw'} onClick={() => setTool('draw')} title="그리기 (D)">
+              <LineIcon />
+            </ToolBtn>
+            <ToolBtn on={tool === 'table'} onClick={() => setTool('table')} title="표 (G)">
+              <TableIcon />
+            </ToolBtn>
+            <ToolBtn on={tool === 'text'} onClick={() => setTool('text')} title="글자 (T)">
+              <TextIcon />
+            </ToolBtn>
+            <ToolBtn on={tool === 'field'} onClick={() => setTool('field')} title="자동 필드 (F)">
+              <FieldIcon />
+            </ToolBtn>
+            <ToolBtn on={tool === 'calendar'} onClick={() => setTool('calendar')} title="달력 (C)">
+              <CalendarIcon />
+            </ToolBtn>
+            <ToolBtn on={tool === 'image'} onClick={() => setTool('image')} title="이미지 (I)">
+              <ImageIcon />
+            </ToolBtn>
+            <ToolBtn on={tool === 'checkbox'} onClick={() => setTool('checkbox')} title="체크박스 (X)">
+              <CheckboxIcon />
+            </ToolBtn>
+          </div>
+
+          <button
+            className="ghost"
+            onClick={deleteSelected}
+            disabled={selectedIds.length === 0}
+            title="지우기 (Delete)"
+          >
+            지우기
+          </button>
+          <button
+            className="ghost"
+            onClick={lockSelected}
+            disabled={selectedIds.length === 0}
+            title="잠그면 클릭으로도 감싸기로도 골라지지 않습니다. 나중에 다른 작업을 하다 실수로 건드리지 않게 됩니다"
+          >
+            잠그기
+          </button>
+          {lockedCount > 0 && (
+            <button className="ghost" onClick={unlockAll} title="잠긴 것을 전부 풉니다">
+              잠긴 것 {lockedCount}개 · 전부 해제
+            </button>
+          )}
+          <button className="ghost" onClick={undo} disabled={!canUndo(history)} title="실행취소 (⌘Z)">
+            ↶
+          </button>
+          <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
+            ↷
+          </button>
+
+          <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
+            {ZOOMS.map((z) => (
+              <option key={z} value={z}>
+                {z}%
+              </option>
+            ))}
+          </select>
         </div>
 
-        {selectedIds.length > 0 ||
-        tool === 'draw' ||
-        tool === 'table' ||
-        tool === 'text' ||
-        tool === 'field' ||
-        tool === 'calendar' ||
-        tool === 'image' ||
-        tool === 'checkbox' ? (
-          <StyleBar
-            editing={editing}
-            setEditingStyle={setEditingStyle}
-            draftStyle={draftStyle}
-            refocusText={refocusText}
-          />
-        ) : (
-          <span className="editor-hint">
-            {noGrid
-              ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
-              : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
-          </span>
-        )}
-
-        <button
-          className="ghost"
-          onClick={deleteSelected}
-          disabled={selectedIds.length === 0}
-          title="지우기 (Delete)"
-        >
-          지우기
-        </button>
-        <button
-          className="ghost"
-          onClick={lockSelected}
-          disabled={selectedIds.length === 0}
-          title="잠그면 클릭으로도 감싸기로도 골라지지 않습니다. 나중에 다른 작업을 하다 실수로 건드리지 않게 됩니다"
-        >
-          잠그기
-        </button>
-        {lockedCount > 0 && (
-          <button className="ghost" onClick={unlockAll} title="잠긴 것을 전부 풉니다">
-            잠긴 것 {lockedCount}개 · 전부 해제
-          </button>
-        )}
-        <button className="ghost" onClick={undo} disabled={!canUndo(history)} title="실행취소 (⌘Z)">
-          ↶
-        </button>
-        <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
-          ↷
-        </button>
-
-        <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
-          {ZOOMS.map((z) => (
-            <option key={z} value={z}>
-              {z}%
-            </option>
-          ))}
-        </select>
+        <div className="editor-bar-style">
+          {selectedIds.length > 0 ||
+          tool === 'draw' ||
+          tool === 'table' ||
+          tool === 'text' ||
+          tool === 'field' ||
+          tool === 'calendar' ||
+          tool === 'image' ||
+          tool === 'checkbox' ? (
+            <StyleBar
+              editing={editing}
+              setEditingStyle={setEditingStyle}
+              draftStyle={draftStyle}
+              refocusText={refocusText}
+            />
+          ) : (
+            <span className="editor-hint">
+              {noGrid
+                ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
+                : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
+            </span>
+          )}
+        </div>
       </div>
 
       <div
