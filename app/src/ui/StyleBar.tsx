@@ -418,23 +418,10 @@ function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
     return null;
   }
 
+  // 그리기 도구가 아무것도 고르지 않았을 때 보여주는 순서(굵기·색·모양·둥글기)와
+  // 맞춘다 — 대기 화면과 다 그린 뒤가 순서까지 똑같아야 헷갈리지 않는다.
   return (
     <>
-      <select
-        value={roundnessMixed ? 'mixed' : roundnessOf(first)}
-        onChange={(e) =>
-          styleShape({ roundness: (e.target.value ? Number(e.target.value) : undefined) as ShapeStyle['roundness'] })
-        }
-        title="모서리 둥글기"
-      >
-        {roundnessMixed && <option value="mixed">—</option>}
-        <option value={0}>각짐</option>
-        <option value={1}>둥글기 1</option>
-        <option value={2}>둥글기 2</option>
-        <option value={3}>둥글기 3</option>
-        <option value={4}>원·타원</option>
-      </select>
-
       <select
         value={strokeWidthMixed ? 'mixed' : strokeWidthOf(first) === OBJECT_LINE_WIDTH ? '' : strokeWidthOf(first)}
         onChange={(e) => styleShape({ strokeWidth: e.target.value ? Number(e.target.value) : undefined })}
@@ -470,6 +457,21 @@ function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
         <option value="">실선</option>
         <option value="dashed">파선</option>
         <option value="dotted">점선</option>
+      </select>
+
+      <select
+        value={roundnessMixed ? 'mixed' : roundnessOf(first)}
+        onChange={(e) =>
+          styleShape({ roundness: (e.target.value ? Number(e.target.value) : undefined) as ShapeStyle['roundness'] })
+        }
+        title="모서리 둥글기"
+      >
+        {roundnessMixed && <option value="mixed">—</option>}
+        <option value={0}>각짐</option>
+        <option value={1}>둥글기 1</option>
+        <option value={2}>둥글기 2</option>
+        <option value={3}>둥글기 3</option>
+        <option value={4}>원·타원</option>
       </select>
     </>
   );

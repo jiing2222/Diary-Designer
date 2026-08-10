@@ -30,6 +30,7 @@ import {
   moveObject,
   newId,
   reshape,
+  sameSegment,
   toggleLines,
   type Box,
   type CalendarObject,
@@ -297,6 +298,15 @@ interface Store extends Settings {
   styleImageRotate: (rotate: number) => void;
   /** 새 도형 오브젝트를 이 박스 크기로 만든다. */
   commitShape: (box: Box) => void;
+  /**
+   * 표 — 테두리(도형 하나)와 안쪽 칸 선을 한 번에 만든다.
+   *
+   * `commitShape` + `drawLines`를 각각 부르지 않는 이유는 둘이다: 되돌리기
+   * (undo) 한 번으로 묶여야 하고, **막 그린 표를 고르면 테두리만이 아니라
+   * 안쪽 칸 선까지 다 함께 고른 상태**가 되어야 한다 — 테두리만 고르면
+   * 초록 선택 테두리가 겉에만 둘러져 안쪽과 다르게 보인다.
+   */
+  commitTable: (border: Box, innerLines: LineSeg[]) => void;
   /** 고른 도형들의 둥글기·테두리 굵기·색·모양. */
   styleShape: (patch: ShapeStyle) => void;
   /** 앞으로 찍을 체크박스의 모양. */
@@ -796,6 +806,26 @@ export const useStore = create<Store>((set) => ({
       if (s.drawStyle.dash !== undefined) next.dash = s.drawStyle.dash;
       // 달력·이미지와 같은 이유로 곧바로 고른 상태로 둔다.
       return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
+    }),
+
+  commitTable: (border, innerLines) =>
+    set((s) => {
+      const borderObj: ShapeObject = { id: newId('sh'), type: 'shape', ...border };
+      if (s.drawStyle.roundness) borderObj.roundness = s.drawStyle.roundness;
+      if (s.drawStyle.width !== undefined) borderObj.strokeWidth = s.drawStyle.width;
+      if (s.drawStyle.color !== undefined) borderObj.color = s.drawStyle.color;
+      if (s.drawStyle.dash !== undefined) borderObj.dash = s.drawStyle.dash;
+
+      const withBorder = [...activeObjects(s), borderObj];
+      const withLines = toggleLines(withBorder, innerLines, s.drawStyle);
+      // 방금 그은 안쪽 칸 선들의 id를 찾는다 — 같은 자리를 다시 그으면
+      // 토글로 지워질 수 있으니(드문 경우), 실제로 남은 것만 고른다.
+      const lineIds = withLines
+        .filter(isLine)
+        .filter((l) => innerLines.some((seg) => sameSegment(l, seg)))
+        .map((l) => l.id);
+
+      return { ...commitObjects(s, withLines), selectedIds: [borderObj.id, ...lineIds] };
     }),
 
   styleShape: (patch) =>

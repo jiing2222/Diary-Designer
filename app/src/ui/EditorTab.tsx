@@ -117,6 +117,7 @@ export function EditorTab() {
   const commitImage = useStore((s) => s.commitImage);
   const draftImageId = useStore((s) => s.draftImageId);
   const commitShape = useStore((s) => s.commitShape);
+  const commitTable = useStore((s) => s.commitTable);
   const commitCheckboxes = useStore((s) => s.commitCheckboxes);
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
@@ -230,11 +231,16 @@ export function EditorTab() {
       familyOf(userFonts, t.font),
     );
     const heightRatio = rawBox.height / oldBox.height;
-    const box: Box = {
-      ...rawBox,
-      width: Math.max(rawBox.width, required.width * heightRatio),
-      height: Math.max(rawBox.height, required.height * heightRatio),
-    };
+    const width = Math.max(rawBox.width, required.width * heightRatio);
+    const height = Math.max(rawBox.height, required.height * heightRatio);
+    // 최소 크기에 걸려 raw보다 커지면, resizeBox와 같은 규칙으로 고정된
+    // 모서리(반대쪽)가 밀리지 않게 x·y도 그만큼 보정한다 — 예를 들어
+    // 오른쪽(east) 손잡이를 끌 때는 왼쪽이 고정이라 x는 그대로여야 하는데,
+    // 폭만 늘리고 x를 안 옮기면 왼쪽 손잡이(west) 쪽 상자가 오른쪽으로
+    // 밀려난 것처럼 보였다.
+    const x = corner.includes('w') ? rawBox.x - (width - rawBox.width) : rawBox.x;
+    const y = corner.includes('n') ? rawBox.y - (height - rawBox.height) : rawBox.y;
+    const box: Box = { x, y, width, height };
     return {
       box,
       size: oldSize * heightRatio,
@@ -767,8 +773,9 @@ export function EditorTab() {
       if (d.from.x !== d.to.x || d.from.y !== d.to.y) {
         const split = tableSplit(lattice, d.from, d.to);
         if (split) {
-          commitShape(split.border);
-          if (split.innerLines.length > 0) drawLines(split.innerLines);
+          // 테두리(도형)와 안쪽 칸 선을 한 번에 만들고, 같이 고른다 —
+          // 테두리만 고르면 초록 선택 테두리가 겉에만 둘러져 다르게 보인다.
+          commitTable(split.border, split.innerLines);
         } else {
           // 한 줄로만 끌었다(테두리조차 없다) — 선 하나 그대로.
           drawLines(tableLines(lattice, d.from, d.to));
