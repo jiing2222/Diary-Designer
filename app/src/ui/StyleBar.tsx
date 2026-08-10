@@ -687,11 +687,12 @@ function ImageControls({ images }: { images: ImageObject[] }) {
     }
   }
 
-  // 빈 이미지 상자를 그렸거나(commitImage) 이미지 도구로 다시 클릭하면
-  // (EditorTab.tsx의 onDown) store의 pickImageFor에 그 상자 id가 신호로
-  // 온다 — 파일 선택 창을 스스로 열고 신호를 지운다. 선택 상태만으로는
-  // "같은 상자를 또 눌렀다"를 구분할 수 없어서(값이 그대로면 리액트가
-  // 반응하지 않는다) 클릭마다 새로 오는 이 신호를 따로 쓴다.
+  // 빈 이미지 상자를 더블클릭하면(EditorTab.tsx의 onDoubleClick) store의
+  // pickImageFor에 그 상자 id가 신호로 온다 — 파일 선택 창을 스스로
+  // 열고 신호를 지운다. 선택 상태만으로는 "같은 상자를 또 더블클릭했다"를
+  // 구분할 수 없어서(값이 그대로면 리액트가 반응하지 않는다) 더블클릭마다
+  // 새로 오는 이 신호를 따로 쓴다. 그리자마자 바로 열지는 않는다 —
+  // 여러 개를 잇달아 그릴 때 방해가 된다.
   useEffect(() => {
     if (pickImageFor && images.length === 1 && images[0].id === pickImageFor) {
       fileRef.current?.click();
