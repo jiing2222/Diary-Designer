@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore } from '../store';
 import {
   capacityPerSheet,
@@ -20,8 +20,12 @@ import { SlotAssign } from './SlotAssign';
 import { RepeatPrint } from './RepeatPrint';
 import { buildPdf, downloadPdf, type SlotContent } from '../pdf/export';
 import { loadBodyFont, loadBoldFont } from '../fonts/load';
-import { fontBytes as fontBytes_ } from '../fonts/registry';
-import { imageBytes as imageBytes_, imageKind as imageKind_ } from '../images/registry';
+import { fontBytes as fontBytes_, restoreCachedFonts } from '../fonts/registry';
+import {
+  imageBytes as imageBytes_,
+  imageKind as imageKind_,
+  restoreCachedImages,
+} from '../images/registry';
 import type { ImageObject, TextObject } from '../core/objects';
 
 type Tab = 'gallery' | 'edit' | 'print';
@@ -35,6 +39,16 @@ const BLANK_PREVIEW_GRID: DotGrid = { ...DEFAULT_DOT_GRID, showOnScreen: false, 
 export function App() {
   const s = useStore();
   const [busy, setBusy] = useState(false);
+
+  // 새로고침 뒤 브라우저(IndexedDB)에 남아 있는 글꼴·이미지를 자동으로
+  // 되살린다 — 예전에 등록했던 파일을 다시 고를 필요가 없어진다. 마운트에
+  // 한 번만 하면 되므로 useStore.getState()로 리액트 구독 없이 store에 바로
+  // 넣는다.
+  useEffect(() => {
+    restoreCachedFonts().then((fonts) => fonts.forEach((f) => useStore.getState().addUserFont(f)));
+    restoreCachedImages().then((images) => images.forEach((i) => useStore.getState().addUserImage(i)));
+  }, []);
+
   // 처음 열면 양식이 하나도 없다. 갤러리에서 시작해 첫 양식을 만들게 한다.
   const [tab, setTab] = useState<Tab>('gallery');
   /**
