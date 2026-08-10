@@ -120,7 +120,7 @@ export interface TextObject {
   locked?: boolean;
 }
 
-export type WeekdayLang = 'kr' | 'en' | 'hanja';
+export type WeekdayLang = 'kr' | 'en' | 'en-short' | 'hanja';
 
 /**
  * 월간 달력 오브젝트.
@@ -147,6 +147,15 @@ export interface CalendarObject {
   /** 요일 이름 언어. 정하지 않았으면 한글. */
   weekdayLang?: WeekdayLang;
   color?: string;
+  /**
+   * 글자 크기 배율. 정하지 않았으면 1(기본).
+   *
+   * 절대 크기(pt)가 아니라 **배율**이다 — 글자 크기는 원래 상자 높이에서
+   * 자동으로 정해지므로(core/calendar의 `calendarLayout`), 절대값을
+   * 따로 두면 상자 크기를 바꿀 때마다 다시 어긋난다. 배율은 그 자동값에
+   * 곱해질 뿐이라 상자를 늘리고 줄여도 여전히 맞는다.
+   */
+  sizeScale?: number;
   /** 잠갔는가. LineObject의 `locked` 참고. */
   locked?: boolean;
 }
@@ -298,7 +307,7 @@ export type TextStyle = Partial<
 >;
 /** 달력마다 따로 정할 수 있는 것들. */
 export type CalendarStyle = Partial<
-  Pick<CalendarObject, 'weekStart' | 'showAdjacent' | 'weekdayLang' | 'color'>
+  Pick<CalendarObject, 'weekStart' | 'showAdjacent' | 'weekdayLang' | 'color' | 'sizeScale'>
 >;
 /** 이미지마다 따로 정할 수 있는 것들. */
 export type ImageStyle = Partial<Pick<ImageObject, 'rotate'>>;

@@ -34,7 +34,7 @@ import {
   FIELD_FORMATS,
   naturalLineHeight,
 } from '../core/text';
-import { showAdjacentOf, weekdayLangOf, weekStartOf } from '../core/calendar';
+import { showAdjacentOf, sizeScaleOf, weekdayLangOf, weekStartOf } from '../core/calendar';
 import { roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
 import { FONT_ACCEPT, hasFont, registerFont } from '../fonts/registry';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
@@ -307,6 +307,8 @@ function LineControls({
  * 아직 그린 달력이 없으면(도구만 고른 상태) 아무 조작칸도 없다 — 만들기 전
  * 기본값을 바꿔 둘 자리가 없다(자동 필드처럼 이미 있는 것만 손댄다).
  */
+const SIZE_SCALES = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
+
 function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
   const styleCalendar = useStore((s) => s.styleCalendar);
   const adjacentRef = useRef<HTMLInputElement>(null);
@@ -316,6 +318,8 @@ function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
   const weekStartMixed = editing && !calendars.every((o) => weekStartOf(o) === weekStartOf(first));
   const langMixed = editing && !calendars.every((o) => weekdayLangOf(o) === weekdayLangOf(first));
   const adjacentMixed = editing && !calendars.every((o) => showAdjacentOf(o) === showAdjacentOf(first));
+  const colorMixed = editing && !calendars.every((o) => (o.color ?? TEXT_COLOR) === (first.color ?? TEXT_COLOR));
+  const sizeMixed = editing && !calendars.every((o) => sizeScaleOf(o) === sizeScaleOf(first));
 
   useEffect(() => {
     if (adjacentRef.current) adjacentRef.current.indeterminate = adjacentMixed;
@@ -349,7 +353,34 @@ function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
         {langMixed && <option value="mixed">—</option>}
         <option value="kr">한글 요일</option>
         <option value="en">영어 요일</option>
+        <option value="en-short">MTWTFSS</option>
         <option value="hanja">한자 요일</option>
+      </select>
+
+      <select
+        value={colorMixed ? 'mixed' : (first.color ?? TEXT_COLOR) === TEXT_COLOR ? '' : (first.color ?? TEXT_COLOR)}
+        onChange={(e) => styleCalendar({ color: e.target.value || undefined })}
+        title="글자 색"
+      >
+        {colorMixed && <option value="mixed">—</option>}
+        {COLORS.map((c) => (
+          <option key={c.id} value={c.id === TEXT_COLOR ? '' : c.id}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={sizeMixed ? 'mixed' : sizeScaleOf(first) === 1 ? '' : String(sizeScaleOf(first))}
+        onChange={(e) => styleCalendar({ sizeScale: e.target.value ? Number(e.target.value) : undefined })}
+        title="글자 크기 — 상자 크기에서 자동으로 정해지는 값에 곱해지는 배율입니다"
+      >
+        {sizeMixed && <option value="mixed">—</option>}
+        {SIZE_SCALES.map((s) => (
+          <option key={s} value={s === 1 ? '' : s}>
+            {Math.round(s * 100)}%
+          </option>
+        ))}
       </select>
 
       <label className="check" title="이번 달이 아닌 칸에도 그 달 날짜를 보여줄지">

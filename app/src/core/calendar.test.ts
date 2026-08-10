@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calendarLayout, showAdjacentOf, weekdayLabels, weekdayLangOf, weekStartOf } from './calendar';
+import { calendarLayout, showAdjacentOf, sizeScaleOf, weekdayLabels, weekdayLangOf, weekStartOf } from './calendar';
 import type { CalendarObject } from './objects';
 
 describe('달력 오브젝트 기하 계산', () => {
@@ -51,6 +51,16 @@ describe('달력 오브젝트 기하 계산', () => {
     const bigger = calendarLayout({ width: 140, height: 160 });
     expect(bigger.fontSize).toBe(layout.fontSize * 2);
   });
+
+  it('sizeScale을 주면 그 배율만큼 글자가 커지거나 작아진다 — 줄 자체는 그대로다', () => {
+    const scaled = calendarLayout({ width: 70, height: 80, sizeScale: 1.2 });
+    expect(scaled.fontSize).toBeCloseTo(layout.fontSize * 1.2, 9);
+    // 가로 자리(cx)는 글자 크기와 무관해 그대로다. 세로 밑선은 글자
+    // 크기에 맞춰 그 줄 안에서 다시 가운데 잡히므로 살짝 움직인다 —
+    // 그래도 같은 줄(rowHeight) 안에서다.
+    expect(scaled.title.cx).toBe(layout.title.cx);
+    expect(scaled.days[0].baseline - layout.days[0].baseline).toBeLessThan(rowHeight);
+  });
 });
 
 describe('요일 이름', () => {
@@ -69,21 +79,37 @@ describe('요일 이름', () => {
   it('일요일 시작 — 한자', () => {
     expect(weekdayLabels('hanja', 'sun')).toEqual(['日', '月', '火', '水', '木', '金', '土']);
   });
+
+  it('월요일 시작 — MTWTFSS(한 글자씩, 겹치는 글자는 자리로 구분)', () => {
+    expect(weekdayLabels('en-short', 'mon')).toEqual(['M', 'T', 'W', 'T', 'F', 'S', 'S']);
+  });
+
+  it('일요일 시작 — SMTWTFS', () => {
+    expect(weekdayLabels('en-short', 'sun')).toEqual(['S', 'M', 'T', 'W', 'T', 'F', 'S']);
+  });
 });
 
 describe('달력 오브젝트 속성 기본값', () => {
   const bare: CalendarObject = { id: 'c1', type: 'calendar', x: 0, y: 0, width: 70, height: 80 };
 
-  it('정하지 않았으면 일요일 시작·이전달 표시·한글이다', () => {
+  it('정하지 않았으면 일요일 시작·이전달 표시 끔·한글·배율 1이다', () => {
     expect(weekStartOf(bare)).toBe('sun');
-    expect(showAdjacentOf(bare)).toBe(true);
+    expect(showAdjacentOf(bare)).toBe(false);
     expect(weekdayLangOf(bare)).toBe('kr');
+    expect(sizeScaleOf(bare)).toBe(1);
   });
 
   it('정한 값이 있으면 그대로 쓴다', () => {
-    const custom: CalendarObject = { ...bare, weekStart: 'mon', showAdjacent: false, weekdayLang: 'en' };
+    const custom: CalendarObject = {
+      ...bare,
+      weekStart: 'mon',
+      showAdjacent: false,
+      weekdayLang: 'en',
+      sizeScale: 1.3,
+    };
     expect(weekStartOf(custom)).toBe('mon');
     expect(showAdjacentOf(custom)).toBe(false);
     expect(weekdayLangOf(custom)).toBe('en');
+    expect(sizeScaleOf(custom)).toBe(1.3);
   });
 });

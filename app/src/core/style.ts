@@ -119,8 +119,12 @@ export const TEXT_DESCENT = 0.24;
 
 /** 월간 달력 오브젝트의 기본값(core/calendar.ts). */
 export const CALENDAR_WEEK_START = 'sun' as const;
-export const CALENDAR_SHOW_ADJACENT = true;
+/** 이전·다음 달 날짜는 기본적으로 보여주지 않는다. */
+export const CALENDAR_SHOW_ADJACENT = false;
 export const CALENDAR_WEEKDAY_LANG = 'kr' as const;
+export const CALENDAR_SIZE_SCALE = 1;
+/** 이전·다음 달 날짜(showAdjacent를 켰을 때)의 흐림 정도 — 이번 달 글자보다 옅게 보인다. */
+export const CALENDAR_ADJACENT_OPACITY = 0.35;
 
 /*
  * 줄 간격(여러 줄을 쓸 때 ⇧Enter로 나뉘는 줄 사이 거리)은 여기 상수로 두지 않는다.

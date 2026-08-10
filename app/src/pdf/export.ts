@@ -44,6 +44,7 @@ import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import { cornerRadiusOf, roundedRectPath, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
 import { checkboxPath, iconOf } from '../core/checkbox';
 import {
+  CALENDAR_ADJACENT_OPACITY,
   CONTENT_COLOR,
   CROP_COLOR,
   CROP_WIDTH,
@@ -69,7 +70,7 @@ import {
   type TextObject,
 } from '../core/objects';
 import { calendarLayout, showAdjacentOf, weekdayLabels, weekdayLangOf, weekStartOf } from '../core/calendar';
-import { calendarCellAt, calendarTitleAt } from '../core/dataset';
+import { calendarCellAt, calendarTitleAt, isInMonth } from '../core/dataset';
 import { formatDate } from '../core/format';
 
 /**
@@ -652,7 +653,7 @@ function drawCalendars(
       const title = formatDate(calendarTitleAt(year, datasetPage), 'YYYY년 M월');
       const textColor = o.color ? color(o.color) : TEXT;
 
-      const drawCentered = (text: string, localCx: Mm, localBaseline: Mm) => {
+      const drawCentered = (text: string, localCx: Mm, localBaseline: Mm, opacity = 1) => {
         if (text === '') return;
         const width = ptToMm(font.widthOfTextAtSize(text, mmToPt(geo.fontSize)));
         const p = place.map(o.x + localCx - width / 2, o.y + localBaseline);
@@ -662,6 +663,7 @@ function drawCalendars(
           size: mmToPt(geo.fontSize),
           font,
           color: textColor,
+          opacity,
           rotate: degrees(layout.rotated ? 90 : 0),
         });
       };
@@ -671,7 +673,8 @@ function drawCalendars(
       geo.days.forEach((pos, di) => {
         const date = calendarCellAt(year, datasetPage, di, weekStart, showAdjacentOf(o));
         if (!date) return;
-        drawCentered(String(date.day), pos.cx, pos.baseline);
+        const opacity = isInMonth(date, year, datasetPage) ? 1 : CALENDAR_ADJACENT_OPACITY;
+        drawCentered(String(date.day), pos.cx, pos.baseline, opacity);
       });
     }
 

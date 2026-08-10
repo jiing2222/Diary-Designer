@@ -11,6 +11,7 @@ import {
   datasetPages,
   dayOfWeek,
   daysBetween,
+  isInMonth,
   parseDate,
   weekOfYear,
   type CalendarDataset,
@@ -207,5 +208,13 @@ describe('월간 달력', () => {
   it('월 제목은 언제나 그 달 1일이다', () => {
     expect(calendarTitleAt(Y, 2)).toEqual({ year: 2027, month: 3, day: 1 });
     expect(calendarTitleAt(Y, 0)).toEqual({ year: 2027, month: 1, day: 1 });
+  });
+
+  it('isInMonth — 이전·다음 달 칸을 옅게 그리기 위한 판정', () => {
+    // 3월(page=2) 칸 0은 2/28(지난달), 칸 1은 3/1(이번 달)이다.
+    expect(isInMonth(cellSun(2, 0)!, Y, 2)).toBe(false);
+    expect(isInMonth(cellSun(2, 1)!, Y, 2)).toBe(true);
+    // 연말을 넘어가 해가 달라진 경우도 이번 달이 아니다.
+    expect(isInMonth(cellSun(11, 34)!, Y, 11)).toBe(false);
   });
 });

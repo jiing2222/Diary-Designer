@@ -191,6 +191,17 @@ export function calendarCellAt(
   return date;
 }
 
+/**
+ * `calendarCellAt`이 돌려준 날짜가 이번 달(이전·다음 달이 아니라)인가.
+ *
+ * 화면(InsertView)·PDF(export)가 이전·다음 달 날짜를 옅게 그릴 때 같이
+ * 쓴다 — `calendarCellAt` 안에서 이미 한 번 계산하는 값이지만 밖으로
+ * 돌려주지 않으므로, 여기서 같은 셈으로 다시 판단한다.
+ */
+export function isInMonth(date: CalendarDate, year: number, page: number): boolean {
+  return date.year === year && date.month === page + 1;
+}
+
 /** 이 쪽(달)의 제목에 쓸 날짜 — 언제나 그 달 1일이다. showAdjacent와 무관하다. */
 export function calendarTitleAt(year: number, page: number): CalendarDate {
   return { year, month: page + 1, day: 1 };

@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import {
+  CALENDAR_ADJACENT_OPACITY,
   CONTENT_COLOR,
   DEFAULT_FONT_FAMILY,
   DOT_SIZE,
@@ -16,7 +17,7 @@ import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import { cornerRadiusOf, roundedRectPath, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
 import { checkboxPath, iconOf } from '../core/checkbox';
 import { calendarLayout, weekdayLabels, weekdayLangOf, weekStartOf, showAdjacentOf } from '../core/calendar';
-import { calendarCellAt, calendarTitleAt } from '../core/dataset';
+import { calendarCellAt, calendarTitleAt, isInMonth } from '../core/dataset';
 import { formatDate } from '../core/format';
 import { familyOf } from '../fonts/registry';
 import { useStore } from '../store';
@@ -345,8 +346,14 @@ function CalendarLayer({
             {layout.days.map((pos, i) => {
               const date = calendarCellAt(previewYear, previewPage, i, weekStart, showAdjacentOf(o));
               if (!date) return null;
+              const inMonth = isInMonth(date, previewYear, previewPage);
               return (
-                <text key={`d${i}`} x={pos.cx} y={pos.baseline}>
+                <text
+                  key={`d${i}`}
+                  x={pos.cx}
+                  y={pos.baseline}
+                  fillOpacity={inMonth ? undefined : CALENDAR_ADJACENT_OPACITY}
+                >
                   {date.day}
                 </text>
               );

@@ -1,4 +1,9 @@
-import { CALENDAR_SHOW_ADJACENT, CALENDAR_WEEK_START, CALENDAR_WEEKDAY_LANG } from './style';
+import {
+  CALENDAR_SHOW_ADJACENT,
+  CALENDAR_SIZE_SCALE,
+  CALENDAR_WEEK_START,
+  CALENDAR_WEEKDAY_LANG,
+} from './style';
 import { anchorX, baselineY } from './text';
 import type { CalendarObject, WeekdayLang } from './objects';
 import type { Mm } from './units';
@@ -42,15 +47,16 @@ export interface CalendarLayout {
 /**
  * 박스를 8행 7열로 나누고 각 칸 가운데에 글자를 앉힌다.
  *
- * 글자 크기는 한 줄 높이의 절반 — 위아래 여백이 남아야 줄끼리 붙어 보이지
- * 않는다. 세로 위치는 core/text의 `baselineY`(한 줄 가운데 정렬)를 그대로
- * 쓴다 — 이 프로그램의 다른 모든 글자와 같은 공식이어야 나중에 나란히 놔도
+ * 글자 크기는 한 줄 높이의 절반에 `sizeScale`(배율, 정하지 않았으면 1)을
+ * 곱한 값이다 — 위아래 여백이 남아야 줄끼리 붙어 보이지 않는다. 세로
+ * 위치는 core/text의 `baselineY`(한 줄 가운데 정렬)를 그대로 쓴다 — 이
+ * 프로그램의 다른 모든 글자와 같은 공식이어야 나중에 나란히 놔도
  * 어색하지 않다.
  */
-export function calendarLayout(box: { width: Mm; height: Mm }): CalendarLayout {
+export function calendarLayout(box: { width: Mm; height: Mm; sizeScale?: number }): CalendarLayout {
   const rowHeight = box.height / TOTAL_ROWS;
   const colWidth = box.width / CALENDAR_COLS;
-  const fontSize = rowHeight / 2;
+  const fontSize = (rowHeight / 2) * sizeScaleOf(box);
 
   const rowBox = (row: number) => ({ y: row * rowHeight, height: rowHeight });
   const baselineOfRow = (row: number) => baselineY(rowBox(row), fontSize, 'middle');
@@ -84,10 +90,18 @@ export function weekdayLangOf(o: CalendarObject): WeekdayLang {
   return o.weekdayLang ?? CALENDAR_WEEKDAY_LANG;
 }
 
+/** 글자 크기 배율. 정하지 않았으면 1(기본). */
+export function sizeScaleOf(o: { sizeScale?: number }): number {
+  return o.sizeScale ?? CALENDAR_SIZE_SCALE;
+}
+
 const WEEKDAY_NAMES: Record<WeekdayLang, string[]> = {
   // 일요일(0)부터.
   kr: ['일', '월', '화', '수', '목', '금', '토'],
   en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  // 월요일 시작으로 두면 M T W T F S S — 요일마다 한 글자, 겹치는 글자는
+  // 자리로 구분한다(흔히 쓰는 표기).
+  'en-short': ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
   hanja: ['日', '月', '火', '水', '木', '金', '土'],
 };
 
