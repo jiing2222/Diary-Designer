@@ -827,7 +827,7 @@ function TextControls({
       <NumField
         value={lineMm}
         unit="mm"
-        title="줄 간격 (⇧Enter로 나뉜 줄 사이)"
+        title="줄 간격 (Enter로 나뉜 줄 사이)"
         min={MIN_LINE_MM}
         max={MAX_LINE_MM}
         step={0.5}

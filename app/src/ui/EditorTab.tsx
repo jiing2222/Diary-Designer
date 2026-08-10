@@ -221,8 +221,9 @@ export function EditorTab() {
   /**
    * 속성 막대를 쓰고 나면 다시 글자로 돌아온다.
    *
-   * 드롭다운을 고르면 포커스가 그 드롭다운에 남는다. 그대로 두면 이어서 칠 수도,
-   * Enter로 확정할 수도 없다 — 방금 무엇을 고쳤는지는 보이는데 손이 갈 곳이 없다.
+   * 드롭다운을 고르면 포커스가 그 드롭다운에 남는다. 그대로 두면 이어서 칠 수도
+   * 없고 Esc로 확정할 수도 없다 — 방금 무엇을 고쳤는지는 보이는데 손이 갈
+   * 곳이 없다.
    */
   function refocusText() {
     textInputRef.current?.focus();
@@ -1240,8 +1241,9 @@ export function EditorTab() {
  * SVG 안에서는 글자를 고칠 수 없다. 상자와 같은 자리에 진짜 `<textarea>`를 겹쳐 놓고,
  * 글꼴·크기·줄간격을 똑같이 맞춰서 치는 동안에도 결과와 같아 보이게 한다.
  *
- * **Enter로 확정, ⇧Enter로 줄바꿈이다.** 메모·할일목록처럼 여러 줄을 쓰는 일이
- * 흔해서 Enter 쪽을 확정에 준다 — 문서 프로그램(엑셀 등)과는 반대 배정이다.
+ * **Enter는 그냥 줄바꿈이다.** 메모·할일목록처럼 여러 줄을 쓰는 일이 흔해서
+ * textarea 기본 동작 그대로 뒀다 — 확정은 Esc를 누르거나 바깥으로 포커스가
+ * 나갈 때(onBlur)뿐이다.
  *
  * 자리는 SVG에게 물어본다 — 확대와 스크롤을 우리가 다시 계산하면 어긋난다.
  */
@@ -1308,17 +1310,13 @@ function TextInput({
       }}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          onDone();
-          return;
-        }
         if (e.key === 'Escape') {
           e.preventDefault();
           onDone();
           return;
         }
-        // ⇧Enter는 여기서 막지 않는다 — textarea 기본 동작(줄바꿈)에 맡긴다.
+        // Enter는 이제 그냥 줄바꿈이다(textarea 기본 동작에 맡긴다) — 막지
+        // 않는다. 확정은 Esc를 누르거나 바깥으로 포커스가 나갈 때(onBlur)뿐이다.
         e.stopPropagation();
       }}
       /*
