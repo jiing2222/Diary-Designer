@@ -82,18 +82,29 @@ export function rotateOf(t: { rotate?: TextRotate }): TextRotate {
   return t.rotate ?? 0;
 }
 
+/** 자동 필드 자리표시가 어느 파생값 갈래인지 나타내는 글자. */
+export type FieldCategory = 'DW' | 'M' | 'W' | 'D';
+
 /**
  * 서식(FIELD_FORMATS의 id)이 어느 파생값 갈래인지 — 자리표시 앞에 붙일
  * 글자를 고르는 데 쓴다. 날짜 하나를 통째로 가리키는 것(D, M/D, M월
  * D일, YYYY-MM-DD)은 전부 "일"로 묶는다 — 연속한 날마다 값이 바뀌는
  * 정도가 같기 때문이다.
  */
-function fieldCategory(format: string): 'DW' | 'M' | 'W' | 'D' {
+export function fieldCategory(format: string): FieldCategory {
   if (['ddd', 'dddd', 'ddd-en', 'dddd-en'].includes(format)) return 'DW';
   if (['M', 'M월', 'MMM', 'MMMM'].includes(format)) return 'M';
   if (['주차', 'W', 'Week'].includes(format)) return 'W';
   return 'D';
 }
+
+/** 갈래 글자만 손으로 쳤을 때(예: `⟨+D0⟩`) 대신 쓸 서식. 갈래 안에서 가장 무난한 것을 골랐다. */
+const CATEGORY_DEFAULT_FORMAT: Record<FieldCategory, string> = {
+  D: 'M/D',
+  M: 'M',
+  W: 'W',
+  DW: 'dddd',
+};
 
 /**
  * 자동 필드가 편집 화면에서 보이는 자리표시(설계문서 7장). 진짜 값이 아니다.
@@ -107,17 +118,44 @@ export function fieldPlaceholder(field: { offset: number; format: string }): str
 }
 
 /**
+ * 글자 안에서 자동 필드 자리표시 패턴을 찾는다. `<+D0>`(치기 쉬운 홑화살괄호)와
+ * `⟨+D0⟩`(자리표시가 실제로 쓰는 겹화살괄호) 둘 다 받는다. 긴 갈래(DW)를
+ * 먼저 시도해야 한다 — 짧은 갈래(D)부터 보면 "DW0"에서 "D"만 걸리고 남는
+ * "W0"가 닫는 괄호 앞의 숫자 자리와 안 맞아 통째로 실패한다.
+ */
+export const FIELD_PATTERN = /[<⟨]\+(DW|D|M|W)(\d+)[>⟩]/;
+
+/**
+ * 사용자가 손으로 친 자리표시 패턴을 찾아 필드로 되돌린다. 없으면 `null`.
+ *
+ * 갈래 글자만으로는 어느 서식인지 하나로 정할 수 없다(D 갈래에 서식이
+ * 넷이다) — `CATEGORY_DEFAULT_FORMAT`에서 무난한 것 하나를 기본으로
+ * 쓴다. 정확한 서식을 원하면 만든 뒤 속성 막대에서 다시 고른다.
+ */
+export function parseFieldText(text: string): { offset: number; format: string } | null {
+  const m = text.match(FIELD_PATTERN);
+  if (!m) return null;
+  const category = m[1] as FieldCategory;
+  return { offset: Number(m[2]), format: CATEGORY_DEFAULT_FORMAT[category] };
+}
+
+/**
  * 이 글자에 실제로 보일 문자열.
  *
  * 화면과 PDF가 함께 부른다 — 각자 `t.text`를 직접 읽으면 자동 필드가 생겼을 때
  * 한쪽만 자리표시로 바뀌는 사고가 난다.
  *
- * **지금은 화면·PDF가 똑같이 자리표시를 보여준다.** 데이터셋에서 진짜 값을
- * 뽑아 채우는 일은 8c의 몫이다 — 그때까지는 편집 화면과 인쇄물이 다른 값을
- * 보여주는 것보다, 둘 다 같은 자리표시를 보여주는 편이 덜 놀랍다.
+ * **`text` 안에 패턴이 있으면 그 자리만 지금 서식의 자리표시로 다시
+ * 그려 넣는다** — 앞뒤에 손으로 붙인 글자(예: "입니다")는 그대로 둔다,
+ * `⟨+D0⟩입니다`처럼 필드와 보통 글자를 한 상자에 섞어 쓸 수 있다.
+ * **패턴이 없으면(속성 막대의 "자동 필드" 체크로 켠 경우 — 원래 글자에
+ * 그런 표시가 있을 이유가 없다) `text` 전체를 자리표시로 통째로
+ * 바꾼다** — 예전부터의 규칙 그대로다.
  */
 export function displayText(t: TextObject): string {
-  return t.field ? fieldPlaceholder(t.field) : t.text;
+  if (!t.field) return t.text;
+  const placeholder = fieldPlaceholder(t.field);
+  return FIELD_PATTERN.test(t.text) ? t.text.replace(FIELD_PATTERN, placeholder) : placeholder;
 }
 
 /**

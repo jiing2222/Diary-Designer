@@ -12,6 +12,7 @@ import {
   lineBaselines,
   lineHeightOf,
   newTextStyle,
+  parseFieldText,
   rotateOf,
   splitLines,
 } from './text';
@@ -123,11 +124,50 @@ describe('자동 필드 자리표시', () => {
     expect(displayText(base)).toBe('원래 글자');
   });
 
-  it('필드가 있으면 원래 글자 대신 자리표시를 보여준다', () => {
+  it('필드가 있는데 text에 자리표시 패턴이 없으면(속성 막대 체크로 켠 경우) 통째로 바꾼다', () => {
     // text는 지워지지 않는다 — field를 떼면 원래 글자로 돌아온다.
     const field = { ...base, field: { offset: 2, format: 'M/D' } };
     expect(displayText(field)).toBe('⟨+D2⟩');
     expect(field.text).toBe('원래 글자');
+  });
+
+  it('text 안에 자리표시 패턴이 있으면 그 자리만 바꾸고 앞뒤 글자는 남긴다', () => {
+    const mixed = { ...base, text: '⟨+D0⟩입니다', field: { offset: 0, format: 'M/D' } };
+    expect(displayText(mixed)).toBe('⟨+D0⟩입니다');
+
+    // 서식이 바뀌어 갈래 글자가 달라져도(D → DW) text 자체는 그대로지만
+    // 화면에는 새 자리표시가 나온다 — text의 옛 패턴 위치를 그대로 찾아 쓴다.
+    const changed = { ...mixed, field: { offset: 0, format: 'dddd' } };
+    expect(displayText(changed)).toBe('⟨+DW0⟩입니다');
+  });
+
+  it('패턴이 글자 중간에 있어도 앞뒤 다 남는다', () => {
+    const mixed = { ...base, text: '오늘은 ⟨+D0⟩ 입니다', field: { offset: 0, format: 'D' } };
+    expect(displayText(mixed)).toBe('오늘은 ⟨+D0⟩ 입니다');
+  });
+});
+
+describe('손으로 친 자동 필드 패턴 인식', () => {
+  it('겹화살괄호·홑화살괄호 둘 다 인식한다', () => {
+    expect(parseFieldText('⟨+D0⟩')).toEqual({ offset: 0, format: 'M/D' });
+    expect(parseFieldText('<+D0>')).toEqual({ offset: 0, format: 'M/D' });
+  });
+
+  it('갈래마다 무난한 서식 하나를 기본으로 쓴다', () => {
+    expect(parseFieldText('<+D3>')).toEqual({ offset: 3, format: 'M/D' });
+    expect(parseFieldText('<+M1>')).toEqual({ offset: 1, format: 'M' });
+    expect(parseFieldText('<+W2>')).toEqual({ offset: 2, format: 'W' });
+    expect(parseFieldText('<+DW5>')).toEqual({ offset: 5, format: 'dddd' });
+  });
+
+  it('앞뒤에 다른 글자가 있어도 패턴만 찾아낸다', () => {
+    expect(parseFieldText('<+D0>입니다')).toEqual({ offset: 0, format: 'M/D' });
+    expect(parseFieldText('오늘은 <+D0>')).toEqual({ offset: 0, format: 'M/D' });
+  });
+
+  it('패턴이 없으면 null이다', () => {
+    expect(parseFieldText('그냥 쓴 글자')).toBeNull();
+    expect(parseFieldText('')).toBeNull();
   });
 });
 

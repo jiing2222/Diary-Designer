@@ -96,6 +96,8 @@ export function StyleBar({
   const drawStyle = useStore((s) => s.drawStyle);
   const setDrawStyle = useStore((s) => s.setDrawStyle);
   const setTextDraftStyle = useStore((s) => s.setTextDraftStyle);
+  const fieldDraftFormat = useStore((s) => s.fieldDraftFormat);
+  const setFieldDraftFormat = useStore((s) => s.setFieldDraftFormat);
   const checkboxDraftStyle = useStore((s) => s.checkboxDraftStyle);
   const setCheckboxDraftStyle = useStore((s) => s.setCheckboxDraftStyle);
   const styleCheckbox = useStore((s) => s.styleCheckbox);
@@ -196,6 +198,22 @@ export function StyleBar({
               중이거나 앞으로 쓸 글자의 기본값으로는 두지 않는다 — 매번 새 글자가
               필드로 시작하면 놀란다. */}
           {pickedTexts.length > 0 && <FieldControls texts={pickedTexts} />}
+          {/* 자동 필드 도구인데 아직 찍은 게 없으면 — 무엇을 찍을지(서식) 미리
+              고를 자리가 없었다. 찍고 나서 FieldControls로 고치는 것과 별개로,
+              찍기 전에도 고를 수 있게 한다. */}
+          {tool === 'field' && pickedTexts.length === 0 && (
+            <select
+              value={fieldDraftFormat}
+              onChange={(e) => setFieldDraftFormat(e.target.value)}
+              title="다음에 찍을 자동 필드의 서식"
+            >
+              {FIELD_FORMATS.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          )}
           <TextControls
             items={pickedTexts.length > 0 ? pickedTexts : [draftStyle]}
             apply={pickedTexts.length > 0 ? styleText : setTextDraftStyle}

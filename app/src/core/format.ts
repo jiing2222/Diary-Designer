@@ -1,5 +1,6 @@
 import { dateAtOffset, dayOfWeek, weekOfYear, type CalendarDate, type Dataset } from './dataset';
 import { isText, type DiaryObject } from './objects';
+import { FIELD_PATTERN } from './text';
 
 // 일요일(0)부터. 월간 달력 오브젝트(core/calendar.ts)의 요일 이름과는 별도로
 // 둔다 — 그쪽은 달력 그리드 머리글에 쓰는 짧은 이름만 필요하지만, 여기는
@@ -80,8 +81,12 @@ export function resolveObjectsForPage(
   return objects.map((o) => {
     if (!isText(o) || !o.field) return o;
     const date = dataset.kind === 'date' ? dateAtOffset(dataset, page, o.field.offset) : null;
-    const text = date ? formatDate(date, o.field.format) : '';
+    const value = date ? formatDate(date, o.field.format) : '';
+    // 자리표시가 있던 자리만 진짜 값으로 바꿔 끼운다 — core/text의 displayText와
+    // 같은 이유다. 앞뒤에 손으로 붙인 글자(예: "입니다")는 그대로 남는다.
+    // 패턴이 없으면(체크박스로 켠 필드) text 전체를 값으로 통째로 바꾼다.
     const { field: _field, ...rest } = o;
+    const text = FIELD_PATTERN.test(o.text) ? o.text.replace(FIELD_PATTERN, value) : value;
     return { ...rest, text };
   });
 }

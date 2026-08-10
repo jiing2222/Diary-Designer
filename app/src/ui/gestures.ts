@@ -11,6 +11,7 @@ import {
   type TextObject,
   type TextStyle,
 } from '../core/objects';
+import { displayText } from '../core/text';
 import { roundMm, type Mm } from '../core/units';
 
 /**
@@ -46,14 +47,30 @@ export const HANDLE_SIZE: Mm = 1.8;
  */
 export const DRAG_START: Mm = 1;
 
-/** 지금 입력 중인 글자 상자. 확정하기 전까지는 객체가 아니다. */
-export type Editing = { box: Box; text: string; style: TextStyle; id?: string };
+/**
+ * 지금 입력 중인 글자 상자. 확정하기 전까지는 객체가 아니다.
+ *
+ * `originalText`는 편집을 시작할 때의 글자다 — 손을 대지 않고 그대로
+ * 확정하면(예: 자동 필드를 열어봤다가 아무것도 안 고치고 Esc) 자동
+ * 필드 자리표시를 다시 인식하지 않는다. 다시 인식하면 갈래 글자만으로는
+ * 서식을 하나로 정할 수 없어(core/text의 `CATEGORY_DEFAULT_FORMAT`)
+ * 사용자가 따로 골라둔 서식이 기본값으로 되돌아가 버린다.
+ */
+export type Editing = {
+  box: Box;
+  text: string;
+  style: TextStyle;
+  id?: string;
+  field?: { offset: number; format: string };
+  originalText?: string;
+};
 
 /** 있는 글자를 고치기 시작할 때, 그 글자의 스타일을 그대로 물려받는다. */
 export function editingFor(t: TextObject): Editing {
+  const shown = displayText(t);
   return {
     box: boxOf(t),
-    text: t.text,
+    text: shown,
     style: cleanStyle({
       size: t.size,
       align: t.align,
@@ -62,6 +79,8 @@ export function editingFor(t: TextObject): Editing {
       lineHeight: t.lineHeight,
     }),
     id: t.id,
+    field: t.field,
+    originalText: shown,
   };
 }
 

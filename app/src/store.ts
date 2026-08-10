@@ -126,6 +126,8 @@ interface Settings {
   checkboxDraftStyle: CheckboxStyle;
   /** 앞으로 쓸 글자의 모양. drawStyle의 글자 판이다. */
   textDraftStyle: TextStyle;
+  /** 자동 필드 도구로 다음에 찍을 서식. drawStyle의 자동 필드 판이다. */
+  fieldDraftFormat: string;
   /**
    * 이번 세션에 등록한 글꼴 목록.
    *
@@ -264,6 +266,8 @@ interface Store extends Settings {
   setField: (patch: Partial<{ offset: number; format: string }> | null) => void;
   /** 앞으로 쓸 글자의 모양. */
   setTextDraftStyle: (patch: TextStyle) => void;
+  /** 자동 필드 도구로 다음에 찍을 서식을 바꾼다. */
+  setFieldDraftFormat: (format: string) => void;
   /** 새 달력 오브젝트를 이 박스 크기로 만든다. */
   commitCalendar: (box: Box) => void;
   /**
@@ -513,6 +517,7 @@ export const useStore = create<Store>((set) => ({
   drawStyle: {},
   checkboxDraftStyle: {},
   textDraftStyle: {},
+  fieldDraftFormat: DEFAULT_FIELD_FORMAT,
   userFonts: [],
   userImages: [],
   gap: 0,
@@ -717,6 +722,8 @@ export const useStore = create<Store>((set) => ({
     }),
 
   setTextDraftStyle: (patch) => set((s) => ({ textDraftStyle: { ...s.textDraftStyle, ...patch } })),
+
+  setFieldDraftFormat: (format) => set({ fieldDraftFormat: format }),
 
   commitCalendar: (box) =>
     set((s) => {

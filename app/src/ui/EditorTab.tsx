@@ -30,12 +30,12 @@ import {
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm, type Mm } from '../core/units';
 import {
-  DEFAULT_FIELD_FORMAT,
   boldOf,
   displayText,
   fieldPlaceholder,
   lineHeightOf,
   newTextStyle,
+  parseFieldText,
   rotateOf,
   sizeOf,
 } from '../core/text';
@@ -121,6 +121,7 @@ export function EditorTab() {
   const commitCheckboxes = useStore((s) => s.commitCheckboxes);
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
+  const fieldDraftFormat = useStore((s) => s.fieldDraftFormat);
   const userFonts = useStore((s) => s.userFonts);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
@@ -265,7 +266,11 @@ export function EditorTab() {
   function finishEditing() {
     const cur = editingRef.current;
     if (!cur) return;
-    commitText({ ...cur.box, text: cur.text, ...cur.style }, cur.id);
+    // 글자를 안 바꿨으면(자동 필드를 열어봤다가 그대로 닫은 경우 등) 있던
+    // 필드를 그대로 지킨다. 바뀌었으면 ⟨+D0⟩ 같은 패턴이 있는지 새로 본다
+    // — 있으면 자동 필드로, 없으면(지웠으면) 평범한 글자로 확정한다.
+    const field = cur.text === (cur.originalText ?? '') ? cur.field : (parseFieldText(cur.text) ?? undefined);
+    commitText({ ...cur.box, text: cur.text, ...cur.style, ...(field ? { field } : {}) }, cur.id);
     setEditing(null);
     editingRef.current = null;
   }
@@ -745,7 +750,8 @@ export function EditorTab() {
       if (tool === 'field') {
         // 타이핑 없이 바로 확정한다. 오프셋은 자동으로 매겨지고 찍을 때마다
         // 하나씩 늘어난다 — 칸을 순서대로 찍으면 위클리 7칸이 저절로 0~6이 된다.
-        const field = { offset: nextFieldOffset, format: DEFAULT_FIELD_FORMAT };
+        // 서식은 속성 막대에서 미리 골라둔 것(fieldDraftFormat)을 쓴다.
+        const field = { offset: nextFieldOffset, format: fieldDraftFormat };
         commitText({ ...box, text: fieldPlaceholder(field), field, ...draftStyle });
         setNextFieldOffset((n) => n + 1);
         return;

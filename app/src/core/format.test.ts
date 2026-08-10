@@ -113,6 +113,12 @@ describe('쪽의 자동 필드 채우기', () => {
     expect((resolved[0] as TextObject).bold).toBe(true);
     expect((resolved[0] as TextObject).color).toBe('#ff0000');
   });
+
+  it('text 안에 자리표시 패턴이 있으면 그 자리만 진짜 값으로 바꾸고 앞뒤 글자는 남긴다', () => {
+    const mixed = { ...field(0), text: '⟨+D0⟩입니다' };
+    const resolved = resolveObjectsForPage([mixed], weekly, 0);
+    expect((resolved[0] as TextObject).text).toBe('1/1입니다');
+  });
 });
 
 describe('월간 달력 데이터셋에는 자동 필드가 없다', () => {
