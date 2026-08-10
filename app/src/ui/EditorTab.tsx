@@ -857,9 +857,6 @@ export function EditorTab() {
             <ToolBtn on={tool === 'text'} onClick={() => setTool('text')} title="글자 (T)">
               <TextIcon />
             </ToolBtn>
-            <ToolBtn on={tool === 'field'} onClick={() => setTool('field')} title="자동 필드 (F)">
-              <FieldIcon />
-            </ToolBtn>
             <ToolBtn on={tool === 'calendar'} onClick={() => setTool('calendar')} title="달력 (C)">
               <CalendarIcon />
             </ToolBtn>
@@ -868,6 +865,9 @@ export function EditorTab() {
             </ToolBtn>
             <ToolBtn on={tool === 'checkbox'} onClick={() => setTool('checkbox')} title="체크박스 (X)">
               <CheckboxIcon />
+            </ToolBtn>
+            <ToolBtn on={tool === 'field'} onClick={() => setTool('field')} title="자동 필드 (F)">
+              <FieldIcon />
             </ToolBtn>
           </div>
 
@@ -927,7 +927,7 @@ export function EditorTab() {
             <span className="editor-hint">
               {noGrid
                 ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
-                : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
+                : '선택 | 클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
             </span>
           )}
         </div>

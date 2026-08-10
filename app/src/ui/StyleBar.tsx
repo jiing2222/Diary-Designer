@@ -152,20 +152,20 @@ export function StyleBar({
       ) : (
         <span className="picked-count muted-label">
           {tool === 'text'
-            ? '쓸 글자'
+            ? '글자'
             : tool === 'table'
-              ? '그릴 표'
+              ? '표'
               : tool === 'field'
-                ? '찍을 자동 필드'
+                ? '자동 필드'
                 : tool === 'calendar'
-                  ? '그릴 달력'
+                  ? '달력 | 끌어서 놓으면 이번 달이 자동으로 채워집니다'
                   : tool === 'image'
-                    ? '놓을 이미지'
+                    ? '이미지'
                     : tool === 'checkbox'
-                      ? '찍을 체크박스'
+                      ? '체크박스'
                       : tool === 'draw' && drawStyle.roundness
-                        ? '그릴 도형'
-                        : '그릴 선'}
+                        ? '도형'
+                        : '선'}
         </span>
       )}
 

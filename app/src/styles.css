@@ -147,26 +147,23 @@ button.ghost:disabled {
 }
 
 /*
- * 화면을 좁히면 buttons가 줄어들다 못해 글자가 한 자씩 줄바꿈되어 세로로
- * 보이던 문제 — .editor-bar-tools(도구·지우기·잠그기·undo/redo·확대)와
- * .editor-bar-style(속성 막대) 둘을 감싸는 바깥 줄만 줄바꿈하게 해서,
- * 좁아지면 속성 막대 전체가 통째로 아래 줄로 내려가게 한다. 넓을 때는
- * 지금처럼 한 줄 그대로다 — flex-wrap은 자리가 모자랄 때만 접는다.
+ * 도구(.editor-bar-tools)와 속성 막대(.editor-bar-style)를 늘 두 줄로
+ * 나눈다 — 화면이 넓어도 마찬가지다. 전에는 좁을 때만 접었는데, 늘 두
+ * 줄이 낫다는 요청으로 바꿨다.
  */
 .editor-bar {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
   row-gap: 6px;
-  column-gap: 14px;
   padding: 7px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
 
-/* 도구 팔레트·지우기·잠그기·undo/redo·확대 — 안의 글자가 눌려 세로로 보이지
-   않도록 통째로도, 하나씩도 줄어들지 않는다. 이것마저 모자라면(아주 좁은
-   화면) 이 안에서만 한 번 더 접는다. */
+/* 도구 팔레트·지우기·잠그기·undo/redo·확대. 화면을 좁히면 buttons가
+   줄어들다 못해 글자가 한 자씩 줄바꿈되어 세로로 보이던 문제가 있었다 —
+   안의 것들이 통째로도, 하나씩도 줄어들지 않게 하고, 그마저 모자라면
+   (아주 좁은 화면) 다음 줄로 접는다. */
 .editor-bar-tools {
   display: flex;
   align-items: center;
@@ -179,12 +176,10 @@ button.ghost:disabled {
   white-space: nowrap;
 }
 
-/* 속성 막대(또는 안내 문구) — 자리가 모자라면 이 통째로 다음 줄로 내려간다. */
+/* 속성 막대(또는 안내 문구). */
 .editor-bar-style {
   display: flex;
   align-items: center;
-  flex: 1 1 auto;
-  min-width: 240px;
 }
 
 .editor-bar select {
