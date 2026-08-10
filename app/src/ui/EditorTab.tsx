@@ -1022,7 +1022,14 @@ export function EditorTab() {
                 const b = { ...raw, x: raw.x + (nudge?.dx ?? 0), y: raw.y + (nudge?.dy ?? 0) };
                 const rot = rotationDegOf(o);
                 const rect = (
-                  <rect key={rot === 0 ? o.id : undefined} x={b.x} y={b.y} width={b.width} height={b.height} />
+                  <rect
+                    key={rot === 0 ? o.id : undefined}
+                    x={b.x}
+                    y={b.y}
+                    width={b.width}
+                    height={b.height}
+                    className={isImage(o) ? 'image-picked' : undefined}
+                  />
                 );
                 if (rot === 0) return rect;
                 return (
@@ -1142,7 +1149,7 @@ export function EditorTab() {
               y={textDragBox.y}
               width={textDragBox.width}
               height={textDragBox.height}
-              className="text-drag"
+              className={tool === 'image' ? 'image-drag' : 'text-drag'}
             />
           )}
 

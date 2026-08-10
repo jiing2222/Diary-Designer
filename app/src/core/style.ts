@@ -63,6 +63,14 @@ export const SNAP_COLOR = '#2f6f4f';
  * (`.picked`·`.marquee`)가 이미 그렇게 하고 있어서 같은 방식을 따랐다.
  */
 export const TEXT_SNAP_COLOR = '#3568c9';
+/**
+ * 이미지 도구의 보라.
+ *
+ * 초록(그리기)·파랑(글자)과 겹치지 않는 세 번째 색이다 — 이미지 상자를
+ * 만들거나 고를 때 다른 도구와 헷갈리지 않게 한다. 값 자체는 styles.css의
+ * `.image-drag`·`.image-picked`에 그대로 옮겨 적었다.
+ */
+export const IMAGE_SNAP_COLOR = '#8654c9';
 
 /**
  * 사용자가 그은 선의 기본값.

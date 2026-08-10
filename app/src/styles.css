@@ -409,12 +409,16 @@ button.ghost:disabled {
   pointer-events: none;
 }
 
-/* 고른 글자 상자 */
+/* 고른 상자. 이미지만 보라(image-picked) — 초록·파랑과 헷갈리지 않게. */
 .picked rect {
   fill: none;
   stroke: #2f6f4f;
   stroke-width: 0.3;
   stroke-dasharray: 1.2 0.8;
+}
+
+.picked rect.image-picked {
+  stroke: #8654c9;
 }
 
 /*
@@ -443,6 +447,18 @@ button.ghost:disabled {
   fill: #3568c9;
   fill-opacity: 0.08;
   stroke: #3568c9;
+  stroke-width: 0.25;
+  pointer-events: none;
+}
+
+/*
+ * 이미지 도구의 보라색 계열(IMAGE_SNAP_COLOR). 초록(그리기)·파랑(글자)과
+ * 겹치지 않는 세 번째 색이라 이미지 상자를 만들거나 고를 때 헷갈리지 않는다.
+ */
+.image-drag {
+  fill: #8654c9;
+  fill-opacity: 0.08;
+  stroke: #8654c9;
   stroke-width: 0.25;
   pointer-events: none;
 }
