@@ -29,8 +29,12 @@ import { roundMm, type Mm } from '../core/units';
 /** 속지 위의 한 점. 좌표는 언제나 mm다. */
 export type Point = { x: Mm; y: Mm };
 
-/** 선을 집었다고 볼 거리. 0.2mm 선은 손으로 정확히 찍을 수 없다. */
-export const GRAB: Mm = 1.6;
+/**
+ * 선을 집었다고 볼 거리. 0.2mm 선은 손으로 정확히 찍을 수 없다.
+ *
+ * 골랐다가 옮기려 할 때 자꾸 놓친다는 피드백으로 1.6 → 2.0으로 늘렸다.
+ */
+export const GRAB: Mm = 2.0;
 /** 끝점 손잡이를 집었다고 볼 거리. 선 몸통보다 먼저 집혀야 한다. */
 export const HANDLE_GRAB: Mm = 2.2;
 export const HANDLE_SIZE: Mm = 1.8;
