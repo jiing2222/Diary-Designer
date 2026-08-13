@@ -929,14 +929,10 @@ export function EditorTab() {
    * 어느 태그가 손잡이를 쥐었는지와 무관하게 dragRef만 보고 판단하기
    * 때문이다. svg에서 시작한 드래그도 이 div까지 거품처럼 올라오지만,
    * 그때는 이미 dragRef가 비어 있어 조용히 아무 일도 하지 않는다.
-   *
-   * "뒷면 만들기" 자리표시(뒷면이 없을 때)도 여기서 걸러낸다 — 안 그러면
-   * 그 버튼을 select 도구로 누를 때 활성 쪽 좌표계로 엉뚱한 마퀴가 같이 시작된다.
    */
   function onOutsideDown(e: React.PointerEvent) {
     if (tool !== 'select') return;
     if (svgRef.current?.contains(e.target as Node)) return;
-    if ((e.target as HTMLElement).closest?.('.back-empty')) return;
     const raw = rawMm(e);
     if (!raw) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -1453,22 +1449,9 @@ export function EditorTab() {
             </svg>
           );
 
-          if (!hasBack) {
-            return (
-              <>
-                <div
-                  className="side-slot back-empty"
-                  style={{ width: insert.width * scale, height: insert.height * scale }}
-                >
-                  <div className="back-empty-msg">
-                    <p>아직 뒷면이 없습니다.</p>
-                    <button onClick={addBack}>뒷면 만들기</button>
-                  </div>
-                </div>
-                {activeSvg}
-              </>
-            );
-          }
+          // 뒷면이 없으면 앞면만 보여준다 — "아직 뒷면이 없습니다" 안내는
+          // 없앴다(사용자 요청). 뒷면은 도구막대의 "뒷면 만들기" 버튼으로 만든다.
+          if (!hasBack) return activeSvg;
           // 뒷면이 왼쪽, 앞면이 오른쪽 — activeSvg가 어느 쪽이냐에 따라 순서가 바뀐다.
           return activeSide === 'back' ? (
             <>
