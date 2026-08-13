@@ -182,6 +182,14 @@ export function EditorTab() {
     grid.minMargin,
     grid.toEdge,
   );
+  // 비활성 쪽의 격자 — 경계를 넘어 잇는 선의 둘째 점을 그 쪽 격자에 앉히려고
+  // 있다. 없으면(빈 뒷면 등) 그 점은 안 붙는다.
+  const inactiveLattice = gridLattice(
+    gridArea(insert, inactiveGrid, insert.punch.safeZoneWidth, inactiveSide === 'back'),
+    inactiveGrid.spacing,
+    inactiveGrid.minMargin,
+    inactiveGrid.toEdge,
+  );
   const scale = (zoom / 100) * PX_PER_MM_AT_100;
   const noGrid = lattice.xs.length === 0 || lattice.ys.length === 0;
 
@@ -984,6 +992,11 @@ export function EditorTab() {
    * 캔버스 자신의 CTM으로 좌표를 재는 것은 rawMm과 같은 방식이지만, 이
    * svg는 활성 쪽이 아니라서 rawMm(activeSide 기준)을 그대로 쓸 수 없다.
    *
+   * **격자에 앉힌다.** 활성 쪽에서 선을 그을 때(onDown)는 늘
+   * snapToLattice를 거치는데, 처음 이 함수를 짤 때 그걸 빠뜨려서 경계를
+   * 넘는 선의 둘째 점만 격자에 안 붙고 클릭한 픽셀 그대로 박혔다 — 왼쪽은
+   * 점에 딱 붙는데 오른쪽으로 갈수록 살짝 기울어 보이던 버그가 이거였다.
+   *
    * stopPropagation을 꼭 해야 한다 — 안 그러면 이 클릭이 .editor-canvas의
    * onOutsideDown까지 거품처럼 올라가, select 도구일 때 활성 쪽 좌표계로
    * 엉뚱한 마퀴가 동시에 시작된다.
@@ -1000,9 +1013,10 @@ export function EditorTab() {
     p.x = e.clientX;
     p.y = e.clientY;
     const local = p.matrixTransform(ctm.inverse());
+    const snap = snapToLattice(inactiveLattice, local.x, local.y);
 
-    if (tool === 'draw' && pending) {
-      completeCrossBoundaryLine({ x: local.x, y: local.y });
+    if (tool === 'draw' && pending && snap) {
+      completeCrossBoundaryLine(snap);
       return;
     }
     switchSide(inactiveSide);
