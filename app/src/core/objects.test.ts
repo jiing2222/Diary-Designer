@@ -155,9 +155,20 @@ describe('감싸서 고르기', () => {
     expect(segmentInRect(line, { x1: 10, y1: 10, x2: 70, y2: 30 })).toBe(true);
   });
 
-  it('걸치기만 하면 안 골라진다', () => {
-    // 격자 위에서 의도치 않게 딸려오는 것을 막는다.
-    expect(segmentInRect(line, { x1: 10, y1: 10, x2: 40, y2: 30 })).toBe(false);
+  it('끝점 하나만 걸쳐도 골라진다', () => {
+    // 긴 선을 고르려고 끝까지 다 감쌀 필요가 없다.
+    expect(segmentInRect(line, { x1: 10, y1: 10, x2: 40, y2: 30 })).toBe(true);
+  });
+
+  it('양 끝이 둘 다 밖이어도 사각형을 관통하면 골라진다', () => {
+    // 사각형이 선 중간 한 토막만 감싸는 경우 — 끝점은 하나도 안 안에 있다.
+    expect(segmentInRect(line, { x1: 30, y1: 10, x2: 40, y2: 30 })).toBe(true);
+  });
+
+  it('아예 안 닿으면 안 골라진다', () => {
+    expect(segmentInRect(line, { x1: 100, y1: 100, x2: 120, y2: 120 })).toBe(false);
+    // 사각형이 선 위쪽으로 완전히 벗어나 있으면(x범위는 겹쳐도 y가 안 겹친다) 안 닿는다.
+    expect(segmentInRect(line, { x1: 30, y1: 50, x2: 40, y2: 70 })).toBe(false);
   });
 
   it('어느 방향으로 감싸도 같다', () => {

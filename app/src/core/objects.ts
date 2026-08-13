@@ -627,7 +627,11 @@ export function pdfRotateOf(degrees: number): number {
 }
 
 /**
- * 감싸기로 고를 수 있는가. 완전히 들어온 것만 친다.
+ * 감싸기로 고를 수 있는가.
+ *
+ * 선은 조금이라도 걸치면 고른다(segmentInRect). 그 외(도형·글자·달력·
+ * 이미지·체크박스)는 상자가 완전히 들어와야 고른다 — 큰 상자 한쪽 귀퉁이만
+ * 스쳐도 통째로 딸려오면 놀란다.
  *
  * 글자는 상자로 판정한다. 글자가 실제로 그려진 크기는 글꼴이 정하므로
  * core가 알 수 없다 — 클릭으로 집는 것만 화면이 잰 크기를 쓴다.
@@ -645,11 +649,33 @@ export function objectInRect(
   return o.x >= left && o.x + o.width <= right && o.y >= top && o.y + o.height <= bottom;
 }
 
+/** 선분 `p1-p2`와 `p3-p4`가 만나는가(끝점 포함). */
+function segmentsCross(
+  p1: { x: Mm; y: Mm },
+  p2: { x: Mm; y: Mm },
+  p3: { x: Mm; y: Mm },
+  p4: { x: Mm; y: Mm },
+): boolean {
+  const cross = (ax: Mm, ay: Mm, bx: Mm, by: Mm) => ax * by - ay * bx;
+  const d1x = p2.x - p1.x;
+  const d1y = p2.y - p1.y;
+  const d2x = p4.x - p3.x;
+  const d2y = p4.y - p3.y;
+  const denom = cross(d1x, d1y, d2x, d2y);
+  // 평행(0으로 나눔 없이 그냥 안 만난다고 본다)이어도, 사각형은 변 네 개라
+  // 선이 그 안을 지나면 반드시 다른 변 중 하나와는 평행이 아니게 만난다.
+  if (denom === 0) return false;
+  const t = cross(p3.x - p1.x, p3.y - p1.y, d2x, d2y) / denom;
+  const u = cross(p3.x - p1.x, p3.y - p1.y, d1x, d1y) / denom;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
 /**
- * 사각형 안에 완전히 들어온 선인가.
+ * 사각형에 조금이라도 걸치는 선인가.
  *
- * 걸치기만 해도 잡히게 하면 격자 위에서 의도치 않게 딸려온다.
- * 양 끝이 모두 안에 있어야 고른 것으로 친다.
+ * 끝점이 하나라도 안에 있거나, 두 끝점이 다 밖이어도 사각형을 관통하면
+ * 걸친 것으로 친다 — 마퀴로 드래그한 자리에 선의 일부만 지나가도 골라야
+ * 자연스럽다(긴 선을 고르려고 끝까지 다 감쌀 필요가 없다).
  */
 export function segmentInRect(
   s: LineSeg,
@@ -661,7 +687,17 @@ export function segmentInRect(
   const bottom = Math.max(rect.y1, rect.y2);
 
   const inside = (x: Mm, y: Mm) => x >= left && x <= right && y >= top && y <= bottom;
-  return inside(s.x1, s.y1) && inside(s.x2, s.y2);
+  if (inside(s.x1, s.y1) || inside(s.x2, s.y2)) return true;
+
+  const p1 = { x: s.x1, y: s.y1 };
+  const p2 = { x: s.x2, y: s.y2 };
+  const corners = [
+    { x: left, y: top },
+    { x: right, y: top },
+    { x: right, y: bottom },
+    { x: left, y: bottom },
+  ];
+  return corners.some((c, i) => segmentsCross(p1, p2, c, corners[(i + 1) % 4]));
 }
 
 /**

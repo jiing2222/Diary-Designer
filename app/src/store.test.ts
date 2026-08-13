@@ -577,6 +577,81 @@ describe('앞면·뒷면', () => {
   });
 });
 
+describe('경계를 넘어 이은 선', () => {
+  it('반쪽 둘을 각자의 쪽에 커밋하고, 준 쪽으로 초점을 옮긴다', () => {
+    s().addTemplate();
+    s().addBack();
+    s().commitCrossBoundaryLine({ x1: 70, y1: 10, x2: 80, y2: 15 }, { x1: 0, y1: 15, x2: 10, y2: 20 }, 'front');
+
+    s().setSide('back');
+    expect(at().back!.objects.present).toHaveLength(1);
+    expect(at().back!.objects.present[0]).toMatchObject({ x1: 70, y1: 10, x2: 80, y2: 15 });
+
+    s().setSide('front');
+    expect(at().objects.present).toHaveLength(1);
+    expect(at().objects.present[0]).toMatchObject({ x1: 0, y1: 15, x2: 10, y2: 20 });
+
+    expect(s().side).toBe('front');
+  });
+
+  it('한 번 되돌리면 반쪽 둘 다 없어진다', () => {
+    s().addTemplate();
+    s().addBack();
+    s().commitCrossBoundaryLine({ x1: 70, y1: 10, x2: 80, y2: 15 }, { x1: 0, y1: 15, x2: 10, y2: 20 }, 'front');
+
+    s().undo();
+    expect(at().objects.present).toHaveLength(0);
+    s().setSide('back');
+    expect(at().back!.objects.present).toHaveLength(0);
+  });
+
+  it('다시실행하면 반쪽 둘 다 돌아온다', () => {
+    s().addTemplate();
+    s().addBack();
+    s().commitCrossBoundaryLine({ x1: 70, y1: 10, x2: 80, y2: 15 }, { x1: 0, y1: 15, x2: 10, y2: 20 }, 'front');
+    s().undo();
+
+    s().redo();
+    expect(at().objects.present).toHaveLength(1);
+    s().setSide('back');
+    expect(at().back!.objects.present).toHaveLength(1);
+  });
+
+  it('짝과 무관한 되돌리기는 그 쪽만 되돌린다(기존 원칙을 안 깬다)', () => {
+    s().addTemplate();
+    s().addBack();
+    s().drawLines([{ x1: 20, y1: 20, x2: 60, y2: 20 }]); // 앞면에 평범한 선 하나
+    s().setSide('back');
+    s().drawLines([{ x1: 20, y1: 20, x2: 60, y2: 20 }]); // 뒷면에도 평범한 선 하나
+
+    s().setSide('front');
+    s().undo();
+    expect(at().objects.present).toHaveLength(0);
+    s().setSide('back');
+    expect(at().back!.objects.present).toHaveLength(1); // 뒷면은 그대로
+  });
+
+  it('짝 사이에 다른 그리기가 끼어도, 짝 차례가 되면 그때 함께 되돌린다', () => {
+    s().addTemplate();
+    s().addBack();
+    s().commitCrossBoundaryLine({ x1: 70, y1: 10, x2: 80, y2: 15 }, { x1: 0, y1: 15, x2: 10, y2: 20 }, 'front');
+    // 앞면에 짝과 무관한 선을 하나 더 긋는다.
+    s().drawLines([{ x1: 30, y1: 30, x2: 50, y2: 30 }]);
+    expect(at().objects.present).toHaveLength(2);
+
+    s().undo(); // 방금 그은 무관한 선만 되돌린다
+    expect(at().objects.present).toHaveLength(1);
+    s().setSide('back');
+    expect(at().back!.objects.present).toHaveLength(1); // 뒷면은 아직 그대로
+
+    s().setSide('front');
+    s().undo(); // 이제 짝 차례 — 앞뒤 둘 다 없어진다
+    expect(at().objects.present).toHaveLength(0);
+    s().setSide('back');
+    expect(at().back!.objects.present).toHaveLength(0);
+  });
+});
+
 describe('자동 필드', () => {
   /** 방금 만든(유일한) 글자. 없거나 글자가 아니면 시험이 잘못 짜인 것이다. */
   const text = () => {

@@ -117,6 +117,7 @@ export function EditorTab() {
   const selectedIds = useStore((s) => s.selectedIds);
   const setTool = useStore((s) => s.setTool);
   const drawLines = useStore((s) => s.drawLines);
+  const commitCrossBoundaryLine = useStore((s) => s.commitCrossBoundaryLine);
   const select = useStore((s) => s.select);
   const deleteSelected = useStore((s) => s.deleteSelected);
   const copySelected = useStore((s) => s.copySelected);
@@ -473,12 +474,11 @@ export function EditorTab() {
       },
     );
 
-    // pending 쪽 반쪽 — 이미 활성 쪽이니 바로 긋는다.
-    drawLines([aSeg]);
-
-    // 클릭한(비활성이었던) 쪽 반쪽 — 그 쪽으로 넘어가서 긋는다. 초점은 여기 남는다.
-    setSide(inactiveSide);
-    drawLines([bSeg]);
+    // 반쪽 둘을 한 번에 커밋한다 — 되돌리기가 하나로 묶이려면(store.ts의
+    // crossBoundaryPairs) 두 쪽 다 같은 액션 안에서 새로 생겨야 한다.
+    const backSeg = activeSide === 'back' ? aSeg : bSeg;
+    const frontSeg = activeSide === 'back' ? bSeg : aSeg;
+    commitCrossBoundaryLine(backSeg, frontSeg, inactiveSide);
 
     setPending(null);
   }

@@ -4,7 +4,7 @@ import type { PunchSetting } from './core/punch';
 import { computeLayout, type Align, type Layout } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
 import { DEFAULT_FIELD_FORMAT } from './core/text';
-import { commit, initHistory, redo, undo, type History } from './core/history';
+import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import {
   backFromFront,
   defaultInsert,
@@ -42,6 +42,7 @@ import {
   type CornerRoundness,
   type DiaryObject,
   type ImageObject,
+  type LineObject,
   type LineSeg,
   type LineStyle,
   type ShapeObject,
@@ -115,6 +116,14 @@ interface Settings {
    * 파일에는 들어가지 않는다.
    */
   clipboard: DiaryObject[];
+  /**
+   * 뒷면·앞면 경계를 넘어 이어 그은 선의 반쪽 쌍들. `commitCrossBoundaryLine`이
+   * 쌓고, `undo`·`redo`가 이 목록을 보고 반쪽 하나를 되돌릴 때 반대쪽도
+   * 함께 되돌린다(하나의 선으로 보였으니 하나의 되돌리기여야 한다).
+   * Template에 속하지 않는 세션 한정 값이라 저장 파일에는 들어가지 않는다 —
+   * 다시 열면 두 반쪽은 그냥 독립된 선 두 개가 된다, 문제없다.
+   */
+  crossBoundaryPairs: { backId: string; frontId: string }[];
   /**
    * 앞으로 그을 선의 모양이자, 앞으로 끌 도형의 모양.
    *
@@ -235,6 +244,12 @@ interface Store extends Settings {
   setTool: (t: Tool) => void;
   /** 그으면 생기고 이미 있으면 지워진다. 선 하나든 면의 네 변이든 한 번으로 친다. */
   drawLines: (segs: LineSeg[]) => void;
+  /**
+   * 뒷면·앞면 경계를 넘어 이은 선 — 반쪽 둘을 각자의 쪽에 한 번에 커밋하고,
+   * 초점을 focusSide로 옮긴다. toggleLines처럼 이미 있으면 지우는 동작은
+   * 하지 않는다 — 늘 새로 긋는다.
+   */
+  commitCrossBoundaryLine: (backSeg: LineSeg, frontSeg: LineSeg, focusSide: Side) => void;
   select: (ids: string[]) => void;
   deleteSelected: () => void;
   /** 고른 객체를 클립보드에 담는다. 아무것도 못 골랐으면 아무 일도 하지 않는다. */
@@ -479,6 +494,30 @@ function activeObjects(s: Pick<Settings, 'templates' | 'activeId' | 'side'>): Di
   return activeSideData(active, s.side)?.objects.present ?? [];
 }
 
+/**
+ * `before`에서 `after`로 갈 때 새로 생긴(before엔 없던) 객체가 딱 하나면 그 id.
+ * 여럿이거나 없으면 undefined — 그 경우엔 반쪽짜리 선 되돌리기 짝을 찾지 않는다.
+ *
+ * undo는 (past의 목표 상태, 지금 present) 순서로, redo는 (지금 present, future의
+ * 목표 상태) 순서로 넘기면 "이 한 걸음이 지우는/살리는 객체"가 나온다.
+ */
+function soleChangedId(before: DiaryObject[], after: DiaryObject[]): string | undefined {
+  const beforeIds = new Set(before.map((o) => o.id));
+  const changed = after.filter((o) => !beforeIds.has(o.id));
+  return changed.length === 1 ? changed[0].id : undefined;
+}
+
+/** id가 경계를 넘어 이은 선의 반쪽이면 반대쪽 정보를. 아니면 null. */
+function findPairPartner(
+  pairs: { backId: string; frontId: string }[],
+  side: Side,
+  id: string,
+): { otherSide: Side; otherId: string } | null {
+  const pair = pairs.find((p) => (side === 'back' ? p.backId : p.frontId) === id);
+  if (!pair) return null;
+  return { otherSide: side === 'back' ? 'front' : 'back', otherId: side === 'back' ? pair.frontId : pair.backId };
+}
+
 /** 더 이상 존재하지 않는 양식을 가리키는 칸 배정을 걷어낸다. */
 function pruneSlotAssignment(
   templates: Template[],
@@ -531,6 +570,7 @@ export const useStore = create<Store>((set) => ({
   tool: 'draw',
   selectedIds: [],
   clipboard: [],
+  crossBoundaryPairs: [],
   drawStyle: {},
   checkboxDraftStyle: {},
   textDraftStyle: {},
@@ -695,6 +735,28 @@ export const useStore = create<Store>((set) => ({
       const next = toggleLines(cur, segs, s.drawStyle);
       if (next === cur) return {};
       return commitObjects(s, next);
+    }),
+
+  commitCrossBoundaryLine: (backSeg, frontSeg, focusSide) =>
+    set((s) => {
+      const active = activeTemplate(s);
+      if (!active || !active.back) return {};
+      const backLine: LineObject = { id: newId('l'), type: 'line', ...backSeg, ...s.drawStyle };
+      const frontLine: LineObject = { id: newId('l'), type: 'line', ...frontSeg, ...s.drawStyle };
+      const templates = s.templates.map((t) => {
+        if (t.id !== active.id || !t.back) return t;
+        return {
+          ...t,
+          objects: commit(t.objects, [...t.objects.present, frontLine]),
+          back: { ...t.back, objects: commit(t.back.objects, [...t.back.objects.present, backLine]) },
+        };
+      });
+      return {
+        templates,
+        side: focusSide,
+        selectedIds: [focusSide === 'back' ? backLine.id : frontLine.id],
+        crossBoundaryPairs: [...s.crossBoundaryPairs, { backId: backLine.id, frontId: frontLine.id }],
+      };
     }),
 
   setDrawStyle: (patch) => set((s) => ({ drawStyle: { ...s.drawStyle, ...patch } })),
@@ -1038,11 +1100,36 @@ export const useStore = create<Store>((set) => ({
   // 되돌리면 없어진 객체를 고른 채로 남을 수 있으므로 선택을 정리한다.
   // 실행취소는 **지금 양식의, 지금 편집 중인 쪽만** 되돌린다. 양식을 바꾸거나
   // 앞뒤를 넘나든 뒤 ⌘Z를 눌렀는데 다른 쪽의 작업이 사라지면 무섭다.
+  //
+  // **예외 — 경계를 넘어 이은 선.** 반쪽 하나를 지우는 되돌리기인데 반대쪽도
+  // 지금 그 짝을 지우는 차례면, 하나의 선으로 보였던 것이니 함께 되돌린다.
   undo: () =>
     set((s) => {
       const active = activeTemplate(s);
       const data = active && activeSideData(active, s.side);
-      if (!data) return {};
+      if (!active || !data || !canUndo(data.objects)) return {};
+
+      const soleId = soleChangedId(data.objects.past[data.objects.past.length - 1], data.objects.present);
+      const partner = soleId ? findPairPartner(s.crossBoundaryPairs, s.side, soleId) : null;
+      const otherData = partner && activeSideData(active, partner.otherSide);
+      const otherMatches =
+        otherData &&
+        canUndo(otherData.objects) &&
+        soleChangedId(otherData.objects.past[otherData.objects.past.length - 1], otherData.objects.present) ===
+          partner!.otherId;
+
+      if (partner && otherData && otherMatches) {
+        const objects = undo(data.objects);
+        const otherObjects = undo(otherData.objects);
+        const templates = s.templates.map((t) => {
+          if (t.id !== active.id || !t.back) return t;
+          return s.side === 'front'
+            ? { ...t, objects, back: { ...t.back, objects: otherObjects } }
+            : { ...t, objects: otherObjects, back: { ...t.back, objects } };
+        });
+        return { templates, selectedIds: prune(s.selectedIds, objects.present) };
+      }
+
       const objects = undo(data.objects);
       return {
         ...patchActiveSide(s, () => ({ objects })),
@@ -1053,7 +1140,28 @@ export const useStore = create<Store>((set) => ({
     set((s) => {
       const active = activeTemplate(s);
       const data = active && activeSideData(active, s.side);
-      if (!data) return {};
+      if (!active || !data || !canRedo(data.objects)) return {};
+
+      const soleId = soleChangedId(data.objects.present, data.objects.future[0]);
+      const partner = soleId ? findPairPartner(s.crossBoundaryPairs, s.side, soleId) : null;
+      const otherData = partner && activeSideData(active, partner.otherSide);
+      const otherMatches =
+        otherData &&
+        canRedo(otherData.objects) &&
+        soleChangedId(otherData.objects.present, otherData.objects.future[0]) === partner!.otherId;
+
+      if (partner && otherData && otherMatches) {
+        const objects = redo(data.objects);
+        const otherObjects = redo(otherData.objects);
+        const templates = s.templates.map((t) => {
+          if (t.id !== active.id || !t.back) return t;
+          return s.side === 'front'
+            ? { ...t, objects, back: { ...t.back, objects: otherObjects } }
+            : { ...t, objects: otherObjects, back: { ...t.back, objects } };
+        });
+        return { templates, selectedIds: prune(s.selectedIds, objects.present) };
+      }
+
       const objects = redo(data.objects);
       return {
         ...patchActiveSide(s, () => ({ objects })),
