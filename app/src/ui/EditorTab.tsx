@@ -102,12 +102,15 @@ export function EditorTab() {
   const setSide = useStore((s) => s.setSide);
   const addBack = useStore((s) => s.addBack);
   const removeBack = useStore((s) => s.removeBack);
+  const copyFrontToBack = useStore((s) => s.copyFrontToBack);
   const tool = useStore((s) => s.tool);
   const selectedIds = useStore((s) => s.selectedIds);
   const setTool = useStore((s) => s.setTool);
   const drawLines = useStore((s) => s.drawLines);
   const select = useStore((s) => s.select);
   const deleteSelected = useStore((s) => s.deleteSelected);
+  const copySelected = useStore((s) => s.copySelected);
+  const pasteClipboard = useStore((s) => s.pasteClipboard);
   const lockSelected = useStore((s) => s.lockSelected);
   const unlockAll = useStore((s) => s.unlockAll);
   const moveSelected = useStore((s) => s.moveSelected);
@@ -316,6 +319,19 @@ export function EditorTab() {
         e.shiftKey ? redo() : undo();
         return;
       }
+      // 아래 도구 단축키 분기(맨 아래, e.metaKey||e.ctrlKey면 return)보다 먼저
+      // 잡아야 한다 — 안 그러면 ⌘V가 그 분기에서 조용히 삼켜진다(그 분기의
+      // 주석 참고).
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        copySelected();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        pasteClipboard();
+        return;
+      }
       if (e.key === 'Escape') {
         setPending(null);
         setDragBoth(null);
@@ -375,7 +391,17 @@ export function EditorTab() {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [undo, redo, deleteSelected, select, setTool, moveSelected, selectedIds]);
+  }, [
+    undo,
+    redo,
+    deleteSelected,
+    copySelected,
+    pasteClipboard,
+    select,
+    setTool,
+    moveSelected,
+    selectedIds,
+  ]);
 
   /**
    * 마우스 위치를 속지 좌표(mm)로.
@@ -899,7 +925,7 @@ export function EditorTab() {
   if (side === 'back' && !hasBack) {
     return (
       <div className="editor">
-        <SideBar side={side} setSide={setSide} hasBack={hasBack} removeBack={removeBack} />
+        <SideBar side={side} setSide={setSide} hasBack={hasBack} removeBack={removeBack} copyFrontToBack={copyFrontToBack} />
         <div className="editor-canvas back-empty">
           <div className="back-empty-msg">
             <p>아직 뒷면이 없습니다.</p>
@@ -912,7 +938,7 @@ export function EditorTab() {
 
   return (
     <div className="editor">
-      <SideBar side={side} setSide={setSide} hasBack={hasBack} removeBack={removeBack} />
+      <SideBar side={side} setSide={setSide} hasBack={hasBack} removeBack={removeBack} copyFrontToBack={copyFrontToBack} />
       <div className="editor-bar">
         <div className="editor-bar-tools">
           <div className="tools">
@@ -1416,17 +1442,19 @@ function TextInput({
   );
 }
 
-/** 앞면·뒷면 전환. 뒷면을 보는 중이면 지우는 버튼도 함께 나온다. */
+/** 앞면·뒷면 전환. 뒷면을 보는 중이면 지우는 버튼·앞면 그대로 복사 버튼도 함께 나온다. */
 function SideBar({
   side,
   setSide,
   hasBack,
   removeBack,
+  copyFrontToBack,
 }: {
   side: Side;
   setSide: (side: Side) => void;
   hasBack: boolean;
   removeBack: () => void;
+  copyFrontToBack: () => void;
 }) {
   return (
     <div className="side-bar">
@@ -1438,6 +1466,15 @@ function SideBar({
           뒷면
         </button>
       </div>
+      {side === 'back' && (
+        <button
+          className="ghost"
+          onClick={copyFrontToBack}
+          title="지금 뒷면에 그린 것을 지우고 앞면과 똑같이 만듭니다"
+        >
+          앞면 그대로 복사
+        </button>
+      )}
       {side === 'back' && hasBack && (
         <button className="ghost" onClick={removeBack} title="뒷면 지우기">
           뒷면 지우기

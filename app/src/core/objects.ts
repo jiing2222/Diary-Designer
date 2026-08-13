@@ -502,6 +502,26 @@ export function moveObject(o: DiaryObject, dx: Mm, dy: Mm): DiaryObject {
   return isLine(o) ? moveSegment(o, dx, dy) : { ...o, x: o.x + dx, y: o.y + dy };
 }
 
+/** newId가 쓰는 종류별 접두어. 복사·표 분리처럼 다른 곳에서도 새로 id를 매길 때 쓴다. */
+const ID_PREFIX: Record<DiaryObject['type'], string> = {
+  line: 'l',
+  text: 't',
+  calendar: 'c',
+  image: 'im',
+  shape: 'sh',
+  checkbox: 'ch',
+};
+
+/**
+ * 붙여넣기 — 새 id를 받은 사본을 (dx, dy)만큼 옮겨서 낸다.
+ *
+ * 겹쳐 붙지 않게 살짝 옮겨서 낸다. id는 만들 때와 같은 접두어 규칙을 따르므로
+ * 저장 파일만 봐도 어떤 종류인지 알 수 있다.
+ */
+export function cloneObject(o: DiaryObject, dx: Mm, dy: Mm): DiaryObject {
+  return moveObject({ ...o, id: newId(ID_PREFIX[o.type]) }, dx, dy);
+}
+
 /** 모서리 이름 — 손잡이가 어느 꼭짓점인지. */
 export type Corner = 'nw' | 'ne' | 'sw' | 'se';
 

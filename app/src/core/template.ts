@@ -123,6 +123,16 @@ export function newBack(): BackPage {
 }
 
 /**
+ * 지금 앞면을 그대로 뒷면으로 만든다. 이미 뒷면이 있어도 덮어쓴다.
+ *
+ * `duplicateTemplate`이 뒷면을 물려받을 때와 같은 방식이다 — 실행취소 이력은
+ * 새로 시작한다(앞면에서 쌓아온 되돌리기까지 뒷면이 물려받으면 이상하다).
+ */
+export function backFromFront(t: Template): BackPage {
+  return { dotGrid: { ...t.dotGrid }, objects: initHistory([...t.objects.present]) };
+}
+
+/**
  * 양식을 복제한다. 규격을 바꿔 복제할 수도 있다.
  *
  * **원본은 손대지 않는다.** 80×125로 만든 것을 75×125로도 뽑고 싶을 때, 원본을

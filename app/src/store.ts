@@ -6,6 +6,7 @@ import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
 import { DEFAULT_FIELD_FORMAT } from './core/text';
 import { commit, initHistory, redo, undo, type History } from './core/history';
 import {
+  backFromFront,
   defaultInsert,
   defaultName,
   duplicateTemplate,
@@ -23,6 +24,7 @@ import { toTemplates, type SavedProject } from './core/project';
 import { reserveIds } from './fonts/registry';
 import { reserveImageIds } from './images/registry';
 import {
+  cloneObject,
   dedupe,
   isDegenerate,
   isLine,
@@ -108,6 +110,11 @@ interface Settings {
    * 선택 상태까지 되돌리면 오히려 놀란다.
    */
   selectedIds: string[];
+  /**
+   * 복사한 객체들. 앱 안에서만 도는 클립보드다(OS 클립보드가 아니다) — 저장
+   * 파일에는 들어가지 않는다.
+   */
+  clipboard: DiaryObject[];
   /**
    * 앞으로 그을 선의 모양이자, 앞으로 끌 도형의 모양.
    *
@@ -213,6 +220,8 @@ interface Store extends Settings {
   addBack: () => void;
   /** 지금 양식의 뒷면을 지우고 단면으로 되돌린다. 뒷면에 그린 것도 함께 사라진다. */
   removeBack: () => void;
+  /** 지금 앞면을 그대로 뒷면으로 만든다(없으면 새로 만들고, 있으면 덮어쓴다). */
+  copyFrontToBack: () => void;
   /* ── 양식 관리 ── */
   selectTemplate: (id: string) => void;
   /** 규격·이름·격자를 주지 않으면 지금 양식의 것과 자동 이름을 쓴다. */
@@ -228,6 +237,10 @@ interface Store extends Settings {
   drawLines: (segs: LineSeg[]) => void;
   select: (ids: string[]) => void;
   deleteSelected: () => void;
+  /** 고른 객체를 클립보드에 담는다. 아무것도 못 골랐으면 아무 일도 하지 않는다. */
+  copySelected: () => void;
+  /** 클립보드를 지금 편집 중인 쪽에 붙여넣는다. 새 id를 받고, 겹치지 않게 살짝 옮겨진다. */
+  pasteClipboard: () => void;
   /**
    * 고른 것들을 잠근다. 잠근 것은 클릭으로도 감싸기로도 골라지지 않는다
    * (ui/EditorTab의 hitAt·marquee 필터) — 그래서 잠그는 순간 고른 상태를
@@ -388,6 +401,9 @@ export function activeTemplate(s: Pick<Settings, 'templates' | 'activeId'>): Tem
  * 바뀐 것으로 보고 무한히 다시 그린다. 편집 화면은 양식이 있을 때만 열리므로
  * 이 값들이 실제로 쓰이는 일은 없고, 터지지 않게 받쳐두는 것뿐이다.
  */
+/** 붙여넣을 때 원본과 겹치지 않게 옮기는 양. */
+const PASTE_OFFSET: Mm = 5;
+
 const NO_INSERT = defaultInsert();
 const NO_GRID: DotGrid = { ...DEFAULT_DOT_GRID };
 const NO_OBJECTS = initHistory<DiaryObject[]>([]);
@@ -514,6 +530,7 @@ export const useStore = create<Store>((set) => ({
   side: 'front',
   tool: 'draw',
   selectedIds: [],
+  clipboard: [],
   drawStyle: {},
   checkboxDraftStyle: {},
   textDraftStyle: {},
@@ -595,6 +612,16 @@ export const useStore = create<Store>((set) => ({
       const templates = s.templates.map((t) => (t.id === active.id ? { ...t, back: null } : t));
       // 뒷면 탭을 보던 중이었다면 이제 볼 것이 없으니 앞면으로 돌아간다.
       return { templates, side: 'front' as const, selectedIds: [] };
+    }),
+
+  copyFrontToBack: () =>
+    set((s) => {
+      const active = activeTemplate(s);
+      if (!active) return {};
+      const templates = s.templates.map((t) =>
+        t.id === active.id ? { ...t, back: backFromFront(t) } : t,
+      );
+      return { templates };
     }),
 
   /* ─────────────────────────── 양식 관리 ─────────────────────────── */
@@ -927,6 +954,23 @@ export const useStore = create<Store>((set) => ({
       if (s.selectedIds.length === 0) return {};
       const keep = activeObjects(s).filter((o) => !s.selectedIds.includes(o.id));
       return { ...commitObjects(s, keep), selectedIds: [] };
+    }),
+
+  copySelected: () =>
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      const picked = activeObjects(s).filter((o) => s.selectedIds.includes(o.id));
+      return { clipboard: picked };
+    }),
+
+  pasteClipboard: () =>
+    set((s) => {
+      if (s.clipboard.length === 0) return {};
+      const pasted = s.clipboard.map((o) => cloneObject(o, PASTE_OFFSET, PASTE_OFFSET));
+      return {
+        ...commitObjects(s, [...activeObjects(s), ...pasted]),
+        selectedIds: pasted.map((o) => o.id),
+      };
     }),
 
   lockSelected: () =>

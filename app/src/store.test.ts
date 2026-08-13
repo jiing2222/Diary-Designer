@@ -189,6 +189,72 @@ describe('양식', () => {
   });
 });
 
+describe('객체 복사·붙여넣기', () => {
+  it('아무것도 안 골랐으면 복사해도 클립보드가 비어 있다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    s().copySelected();
+    expect(s().clipboard).toEqual([]);
+  });
+
+  it('고른 것을 클립보드에 담는다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    const id = at().objects.present[0].id;
+    s().select([id]);
+    s().copySelected();
+    expect(s().clipboard).toHaveLength(1);
+    expect(s().clipboard[0]).toMatchObject({ x1: 10, y1: 10, x2: 70, y2: 10 });
+  });
+
+  it('붙여넣으면 새 id로 하나 더 생기고 원본은 그대로다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    const original = at().objects.present[0];
+    s().select([original.id]);
+    s().copySelected();
+
+    s().pasteClipboard();
+    expect(at().objects.present).toHaveLength(2);
+    const pasted = at().objects.present.find((o) => o.id !== original.id);
+    expect(pasted).toBeDefined();
+    expect(pasted!.id).not.toBe(original.id);
+    // 겹치지 않게 살짝 옮겨진다.
+    expect(pasted).toMatchObject({ x1: 15, y1: 15, x2: 75, y2: 15 });
+    expect(at().objects.present).toContainEqual(original);
+  });
+
+  it('붙여넣은 것이 선택된다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    s().select([at().objects.present[0].id]);
+    s().copySelected();
+
+    s().pasteClipboard();
+    const pastedId = at().objects.present.find((o) => !s().clipboard.map((c) => c.id).includes(o.id))!.id;
+    expect(s().selectedIds).toEqual([pastedId]);
+  });
+
+  it('여러 번 붙여넣으면 매번 새 id로 늘어난다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    s().select([at().objects.present[0].id]);
+    s().copySelected();
+
+    s().pasteClipboard();
+    s().pasteClipboard();
+    expect(at().objects.present).toHaveLength(3);
+    const ids = new Set(at().objects.present.map((o) => o.id));
+    expect(ids.size).toBe(3);
+  });
+
+  it('클립보드가 비어 있으면 붙여넣어도 아무 일도 하지 않는다', () => {
+    s().addTemplate();
+    s().pasteClipboard();
+    expect(at().objects.present).toEqual([]);
+  });
+});
+
 describe('저장 파일 불러오기', () => {
   it('양식이 통째로 갈아끼워진다', () => {
     s().addTemplate();

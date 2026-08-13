@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   boundsOf,
+  cloneObject,
   isLine,
   isLocked,
   dedupe,
@@ -17,6 +18,7 @@ import {
   segmentInRect,
   toggleLines,
   MIN_BOX_SIZE,
+  type DiaryObject,
   type LineSeg,
 } from './objects';
 
@@ -383,5 +385,36 @@ describe('PDF 회전 각도', () => {
   it('임의 각도는 부호만 반대로, 더 작은 크기의 동치 각도로 정규화한다', () => {
     expect(pdfRotateOf(45)).toBe(-45);
     expect(pdfRotateOf(200)).toBe(160); // -200과 같은 회전이지만 크기가 더 작다
+  });
+});
+
+describe('붙여넣기 사본', () => {
+  const shape: DiaryObject = { id: 'sh1', type: 'shape', x: 10, y: 10, width: 20, height: 20 };
+
+  it('새 id를 받는다 — 원본과 겹치지 않는다', () => {
+    const clone = cloneObject(shape, 5, 5);
+    expect(clone.id).not.toBe(shape.id);
+  });
+
+  it('종류에 맞는 접두어로 id를 매긴다', () => {
+    const line: DiaryObject = { id: 'l1', type: 'line', x1: 0, y1: 0, x2: 10, y2: 10 };
+    expect(cloneObject(shape, 0, 0).id).toMatch(/^sh\d+$/);
+    expect(cloneObject(line, 0, 0).id).toMatch(/^l\d+$/);
+  });
+
+  it('선은 두 끝점 다 옮겨진다', () => {
+    const line: DiaryObject = { id: 'l1', type: 'line', x1: 0, y1: 0, x2: 10, y2: 10 };
+    const clone = cloneObject(line, 5, 3);
+    expect(clone).toMatchObject({ x1: 5, y1: 3, x2: 15, y2: 13 });
+  });
+
+  it('상자 모양은 x·y만 옮겨지고 크기는 그대로다', () => {
+    const clone = cloneObject(shape, 5, 3);
+    expect(clone).toMatchObject({ x: 15, y: 13, width: 20, height: 20 });
+  });
+
+  it('원본은 손대지 않는다', () => {
+    cloneObject(shape, 5, 5);
+    expect(shape).toEqual({ id: 'sh1', type: 'shape', x: 10, y: 10, width: 20, height: 20 });
   });
 });

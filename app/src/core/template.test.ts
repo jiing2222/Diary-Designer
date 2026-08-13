@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  backFromFront,
   capacityPerSheet,
   cutStackPage,
   defaultName,
@@ -329,6 +330,35 @@ describe('뒷면', () => {
 
     const copy = duplicateTemplate(t, '사본');
     expect(copy.back!.objects.past).toEqual([]);
+  });
+});
+
+describe('앞면을 뒷면으로 복사', () => {
+  it('앞면의 격자·그린 것을 그대로 뒷면에 낸다', () => {
+    const t = newTemplate('가');
+    t.objects = commit(t.objects, [line(10, 10, 70, 10)]);
+    t.dotGrid = { ...t.dotGrid, style: 'grid' };
+
+    const back = backFromFront(t);
+    expect(back.objects.present).toEqual(t.objects.present);
+    expect(back.dotGrid.style).toBe('grid');
+  });
+
+  it('실행취소 이력은 물려받지 않는다', () => {
+    const t = newTemplate('가');
+    t.objects = commit(t.objects, [line(10, 10, 70, 10)]);
+
+    const back = backFromFront(t);
+    expect(back.objects.past).toEqual([]);
+  });
+
+  it('뒷면을 고쳐도 앞면은 그대로다', () => {
+    const t = newTemplate('가');
+    t.objects = commit(t.objects, [line(10, 10, 70, 10)]);
+
+    const back = backFromFront(t);
+    back.objects = commit(back.objects, []);
+    expect(t.objects.present).toHaveLength(1);
   });
 });
 
