@@ -21,6 +21,7 @@ import {
   rectLines,
   resizeBox,
   rotationOf,
+  splitAtBoundary,
   type Box,
   type Corner,
   type DiaryObject,
@@ -95,10 +96,19 @@ const NUDGE_STEP_SHIFT: Mm = 5;
 export function EditorTab() {
   // 속지·격자·그린 것은 지금 고르고 있는 양식의, 지금 보는 쪽(앞/뒤)의 것이다.
   const insert = useInsert();
-  const grid = useDotGrid();
-  const history = useObjects();
   const side = useSide();
   const hasBack = useHasBack();
+  // 뒷면이 없으면 side가 어떻든 무조건 앞면이 활성이다 — 뒷면 없이 'back'
+  // 상태가 남아 있어도(이론상만 가능하다) 방어한다. 앞뒤를 나란히 그리는
+  // 지금 화면에서, "지금 그리기·선택이 실제로 향하는 쪽"이 activeSide다.
+  const activeSide: Side = hasBack ? side : 'front';
+  const inactiveSide: Side = activeSide === 'back' ? 'front' : 'back';
+  const grid = useDotGrid(activeSide);
+  const history = useObjects(activeSide);
+  // 활성이 아닌 쪽은 정적으로만 그린다(손댈 수 없다) — 클릭하면 그쪽이
+  // 활성이 된다. 뒷면이 없으면 hasBack이 false라 이 값은 애초에 안 쓰인다.
+  const inactiveGrid = useDotGrid(inactiveSide);
+  const inactiveHistory = useObjects(inactiveSide);
   const setSide = useStore((s) => s.setSide);
   const addBack = useStore((s) => s.addBack);
   const removeBack = useStore((s) => s.removeBack);
@@ -166,7 +176,7 @@ export function EditorTab() {
   const objects = history.present;
   const lockedCount = objects.filter(isLocked).length;
   const lattice = gridLattice(
-    gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back'),
+    gridArea(insert, grid, insert.punch.safeZoneWidth, activeSide === 'back'),
     grid.spacing,
     grid.minMargin,
     grid.toEdge,
@@ -192,7 +202,7 @@ export function EditorTab() {
   // (growBox, 왼쪽 위 고정·오른쪽으로만 자람), 만드는 순간 맞춘 가운데가
   // 다 타이핑한 뒤에는 다시 어긋나기 때문이다(12h에서 겪은 문제). 다 쓴
   // 뒤 그 상자를 줄 쪽으로 끌어다 놓는 쪽이 항상 정확하다.
-  const logoLineX = holeCenterX(insert.punch, insert.width, side === 'back');
+  const logoLineX = holeCenterX(insert.punch, insert.width, activeSide === 'back');
 
   /**
    * 텍스트·이미지 상자의 **가운데**가 정렬선 근처면 그 줄에 정확히 맞춘다.
@@ -423,6 +433,54 @@ export function EditorTab() {
   function snapped(e: React.PointerEvent): Point | null {
     const raw = rawMm(e);
     return raw && snapToLattice(lattice, raw.x, raw.y);
+  }
+
+  /**
+   * 비활성 쪽(따로 있는 svg)을 클릭해서 초점을 옮긴다. 오늘까지의 탭
+   * 전환과 같은 뜻이라, 탭을 눌렀을 때처럼 진행 중이던 것들을 정리한다.
+   */
+  function switchSide(next: Side) {
+    setPending(null);
+    setDragBoth(null);
+    finishEditing();
+    select([]);
+    setSide(next);
+  }
+
+  /**
+   * 뒷면 끝에서 앞면 끝으로(또는 반대로) 한 번에 그은 선 — 두 쪽 경계에서
+   * 만나는 반쪽 두 개로 쪼개 각자의 쪽에 커밋한다. 실행취소가 앞뒤로 따로
+   * 붙는 원칙(설계문서 8장) 그대로, 반쪽씩 두 번 커밋된다.
+   *
+   * `pending`은 activeSide 로컬, `clickLocal`은 inactiveSide(따로 있는 svg 자신의
+   * viewBox) 로컬이다 — 두 svg가 떨어져 있어(뒷면·앞면 각자 0~insert.width) 하나로
+   * 합친 좌표가 없다. 대신 **경계까지의 거리**로 비율을 구한다 — 어느 쪽
+   * 좌표계인지와 무관하게, "경계에서 몇 mm 떨어졌는지"는 두 쪽 다 셀 수 있다.
+   */
+  function completeCrossBoundaryLine(clickLocal: Point) {
+    if (!pending) return;
+    const edgeXOf = (s: Side) => (s === 'back' ? insert.width : 0);
+    const { aSeg, bSeg } = splitAtBoundary(
+      {
+        ...pending,
+        distToBoundary: activeSide === 'back' ? insert.width - pending.x : pending.x,
+        edgeX: edgeXOf(activeSide),
+      },
+      {
+        ...clickLocal,
+        distToBoundary: inactiveSide === 'back' ? insert.width - clickLocal.x : clickLocal.x,
+        edgeX: edgeXOf(inactiveSide),
+      },
+    );
+
+    // pending 쪽 반쪽 — 이미 활성 쪽이니 바로 긋는다.
+    drawLines([aSeg]);
+
+    // 클릭한(비활성이었던) 쪽 반쪽 — 그 쪽으로 넘어가서 긋는다. 초점은 여기 남는다.
+    setSide(inactiveSide);
+    drawLines([bSeg]);
+
+    setPending(null);
   }
 
   /**
@@ -862,15 +920,127 @@ export function EditorTab() {
    * 어느 태그가 손잡이를 쥐었는지와 무관하게 dragRef만 보고 판단하기
    * 때문이다. svg에서 시작한 드래그도 이 div까지 거품처럼 올라오지만,
    * 그때는 이미 dragRef가 비어 있어 조용히 아무 일도 하지 않는다.
+   *
+   * "뒷면 만들기" 자리표시(뒷면이 없을 때)도 여기서 걸러낸다 — 안 그러면
+   * 그 버튼을 select 도구로 누를 때 활성 쪽 좌표계로 엉뚱한 마퀴가 같이 시작된다.
    */
   function onOutsideDown(e: React.PointerEvent) {
     if (tool !== 'select') return;
     if (svgRef.current?.contains(e.target as Node)) return;
+    if ((e.target as HTMLElement).closest?.('.back-empty')) return;
     const raw = rawMm(e);
     if (!raw) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     if (!e.shiftKey) select([]);
     setDragBoth({ kind: 'marquee', from: raw, to: raw });
+  }
+
+  /*
+   * 더블클릭 — 도구가 무엇이든 바로 글자를 쓸 수 있게 한다.
+   *
+   * 기존 글자를 더블클릭하면 고치기, 빈 칸을 더블클릭하면 새로 쓰기다.
+   * 둘 다 도구를 'text'로 바꾼다. skipToolResetRef로 그 전환이 지금 막
+   * 여는 입력을 지우지 않게 한다.
+   */
+  function onDoubleClickCanvas(e: React.MouseEvent) {
+    const raw = rawMm(e as unknown as React.PointerEvent);
+    if (!raw) return;
+    const hit = hitAt(raw);
+    setPending(null);
+    setDragBoth(null);
+
+    if (hit && isText(hit)) {
+      if (tool !== 'text') {
+        skipToolResetRef.current = true;
+        setTool('text');
+      }
+      setEditing(editingFor(hit));
+      return;
+    }
+
+    // 빈 이미지 상자를 더블클릭하면 파일 선택 창을 연다 — 글자
+    // 도구로 바뀌지 않는다. 그리자마자 바로 열리면 여러 개를 잇달아
+    // 그릴 때 방해가 돼서, 그리기와 파일 고르기를 분리했다.
+    if (hit && isImage(hit) && !hit.imageId) {
+      select([hit.id]);
+      requestImagePick(hit.id);
+      return;
+    }
+
+    if (tool !== 'text') {
+      const cell = cellAt(lattice, raw.x, raw.y);
+      if (!cell) return;
+      skipToolResetRef.current = true;
+      setTool('text');
+      setEditing({ box: cell, text: '', style: draftStyle });
+    }
+  }
+
+  /**
+   * 비활성 쪽(따로 있는, 정적으로만 그려진 svg)의 pointerDown.
+   *
+   * 그리기 도구로 선의 첫 점(pending)을 찍어둔 채로 여기를 클릭하면 경계를
+   * 넘어 선을 잇는다. 그 외에는 초점만 옮긴다 — 오늘까지의 탭 클릭과 같다.
+   * 캔버스 자신의 CTM으로 좌표를 재는 것은 rawMm과 같은 방식이지만, 이
+   * svg는 활성 쪽이 아니라서 rawMm(activeSide 기준)을 그대로 쓸 수 없다.
+   *
+   * stopPropagation을 꼭 해야 한다 — 안 그러면 이 클릭이 .editor-canvas의
+   * onOutsideDown까지 거품처럼 올라가, select 도구일 때 활성 쪽 좌표계로
+   * 엉뚱한 마퀴가 동시에 시작된다.
+   */
+  function onInactivePointerDown(e: React.PointerEvent<SVGSVGElement>) {
+    e.stopPropagation();
+    const svg = e.currentTarget;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) {
+      switchSide(inactiveSide);
+      return;
+    }
+    const p = svg.createSVGPoint();
+    p.x = e.clientX;
+    p.y = e.clientY;
+    const local = p.matrixTransform(ctm.inverse());
+
+    if (tool === 'draw' && pending) {
+      completeCrossBoundaryLine({ x: local.x, y: local.y });
+      return;
+    }
+    switchSide(inactiveSide);
+  }
+
+  /**
+   * 비활성 쪽 — 정적으로만 그린다(손댈 수 없다). 클릭하면
+   * onInactivePointerDown이 초점을 옮기거나 경계를 넘는 선을 잇는다.
+   *
+   * 오버플로가 활성 쪽 위로 보이도록(예: 경계를 넘어가는 pending 선 미리보기),
+   * 활성 쪽 svg를 항상 나중에 그려 위로 올린다 — CSS의 z-index로 한다
+   * (뒷면이 활성일 땐 왼쪽 svg가 먼저라 그냥 두면 오른쪽 정적 앞면에 가려진다).
+   */
+  function renderInactiveCanvas() {
+    return (
+      <svg
+        className={`insert-sheet inactive-canvas ${tool}`}
+        viewBox={`0 0 ${insert.width} ${insert.height}`}
+        width={insert.width * scale}
+        height={insert.height * scale}
+        onPointerDown={onInactivePointerDown}
+      >
+        <rect x={0} y={0} width={insert.width} height={insert.height} className="sheet-bg" />
+        <InsertView
+          insert={insert}
+          grid={inactiveGrid}
+          objects={inactiveHistory.present}
+          safeZoneWidth={insert.punch.safeZoneWidth}
+          mirror={inactiveSide === 'back'}
+        />
+        <PunchGuide
+          width={insert.width}
+          height={insert.height}
+          punch={insert.punch}
+          mirror={inactiveSide === 'back'}
+        />
+      </svg>
+    );
   }
 
   const marquee = drag?.kind === 'marquee' ? rectOf(drag.from, drag.to) : null;
@@ -922,23 +1092,14 @@ export function EditorTab() {
     return null;
   })();
 
-  if (side === 'back' && !hasBack) {
-    return (
-      <div className="editor">
-        <SideBar side={side} setSide={setSide} hasBack={hasBack} removeBack={removeBack} copyFrontToBack={copyFrontToBack} />
-        <div className="editor-canvas back-empty">
-          <div className="back-empty-msg">
-            <p>아직 뒷면이 없습니다.</p>
-            <button onClick={addBack}>뒷면 만들기</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="editor">
-      <SideBar side={side} setSide={setSide} hasBack={hasBack} removeBack={removeBack} copyFrontToBack={copyFrontToBack} />
+      <SideBar
+        activeSide={activeSide}
+        hasBack={hasBack}
+        removeBack={removeBack}
+        copyFrontToBack={copyFrontToBack}
+      />
       <div className="editor-bar">
         <div className="editor-bar-tools">
           <div className="tools">
@@ -1036,249 +1197,243 @@ export function EditorTab() {
         onPointerMove={onMove}
         onPointerUp={onUp}
       >
-        <svg
-          ref={svgRef}
-          className={`insert-sheet ${tool}`}
-          viewBox={`0 0 ${insert.width} ${insert.height}`}
-          width={insert.width * scale}
-          height={insert.height * scale}
-          onPointerMove={onMove}
-          onPointerLeave={() => setHover(null)}
-          onPointerDown={onDown}
-          onPointerUp={onUp}
-          onPointerCancel={() => setDragBoth(null)}
-          /*
-           * 더블클릭 — 도구가 무엇이든 바로 글자를 쓸 수 있게 한다.
-           *
-           * 기존 글자를 더블클릭하면 고치기, 빈 칸을 더블클릭하면 새로 쓰기다.
-           * 둘 다 도구를 'text'로 바꾼다. skipToolResetRef로 그 전환이 지금 막
-           * 여는 입력을 지우지 않게 한다.
-           */
-          onDoubleClick={(e) => {
-            const raw = rawMm(e as unknown as React.PointerEvent);
-            if (!raw) return;
-            const hit = hitAt(raw);
-            setPending(null);
-            setDragBoth(null);
-
-            if (hit && isText(hit)) {
-              if (tool !== 'text') {
-                skipToolResetRef.current = true;
-                setTool('text');
-              }
-              setEditing(editingFor(hit));
-              return;
-            }
-
-            // 빈 이미지 상자를 더블클릭하면 파일 선택 창을 연다 — 글자
-            // 도구로 바뀌지 않는다. 그리자마자 바로 열리면 여러 개를 잇달아
-            // 그릴 때 방해가 돼서, 그리기와 파일 고르기를 분리했다.
-            if (hit && isImage(hit) && !hit.imageId) {
-              select([hit.id]);
-              requestImagePick(hit.id);
-              return;
-            }
-
-            if (tool !== 'text') {
-              const cell = cellAt(lattice, raw.x, raw.y);
-              if (!cell) return;
-              skipToolResetRef.current = true;
-              setTool('text');
-              setEditing({ box: cell, text: '', style: draftStyle });
-            }
-          }}
-        >
-          <rect x={0} y={0} width={insert.width} height={insert.height} className="sheet-bg" />
-
-          <InsertView
-            insert={insert}
-            grid={grid}
-            objects={objects}
-            safeZoneWidth={insert.punch.safeZoneWidth}
-            // 뒷면이면 항상 뒤집는다. 뒤집는 축(좌우/상하)은 인쇄 화면에서
-            // core/layout의 mirrorLayout이 정한다 — 편집 화면은 칸 하나만
-            // 보여줄 뿐 용지 배치를 모르므로, 속지 자신의 가로축(구멍이 있는
-            // 축)을 뒤집는다는 사실만 다루면 된다.
-            mirror={side === 'back'}
-            // 고치는 중인 글자는 감춘다. 입력칸이 같은 자리에 겹쳐 있어서, 둘 다
-            // 보이면 어느 게 지금 치는 내용인지 헷갈린다. 목록에서 빼지 않고
-            // 감추기만 하는 이유는 InsertView의 hiddenId 주석에 있다.
-            hiddenId={editing?.id}
-          />
-
-          <PunchGuide
-            width={insert.width}
-            height={insert.height}
-            punch={insert.punch}
-            mirror={side === 'back'}
-          />
-
-          {/* 고른 것 표시. 옮기거나 끝점을 끄는 중이면 갈 자리에 미리 보여준다.
-              선은 선 자체를, 글자·이미지는 상자를 두른다 — 돌아가 있으면
-              테두리도 같은 만큼 돈다(글자·이미지 자신과 같은 축·각도). */}
-          <g className="picked">
-            {objects
-              .filter((o) => selectedIds.includes(o.id))
-              .map((o) => {
-                if (isLine(o)) {
-                  const s = preview(o, nudge, grip);
-                  return <line key={o.id} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />;
-                }
-                const raw = previewBox({ id: o.id, ...boxOf(o) }, boxGrip);
-                const b = { ...raw, x: raw.x + (nudge?.dx ?? 0), y: raw.y + (nudge?.dy ?? 0) };
-                const rot = rotationDegOf(o);
-                const rect = (
-                  <rect
-                    key={rot === 0 ? o.id : undefined}
-                    x={b.x}
-                    y={b.y}
-                    width={b.width}
-                    height={b.height}
-                    className={isImage(o) ? 'image-picked' : undefined}
-                  />
-                );
-                if (rot === 0) return rect;
-                return (
-                  <g key={o.id} transform={rotationOf(b, rot).svg}>
-                    {rect}
-                  </g>
-                );
-              })}
-          </g>
-
-          {/* 끝점 손잡이. 선 하나만 골랐을 때만 나온다. */}
-          {lone &&
-            isLine(lone) &&
-            (() => {
-              const s = preview(lone, nudge, grip);
-              return (
-                <g className="handles">
-                  <rect
-                    x={s.x1 - HANDLE_SIZE / 2}
-                    y={s.y1 - HANDLE_SIZE / 2}
-                    width={HANDLE_SIZE}
-                    height={HANDLE_SIZE}
-                  />
-                  <rect
-                    x={s.x2 - HANDLE_SIZE / 2}
-                    y={s.y2 - HANDLE_SIZE / 2}
-                    width={HANDLE_SIZE}
-                    height={HANDLE_SIZE}
-                  />
-                </g>
-              );
-            })()}
-
-          {/*
-            모서리 손잡이. 달력·이미지 하나만 골랐을 때만 나온다 — 끝점
-            손잡이와 짝이다. 이미지가 돌아가 있으면 손잡이도 같이 돈
-            자리에 그린다 — 안 그러면 눈에 보이는 모서리와 실제로 잡히는
-            자리(boxHandleAt)가 어긋난다.
-          */}
-          {lone &&
-            isBoxResizable(lone) &&
-            (() => {
-              const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
-              const rot = rotationDegOf(lone);
-              const toDisplay = rot === 0 ? null : rotationOf(b, rot);
-              const corners = [
-                { x: b.x, y: b.y },
-                { x: b.x + b.width, y: b.y },
-                { x: b.x, y: b.y + b.height },
-                { x: b.x + b.width, y: b.y + b.height },
-              ].map((c) => (toDisplay ? toDisplay.map(c) : c));
-              return (
-                <g className="handles">
-                  {corners.map((c, i) => (
-                    <rect
-                      key={i}
-                      x={c.x - HANDLE_SIZE / 2}
-                      y={c.y - HANDLE_SIZE / 2}
-                      width={HANDLE_SIZE}
-                      height={HANDLE_SIZE}
-                    />
-                  ))}
-                </g>
-              );
-            })()}
-
-          {/* 지금 그리고 있는 것 */}
-          {ghost?.map((l, i) => (
-            <line key={i} {...segProps(l)} stroke={SNAP_COLOR} strokeWidth={0.3} />
-          ))}
-          {pending && hover && !drag && (
-            <line
-              x1={pending.x}
-              y1={pending.y}
-              x2={hover.x}
-              y2={hover.y}
-              stroke={SNAP_COLOR}
-              strokeWidth={0.3}
-              strokeLinecap="round"
-            />
-          )}
-
-          {/* 입력 중인 상자의 테두리. 어디에 쓰는 중인지 보여준다. */}
-          {editing && (
-            <rect
-              x={editing.box.x}
-              y={editing.box.y}
-              width={editing.box.width}
-              height={editing.box.height}
-              className="editing-box"
-            />
-          )}
-
-          {marquee && (
-            <rect
-              x={Math.min(marquee.x1, marquee.x2)}
-              y={Math.min(marquee.y1, marquee.y2)}
-              width={Math.abs(marquee.x2 - marquee.x1)}
-              height={Math.abs(marquee.y2 - marquee.y1)}
-              className="marquee"
-            />
-          )}
-
-          {/* 글자 도구 — 어느 칸에 쓰일지 미리 보여준다. 그리기 도구의 초록 점과 짝이다. */}
-          {hoverCell && (
-            <rect
-              x={hoverCell.x}
-              y={hoverCell.y}
-              width={hoverCell.width}
-              height={hoverCell.height}
-              className="text-hover"
-            />
-          )}
-          {textDragBox && (
-            <rect
-              x={textDragBox.x}
-              y={textDragBox.y}
-              width={textDragBox.width}
-              height={textDragBox.height}
-              className={tool === 'image' ? 'image-drag' : 'text-drag'}
-            />
-          )}
-
-          {/* 붙을 자리 미리보기. 도트를 꺼둬도 어디에 붙는지 보인다. */}
-          {(tool === 'draw' || tool === 'table') && hover && (
-            <circle cx={hover.x} cy={hover.y} r={SNAP_DOT_SIZE / 2} fill={SNAP_COLOR} />
-          )}
-          {pending && <circle cx={pending.x} cy={pending.y} r={SNAP_DOT_SIZE / 2} fill={SNAP_COLOR} />}
-
-          {/* 지금 그리는 것의 치수. 커서 오른쪽에 붙는다. */}
-          {sizeLabel && hover && (
-            <text
-              x={hover.x + 9 / scale}
-              y={hover.y - 4 / scale}
-              fontSize={11 / scale}
-              strokeWidth={3 / scale}
-              fill={SNAP_COLOR}
-              className="size-label"
+        {(() => {
+          const activeSvg = (
+            <svg
+              ref={svgRef}
+              className={`insert-sheet active-canvas ${tool}`}
+              viewBox={`0 0 ${insert.width} ${insert.height}`}
+              width={insert.width * scale}
+              height={insert.height * scale}
+              onPointerMove={onMove}
+              onPointerLeave={() => setHover(null)}
+              onPointerDown={onDown}
+              onPointerUp={onUp}
+              onPointerCancel={() => setDragBoth(null)}
+              onDoubleClick={onDoubleClickCanvas}
             >
-              {sizeLabel}
-            </text>
-          )}
-        </svg>
+              <rect x={0} y={0} width={insert.width} height={insert.height} className="sheet-bg" />
+
+              <InsertView
+                insert={insert}
+                grid={grid}
+                objects={objects}
+                safeZoneWidth={insert.punch.safeZoneWidth}
+                // 뒷면이면 항상 뒤집는다. 뒤집는 축(좌우/상하)은 인쇄 화면에서
+                // core/layout의 mirrorLayout이 정한다 — 편집 화면은 칸 하나만
+                // 보여줄 뿐 용지 배치를 모르므로, 속지 자신의 가로축(구멍이 있는
+                // 축)을 뒤집는다는 사실만 다루면 된다.
+                mirror={activeSide === 'back'}
+                // 고치는 중인 글자는 감춘다. 입력칸이 같은 자리에 겹쳐 있어서, 둘 다
+                // 보이면 어느 게 지금 치는 내용인지 헷갈린다. 목록에서 빼지 않고
+                // 감추기만 하는 이유는 InsertView의 hiddenId 주석에 있다.
+                hiddenId={editing?.id}
+              />
+
+              <PunchGuide
+                width={insert.width}
+                height={insert.height}
+                punch={insert.punch}
+                mirror={activeSide === 'back'}
+              />
+
+              {/* 고른 것 표시. 옮기거나 끝점을 끄는 중이면 갈 자리에 미리 보여준다.
+                  선은 선 자체를, 글자·이미지는 상자를 두른다 — 돌아가 있으면
+                  테두리도 같은 만큼 돈다(글자·이미지 자신과 같은 축·각도). */}
+              <g className="picked">
+                {objects
+                  .filter((o) => selectedIds.includes(o.id))
+                  .map((o) => {
+                    if (isLine(o)) {
+                      const s = preview(o, nudge, grip);
+                      return <line key={o.id} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />;
+                    }
+                    const raw = previewBox({ id: o.id, ...boxOf(o) }, boxGrip);
+                    const b = { ...raw, x: raw.x + (nudge?.dx ?? 0), y: raw.y + (nudge?.dy ?? 0) };
+                    const rot = rotationDegOf(o);
+                    const rect = (
+                      <rect
+                        key={rot === 0 ? o.id : undefined}
+                        x={b.x}
+                        y={b.y}
+                        width={b.width}
+                        height={b.height}
+                        className={isImage(o) ? 'image-picked' : undefined}
+                      />
+                    );
+                    if (rot === 0) return rect;
+                    return (
+                      <g key={o.id} transform={rotationOf(b, rot).svg}>
+                        {rect}
+                      </g>
+                    );
+                  })}
+              </g>
+
+              {/* 끝점 손잡이. 선 하나만 골랐을 때만 나온다. */}
+              {lone &&
+                isLine(lone) &&
+                (() => {
+                  const s = preview(lone, nudge, grip);
+                  return (
+                    <g className="handles">
+                      <rect
+                        x={s.x1 - HANDLE_SIZE / 2}
+                        y={s.y1 - HANDLE_SIZE / 2}
+                        width={HANDLE_SIZE}
+                        height={HANDLE_SIZE}
+                      />
+                      <rect
+                        x={s.x2 - HANDLE_SIZE / 2}
+                        y={s.y2 - HANDLE_SIZE / 2}
+                        width={HANDLE_SIZE}
+                        height={HANDLE_SIZE}
+                      />
+                    </g>
+                  );
+                })()}
+
+              {/*
+                모서리 손잡이. 달력·이미지 하나만 골랐을 때만 나온다 — 끝점
+                손잡이와 짝이다. 이미지가 돌아가 있으면 손잡이도 같이 돈
+                자리에 그린다 — 안 그러면 눈에 보이는 모서리와 실제로 잡히는
+                자리(boxHandleAt)가 어긋난다.
+              */}
+              {lone &&
+                isBoxResizable(lone) &&
+                (() => {
+                  const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
+                  const rot = rotationDegOf(lone);
+                  const toDisplay = rot === 0 ? null : rotationOf(b, rot);
+                  const corners = [
+                    { x: b.x, y: b.y },
+                    { x: b.x + b.width, y: b.y },
+                    { x: b.x, y: b.y + b.height },
+                    { x: b.x + b.width, y: b.y + b.height },
+                  ].map((c) => (toDisplay ? toDisplay.map(c) : c));
+                  return (
+                    <g className="handles">
+                      {corners.map((c, i) => (
+                        <rect
+                          key={i}
+                          x={c.x - HANDLE_SIZE / 2}
+                          y={c.y - HANDLE_SIZE / 2}
+                          width={HANDLE_SIZE}
+                          height={HANDLE_SIZE}
+                        />
+                      ))}
+                    </g>
+                  );
+                })()}
+
+              {/* 지금 그리고 있는 것 */}
+              {ghost?.map((l, i) => (
+                <line key={i} {...segProps(l)} stroke={SNAP_COLOR} strokeWidth={0.3} />
+              ))}
+              {pending && hover && !drag && (
+                <line
+                  x1={pending.x}
+                  y1={pending.y}
+                  x2={hover.x}
+                  y2={hover.y}
+                  stroke={SNAP_COLOR}
+                  strokeWidth={0.3}
+                  strokeLinecap="round"
+                />
+              )}
+
+              {/* 입력 중인 상자의 테두리. 어디에 쓰는 중인지 보여준다. */}
+              {editing && (
+                <rect
+                  x={editing.box.x}
+                  y={editing.box.y}
+                  width={editing.box.width}
+                  height={editing.box.height}
+                  className="editing-box"
+                />
+              )}
+
+              {marquee && (
+                <rect
+                  x={Math.min(marquee.x1, marquee.x2)}
+                  y={Math.min(marquee.y1, marquee.y2)}
+                  width={Math.abs(marquee.x2 - marquee.x1)}
+                  height={Math.abs(marquee.y2 - marquee.y1)}
+                  className="marquee"
+                />
+              )}
+
+              {/* 글자 도구 — 어느 칸에 쓰일지 미리 보여준다. 그리기 도구의 초록 점과 짝이다. */}
+              {hoverCell && (
+                <rect
+                  x={hoverCell.x}
+                  y={hoverCell.y}
+                  width={hoverCell.width}
+                  height={hoverCell.height}
+                  className="text-hover"
+                />
+              )}
+              {textDragBox && (
+                <rect
+                  x={textDragBox.x}
+                  y={textDragBox.y}
+                  width={textDragBox.width}
+                  height={textDragBox.height}
+                  className={tool === 'image' ? 'image-drag' : 'text-drag'}
+                />
+              )}
+
+              {/* 붙을 자리 미리보기. 도트를 꺼둬도 어디에 붙는지 보인다. */}
+              {(tool === 'draw' || tool === 'table') && hover && (
+                <circle cx={hover.x} cy={hover.y} r={SNAP_DOT_SIZE / 2} fill={SNAP_COLOR} />
+              )}
+              {pending && <circle cx={pending.x} cy={pending.y} r={SNAP_DOT_SIZE / 2} fill={SNAP_COLOR} />}
+
+              {/* 지금 그리는 것의 치수. 커서 오른쪽에 붙는다. */}
+              {sizeLabel && hover && (
+                <text
+                  x={hover.x + 9 / scale}
+                  y={hover.y - 4 / scale}
+                  fontSize={11 / scale}
+                  strokeWidth={3 / scale}
+                  fill={SNAP_COLOR}
+                  className="size-label"
+                >
+                  {sizeLabel}
+                </text>
+              )}
+            </svg>
+          );
+
+          if (!hasBack) {
+            return (
+              <>
+                <div
+                  className="side-slot back-empty"
+                  style={{ width: insert.width * scale, height: insert.height * scale }}
+                >
+                  <div className="back-empty-msg">
+                    <p>아직 뒷면이 없습니다.</p>
+                    <button onClick={addBack}>뒷면 만들기</button>
+                  </div>
+                </div>
+                {activeSvg}
+              </>
+            );
+          }
+          // 뒷면이 왼쪽, 앞면이 오른쪽 — activeSvg가 어느 쪽이냐에 따라 순서가 바뀐다.
+          return activeSide === 'back' ? (
+            <>
+              {activeSvg}
+              {renderInactiveCanvas()}
+            </>
+          ) : (
+            <>
+              {renderInactiveCanvas()}
+              {activeSvg}
+            </>
+          );
+        })()}
 
         {/*
           글자 입력칸.
@@ -1442,31 +1597,27 @@ function TextInput({
   );
 }
 
-/** 앞면·뒷면 전환. 뒷면을 보는 중이면 지우는 버튼·앞면 그대로 복사 버튼도 함께 나온다. */
+/**
+ * 지금 어느 쪽이 활성인지 + 뒷면 관련 버튼.
+ *
+ * 탭으로 전환하지 않는다 — 뒷면·앞면 캔버스가 나란히 있어서 그 캔버스를
+ * 클릭하는 것 자체가 전환이다(EditorTab의 onInactivePointerDown).
+ */
 function SideBar({
-  side,
-  setSide,
+  activeSide,
   hasBack,
   removeBack,
   copyFrontToBack,
 }: {
-  side: Side;
-  setSide: (side: Side) => void;
+  activeSide: Side;
   hasBack: boolean;
   removeBack: () => void;
   copyFrontToBack: () => void;
 }) {
   return (
     <div className="side-bar">
-      <div className="tabs">
-        <button className={side === 'front' ? 'tab on' : 'tab'} onClick={() => setSide('front')}>
-          앞면
-        </button>
-        <button className={side === 'back' ? 'tab on' : 'tab'} onClick={() => setSide('back')}>
-          뒷면
-        </button>
-      </div>
-      {side === 'back' && (
+      <span className="active-side-label">지금 · {activeSide === 'back' ? '뒷면' : '앞면'}</span>
+      {activeSide === 'back' && (
         <button
           className="ghost"
           onClick={copyFrontToBack}
@@ -1475,7 +1626,7 @@ function SideBar({
           앞면 그대로 복사
         </button>
       )}
-      {side === 'back' && hasBack && (
+      {activeSide === 'back' && hasBack && (
         <button className="ghost" onClick={removeBack} title="뒷면 지우기">
           뒷면 지우기
         </button>

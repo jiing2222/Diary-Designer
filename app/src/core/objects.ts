@@ -704,3 +704,29 @@ export function distanceToSegment(s: LineSeg, px: Mm, py: Mm): Mm {
   const t = Math.max(0, Math.min(1, ((px - s.x1) * dx + (py - s.y1) * dy) / lenSq));
   return Math.hypot(px - (s.x1 + t * dx), py - (s.y1 + t * dy));
 }
+
+/** 세로 경계 하나를 사이에 두고 떨어진 캔버스 한쪽의, 그 경계에 걸친 선의 끝점. */
+export interface BoundaryPoint {
+  x: Mm;
+  y: Mm;
+  /** 이 점에서 경계까지의 거리(mm). 두 캔버스가 서로 다른 좌표계라 x를
+   * 직접 비교할 수 없어서, 대신 이 거리로 선이 갈리는 비율을 구한다. */
+  distToBoundary: Mm;
+  /** 이 캔버스에서 경계와 맞닿은 변의 x(보통 0 아니면 캔버스 너비). */
+  edgeX: Mm;
+}
+
+/**
+ * 앞뒤 캔버스를 나란히 붙여 그은(여백 없이 이어 보이는) 선을, 경계에서
+ * 만나는 반쪽 두 개로 쪼갠다. 두 반쪽은 각자 자기 캔버스(양식의 앞면·뒷면)
+ * 객체 목록에 따로 커밋된다.
+ */
+export function splitAtBoundary(a: BoundaryPoint, b: BoundaryPoint): { aSeg: LineSeg; bSeg: LineSeg } {
+  const total = a.distToBoundary + b.distToBoundary;
+  const t = total === 0 ? 0.5 : a.distToBoundary / total;
+  const crossY = a.y + t * (b.y - a.y);
+  return {
+    aSeg: { x1: a.x, y1: a.y, x2: a.edgeX, y2: crossY },
+    bSeg: { x1: b.edgeX, y1: crossY, x2: b.x, y2: b.y },
+  };
+}

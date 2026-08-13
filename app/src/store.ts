@@ -1101,15 +1101,17 @@ export function selectLayout(s: Settings): Layout {
  */
 export const useActive = () => useStore(activeTemplate);
 export const useInsert = () => useStore((s) => activeTemplate(s)?.insert ?? NO_INSERT);
-export const useDotGrid = () =>
+/** side를 주지 않으면 지금 편집 중인 쪽(s.side)이다. 앞뒤를 동시에 보여줄 때는
+ * 명시해서 s.side와 무관하게 양쪽을 각각 읽는다. */
+export const useDotGrid = (side?: Side) =>
   useStore((s) => {
     const active = activeTemplate(s);
-    return (active && activeSideData(active, s.side)?.dotGrid) ?? NO_GRID;
+    return (active && activeSideData(active, side ?? s.side)?.dotGrid) ?? NO_GRID;
   });
-export const useObjects = () =>
+export const useObjects = (side?: Side) =>
   useStore((s) => {
     const active = activeTemplate(s);
-    return (active && activeSideData(active, s.side)?.objects) ?? NO_OBJECTS;
+    return (active && activeSideData(active, side ?? s.side)?.objects) ?? NO_OBJECTS;
   });
 export const useRepeat = () => useStore((s) => activeTemplate(s)?.repeat ?? NO_REPEAT);
 export const useSide = () => useStore((s) => s.side);

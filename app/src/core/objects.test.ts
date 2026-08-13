@@ -16,6 +16,7 @@ import {
   segmentLength,
   sameSegment,
   segmentInRect,
+  splitAtBoundary,
   toggleLines,
   MIN_BOX_SIZE,
   type DiaryObject,
@@ -416,5 +417,48 @@ describe('붙여넣기 사본', () => {
   it('원본은 손대지 않는다', () => {
     cloneObject(shape, 5, 5);
     expect(shape).toEqual({ id: 'sh1', type: 'shape', x: 10, y: 10, width: 20, height: 20 });
+  });
+});
+
+describe('경계에서 선 쪼개기', () => {
+  it('경계까지 거리 비율대로 y를 보간한다', () => {
+    // 뒷면(오른쪽 끝=경계) 쪽 점이 경계에서 10mm, 앞면(왼쪽 끝=경계) 쪽 점이
+    // 5mm — 뒷면 쪽이 경계에서 더 머니, 교차점은 두 y의 2:1 지점(뒷면 쪽에
+    // 더 가깝게 쳐다본 게 아니라, distToBoundary 비율 10:5 = 2:1이 그대로
+    // t = 10/15에 반영된다).
+    const { aSeg, bSeg } = splitAtBoundary(
+      { x: 70, y: 10, distToBoundary: 10, edgeX: 80 },
+      { x: 5, y: 50, distToBoundary: 5, edgeX: 0 },
+    );
+    const crossY = 10 + (10 / 15) * (50 - 10);
+    expect(aSeg).toEqual({ x1: 70, y1: 10, x2: 80, y2: crossY });
+    expect(bSeg).toEqual({ x1: 0, y1: crossY, x2: 5, y2: 50 });
+  });
+
+  it('둘 다 경계 위에 있으면(거리 0) 가운데(0.5)로 나눈다 — 0으로 나누지 않는다', () => {
+    const { aSeg, bSeg } = splitAtBoundary(
+      { x: 80, y: 10, distToBoundary: 0, edgeX: 80 },
+      { x: 0, y: 50, distToBoundary: 0, edgeX: 0 },
+    );
+    expect(aSeg.y2).toBe(30);
+    expect(bSeg.y1).toBe(30);
+  });
+
+  it('한쪽이 경계 바로 위(거리 0)면 교차점이 그 점의 y와 같다', () => {
+    const { aSeg, bSeg } = splitAtBoundary(
+      { x: 80, y: 10, distToBoundary: 0, edgeX: 80 },
+      { x: 5, y: 50, distToBoundary: 5, edgeX: 0 },
+    );
+    expect(aSeg.y2).toBe(10);
+    expect(bSeg.y1).toBe(10);
+  });
+
+  it('반쪽 두 개는 경계에서 만난다 — 끝점 x가 각자의 edgeX와 같다', () => {
+    const { aSeg, bSeg } = splitAtBoundary(
+      { x: 70, y: 10, distToBoundary: 10, edgeX: 80 },
+      { x: 5, y: 50, distToBoundary: 5, edgeX: 0 },
+    );
+    expect(aSeg.x2).toBe(80);
+    expect(bSeg.x1).toBe(0);
   });
 });
