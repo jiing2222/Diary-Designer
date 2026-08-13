@@ -627,11 +627,8 @@ export function pdfRotateOf(degrees: number): number {
 }
 
 /**
- * 감싸기로 고를 수 있는가.
- *
- * 선은 조금이라도 걸치면 고른다(segmentInRect). 그 외(도형·글자·달력·
- * 이미지·체크박스)는 상자가 완전히 들어와야 고른다 — 큰 상자 한쪽 귀퉁이만
- * 스쳐도 통째로 딸려오면 놀란다.
+ * 감싸기로 고를 수 있는가. 조금이라도 걸치면 고른다 — 긴 선이든 큰 도형이든
+ * 끝까지 다 감쌀 필요 없이, 드래그한 자리에 일부만 지나가도 골라진다.
  *
  * 글자는 상자로 판정한다. 글자가 실제로 그려진 크기는 글꼴이 정하므로
  * core가 알 수 없다 — 클릭으로 집는 것만 화면이 잰 크기를 쓴다.
@@ -646,7 +643,7 @@ export function objectInRect(
   const right = Math.max(rect.x1, rect.x2);
   const top = Math.min(rect.y1, rect.y2);
   const bottom = Math.max(rect.y1, rect.y2);
-  return o.x >= left && o.x + o.width <= right && o.y >= top && o.y + o.height <= bottom;
+  return o.x <= right && o.x + o.width >= left && o.y <= bottom && o.y + o.height >= top;
 }
 
 /** 선분 `p1-p2`와 `p3-p4`가 만나는가(끝점 포함). */

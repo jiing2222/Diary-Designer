@@ -1172,6 +1172,11 @@ export function EditorTab() {
             </ToolBtn>
           </div>
 
+          {!hasBack && (
+            <button className="ghost" onClick={addBack} title="지금 양식에 뒷면을 만듭니다">
+              뒷면 만들기
+            </button>
+          )}
           <button
             className="ghost"
             onClick={deleteSelected}

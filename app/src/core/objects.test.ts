@@ -8,6 +8,7 @@ import {
   distanceToSegment,
   fitBox,
   moveSegment,
+  objectInRect,
   pdfRotateOf,
   rectLines,
   reshape,
@@ -173,6 +174,31 @@ describe('감싸서 고르기', () => {
 
   it('어느 방향으로 감싸도 같다', () => {
     expect(segmentInRect(line, { x1: 70, y1: 30, x2: 10, y2: 10 })).toBe(true);
+  });
+});
+
+describe('감싸서 고르기 — 상자 모양(도형·글자·달력·이미지·체크박스)', () => {
+  const shape: DiaryObject = { id: 'sh1', type: 'shape', x: 20, y: 20, width: 40, height: 20 };
+
+  it('완전히 들어오면 골라진다', () => {
+    expect(objectInRect(shape, { x1: 10, y1: 10, x2: 70, y2: 50 })).toBe(true);
+  });
+
+  it('한쪽 귀퉁이만 걸쳐도 골라진다', () => {
+    // 선과 같은 규칙 — 끝까지 다 감쌀 필요 없이 조금이라도 걸치면 골라진다.
+    expect(objectInRect(shape, { x1: 10, y1: 10, x2: 30, y2: 30 })).toBe(true);
+  });
+
+  it('사각형이 상자 안쪽 한 토막만 감싸도(상자가 사각형을 완전히 감싸도) 골라진다', () => {
+    expect(objectInRect(shape, { x1: 25, y1: 25, x2: 35, y2: 30 })).toBe(true);
+  });
+
+  it('아예 안 닿으면 안 골라진다', () => {
+    expect(objectInRect(shape, { x1: 100, y1: 100, x2: 120, y2: 120 })).toBe(false);
+  });
+
+  it('어느 방향으로 감싸도 같다', () => {
+    expect(objectInRect(shape, { x1: 70, y1: 50, x2: 10, y2: 10 })).toBe(true);
   });
 });
 
