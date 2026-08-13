@@ -10,6 +10,7 @@ import {
   defaultInsert,
   defaultName,
   duplicateTemplate,
+  ensureTemplateIdCounterAbove,
   insertFromPreset,
   newBack,
   newTemplate,
@@ -26,6 +27,7 @@ import { reserveImageIds } from './images/registry';
 import {
   cloneObject,
   dedupe,
+  ensureIdCounterAbove,
   isDegenerate,
   isLine,
   isText,
@@ -993,6 +995,17 @@ export const useStore = create<Store>((set) => ({
       // 이미지도 같은 사정이다 — 이름만 돌아오고, url이 없어 그때까지는 빈 채로 보인다.
       const images = p.images ?? [];
       reserveImageIds(images.map((i) => i.id));
+      // 새로고침하면 newId·양식 id 카운터가 0부터 다시 시작하는데, 불러온
+      // 파일에는 이미 l1·t3 같은 id가 들어 있다 — 그대로 두면 불러온 뒤
+      // 처음 그리는 것이 파일 속 어떤 객체와 같은 id를 받는다(글꼴·이미지와
+      // 같은 사정이라 위와 같은 방식으로 막는다).
+      ensureTemplateIdCounterAbove(templates.map((t) => t.id));
+      ensureIdCounterAbove(
+        templates.flatMap((t) => [
+          ...t.objects.present.map((o) => o.id),
+          ...(t.back?.objects.present.map((o) => o.id) ?? []),
+        ]),
+      );
       const print = p.print as Partial<Settings>;
       return {
         templates,

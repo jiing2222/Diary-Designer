@@ -86,6 +86,20 @@ export interface Template {
 
 let counter = 0;
 
+/**
+ * 카운터가 이 id들의 뒤에 붙은 숫자보다 낮으면 그만큼으로 올린다.
+ * `core/objects`의 `ensureIdCounterAbove`와 같은 이유 — 저장 파일을
+ * 불러온 뒤 새 양식이 파일 속 양식과 같은 id를 받지 않게 한다. 양식
+ * id 카운터는 객체 id 카운터와 따로 논다(둘 다 't1' 모양일 수 있지만
+ * 서로 다른 것을 가리키는 값이라 겹쳐도 상관없다).
+ */
+export function ensureTemplateIdCounterAbove(ids: Iterable<string>): void {
+  for (const id of ids) {
+    const m = id.match(/(\d+)$/);
+    if (m) counter = Math.max(counter, Number(m[1]));
+  }
+}
+
 /** 규격 프리셋에서 속지 설정을 만든다. 없는 id면 지금 값을 그대로 둔다. */
 export function insertFromPreset(id: string, base?: InsertSetting): InsertSetting {
   const preset = findInsertPreset(id);

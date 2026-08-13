@@ -5,6 +5,7 @@ import {
   cutStackPage,
   defaultName,
   duplicateTemplate,
+  ensureTemplateIdCounterAbove,
   frontBackFilled,
   groupBySize,
   insertFromPreset,
@@ -425,5 +426,17 @@ describe('겹치기 배치', () => {
 
   it('그룹을 정하지 않으면 전체를 한 무더기로 본다', () => {
     expect(cutStackPage(0, 0, 53, 4, undefined)).toBe(cutStackPage(0, 0, 53, 4));
+  });
+});
+
+describe('저장 파일을 불러온 뒤 양식 id 겹침 막기', () => {
+  it('불러온 양식 id들보다 다음 id가 뒤에 온다', () => {
+    const before = newTemplate('가');
+    const beforeNum = Number(before.id.replace(/^t/, ''));
+
+    ensureTemplateIdCounterAbove([`t${beforeNum + 50}`]);
+    const after = newTemplate('나');
+
+    expect(Number(after.id.replace(/^t/, ''))).toBeGreaterThan(beforeNum + 50);
   });
 });

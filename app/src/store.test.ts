@@ -286,6 +286,34 @@ describe('저장 파일 불러오기', () => {
     expect(s().selectedIds).toEqual([]);
   });
 
+  it('불러온 파일 속 id와 그 뒤에 새로 그은 것의 id가 겹치지 않는다', () => {
+    // 새로고침 뒤 카운터가 0부터 다시 시작해도, 불러온 파일 속 id(일부러
+    // 아주 크게 잡았다)보다 다음 id가 뒤에 오는지 본다 — 안 그러면 새로
+    // 그은 선이 파일 속 선과 id가 겹쳐, 리액트가 같은 key로 보고 하나만
+    // 그리거나 골라도 엉뚱한 것이 옮겨지는 사고가 난다.
+    s().loadProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        {
+          id: 't1',
+          name: '불러온것',
+          insert: insertFromPreset('M6'),
+          dotGrid: DEFAULT_DOT_GRID,
+          objects: [{ id: 'l99999', type: 'line', x1: 10, y1: 10, x2: 70, y2: 10 }],
+        },
+      ],
+      print: {},
+      fonts: [],
+    });
+
+    s().drawLines([{ x1: 20, y1: 20, x2: 60, y2: 20 }]);
+    const ids = at().objects.present.map((o) => o.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2); // 겹치는 id가 없다
+    expect(ids).toContain('l99999');
+  });
+
   it('용지 설정도 함께 돌아온다', () => {
     s().patchPaper({ landscape: true });
     s().loadProject({

@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   boundsOf,
   cloneObject,
+  ensureIdCounterAbove,
   isLine,
   isLocked,
   dedupe,
   distanceToSegment,
   fitBox,
   moveSegment,
+  newId,
   objectInRect,
   pdfRotateOf,
   rectLines,
@@ -497,5 +499,31 @@ describe('경계에서 선 쪼개기', () => {
     );
     expect(aSeg.x2).toBe(80);
     expect(bSeg.x1).toBe(0);
+  });
+});
+
+describe('저장 파일을 불러온 뒤 id 겹침 막기', () => {
+  // counter는 모듈 하나에 딱 하나뿐이라(파일 전체 테스트가 순서대로 이
+  // 카운터를 같이 쓴다), 절대값이 아니라 "불러온 뒤 매기는 다음 id가
+  // 불러온 파일 속 id보다 뒤인가"만 본다.
+  it('불러온 id들보다 다음 id가 뒤에 온다', () => {
+    const before = newId('l');
+    const beforeNum = Number(before.replace(/^l/, ''));
+
+    ensureIdCounterAbove([`l${beforeNum + 50}`, `t${beforeNum + 10}`]);
+    const after = Number(newId('l').replace(/^l/, ''));
+
+    expect(after).toBeGreaterThan(beforeNum + 50);
+  });
+
+  it('불러온 id가 지금 카운터보다 낮으면 아무 일도 하지 않는다(거꾸로 가지 않는다)', () => {
+    const a = Number(newId('l').replace(/^l/, ''));
+    ensureIdCounterAbove(['l1']); // 훨씬 옛날 id — 이미 지나온 숫자다
+    const b = Number(newId('l').replace(/^l/, ''));
+    expect(b).toBe(a + 1);
+  });
+
+  it('숫자가 없는 id는 무시한다(터지지 않는다)', () => {
+    expect(() => ensureIdCounterAbove(['abc', ''])).not.toThrow();
   });
 });

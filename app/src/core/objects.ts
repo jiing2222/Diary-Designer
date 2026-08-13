@@ -343,11 +343,30 @@ let counter = 0;
  * 객체 id.
  *
  * 저장 파일에 그대로 들어가므로 사람이 읽을 수 있는 편이 낫다.
- * 한 번에 한 사람만 쓰는 프로그램이라 전역 유일성까지는 필요 없다.
+ * 한 번에 한 사람만 쓰는 프로그램이라 전역 유일성까지는 필요 없다 —
+ * **단, 저장 파일을 불러온 뒤에는 다르다.** 새로고침하면 이 카운터는
+ * 0부터 다시 시작하는데, 불러온 파일에는 이미 `l1`·`t3` 같은 id가 들어
+ * 있다. 그대로 두면 불러온 뒤 처음 그리는 것이 파일 속 어떤 객체와
+ * 같은 id를 받아 — 그 순간부터 그 둘은 하나처럼 취급된다(같은 것을
+ * 고르면 골라지고, 리액트도 같은 key로 보아 하나만 그려진다). `store.ts`의
+ * `loadProject`가 파일을 연 직후 `ensureIdCounterAbove`로 이 카운터를
+ * 불러온 id들보다 확실히 위로 올려둔다.
  */
 export function newId(prefix = 'o'): string {
   counter += 1;
   return `${prefix}${counter}`;
+}
+
+/**
+ * 카운터가 이 id들의 뒤에 붙은 숫자보다 낮으면 그만큼으로 올린다.
+ * 접두어(l·t·sh·...)는 안 본다 — 카운터 하나를 모든 접두어가
+ * 같이 쓰므로, 숫자만 보면 다음 id가 무엇과도 안 겹치는지 알 수 있다.
+ */
+export function ensureIdCounterAbove(ids: Iterable<string>): void {
+  for (const id of ids) {
+    const m = id.match(/(\d+)$/);
+    if (m) counter = Math.max(counter, Number(m[1]));
+  }
 }
 
 /** 길이가 0인 선은 만들지 않는다. 클릭만 하고 끌지 않았을 때 생긴다. */
