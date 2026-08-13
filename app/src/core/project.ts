@@ -6,7 +6,6 @@ import { defaultInsert, SINGLE_REPEAT } from './template';
 
 /** 저장 파일에 담기는 뒷면 모양. Template.back과 같지만 History가 아니라 배열이다. */
 interface SavedBack {
-  dotGrid: DotGrid;
   objects: DiaryObject[];
 }
 
@@ -85,7 +84,7 @@ export function toProject(input: {
       // 실행취소 이력은 빼고 지금 모습만.
       objects: t.objects.present,
       repeat: t.repeat,
-      back: t.back ? { dotGrid: t.back.dotGrid, objects: t.back.objects.present } : null,
+      back: t.back ? { objects: t.back.objects.present } : null,
     })),
     print: input.print,
     // 실제로 쓰인 글꼴만 담는다. 등록만 해놓고 안 쓴 것까지 적어두면
@@ -161,12 +160,9 @@ export function toTemplates(p: SavedProject): Template[] {
     dotGrid: { ...DEFAULT_DOT_GRID, ...t.dotGrid },
     objects: initHistory(t.objects),
     repeat: t.repeat ?? SINGLE_REPEAT,
-    back: t.back
-      ? {
-          dotGrid: { ...DEFAULT_DOT_GRID, ...t.back.dotGrid },
-          objects: initHistory(t.back.objects),
-        }
-      : null,
+    // 옛 파일(뒷면 격자가 따로 있던 판)에 back.dotGrid가 남아 있어도 이제
+    // 격자는 앞뒤 공유값(위의 dotGrid)이라 여기서는 읽지 않는다.
+    back: t.back ? { objects: initHistory(t.back.objects) } : null,
   }));
 }
 

@@ -295,7 +295,6 @@ describe('뒷면', () => {
   it('newBack은 빈 뒷면을 낸다', () => {
     const back = newBack();
     expect(back.objects.present).toEqual([]);
-    expect(back.dotGrid.style).toBe('dot');
   });
 
   it('뒷면이 없으면 복제해도 단면이다', () => {
@@ -334,14 +333,13 @@ describe('뒷면', () => {
 });
 
 describe('앞면을 뒷면으로 복사', () => {
-  it('앞면의 격자·그린 것을 그대로 뒷면에 낸다', () => {
+  it('앞면의 그린 것을 그대로 뒷면에 낸다', () => {
+    // 격자는 이제 앞뒤 공유값이라 backFromFront가 따로 옮기지 않는다.
     const t = newTemplate('가');
     t.objects = commit(t.objects, [line(10, 10, 70, 10)]);
-    t.dotGrid = { ...t.dotGrid, style: 'grid' };
 
     const back = backFromFront(t);
     expect(back.objects.present).toEqual(t.objects.present);
-    expect(back.dotGrid.style).toBe('grid');
   });
 
   it('실행취소 이력은 물려받지 않는다', () => {

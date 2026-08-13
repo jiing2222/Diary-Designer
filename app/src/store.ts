@@ -440,18 +440,21 @@ function patchActive(
   return { templates: s.templates.map((t) => (t.id === active.id ? { ...t, ...fn(t) } : t)) };
 }
 
-/** 앞면·뒷면이 공유하는 모양. 격자와 그린 것을 한 덩어리로 다루기 위한 그릇이다. */
-type SideData = { dotGrid: DotGrid; objects: History<DiaryObject[]> };
+/**
+ * 앞면·뒷면이 각자 갖는 것 — 그린 것뿐이다. 격자는 이제 앞뒤가 공유하는
+ * 값이라(`Template.dotGrid`) 여기 들어오지 않는다, `patchActive`가 다룬다.
+ */
+type SideData = { objects: History<DiaryObject[]> };
 
 /** 지금 편집 중인 쪽의 데이터. 뒷면인데 아직 없으면 `null`이다. */
 function activeSideData(t: Template, side: Side): SideData | null {
-  return side === 'front' ? { dotGrid: t.dotGrid, objects: t.objects } : t.back;
+  return side === 'front' ? { objects: t.objects } : t.back;
 }
 
 /**
- * 지금 편집 중인 쪽(앞/뒤)만 고친다.
+ * 지금 편집 중인 쪽(앞/뒤)의 그린 것만 고친다.
  *
- * 그리기·격자·실행취소가 전부 이걸 거친다. **뒷면인데 아직 만들지 않았으면
+ * 그리기·실행취소가 전부 이걸 거친다. **뒷면인데 아직 만들지 않았으면
  * 조용히 아무 일도 하지 않는다** — 화면이 `뒷면 만들기` 버튼으로 먼저 만들게
  * 하므로, 여기까지 오는 것은 사실상 일어나지 않는 경우에 대한 방어선이다.
  */
@@ -464,9 +467,7 @@ function patchActiveSide(
 
   if (s.side === 'front') {
     return {
-      templates: s.templates.map((t) =>
-        t.id === active.id ? { ...t, ...fn({ dotGrid: t.dotGrid, objects: t.objects }) } : t,
-      ),
+      templates: s.templates.map((t) => (t.id === active.id ? { ...t, ...fn({ objects: t.objects }) } : t)),
     };
   }
 
@@ -631,8 +632,9 @@ export const useStore = create<Store>((set) => ({
   patchPunch: (p) =>
     set((s) => patchActive(s, (t) => ({ insert: { ...t.insert, punch: { ...t.insert.punch, ...p } } }))),
 
-  // 격자는 앞뒤가 따로다. 뒷면을 줄노트로, 앞면은 도트로 두는 식이 가능해야 한다.
-  patchDotGrid: (p) => set((s) => patchActiveSide(s, (d) => ({ dotGrid: { ...d.dotGrid, ...p } }))),
+  // 격자는 앞뒤가 공유하는 값이다 — 속지 크기·구멍과 같은 이유(같은 종이
+  // 한 장의 배경 무늬가 앞뒤마다 다를 리 없다). side와 무관하게 늘 고친다.
+  patchDotGrid: (p) => set((s) => patchActive(s, (t) => ({ dotGrid: { ...t.dotGrid, ...p } }))),
 
   patchRepeat: (repeat) => set((s) => patchActive(s, () => ({ repeat }))),
 
@@ -1209,13 +1211,10 @@ export function selectLayout(s: Settings): Layout {
  */
 export const useActive = () => useStore(activeTemplate);
 export const useInsert = () => useStore((s) => activeTemplate(s)?.insert ?? NO_INSERT);
+/** 격자는 앞뒤가 공유하는 값이라 side를 받지 않는다 — 어느 쪽에서 읽어도 같다. */
+export const useDotGrid = () => useStore((s) => activeTemplate(s)?.dotGrid ?? NO_GRID);
 /** side를 주지 않으면 지금 편집 중인 쪽(s.side)이다. 앞뒤를 동시에 보여줄 때는
  * 명시해서 s.side와 무관하게 양쪽을 각각 읽는다. */
-export const useDotGrid = (side?: Side) =>
-  useStore((s) => {
-    const active = activeTemplate(s);
-    return (active && activeSideData(active, side ?? s.side)?.dotGrid) ?? NO_GRID;
-  });
 export const useObjects = (side?: Side) =>
   useStore((s) => {
     const active = activeTemplate(s);

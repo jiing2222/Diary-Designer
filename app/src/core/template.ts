@@ -26,7 +26,7 @@ export interface InsertSetting {
 /**
  * 뒷면.
  *
- * **`null`이면 단면이다.** 앞면(`Template.dotGrid`·`objects`)은 항상 있지만,
+ * **`null`이면 단면이다.** 앞면(`Template.objects`)은 항상 있지만,
  * 뒷면은 만들어야만 생긴다 — 대부분의 양식은 단면이라 처음부터 빈 뒷면을
  * 들려주면 갤러리·저장 파일이 다 그만큼 무거워진다.
  *
@@ -34,11 +34,15 @@ export interface InsertSetting {
  * 크기의 속지가 아니다 — 배치에서 자리만 반전된다(설계문서 8장, "뒷면 칸의
  * x = 용지폭 − 앞면 칸의 x − 속지폭"). 그 반전은 9b(PDF)에서 다룬다.
  *
- * **실행취소는 앞면과 따로 붙는다.** 뒷면을 그리다 ⌘Z를 눌렀는데 앞면 작업이
- * 되돌려지면 무섭다 — 양식끼리 실행취소를 나눈 것과 같은 이유다.
+ * **도트 격자도 앞뒤가 공유한다**(`Template.dotGrid`) — 같은 종이 한 장의
+ * 배경 무늬가 앞뒤마다 다를 이유가 없다(구멍·속지 크기와 같은 이유). 격자를
+ * 고치면 앞뒤 화면이 나란히 있는 지금 편집 화면에서 둘 다 즉시 바뀐다.
+ *
+ * **실행취소는(그린 것만) 앞면과 따로 붙는다.** 뒷면을 그리다 ⌘Z를 눌렀는데
+ * 앞면 작업이 되돌려지면 무섭다 — 양식끼리 실행취소를 나눈 것과 같은
+ * 이유다. 격자는 공유값이라 이 되돌리기 대상이 아니다(고치면 바로 확정).
  */
 export interface BackPage {
-  dotGrid: DotGrid;
   objects: History<DiaryObject[]>;
 }
 
@@ -119,17 +123,18 @@ export function newTemplate(name: string, insert: InsertSetting = defaultInsert(
 
 /** 이 양식에 뒷면을 만든다. 이미 있으면 아무 일도 하지 않는다. */
 export function newBack(): BackPage {
-  return { dotGrid: { ...DEFAULT_DOT_GRID }, objects: initHistory<DiaryObject[]>([]) };
+  return { objects: initHistory<DiaryObject[]>([]) };
 }
 
 /**
- * 지금 앞면을 그대로 뒷면으로 만든다. 이미 뒷면이 있어도 덮어쓴다.
+ * 지금 앞면 그린 것을 그대로 뒷면으로 만든다. 이미 뒷면이 있어도 덮어쓴다.
  *
- * `duplicateTemplate`이 뒷면을 물려받을 때와 같은 방식이다 — 실행취소 이력은
+ * 격자는 앞뒤가 공유값이라 따로 옮길 게 없다 — 그린 것만 옮긴다.
+ * `duplicateTemplate`이 뒷면을 물려받을 때와 같은 방식으로, 실행취소 이력은
  * 새로 시작한다(앞면에서 쌓아온 되돌리기까지 뒷면이 물려받으면 이상하다).
  */
 export function backFromFront(t: Template): BackPage {
-  return { dotGrid: { ...t.dotGrid }, objects: initHistory([...t.objects.present]) };
+  return { objects: initHistory([...t.objects.present]) };
 }
 
 /**
@@ -154,10 +159,9 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
     // 반복 설정도 물려받는다. 54장짜리 만년형을 디자인만 바꿔보고 싶을 때
     // 매번 장수를 다시 입력하지 않아도 된다.
     repeat: { ...t.repeat },
-    // 뒷면도 그대로 물려받는다. 앞면과 마찬가지로 실행취소 이력은 새로 시작한다.
-    back: t.back
-      ? { dotGrid: { ...t.back.dotGrid }, objects: initHistory([...t.back.objects.present]) }
-      : null,
+    // 뒷면도 그대로 물려받는다(격자는 공유값이라 이미 위에서 물려받았다).
+    // 앞면과 마찬가지로 실행취소 이력은 새로 시작한다.
+    back: t.back ? { objects: initHistory([...t.back.objects.present]) } : null,
   };
 }
 

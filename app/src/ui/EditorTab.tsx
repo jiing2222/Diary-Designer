@@ -103,11 +103,12 @@ export function EditorTab() {
   // 지금 화면에서, "지금 그리기·선택이 실제로 향하는 쪽"이 activeSide다.
   const activeSide: Side = hasBack ? side : 'front';
   const inactiveSide: Side = activeSide === 'back' ? 'front' : 'back';
-  const grid = useDotGrid(activeSide);
+  // 격자는 앞뒤가 공유하는 값이라 side 없이 하나뿐이다 — 양쪽 다 이걸 쓴다.
+  const grid = useDotGrid();
   const history = useObjects(activeSide);
-  // 활성이 아닌 쪽은 정적으로만 그린다(손댈 수 없다) — 클릭하면 그쪽이
-  // 활성이 된다. 뒷면이 없으면 hasBack이 false라 이 값은 애초에 안 쓰인다.
-  const inactiveGrid = useDotGrid(inactiveSide);
+  // 활성이 아닌 쪽은 그린 것만 따로다. 정적으로만 그린다(손댈 수 없다) —
+  // 클릭하면 그쪽이 활성이 된다. 뒷면이 없으면 hasBack이 false라 이 값은
+  // 애초에 안 쓰인다.
   const inactiveHistory = useObjects(inactiveSide);
   const setSide = useStore((s) => s.setSide);
   const addBack = useStore((s) => s.addBack);
@@ -185,10 +186,10 @@ export function EditorTab() {
   // 비활성 쪽의 격자 — 경계를 넘어 잇는 선의 둘째 점을 그 쪽 격자에 앉히려고
   // 있다. 없으면(빈 뒷면 등) 그 점은 안 붙는다.
   const inactiveLattice = gridLattice(
-    gridArea(insert, inactiveGrid, insert.punch.safeZoneWidth, inactiveSide === 'back'),
-    inactiveGrid.spacing,
-    inactiveGrid.minMargin,
-    inactiveGrid.toEdge,
+    gridArea(insert, grid, insert.punch.safeZoneWidth, inactiveSide === 'back'),
+    grid.spacing,
+    grid.minMargin,
+    grid.toEdge,
   );
   const scale = (zoom / 100) * PX_PER_MM_AT_100;
   const noGrid = lattice.xs.length === 0 || lattice.ys.length === 0;
@@ -1023,6 +1024,32 @@ export function EditorTab() {
   }
 
   /**
+   * 비활성 쪽 위에서 마우스가 움직일 때 — 선을 잇는 중(pending)이면 활성
+   * 쪽의 잇는 선 미리보기(hover)가 경계를 넘어서도 커서를 계속 따라가게 한다.
+   *
+   * hover는 activeSide 로컬 좌표다. 비활성 쪽의 로컬 좌표를, "경계에서 몇
+   * mm 떨어졌는지"를 거쳐 activeSide 좌표계로 그대로 연장한 값(insert.width를
+   * 넘거나 0보다 작아짐)으로 바꿔치기한다 — completeCrossBoundaryLine이
+   * 두 좌표계를 잇는 것과 같은 방식이다.
+   *
+   * pending이 없을 때는(다른 도구, 또는 그냥 지나가는 중) 아무 일도 하지
+   * 않는다 — 비활성 쪽은 평소엔 정적이다.
+   */
+  function onInactivePointerMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (!(tool === 'draw' && pending)) return;
+    const svg = e.currentTarget;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const p = svg.createSVGPoint();
+    p.x = e.clientX;
+    p.y = e.clientY;
+    const local = p.matrixTransform(ctm.inverse());
+    const distFromBoundary = inactiveSide === 'back' ? insert.width - local.x : local.x;
+    const activeLocalX = activeSide === 'back' ? insert.width + distFromBoundary : -distFromBoundary;
+    setHover({ x: activeLocalX, y: local.y });
+  }
+
+  /**
    * 비활성 쪽 — 정적으로만 그린다(손댈 수 없다). 클릭하면
    * onInactivePointerDown이 초점을 옮기거나 경계를 넘는 선을 잇는다.
    *
@@ -1038,11 +1065,13 @@ export function EditorTab() {
         width={insert.width * scale}
         height={insert.height * scale}
         onPointerDown={onInactivePointerDown}
+        onPointerMove={onInactivePointerMove}
+        onPointerLeave={() => setHover(null)}
       >
         <rect x={0} y={0} width={insert.width} height={insert.height} className="sheet-bg" />
         <InsertView
           insert={insert}
-          grid={inactiveGrid}
+          grid={grid}
           objects={inactiveHistory.present}
           safeZoneWidth={insert.punch.safeZoneWidth}
           mirror={inactiveSide === 'back'}

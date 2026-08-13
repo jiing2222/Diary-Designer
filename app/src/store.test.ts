@@ -502,15 +502,19 @@ describe('앞면·뒷면', () => {
     expect(at().objects.present[0]).toMatchObject({ y1: 10 });
   });
 
-  it('격자도 앞뒤 따로다', () => {
+  it('격자는 앞뒤가 공유한다 — 어느 쪽에서 고쳐도 둘 다 바뀐다', () => {
     s().addTemplate();
     s().addBack();
     s().setSide('back');
     s().patchDotGrid({ spacing: 2 });
-    expect(at().back!.dotGrid.spacing).toBe(2);
+    // 뒷면에서 고쳤지만 공유값이라 앞면에서 봐도 바뀌어 있다.
+    expect(at().dotGrid.spacing).toBe(2);
 
     s().setSide('front');
-    expect(at().dotGrid.spacing).toBe(5);
+    expect(at().dotGrid.spacing).toBe(2);
+    s().patchDotGrid({ spacing: 7 });
+    s().setSide('back');
+    expect(at().dotGrid.spacing).toBe(7);
   });
 
   it('실행취소가 앞뒤 따로다', () => {

@@ -115,7 +115,7 @@ export function App() {
   /** 지금 양식의 뒷면. 없으면 backFallback(또는 완전히 빈 칸)을 쓴다. */
   const defaultBack: SlotContent | undefined = active?.back
     ? {
-        dotGrid: active.back.dotGrid,
+        dotGrid: active.dotGrid,
         objects: active.back.objects.present,
         safeZoneWidth: active.insert.punch.safeZoneWidth,
       }
@@ -180,7 +180,7 @@ export function App() {
         active.back
           ? {
               insert: active.insert,
-              dotGrid: active.back.dotGrid,
+              dotGrid: active.dotGrid,
               objects: resolveObjectsForPage(active.back.objects.present, dataset, page),
               calendarPage: page,
             }
@@ -216,13 +216,13 @@ export function App() {
       previewBackOverrides.set(
         i,
         t.back
-          ? { insert: t.insert, dotGrid: t.back.dotGrid, objects: t.back.objects.present }
+          ? { insert: t.insert, dotGrid: t.dotGrid, objects: t.back.objects.present }
           : { insert: t.insert, dotGrid: s.fillEmptyBack ? t.dotGrid : BLANK_PREVIEW_GRID, objects: [] },
       );
       pdfBackOverrides.set(
         i,
         t.back
-          ? { dotGrid: t.back.dotGrid, objects: t.back.objects.present, safeZoneWidth: t.insert.punch.safeZoneWidth }
+          ? { dotGrid: t.dotGrid, objects: t.back.objects.present, safeZoneWidth: t.insert.punch.safeZoneWidth }
           : (backFallback(t) ?? null),
       );
     });
@@ -295,7 +295,7 @@ export function App() {
           });
           if (active.back) {
             datasetBackOverrides.set(page, {
-              dotGrid: active.back.dotGrid,
+              dotGrid: active.dotGrid,
               objects: resolveObjectsForPage(active.back.objects.present, dataset, page),
               safeZoneWidth: active.insert.punch.safeZoneWidth,
             });
@@ -481,9 +481,8 @@ export function App() {
                     <PaperPreview
                       paper={{ ...s.paper, width, height }}
                       insert={active.insert}
-                      dotGrid={
-                        active.back?.dotGrid ?? (s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID)
-                      }
+                      // 격자는 앞뒤 공유값이라, 뒷면이 없어도(fillEmptyBack일 때) 그대로 쓴다.
+                      dotGrid={active.back || s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID}
                       objects={active.back?.objects.present ?? []}
                       slotOverrides={previewBackOverrides.size > 0 ? previewBackOverrides : undefined}
                       layout={mirrorLayout(layout, width, height)}

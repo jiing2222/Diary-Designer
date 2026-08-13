@@ -195,17 +195,39 @@ describe('저장했다 다시 열기', () => {
     const t = sample();
     t.back = newBack();
     t.back.objects = commit(t.back.objects, [line]);
-    t.back.dotGrid = { ...t.back.dotGrid, spacing: 3 };
 
     const restored = toTemplates(toProject({ templates: [t], print, fonts: [] }));
     expect(restored[0].back).not.toBeNull();
     expect(restored[0].back!.objects.present).toEqual([line]);
-    expect(restored[0].back!.dotGrid.spacing).toBe(3);
   });
 
   it('뒷면이 없는 양식은 단면으로 돌아온다', () => {
     const restored = toTemplates(toProject({ templates: [sample()], print, fonts: [] }));
     expect(restored[0].back).toBeNull();
+  });
+
+  it('옛 파일에 뒷면 격자가 남아 있어도 무시하고 앞면 격자(공유값)를 쓴다', () => {
+    // 격자가 앞뒤 따로였던 판의 저장 파일을 흉내낸다.
+    const r = readProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        {
+          id: 't1',
+          name: '가',
+          insert: insertFromPreset('M6'),
+          dotGrid: { style: 'dot', spacing: 5 },
+          objects: [],
+          back: { dotGrid: { style: 'grid', spacing: 9 }, objects: [line] },
+        },
+      ],
+      print: {},
+      fonts: [],
+    });
+    const restored = toTemplates((r as { ok: never }).ok);
+    expect(restored[0].dotGrid.spacing).toBe(5);
+    expect(restored[0].back!.objects.present).toEqual([line]);
+    expect((restored[0].back as unknown as { dotGrid?: unknown }).dotGrid).toBeUndefined();
   });
 
   it('뒷면의 실행취소 이력은 담지 않는다', () => {
