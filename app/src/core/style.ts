@@ -158,8 +158,14 @@ export const FONT_WEIGHT = { regular: 400, bold: 700 } as const;
 /** 재단선·십자 마크. 인쇄되지만 자르고 나면 대부분 사라진다. */
 export const CROP_COLOR = '#8fb8de';
 export const CROP_WIDTH: Mm = 0.1;
-/** 십자 마크의 팔 하나 길이. 십자 전체 길이는 이것의 두 배(6mm)다. */
-export const CROP_ARM: Mm = 3;
+/**
+ * 절취 표시 — 모서리에서 바로 붙지 않고 살짝 떨어져(GAP) 짧게(LENGTH) 긋는다.
+ *
+ * 모서리에 바로 붙이면 표시 일부가 항상 속지 내용 쪽으로 넘어간다. 모서리에서
+ * 떨어뜨려야 자르고 난 뒤 속지 위에 자국이 안 남는다(core/crop의 `cropSegments`).
+ */
+export const CROP_MARK_GAP: Mm = 1;
+export const CROP_MARK_LENGTH: Mm = 4;
 
 /**
  * 검증 눈금자. 자로 재야 하므로 연하게 하지 않는다.

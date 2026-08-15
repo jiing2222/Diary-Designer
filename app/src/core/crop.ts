@@ -1,6 +1,6 @@
-import type { Layout } from './layout';
+import type { Layout, Slot } from './layout';
 import type { Mm } from './units';
-import { CROP_ARM } from './style';
+import { CROP_MARK_GAP, CROP_MARK_LENGTH } from './style';
 
 /**
  * 절취선 좌표 계산.
@@ -10,7 +10,7 @@ import { CROP_ARM } from './style';
  */
 
 /**
- * mark    바깥 테두리에만 십자. 안쪽 교차점은 뺀다
+ * mark    바깥 테두리에만 표시. 안쪽 교차점은 뺀다
  * markAll 안쪽 교차점까지 전부. 프린터가 용지 가장자리를 못 찍어
  *         바깥 표시가 사라질 때 쓴다
  */
@@ -41,6 +41,39 @@ function edges(layout: Layout) {
   return { xs: [...xs].sort(asc), ys: [...ys].sort(asc) };
 }
 
+/** 네 방향 — 가로 두 방향은 y를 고정하고 x로, 세로 두 방향은 x를 고정하고 y로 움직인다. */
+const DIRECTIONS: { dx: -1 | 0 | 1; dy: -1 | 0 | 1 }[] = [
+  { dx: -1, dy: 0 },
+  { dx: 1, dy: 0 },
+  { dx: 0, dy: -1 },
+  { dx: 0, dy: 1 },
+];
+
+/**
+ * (x, y)에서 (dx, dy) 방향으로 곧장 나아갈 때, 어느 속지의 내용과도 안
+ * 겹치고 갈 수 있는 최대 거리. 막는 속지가 없으면(그 방향이 열려 있으면)
+ * `Infinity`다.
+ *
+ * 가로 방향이면 그 y가 속지의 세로 범위 안에 있는 속지만, 세로 방향이면
+ * 그 x가 가로 범위 안에 있는 속지만 살핀다 — 축이 다른 속지는애초에 이
+ * 직선과 마주칠 일이 없다.
+ */
+function openDistance(x: Mm, y: Mm, dx: -1 | 0 | 1, dy: -1 | 0 | 1, slots: Slot[]): Mm {
+  let best = Infinity;
+  for (const s of slots) {
+    if (dx !== 0) {
+      if (y < s.y - EPS || y > s.y + s.height + EPS) continue;
+      if (dx > 0 && s.x >= x - EPS) best = Math.min(best, s.x - x);
+      if (dx < 0 && s.x + s.width <= x + EPS) best = Math.min(best, x - (s.x + s.width));
+    } else {
+      if (x < s.x - EPS || x > s.x + s.width + EPS) continue;
+      if (dy > 0 && s.y >= y - EPS) best = Math.min(best, s.y - y);
+      if (dy < 0 && s.y + s.height <= y + EPS) best = Math.min(best, y - (s.y + s.height));
+    }
+  }
+  return best;
+}
+
 export function cropSegments(
   layout: Layout,
   paperWidth: Mm,
@@ -62,7 +95,7 @@ export function cropSegments(
     ];
   }
 
-  // 십자 마크. 재단선이 만나는 자리에 놓되, 다음 둘은 건너뛴다.
+  // 표시. 재단선이 만나는 자리에 놓되, 다음 둘은 건너뛴다.
   //
   // 하나. 배치 덩어리 안쪽에 갇힌 교차점. 재단선 하나를 자르려면 양 끝의 표시
   // 두 개면 충분하고, 중간 표시는 속지 위에 자국만 남긴다. 어차피 한 번에
@@ -75,39 +108,32 @@ export function cropSegments(
   // A4를 반으로 잘라 A5 두 장을 만들 때 가운데 한 줄만 남는 이유가 이것이다.
   // 이쪽은 markAll에서도 뺀다. 잘라낼 것이 없다는 사실은 변하지 않는다.
   //
-  // 용지 밖으로 뻗은 팔은 화면(viewBox)과 PDF(페이지 경계)가 알아서 잘라낸다.
-  const armX = armLengths(xs);
-  const armY = armLengths(ys);
+  // 용지 밖으로 뻗은 것은 화면(viewBox)과 PDF(페이지 경계)가 알아서 잘라낸다.
   const keepInner = mode === 'markAll';
   const onPaperEdge = (v: Mm, size: Mm) => near(v, 0) || near(v, size);
   const onBlockEdge = (v: Mm, lo: Mm, hi: Mm) => near(v, lo) || near(v, hi);
 
   const out: Segment[] = [];
-  xs.forEach((x, xi) => {
-    ys.forEach((y, yi) => {
-      if (!keepInner && !onBlockEdge(x, left, right) && !onBlockEdge(y, top, bottom)) return;
-      if (onPaperEdge(x, paperWidth) && onPaperEdge(y, paperHeight)) return;
-      out.push({ x1: x - armX[xi], y1: y, x2: x + armX[xi], y2: y });
-      out.push({ x1: x, y1: y - armY[yi], x2: x, y2: y + armY[yi] });
-    });
-  });
-  return out;
-}
+  for (const x of xs) {
+    for (const y of ys) {
+      if (!keepInner && !onBlockEdge(x, left, right) && !onBlockEdge(y, top, bottom)) continue;
+      if (onPaperEdge(x, paperWidth) && onPaperEdge(y, paperHeight)) continue;
 
-/**
- * 각 좌표에서 십자 팔이 뻗을 수 있는 최대 길이.
- *
- * 옆 좌표까지 거리의 절반보다 길게 뻗으면, 칸 사이 간격이 좁을 때(기본
- * 3mm 팔에 간격이 6mm보다 좁으면) 옆 표시의 팔과 맞닿거나 겹친다 — 자를
- * 부분(간격)에 끊기지 않는 선 하나가 남아, 표시 두 개가 아니라 마치
- * 재단선 하나가 그어진 것처럼 보인다. 십자 마크를 쓰는 이유(속지 위에
- * 자국을 남기지 않는 것) 자체가 무색해진다.
- */
-function armLengths(coords: Mm[]): Mm[] {
-  return coords.map((v, i) => {
-    let arm = CROP_ARM;
-    if (i > 0) arm = Math.min(arm, (v - coords[i - 1]) / 2);
-    if (i < coords.length - 1) arm = Math.min(arm, (coords[i + 1] - v) / 2);
-    return arm;
-  });
+      // 네 방향 중 속지 내용이 없는 쪽으로만, 모서리에서 GAP만큼 떨어져
+      // LENGTH만큼 짧게 긋는다 — 모서리에 바로 붙이지 않아야 자르고 난 뒤
+      // 속지 위에 자국이 안 남는다. 반대쪽에서도 같은 자리를 향해 표시가
+      // 나올 수 있으니(마주보는 두 속지 사이) 열린 거리의 절반까지만
+      // 뻗는다 — 그래야 두 표시가 서로 넘어가 하나로 이어져 보이지 않는다.
+      for (const { dx, dy } of DIRECTIONS) {
+        const half = openDistance(x, y, dx, dy, layout.slots) / 2;
+        if (half <= CROP_MARK_GAP) continue; // 간격조차 못 낼 만큼 좁으면 아무것도 안 그린다
+        const length = Math.min(CROP_MARK_LENGTH, half - CROP_MARK_GAP);
+        const from = CROP_MARK_GAP;
+        const to = CROP_MARK_GAP + length;
+        if (dx !== 0) out.push({ x1: x + dx * from, y1: y, x2: x + dx * to, y2: y });
+        else out.push({ x1: x, y1: y + dy * from, x2: x, y2: y + dy * to });
+      }
+    }
+  }
+  return out;
 }
