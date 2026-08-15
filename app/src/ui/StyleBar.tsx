@@ -130,19 +130,32 @@ export function StyleBar({
   // 골랐을 때만(선과 함께 고르지 않았을 때만) 자기 속성 막대를 보여준다.
   // 다만 표(테두리 도형 + 안쪽 칸 선을 함께 고른 상태)는 예외다 —
   // showTable이 먼저 그 조합을 가로챈다.
+  //
+  // 글자가 선·도형과 함께 섞여 고른 것에 들어 있으면(예: 선 두 개 + 글자 하나)
+  // showMixedColor가 가장 먼저 가로챈다 — 굵기·모양은 종류마다 뜻이 달라
+  // 하나로 못 묶지만 색은 셋 다 있다(MixedColorControls). 순수 선+도형(글자
+  // 없음)은 그대로 showTable이 맡는다 — 이미 색까지 포함해 잘 처리한다.
   const showCalendar = tool === 'calendar' || pickedCalendars.length > 0;
   const showImage = !showCalendar && (tool === 'image' || pickedImages.length > 0);
-  const showTable = !showCalendar && !showImage && pickedShapes.length > 0 && pickedLines.length > 0;
-  const showShape = !showCalendar && !showImage && !showTable && pickedShapes.length > 0;
+  const showMixedColor =
+    !showCalendar &&
+    !showImage &&
+    pickedTexts.length > 0 &&
+    (pickedLines.length > 0 || pickedShapes.length > 0);
+  const showTable =
+    !showCalendar && !showImage && !showMixedColor && pickedShapes.length > 0 && pickedLines.length > 0;
+  const showShape = !showCalendar && !showImage && !showMixedColor && !showTable && pickedShapes.length > 0;
   const showCheckbox =
     !showCalendar &&
     !showImage &&
+    !showMixedColor &&
     !showTable &&
     !showShape &&
     (tool === 'checkbox' || pickedCheckboxes.length > 0);
   const showText =
     !showCalendar &&
     !showImage &&
+    !showMixedColor &&
     !showTable &&
     !showShape &&
     !showCheckbox &&
@@ -183,6 +196,8 @@ export function StyleBar({
         <CalendarControls calendars={pickedCalendars} />
       ) : showImage ? (
         <ImageControls images={pickedImages} />
+      ) : showMixedColor ? (
+        <MixedColorControls lines={pickedLines} shapes={pickedShapes} texts={pickedTexts} />
       ) : showTable ? (
         <TableControls shapes={pickedShapes} lines={pickedLines} />
       ) : showShape ? (
@@ -502,6 +517,62 @@ function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
         <option value={4}>원·타원</option>
       </select>
     </>
+  );
+}
+
+/**
+ * 선·표(도형)·글자를 섞어 골랐을 때 — 색만 한 번에 바꾼다.
+ *
+ * 굵기·모양(점선 등)·둥글기는 종류마다 뜻이 달라(글자엔 "굵기"가 없다)
+ * 하나로 묶을 수 없지만, 색은 셋 다 있다. `styleSelected`(선)·`styleShape`
+ * (도형)·`styleText`(글자)는 이미 각자 자기 종류가 아닌 id는 걸러내므로,
+ * 고른 것 전체의 id를 그대로 셋 다에 넘겨도 안전하다 — 새 액션을 만들
+ * 필요가 없다.
+ *
+ * **`값이 없으면 기본값을 따른다` 관례의 "빈 문자열 = 기본값" 표기는 여기서
+ * 못 쓴다.** 선·도형의 기본색(`OBJECT_LINE_COLOR`, "연하게")과 글자의
+ * 기본색(`TEXT_COLOR`, "진하게")이 서로 달라서, 같은 빈 문자열이 종류마다
+ * 다른 색을 가리키게 된다 — 섞인 선택에서는 그냥 실제 색 id를 그대로 보여준다.
+ */
+function MixedColorControls({
+  lines,
+  shapes,
+  texts,
+}: {
+  lines: LineObject[];
+  shapes: ShapeObject[];
+  texts: TextObject[];
+}) {
+  const styleSelected = useStore((s) => s.styleSelected);
+  const styleShape = useStore((s) => s.styleShape);
+  const styleText = useStore((s) => s.styleText);
+
+  const colors = [
+    ...lines.map((o) => o.color ?? OBJECT_LINE_COLOR),
+    ...shapes.map((o) => strokeColorOf(o)),
+    ...texts.map((o) => o.color ?? TEXT_COLOR),
+  ];
+  const first = colors[0];
+  const mixed = !colors.every((c) => c === first);
+
+  return (
+    <select
+      value={mixed ? 'mixed' : first}
+      onChange={(e) => {
+        const color = e.target.value;
+        if (lines.length > 0) styleSelected({ color });
+        if (shapes.length > 0) styleShape({ color });
+        if (texts.length > 0) styleText({ color });
+      }}
+      title="색 — 고른 선·표·글자 전부에 적용됩니다"
+    >
+      {mixed && <option value="mixed">—</option>}
+      {COLORS.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
