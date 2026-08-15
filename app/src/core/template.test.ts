@@ -12,6 +12,7 @@ import {
   newBack,
   newTemplate,
   outsideCount,
+  refreshTemplateIds,
   sheetsNeeded,
   sizeLabel,
   uniqueName,
@@ -110,6 +111,58 @@ describe('복제', () => {
     const copy = duplicateTemplate(source, '사본');
     expect(copy.insert.width).toBe(source.insert.width);
     expect(copy.insert.punch).not.toBe(source.insert.punch);
+  });
+});
+
+describe('불러와 더할 때 새 id 주기', () => {
+  it('양식과 그 안의 객체 모두 새 id를 받는다', () => {
+    const t = newTemplate('위클리1', insertFromPreset('M6'));
+    t.objects = commit(t.objects, [line(10, 10, 70, 10)]);
+
+    const fresh = refreshTemplateIds(t);
+    expect(fresh.id).not.toBe(t.id);
+    expect(fresh.objects.present[0].id).not.toBe(t.objects.present[0].id);
+  });
+
+  it('겹치지 않아도 항상 새 id를 준다 — 다른 세션에서 저장한 두 파일이 같은 id를 쓸 수 있어서다', () => {
+    const a = newTemplate('가');
+    const b = newTemplate('나');
+    const freshA = refreshTemplateIds(a);
+    const freshB = refreshTemplateIds(b);
+    expect(freshA.id).not.toBe(a.id);
+    expect(freshB.id).not.toBe(b.id);
+    expect(freshA.id).not.toBe(freshB.id);
+  });
+
+  it('내용(이름·자리·규격)은 그대로 옮긴다', () => {
+    const t = newTemplate('위클리1', insertFromPreset('M6'));
+    t.objects = commit(t.objects, [line(10, 10, 70, 10)]);
+
+    const fresh = refreshTemplateIds(t);
+    expect(fresh.name).toBe(t.name);
+    expect(fresh.insert).toEqual(t.insert);
+    expect(fresh.objects.present).toEqual([{ ...t.objects.present[0], id: fresh.objects.present[0].id }]);
+  });
+
+  it('뒷면 객체도 새 id를 받는다', () => {
+    const t = newTemplate('가');
+    t.objects = commit(t.objects, [line(10, 10, 70, 10)]);
+    const back = backFromFront(t);
+    t.back = back;
+
+    const fresh = refreshTemplateIds(t);
+    expect(fresh.back?.objects.present[0].id).not.toBe(back.objects.present[0].id);
+  });
+
+  it('뒷면이 없으면 그대로 없다', () => {
+    const t = newTemplate('가');
+    expect(refreshTemplateIds(t).back).toBeNull();
+  });
+
+  it('실행취소 이력은 물려주지 않는다', () => {
+    const t = newTemplate('가');
+    t.objects = commit(t.objects, [line(10, 10, 70, 10)]);
+    expect(refreshTemplateIds(t).objects.past).toEqual([]);
   });
 });
 

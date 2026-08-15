@@ -1,4 +1,4 @@
-import { boxOf, type DiaryObject } from './objects';
+import { boxOf, cloneObject, type DiaryObject } from './objects';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import { initHistory, type History } from './history';
 import { DEFAULT_PUNCH, type PunchSetting } from './punch';
@@ -176,6 +176,28 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
     // 뒷면도 그대로 물려받는다(격자는 공유값이라 이미 위에서 물려받았다).
     // 앞면과 마찬가지로 실행취소 이력은 새로 시작한다.
     back: t.back ? { objects: initHistory([...t.back.objects.present]) } : null,
+  };
+}
+
+/**
+ * 이 양식과 그 안의 객체 모두에 새 id를 준다. 다른 파일에서 불러와 지금
+ * 프로젝트에 더할 때 쓴다.
+ *
+ * `newId`(core/objects)의 카운터는 프로그램을 새로 켤 때마다 0부터 다시
+ * 시작한다 — 그래서 다른 날 따로 저장한 두 파일은 거의 항상 같은 id를
+ * 쓴다. 원래 id를 그대로 두고 더하면 지금 프로젝트에 이미 있는 것과
+ * 겹친다(마퀴 선택이 깨졌던 것과 같은 문제). 항상 새로 매기면 이 문제가
+ * 아예 생기지 않는다.
+ */
+export function refreshTemplateIds(t: Template): Template {
+  counter += 1;
+  return {
+    ...t,
+    id: `t${counter}`,
+    objects: initHistory(t.objects.present.map((o) => cloneObject(o, 0, 0))),
+    back: t.back
+      ? { objects: initHistory(t.back.objects.present.map((o) => cloneObject(o, 0, 0))) }
+      : null,
   };
 }
 

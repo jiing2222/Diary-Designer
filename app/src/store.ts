@@ -14,6 +14,7 @@ import {
   insertFromPreset,
   newBack,
   newTemplate,
+  refreshTemplateIds,
   sameSize,
   uniqueName,
   SINGLE_REPEAT,
@@ -368,6 +369,8 @@ interface Store extends Settings {
   styleCheckbox: (patch: CheckboxStyle) => void;
   /** 저장 파일에서 읽은 양식들로 통째로 갈아끼운다. */
   loadProject: (p: SavedProject) => void;
+  /** 저장 파일에서 읽은 양식들을 지금 프로젝트 끝에 더한다(갈아끼우지 않는다). */
+  importTemplates: (templates: Template[]) => void;
   undo: () => void;
   redo: () => void;
   patch: (
@@ -1041,6 +1044,27 @@ export const useStore = create<Store>((set) => ({
         // 대개 그대로 맞지만, 혹시 어긋난 것이 있으면 걷어낸다.
         slotAssignment: pruneSlotAssignment(templates, print.slotAssignment ?? {}),
         // side는 저장하지 않는 값이다. print를 펼친 뒤 마지막에 확실히 앞면으로 둔다.
+        side: 'front' as const,
+      };
+    }),
+
+  importTemplates: (incoming) =>
+    set((s) => {
+      // 새 id를 준 뒤에 이름 겹침을 검사해야, 한 번에 여러 파일을 더할 때도
+      // 방금 더한 것끼리도 서로 이름이 겹치지 않는다.
+      let pool = s.templates;
+      const added: Template[] = [];
+      for (const t of incoming) {
+        const fresh = refreshTemplateIds(t);
+        const named = { ...fresh, name: uniqueName(pool, fresh.name) };
+        pool = [...pool, named];
+        added.push(named);
+      }
+      if (added.length === 0) return {};
+      return {
+        templates: pool,
+        activeId: added[added.length - 1].id,
+        selectedIds: [],
         side: 'front' as const,
       };
     }),

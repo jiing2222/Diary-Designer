@@ -345,6 +345,92 @@ describe('저장 파일 불러오기', () => {
   });
 });
 
+describe('양식 하나짜리 파일을 더해 불러오기', () => {
+  it('갈아끼우지 않고 지금 프로젝트 끝에 더한다', () => {
+    s().addTemplate();
+    s().renameTemplate(at().id, '기존양식');
+    expect(s().templates).toHaveLength(1);
+
+    s().importTemplates([
+      {
+        id: 'x1',
+        name: '불러온것',
+        insert: insertFromPreset('A5'),
+        dotGrid: DEFAULT_DOT_GRID,
+        objects: { present: [], past: [], future: [] },
+        repeat: { mode: 'single' },
+        back: null,
+      },
+    ]);
+
+    expect(s().templates).toHaveLength(2);
+    expect(s().templates[0].name).toBe('기존양식');
+    expect(at().name).toBe('불러온것'); // 방금 더한 것이 활성 양식이 된다
+  });
+
+  it('id가 지금 프로젝트의 기존 객체와 겹쳐도 새 id를 받아 안전하다', () => {
+    // 다른 날 따로 저장한 두 파일은 newId 카운터가 각각 0부터 시작해
+    // 거의 항상 같은 id를 쓴다 — 그대로 더하면 지금 프로젝트의 기존
+    // 객체와 겹쳐 마퀴 선택이 깨졌던 것과 같은 문제가 생긴다.
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    const existingId = at().objects.present[0].id;
+
+    s().importTemplates([
+      {
+        id: at().id, // 양식 id도 지금 활성 양식과 똑같이 겹치게 일부러 맞춘다
+        name: '불러온것',
+        insert: insertFromPreset('M6'),
+        dotGrid: DEFAULT_DOT_GRID,
+        objects: { present: [{ id: existingId, type: 'line', x1: 20, y1: 20, x2: 60, y2: 20 }], past: [], future: [] },
+        repeat: { mode: 'single' },
+        back: null,
+      },
+    ]);
+
+    expect(s().templates).toHaveLength(2);
+    expect(s().templates[0].id).not.toBe(s().templates[1].id);
+    expect(at().objects.present[0].id).not.toBe(existingId);
+  });
+
+  it('이름이 겹치면 새 이름을 받는다', () => {
+    s().addTemplate();
+    s().renameTemplate(at().id, '위클리1');
+
+    s().importTemplates([
+      {
+        id: 'x1',
+        name: '위클리1',
+        insert: insertFromPreset('M6'),
+        dotGrid: DEFAULT_DOT_GRID,
+        objects: { present: [], past: [], future: [] },
+        repeat: { mode: 'single' },
+        back: null,
+      },
+    ]);
+
+    expect(at().name).not.toBe('위클리1');
+    expect(s().templates.map((t) => t.name)).toContain('위클리1');
+  });
+
+  it('용지 설정은 건드리지 않는다', () => {
+    // 용지·배치는 양식이 아니라 지금 프로젝트에 속한 값이다.
+    s().patchPaper({ landscape: true });
+    s().importTemplates([
+      {
+        id: 'x1',
+        name: '가',
+        insert: insertFromPreset('M6'),
+        dotGrid: DEFAULT_DOT_GRID,
+        objects: { present: [], past: [], future: [] },
+        repeat: { mode: 'single' },
+        back: null,
+      },
+    ]);
+    expect(s().paper.landscape).toBe(true);
+  });
+});
+
 describe('낱장 조합 — 칸 배정', () => {
   it('배정이 없으면 모든 칸이 지금 양식이다', () => {
     s().addTemplate(insertFromPreset('M6'));
