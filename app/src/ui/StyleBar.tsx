@@ -35,7 +35,14 @@ import {
   FIELD_FORMATS,
   naturalLineHeight,
 } from '../core/text';
-import { showAdjacentOf, sizeScaleOf, weekdayLangOf, weekStartOf } from '../core/calendar';
+import {
+  letterSpacingOf,
+  rowScaleOf,
+  showAdjacentOf,
+  sizeScaleOf,
+  weekdayLangOf,
+  weekStartOf,
+} from '../core/calendar';
 import { roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
 import { FONT_ACCEPT, hasFont, registerFont } from '../fonts/registry';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
@@ -373,6 +380,9 @@ function LineControls({
  * 기본값을 바꿔 둘 자리가 없다(자동 필드처럼 이미 있는 것만 손댄다).
  */
 const SIZE_SCALES = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
+const ROW_SCALES = [0.7, 0.8, 0.9, 1, 1.2, 1.4, 1.6, 1.8, 2];
+const MIN_LETTER_SPACING_MM: Mm = 0;
+const MAX_LETTER_SPACING_MM: Mm = 5;
 
 function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
   const styleCalendar = useStore((s) => s.styleCalendar);
@@ -385,6 +395,10 @@ function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
   const adjacentMixed = editing && !calendars.every((o) => showAdjacentOf(o) === showAdjacentOf(first));
   const colorMixed = editing && !calendars.every((o) => (o.color ?? TEXT_COLOR) === (first.color ?? TEXT_COLOR));
   const sizeMixed = editing && !calendars.every((o) => sizeScaleOf(o) === sizeScaleOf(first));
+  const rowMixed = editing && !calendars.every((o) => rowScaleOf(o) === rowScaleOf(first));
+  const spacingMixed = editing && !calendars.every((o) => letterSpacingOf(o) === letterSpacingOf(first));
+  const fontMixed = editing && !calendars.every((o) => (o.font ?? '') === (first.font ?? ''));
+  const titleMixed = editing && !calendars.every((o) => o.title === first.title);
 
   useEffect(() => {
     if (adjacentRef.current) adjacentRef.current.indeterminate = adjacentMixed;
@@ -422,6 +436,11 @@ function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
         <option value="hanja">한자 요일</option>
       </select>
 
+      <FontPicker
+        value={fontMixed ? null : (first.font ?? '')}
+        onPick={(font) => styleCalendar({ font })}
+      />
+
       <ColorField
         value={first.color ?? TEXT_COLOR}
         mixed={colorMixed}
@@ -442,6 +461,29 @@ function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
         ))}
       </select>
 
+      <select
+        value={rowMixed ? 'mixed' : rowScaleOf(first) === 1 ? '' : String(rowScaleOf(first))}
+        onChange={(e) => styleCalendar({ rowScale: e.target.value ? Number(e.target.value) : undefined })}
+        title="줄(주) 간격 — 글자 크기는 그대로 두고 제목·요일·날짜 행 사이 간격만 조절합니다"
+      >
+        {rowMixed && <option value="mixed">—</option>}
+        {ROW_SCALES.map((s) => (
+          <option key={s} value={s === 1 ? '' : s}>
+            줄간격 {Math.round(s * 100)}%
+          </option>
+        ))}
+      </select>
+
+      <NumField
+        value={spacingMixed ? null : letterSpacingOf(first)}
+        unit="mm"
+        title="자간"
+        min={MIN_LETTER_SPACING_MM}
+        max={MAX_LETTER_SPACING_MM}
+        step={0.1}
+        onChange={(mm) => styleCalendar({ letterSpacing: mm === 0 ? undefined : mm })}
+      />
+
       <label className="check" title="이번 달이 아닌 칸에도 그 달 날짜를 보여줄지">
         <input
           ref={adjacentRef}
@@ -450,6 +492,20 @@ function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
           onChange={(e) => styleCalendar({ showAdjacent: e.target.checked })}
         />
         이전·다음 달 표시
+      </label>
+
+      <label className="calendar-title-field" title="달 제목 — 비워두면 지금 연·월이 자동으로 표시됩니다. 지우면 제목 줄이 안 보입니다">
+        <input
+          type="text"
+          value={titleMixed ? '' : (first.title ?? '')}
+          placeholder={titleMixed ? '여러 값' : '자동(예: 2026년 8월)'}
+          onChange={(e) => styleCalendar({ title: e.target.value })}
+        />
+        {!titleMixed && first.title !== undefined && (
+          <button type="button" className="ghost" onClick={() => styleCalendar({ title: undefined })} title="자동으로 되돌리기">
+            자동
+          </button>
+        )}
       </label>
     </>
   );

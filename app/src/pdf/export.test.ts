@@ -3,11 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
 import { inflateSync } from 'node:zlib';
 import { Buffer } from 'node:buffer';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { buildPdf, type SlotContent } from './export';
 import { computeLayout } from '../core/layout';
 import { DEFAULT_DOT_GRID } from '../core/grid';
 import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from '../core/style';
 import { MM_TO_PT } from '../core/units';
+import type { CalendarObject } from '../core/objects';
 
 /**
  * 완성된 PDF 바이트에서 `w`(선 굵기 지정) 연산자의 값을 전부 꺼낸다.
@@ -922,6 +925,60 @@ describe('세트형 — 데이터셋', () => {
       expect(bytes.byteLength).toBeGreaterThan(0);
     });
 
+    it('달력에 등록 글꼴을 지정하면 그 글꼴을 심으려 한다', async () => {
+      // drawTexts의 "쓰이지 않는 등록 글꼴은 심지 않는다"와 같은 검사 방식 —
+      // 망가진 바이트를 줘서 embedFont가 시도되면 던지는지로 확인한다.
+      const withFont: SlotContent = {
+        dotGrid: DEFAULT_DOT_GRID,
+        objects: [{ id: 'cal1', type: 'calendar', x: 5, y: 5, width: 60, height: 80, font: 'f1' }],
+        safeZoneWidth: 10,
+      };
+      await expect(
+        buildPdf({
+          ...base,
+          fontBytes: new Uint8Array([1, 2, 3]),
+          userFonts: new Map([['f1', new Uint8Array([4, 5, 6])]]),
+          datasetOverrides: new Map([[0, withFont]]),
+          datasetPages: 1,
+          calendarYear: 2027,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('달력이 쓰지 않는 등록 글꼴은 심지 않는다', async () => {
+      const given = await buildPdf({
+        ...base,
+        datasetOverrides: new Map([[0, calendarSlot]]), // font 지정 없음
+        datasetPages: 1,
+        calendarYear: 2027,
+        userFonts: new Map([['f1', new Uint8Array([1, 2, 3])]]),
+      });
+      const not = await buildPdf({
+        ...base,
+        datasetOverrides: new Map([[0, calendarSlot]]),
+        datasetPages: 1,
+        calendarYear: 2027,
+      });
+      expect(given.byteLength).toBe(not.byteLength);
+    });
+
+    it('자간·제목을 정해도(글꼴 없이) 안전하게 만들어진다', async () => {
+      const decorated: SlotContent = {
+        dotGrid: DEFAULT_DOT_GRID,
+        objects: [
+          { id: 'cal1', type: 'calendar', x: 5, y: 5, width: 60, height: 80, letterSpacing: 1, title: '' },
+        ],
+        safeZoneWidth: 10,
+      };
+      const bytes = await buildPdf({
+        ...base,
+        datasetOverrides: new Map([[0, decorated]]),
+        datasetPages: 1,
+        calendarYear: 2027,
+      });
+      expect(bytes.byteLength).toBeGreaterThan(0);
+    });
+
     it('장수는 달력 오브젝트 유무와 무관하다', async () => {
       const doc = await PDFDocument.load(
         await buildPdf({
@@ -936,6 +993,53 @@ describe('세트형 — 데이터셋', () => {
         }),
       );
       expect(doc.getPageCount()).toBe(2); // 3쪽 · 칸 2개 → 2장, 세트형 규칙 그대로
+    });
+  });
+
+  /**
+   * 위 "월간 달력 오브젝트" 테스트들은 글꼴이 없거나 망가진 채로 확인한다
+   * (그래서 drawCalendars의 실제 글자 그리기는 실행되지 않는다). 자간·제목은
+   * 그 함수 안의 실제 로직이라, 저장소의 진짜 Pretendard 파일을 읽어 코드가
+   * 실제로 실행되는지까지 여기서 확인한다.
+   */
+  describe('월간 달력 — 자간·제목(실제 글꼴로 확인)', () => {
+    const realFont = readFileSync(fileURLToPath(new URL('../../public/fonts/Pretendard-Regular.ttf', import.meta.url)));
+
+    const calendarWith = (patch: Partial<CalendarObject>): SlotContent => ({
+      dotGrid: DEFAULT_DOT_GRID,
+      objects: [{ id: 'cal1', type: 'calendar', x: 5, y: 5, width: 60, height: 80, ...patch }],
+      safeZoneWidth: 10,
+    });
+
+    async function build(patch: Partial<CalendarObject>) {
+      return buildPdf({
+        ...base,
+        fontBytes: realFont,
+        datasetOverrides: new Map([[0, calendarWith(patch)]]),
+        datasetPages: 1,
+        calendarYear: 2027,
+      });
+    }
+
+    it('자간을 주면 글자를 하나씩 떼어 그려 문서가 더 커진다', async () => {
+      const plain = await build({});
+      const spaced = await build({ letterSpacing: 1 });
+      expect(spaced.byteLength).toBeGreaterThan(plain.byteLength);
+    });
+
+    it('제목을 비우면(빈 문자열) 그 줄을 안 그려 문서가 더 작아진다', async () => {
+      const withTitle = await build({});
+      const noTitle = await build({ title: '' });
+      expect(noTitle.byteLength).toBeLessThan(withTitle.byteLength);
+    });
+
+    it('제목을 직접 정하면 그 글자 그대로 그려진다 — 자동 서식으로 안 바뀐다', async () => {
+      // 연·월(calendarYear)은 그대로 두고 제목 글자 길이만 다르게 준다 —
+      // 자동 서식("2027년 1월")이었다면 둘 다 같은 글자라 바이트 수가
+      // 같아야 하지만, 직접 정한 글자를 그대로 쓴다면 긴 쪽이 더 커진다.
+      const short = await build({ title: 'A' });
+      const long = await build({ title: 'AUGUST AUGUST AUGUST' });
+      expect(long.byteLength).toBeGreaterThan(short.byteLength);
     });
   });
 });

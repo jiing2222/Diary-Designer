@@ -156,6 +156,34 @@ export interface CalendarObject {
    * 곱해질 뿐이라 상자를 늘리고 줄여도 여전히 맞는다.
    */
   sizeScale?: number;
+  /**
+   * 줄(주) 간격 배율. 정하지 않았으면 1(기본).
+   *
+   * `sizeScale`과 독립적이다 — 글자 크기는 그대로 두고 제목·요일·날짜
+   * 행 사이 간격만 넓히거나 좁힌다. 1이 아니면 격자 전체 높이가 상자와
+   * 달라지므로 상자 안에서 위아래 가운데로 맞춘다(core/calendar의
+   * `calendarLayout`).
+   */
+  rowScale?: number;
+  /** 자간(글자 사이 간격). mm. 정하지 않았으면 0. */
+  letterSpacing?: Mm;
+  /**
+   * 사용자가 등록한 글꼴의 id. 없으면 기본 글꼴. TextObject.font와 같은 규칙 —
+   * 이번 세션에만 유효하다.
+   */
+  font?: string;
+  /**
+   * 달 제목 글자.
+   *
+   * **정하지 않았으면(undefined)** "2026년 8월"처럼 지금 연·월에서 자동으로
+   * 만든다 — 만년형으로 여러 달을 반복 인쇄해도 달마다 알맞게 바뀐다.
+   *
+   * **정했으면(빈 문자열 포함) 그 글자를 그대로 쓴다.** "AUGUST"처럼 직접
+   * 쓴 글자는 달이 바뀌어도 그대로다 — 자동으로 바뀌길 원하면 이 값을
+   * 지워서(undefined로) 자동 모드로 돌아가야 한다. 빈 문자열이면 제목
+   * 줄 자체가 안 보인다.
+   */
+  title?: string;
   /** 잠갔는가. LineObject의 `locked` 참고. */
   locked?: boolean;
 }
@@ -313,7 +341,18 @@ export type TextStyle = Partial<
 >;
 /** 달력마다 따로 정할 수 있는 것들. */
 export type CalendarStyle = Partial<
-  Pick<CalendarObject, 'weekStart' | 'showAdjacent' | 'weekdayLang' | 'color' | 'sizeScale'>
+  Pick<
+    CalendarObject,
+    | 'weekStart'
+    | 'showAdjacent'
+    | 'weekdayLang'
+    | 'color'
+    | 'sizeScale'
+    | 'rowScale'
+    | 'letterSpacing'
+    | 'font'
+    | 'title'
+  >
 >;
 /** 이미지마다 따로 정할 수 있는 것들. */
 export type ImageStyle = Partial<Pick<ImageObject, 'rotate'>>;

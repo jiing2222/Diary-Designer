@@ -16,9 +16,16 @@ import {
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import { cornerRadiusOf, roundedRectPath, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
 import { checkboxPath, iconOf } from '../core/checkbox';
-import { calendarLayout, weekdayLabels, weekdayLangOf, weekStartOf, showAdjacentOf } from '../core/calendar';
-import { calendarCellAt, calendarTitleAt, isInMonth } from '../core/dataset';
-import { formatDate } from '../core/format';
+import {
+  calendarLayout,
+  letterSpacingOf,
+  titleOf,
+  weekdayLabels,
+  weekdayLangOf,
+  weekStartOf,
+  showAdjacentOf,
+} from '../core/calendar';
+import { calendarCellAt, isInMonth } from '../core/dataset';
 import { familyOf } from '../fonts/registry';
 import { useStore } from '../store';
 import {
@@ -316,31 +323,34 @@ function CalendarLayer({
   const now = new Date();
   const previewYear = context?.year ?? now.getFullYear();
   const previewPage = context?.page ?? now.getMonth(); // 0~11
+  // 등록한 글꼴은 이번 세션에만 있다. 목록이 바뀌면 다시 그려야 한다.
+  const userFonts = useStore((s) => s.userFonts);
 
   return (
-    <g
-      fontFamily={DEFAULT_FONT_FAMILY}
-      style={{ fontKerning: 'none', fontVariantLigatures: 'none', whiteSpace: 'pre' }}
-    >
+    <g style={{ fontKerning: 'none', fontVariantLigatures: 'none', whiteSpace: 'pre' }}>
       {objects.map((o) => {
         const layout = calendarLayout(o);
         const weekStart = weekStartOf(o);
         const labels = weekdayLabels(weekdayLangOf(o), weekStart);
-        const title = formatDate(calendarTitleAt(previewYear, previewPage), 'YYYY년 M월');
+        const title = titleOf(o, previewYear, previewPage);
+        const spacing = letterSpacingOf(o);
         return (
           <g
             key={o.id}
             transform={`translate(${o.x}, ${o.y})`}
             fill={o.color ?? TEXT_COLOR}
             fontSize={layout.fontSize}
+            fontFamily={familyOf(userFonts, o.font)}
             textAnchor="middle"
           >
-            <text x={layout.title.cx} y={layout.title.baseline}>
-              {title}
-            </text>
+            {title !== '' && (
+              <text x={layout.title.cx} y={layout.title.baseline}>
+                {spacedChars(title, spacing)}
+              </text>
+            )}
             {labels.map((label, i) => (
               <text key={`w${i}`} x={layout.weekdays[i].cx} y={layout.weekdays[i].baseline}>
-                {label}
+                {spacedChars(label, spacing)}
               </text>
             ))}
             {layout.days.map((pos, i) => {
@@ -354,7 +364,7 @@ function CalendarLayer({
                   y={pos.baseline}
                   fillOpacity={inMonth ? undefined : CALENDAR_ADJACENT_OPACITY}
                 >
-                  {date.day}
+                  {spacedChars(String(date.day), spacing)}
                 </text>
               );
             })}
@@ -363,6 +373,23 @@ function CalendarLayer({
       })}
     </g>
   );
+}
+
+/**
+ * 자간을 준 글자.
+ *
+ * SVG에는 CSS letter-spacing이 있지만, PDF(pdf-lib)와 같은 방식으로 맞추려고
+ * 글자 사이마다 `<tspan dx>`를 직접 준다 — `dx`는 이 SVG 좌표계와 같은
+ * mm 단위라 core/calendar의 `letterSpacingOf` 값을 그대로 쓸 수 있다.
+ * 간격이 0이면(대부분의 경우) 지금까지처럼 글자를 통째로 낸다.
+ */
+function spacedChars(text: string, spacing: Mm) {
+  if (spacing === 0) return text;
+  return [...text].map((ch, i) => (
+    <tspan key={i} dx={i === 0 ? undefined : spacing}>
+      {ch}
+    </tspan>
+  ));
 }
 
 /** 값을 [lo, hi] 사이로 붙잡는다. */

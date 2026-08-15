@@ -1,9 +1,13 @@
 import {
+  CALENDAR_LETTER_SPACING,
+  CALENDAR_ROW_SCALE,
   CALENDAR_SHOW_ADJACENT,
   CALENDAR_SIZE_SCALE,
   CALENDAR_WEEK_START,
   CALENDAR_WEEKDAY_LANG,
 } from './style';
+import { calendarTitleAt } from './dataset';
+import { formatDate } from './format';
 import { anchorX, baselineY } from './text';
 import type { CalendarObject, WeekdayLang } from './objects';
 import type { Mm } from './units';
@@ -52,13 +56,23 @@ export interface CalendarLayout {
  * 위치는 core/text의 `baselineY`(한 줄 가운데 정렬)를 그대로 쓴다 — 이
  * 프로그램의 다른 모든 글자와 같은 공식이어야 나중에 나란히 놔도
  * 어색하지 않다.
+ *
+ * **줄 간격(`rowScale`)은 글자 크기와 독립적이다.** 한 줄 높이(행 사이
+ * 간격)만 배율만큼 늘리거나 줄인다 — 1이 아니면 8행을 합친 높이가 상자
+ * 높이와 달라지므로, 남거나 모자란 만큼을 위아래로 똑같이 나눠 격자
+ * 전체를 상자 안에서 가운데로 맞춘다.
  */
-export function calendarLayout(box: { width: Mm; height: Mm; sizeScale?: number }): CalendarLayout {
-  const rowHeight = box.height / TOTAL_ROWS;
+export function calendarLayout(
+  box: { width: Mm; height: Mm; sizeScale?: number; rowScale?: number },
+): CalendarLayout {
+  const baseRowHeight = box.height / TOTAL_ROWS;
   const colWidth = box.width / CALENDAR_COLS;
-  const fontSize = (rowHeight / 2) * sizeScaleOf(box);
+  const fontSize = (baseRowHeight / 2) * sizeScaleOf(box);
 
-  const rowBox = (row: number) => ({ y: row * rowHeight, height: rowHeight });
+  const rowHeight = baseRowHeight * rowScaleOf(box);
+  const top = (box.height - rowHeight * TOTAL_ROWS) / 2;
+
+  const rowBox = (row: number) => ({ y: top + row * rowHeight, height: rowHeight });
   const baselineOfRow = (row: number) => baselineY(rowBox(row), fontSize, 'middle');
   const cxOfCol = (col: number) => anchorX({ x: col * colWidth, width: colWidth }, 'center');
 
@@ -93,6 +107,27 @@ export function weekdayLangOf(o: CalendarObject): WeekdayLang {
 /** 글자 크기 배율. 정하지 않았으면 1(기본). */
 export function sizeScaleOf(o: { sizeScale?: number }): number {
   return o.sizeScale ?? CALENDAR_SIZE_SCALE;
+}
+
+/** 줄(주) 간격 배율. 정하지 않았으면 1(기본). */
+export function rowScaleOf(o: { rowScale?: number }): number {
+  return o.rowScale ?? CALENDAR_ROW_SCALE;
+}
+
+/** 자간. 정하지 않았으면 0(벌리지 않는다). */
+export function letterSpacingOf(o: { letterSpacing?: Mm }): Mm {
+  return o.letterSpacing ?? CALENDAR_LETTER_SPACING;
+}
+
+/**
+ * 달 제목 글자.
+ *
+ * `title`을 직접 정해뒀으면(빈 문자열 포함) 그 글자 그대로, 아니면
+ * 연·월에서 자동으로 만든다("2026년 8월"). 화면(InsertView)과 PDF(export)가
+ * 함께 불러야 한쪽만 자동 서식이 바뀌는 사고가 안 난다.
+ */
+export function titleOf(o: { title?: string }, year: number, page: number): string {
+  return o.title ?? formatDate(calendarTitleAt(year, page), 'YYYY년 M월');
 }
 
 const WEEKDAY_NAMES: Record<WeekdayLang, string[]> = {

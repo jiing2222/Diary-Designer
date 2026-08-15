@@ -125,6 +125,10 @@ export const CALENDAR_WEEKDAY_LANG = 'kr' as const;
 export const CALENDAR_SIZE_SCALE = 1;
 /** 이전·다음 달 날짜(showAdjacent를 켰을 때)의 흐림 정도 — 이번 달 글자보다 옅게 보인다. */
 export const CALENDAR_ADJACENT_OPACITY = 0.35;
+/** 자간(글자 사이 간격). 기본은 벌리지 않는다. */
+export const CALENDAR_LETTER_SPACING: Mm = 0;
+/** 줄(주) 간격 배율. sizeScale과 별개로 행 사이 간격만 조절한다. 기본은 1(그대로). */
+export const CALENDAR_ROW_SCALE = 1;
 
 /*
  * 줄 간격(여러 줄을 쓸 때 ⇧Enter로 나뉘는 줄 사이 거리)은 여기 상수로 두지 않는다.

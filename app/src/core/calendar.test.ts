@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { calendarLayout, showAdjacentOf, sizeScaleOf, weekdayLabels, weekdayLangOf, weekStartOf } from './calendar';
+import {
+  calendarLayout,
+  letterSpacingOf,
+  rowScaleOf,
+  showAdjacentOf,
+  sizeScaleOf,
+  titleOf,
+  weekdayLabels,
+  weekdayLangOf,
+  weekStartOf,
+} from './calendar';
 import type { CalendarObject } from './objects';
 
 describe('달력 오브젝트 기하 계산', () => {
@@ -61,6 +71,24 @@ describe('달력 오브젝트 기하 계산', () => {
     expect(scaled.title.cx).toBe(layout.title.cx);
     expect(scaled.days[0].baseline - layout.days[0].baseline).toBeLessThan(rowHeight);
   });
+
+  it('rowScale은 글자 크기와 무관하게 줄 사이 간격만 바꾼다', () => {
+    const spaced = calendarLayout({ width: 70, height: 80, rowScale: 2 });
+    expect(spaced.fontSize).toBe(layout.fontSize); // 글자 크기는 그대로
+    expect(spaced.weekdays[0].baseline - spaced.title.baseline).toBeCloseTo(rowHeight * 2, 6);
+  });
+
+  it('rowScale이 1이 아니면 격자 전체가 상자 안에서 위아래 가운데로 맞춰진다', () => {
+    // rowScale=1일 때 제목 줄의 밑선 자리(rowHeight 안에서 가운데)를 기준으로,
+    // 격자가 커지거나 작아진 만큼 위쪽 여백이 똑같이 움직여야 한다.
+    const bigger = calendarLayout({ width: 70, height: 80, rowScale: 2 });
+    const smaller = calendarLayout({ width: 70, height: 80, rowScale: 0.5 });
+    // 전체 격자 높이가 상자보다 커지면(rowScale 2 → 160mm > 80mm) 첫 줄이
+    // 상자 위쪽 바깥으로 나가고, 작아지면(rowScale 0.5 → 40mm < 80mm)
+    // 첫 줄이 상자 안쪽으로 들어온다.
+    expect(bigger.title.baseline).toBeLessThan(layout.title.baseline);
+    expect(smaller.title.baseline).toBeGreaterThan(layout.title.baseline);
+  });
 });
 
 describe('요일 이름', () => {
@@ -97,6 +125,8 @@ describe('달력 오브젝트 속성 기본값', () => {
     expect(showAdjacentOf(bare)).toBe(false);
     expect(weekdayLangOf(bare)).toBe('kr');
     expect(sizeScaleOf(bare)).toBe(1);
+    expect(rowScaleOf(bare)).toBe(1);
+    expect(letterSpacingOf(bare)).toBe(0);
   });
 
   it('정한 값이 있으면 그대로 쓴다', () => {
@@ -106,10 +136,33 @@ describe('달력 오브젝트 속성 기본값', () => {
       showAdjacent: false,
       weekdayLang: 'en',
       sizeScale: 1.3,
+      rowScale: 1.5,
+      letterSpacing: 0.5,
     };
     expect(weekStartOf(custom)).toBe('mon');
     expect(showAdjacentOf(custom)).toBe(false);
     expect(weekdayLangOf(custom)).toBe('en');
     expect(sizeScaleOf(custom)).toBe(1.3);
+    expect(rowScaleOf(custom)).toBe(1.5);
+    expect(letterSpacingOf(custom)).toBe(0.5);
+  });
+});
+
+describe('달 제목', () => {
+  const bare: CalendarObject = { id: 'c1', type: 'calendar', x: 0, y: 0, width: 70, height: 80 };
+
+  it('정하지 않았으면 연·월에서 자동으로 만든다', () => {
+    expect(titleOf(bare, 2026, 7)).toBe('2026년 8월'); // page는 0부터(7 = 8월)
+  });
+
+  it('정해뒀으면(빈 문자열 아니면) 그 글자 그대로다 — 달이 바뀌어도 안 바뀐다', () => {
+    const custom: CalendarObject = { ...bare, title: 'AUGUST' };
+    expect(titleOf(custom, 2026, 7)).toBe('AUGUST');
+    expect(titleOf(custom, 2027, 0)).toBe('AUGUST'); // 다른 해·다른 달이어도 그대로
+  });
+
+  it('빈 문자열이면 빈 문자열 그대로다 — 뷰가 이걸 보고 제목 줄을 안 그린다', () => {
+    const hidden: CalendarObject = { ...bare, title: '' };
+    expect(titleOf(hidden, 2026, 7)).toBe('');
   });
 });

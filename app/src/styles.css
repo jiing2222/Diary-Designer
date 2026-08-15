@@ -417,6 +417,29 @@ button.ghost:disabled {
   color: var(--muted);
 }
 
+/* 달력 제목 직접 입력. numfield와 같은 생김새지만 글자 칸이 더 넓다. */
+.calendar-title-field {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.calendar-title-field input {
+  width: 110px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+}
+
+.calendar-title-field button {
+  font-size: 11px;
+  padding: 3px 6px;
+}
+
 /* 자동 필드 전환. 나머지 글자 속성과 헷갈리지 않게 오른쪽에 옅은 구분선을 둔다. */
 .field-controls {
   display: flex;

@@ -69,9 +69,16 @@ import {
   type DiaryObject,
   type TextObject,
 } from '../core/objects';
-import { calendarLayout, showAdjacentOf, weekdayLabels, weekdayLangOf, weekStartOf } from '../core/calendar';
-import { calendarCellAt, calendarTitleAt, isInMonth } from '../core/dataset';
-import { formatDate } from '../core/format';
+import {
+  calendarLayout,
+  letterSpacingOf,
+  showAdjacentOf,
+  titleOf,
+  weekdayLabels,
+  weekdayLangOf,
+  weekStartOf,
+} from '../core/calendar';
+import { calendarCellAt, isInMonth } from '../core/dataset';
 
 /**
  * PDF 생성.
@@ -287,9 +294,9 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     if (input.boldFontBytes && texts.some(boldOf)) {
       boldFont = await doc.embedFont(input.boldFontBytes, { subset: false });
     }
-    // 등록 글꼴도 실제로 쓰이는 것만 심는다.
+    // 등록 글꼴도 실제로 쓰이는 것만 심는다. 달력도 자기 글꼴을 가질 수 있다.
     for (const [id, b] of input.userFonts ?? []) {
-      if (texts.some((t) => t.font === id)) {
+      if (texts.some((t) => t.font === id) || calendars.some((c) => c.font === id)) {
         userFonts.set(id, await doc.embedFont(b, { subset: false }));
       }
     }
@@ -352,15 +359,10 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     drawCheckboxes(page, layout, resolveForSheet, flipY);
     drawImages(page, layout, resolveForSheet, embeddedImages, flipY);
     if (bodyFont) {
-      drawTexts(
-        page,
-        layout,
-        resolveForSheet,
-        { regular: bodyFont, bold: boldFont, user: userFonts },
-        flipY,
-      );
+      const fonts: Fonts = { regular: bodyFont, bold: boldFont, user: userFonts };
+      drawTexts(page, layout, resolveForSheet, fonts, flipY);
       if (pageFor && input.calendarYear !== undefined) {
-        drawCalendars(page, layout, resolveForSheet, pageFor, input.calendarYear, bodyFont, flipY);
+        drawCalendars(page, layout, resolveForSheet, pageFor, input.calendarYear, fonts, flipY);
       }
     }
 
@@ -616,7 +618,7 @@ function drawCalendars(
   resolveSlot: (i: number) => SlotContent,
   pageFor: (i: number) => number | null,
   year: number,
-  font: PDFFont,
+  fonts: Fonts,
   flipY: (y: Mm) => Mm,
 ) {
   layout.slots.forEach((slot, i) => {
@@ -650,21 +652,49 @@ function drawCalendars(
       const geo = calendarLayout(o);
       const weekStart = weekStartOf(o);
       const labels = weekdayLabels(weekdayLangOf(o), weekStart);
-      const title = formatDate(calendarTitleAt(year, datasetPage), 'YYYY년 M월');
+      const title = titleOf(o, year, datasetPage);
       const textColor = o.color ? color(o.color) : TEXT;
+      const font = o.font ? (fonts.user.get(o.font) ?? fonts.regular) : fonts.regular;
+      const spacing = letterSpacingOf(o);
 
+      /**
+       * 가운데 정렬한 글자. 자간이 있으면(대부분 0) pdf-lib에 그 기능이
+       * 없으므로 글자를 하나씩 떼어 그린다 — 폭을 하나씩 재서 더한 값 +
+       * 사이 간격(글자 수 − 1개)이 전체 폭이다.
+       */
       const drawCentered = (text: string, localCx: Mm, localBaseline: Mm, opacity = 1) => {
         if (text === '') return;
-        const width = ptToMm(font.widthOfTextAtSize(text, mmToPt(geo.fontSize)));
-        const p = place.map(o.x + localCx - width / 2, o.y + localBaseline);
-        page.drawText(text, {
-          x: mmToPt(p.x),
-          y: mmToPt(flipY(p.y)),
-          size: mmToPt(geo.fontSize),
-          font,
-          color: textColor,
-          opacity,
-          rotate: degrees(layout.rotated ? 90 : 0),
+        if (spacing === 0) {
+          const width = ptToMm(font.widthOfTextAtSize(text, mmToPt(geo.fontSize)));
+          const p = place.map(o.x + localCx - width / 2, o.y + localBaseline);
+          page.drawText(text, {
+            x: mmToPt(p.x),
+            y: mmToPt(flipY(p.y)),
+            size: mmToPt(geo.fontSize),
+            font,
+            color: textColor,
+            opacity,
+            rotate: degrees(layout.rotated ? 90 : 0),
+          });
+          return;
+        }
+
+        const chars = [...text];
+        const widths = chars.map((ch) => ptToMm(font.widthOfTextAtSize(ch, mmToPt(geo.fontSize))));
+        const totalWidth = widths.reduce((a, b) => a + b, 0) + spacing * (chars.length - 1);
+        let cursor = o.x + localCx - totalWidth / 2;
+        chars.forEach((ch, ci) => {
+          const p = place.map(cursor, o.y + localBaseline);
+          page.drawText(ch, {
+            x: mmToPt(p.x),
+            y: mmToPt(flipY(p.y)),
+            size: mmToPt(geo.fontSize),
+            font,
+            color: textColor,
+            opacity,
+            rotate: degrees(layout.rotated ? 90 : 0),
+          });
+          cursor += widths[ci] + spacing;
         });
       };
 
