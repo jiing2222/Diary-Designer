@@ -159,14 +159,6 @@ export const FONT_WEIGHT = { regular: 400, bold: 700 } as const;
 export const CROP_COLOR = '#8fb8de';
 export const CROP_WIDTH: Mm = 0.1;
 /**
- * 화면에서만 쓰는 절취 표시 — SCREEN_GRID_COLOR·SCREEN_DOT_SIZE와 같은 이유로
- * 실제보다 굵고 진하다. 인쇄되는 0.1mm는 화면에서는 1픽셀도 안 돼 거의 안
- * 보인다 — 표시가 실제로 어디 있는지 눈으로 확인할 수 있어야 하므로 화면
- * 전용으로 키운다. 인쇄되는 굵기·색(CROP_WIDTH·CROP_COLOR)은 그대로 둔다.
- */
-export const SCREEN_CROP_WIDTH: Mm = 0.4;
-export const SCREEN_CROP_COLOR = '#4a90d9';
-/**
  * 절취 표시 — 모서리에서 바로 붙지 않고 살짝 떨어져(GAP) 짧게(LENGTH) 긋는다.
  *
  * 모서리에 바로 붙이면 표시 일부가 항상 속지 내용 쪽으로 넘어간다. 모서리에서

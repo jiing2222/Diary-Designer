@@ -134,16 +134,26 @@ describe('절취선', () => {
     expect(nearEnd).toBeCloseTo(10 - CROP_MARK_GAP, 9);
   });
 
-  it('안쪽까지 옵션은 원래 모양(모서리에 걸친 십자) 그대로, 갇힌 교차점도 찍는다', () => {
+  it('안쪽까지 옵션 — 바깥 테두리는 mark와 똑같이(모서리에서 GAP 띄운) 찍는다', () => {
+    // (80,0)은 바깥 테두리(용지 위쪽 끝)다 — mark·markAll이 똑같이
+    // 그려야 한다.
+    const mMark = marksAt(cropSegments(m6, 210, 297, 'mark'), 80, 0);
+    const mAll = marksAt(cropSegments(m6, 210, 297, 'markAll'), 80, 0);
+    expect(mAll).toEqual(mMark);
+    expect(mAll.up).toBeCloseTo(CROP_MARK_LENGTH, 9);
+  });
+
+  it('안쪽까지 옵션 — 사방이 다 내용인 갇힌 교차점은 원래 모양(모서리에 걸친 십자)으로 찍는다', () => {
     // mark는 사방이 내용인 안쪽 교차점을 아예 건너뛴다.
     expect(marksAt(cropSegments(m6, 210, 297, 'mark'), 80, 125)).toEqual({
       left: 0, right: 0, up: 0, down: 0,
     });
 
-    // markAll은 프린터가 가장자리를 못 찍을 때를 대비한 것이라, 늘 뭔가
-    // 보이는 옛 방식(모서리 걸친 십자)을 그대로 쓴다 — 속지 내용을 살짝
-    // 덮는 것은 감수한다. gap-오프셋 방식이 아니므로 marksAt으로는 안
-    // 잡히고, 십자 자체(교차점을 중심으로 좌우·상하가 같은 길이)로 확인한다.
+    // markAll은 프린터가 가장자리를 못 찍을 때를 대비한 것이라, 이런
+    // 갇힌 자리는 늘 뭔가 보이는 옛 방식(모서리 걸친 십자)을 쓴다 —
+    // 속지 내용을 살짝 덮는 것은 감수한다. gap-오프셋 방식이 아니므로
+    // marksAt으로는 안 잡히고, 십자 자체(교차점을 중심으로 좌우·상하가
+    // 같은 길이)로 확인한다.
     const segs = cropSegments(m6, 210, 297, 'markAll');
     const h = segs.find((s) => s.y1 === 125 && s.y2 === 125 && (s.x1 + s.x2) / 2 === 80)!;
     const v = segs.find((s) => s.x1 === 80 && s.x2 === 80 && (s.y1 + s.y2) / 2 === 125)!;

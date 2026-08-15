@@ -98,39 +98,21 @@ export function cropSegments(
   // 용지 끝에 딱 붙은 자리는 건너뛴다 — 이미 종이 끝이라 자를 것이 없다.
   // A4를 반으로 잘라 A5 두 장을 만들 때 가운데 한 줄만 남는 이유가 이것이다.
   const onPaperEdge = (v: Mm, size: Mm) => near(v, 0) || near(v, size);
+  const onBlockEdge = (v: Mm, lo: Mm, hi: Mm) => near(v, lo) || near(v, hi);
+  const isOuter = (x: Mm, y: Mm) => onBlockEdge(x, left, right) || onBlockEdge(y, top, bottom);
   const out: Segment[] = [];
 
-  if (mode === 'markAll') {
-    // 프린터가 용지 가장자리를 못 찍으면 바깥 표시가 통째로 사라진다.
-    // 안쪽 교차점까지 전부 찍어 그럴 때도 뭔가 보이게 한다 — 대신
-    // CROP_ALL_ARM의 주석대로, 속지 내용을 살짝 덮는 옛 방식(모서리에
-    // 걸친 십자) 그대로 쓴다. 옆 표시와는 안 겹치게 거리를 나눈다.
-    const armX = neighborArms(xs);
-    const armY = neighborArms(ys);
-    xs.forEach((x, xi) => {
-      ys.forEach((y, yi) => {
-        if (onPaperEdge(x, paperWidth) && onPaperEdge(y, paperHeight)) return;
-        out.push({ x1: x - armX[xi], y1: y, x2: x + armX[xi], y2: y });
-        out.push({ x1: x, y1: y - armY[yi], x2: x, y2: y + armY[yi] });
-      });
-    });
-    return out;
-  }
-
-  // mode === 'mark' — 배치 덩어리 바깥 테두리에서만 찍는다. 재단선 하나는
-  // 양 끝 표시 두 개로 충분하고, 안쪽 교차점은 속지 위에 자국만 남긴다.
-  const onBlockEdge = (v: Mm, lo: Mm, hi: Mm) => near(v, lo) || near(v, hi);
+  // 배치 덩어리 바깥 테두리 — mark·markAll 공통이다. 재단선 하나는 양 끝
+  // 표시 두 개로 충분하다. 네 방향 중 속지 내용이 없는 쪽으로만, 모서리에서
+  // GAP만큼 떨어져 LENGTH만큼 짧게 긋는다 — 모서리에 바로 붙이지 않아야
+  // 자르고 난 뒤 속지 위에 자국이 안 남는다. 반대쪽에서도 같은 자리를 향해
+  // 표시가 나올 수 있으니(마주보는 두 속지 사이) 열린 거리의 절반까지만
+  // 뻗는다 — 그래야 두 표시가 서로 넘어가 하나로 이어져 보이지 않는다.
+  // 용지 밖으로 뻗은 것은 화면(viewBox)과 PDF(페이지 경계)가 알아서 잘라낸다.
   for (const x of xs) {
     for (const y of ys) {
-      if (!onBlockEdge(x, left, right) && !onBlockEdge(y, top, bottom)) continue;
+      if (!isOuter(x, y)) continue;
       if (onPaperEdge(x, paperWidth) && onPaperEdge(y, paperHeight)) continue;
-
-      // 네 방향 중 속지 내용이 없는 쪽으로만, 모서리에서 GAP만큼 떨어져
-      // LENGTH만큼 짧게 긋는다 — 모서리에 바로 붙이지 않아야 자르고 난 뒤
-      // 속지 위에 자국이 안 남는다. 반대쪽에서도 같은 자리를 향해 표시가
-      // 나올 수 있으니(마주보는 두 속지 사이) 열린 거리의 절반까지만
-      // 뻗는다 — 그래야 두 표시가 서로 넘어가 하나로 이어져 보이지 않는다.
-      // 용지 밖으로 뻗은 것은 화면(viewBox)과 PDF(페이지 경계)가 알아서 잘라낸다.
       for (const { dx, dy } of DIRECTIONS) {
         const half = openDistance(x, y, dx, dy, layout.slots) / 2;
         if (half <= CROP_MARK_GAP) continue; // 간격조차 못 낼 만큼 좁으면 아무것도 안 그린다
@@ -142,6 +124,24 @@ export function cropSegments(
       }
     }
   }
+
+  if (mode === 'markAll') {
+    // 안쪽 교차점(위에서 건너뛴 것)도 마저 찍는다. 프린터가 용지 가장자리를
+    // 못 찍으면 바깥 표시가 통째로 사라지니, 그럴 때도 뭔가 보이라고 있는
+    // 기능이다 — CROP_ALL_ARM의 주석대로, 속지 내용을 살짝 덮는 옛 방식
+    // (모서리에 걸친 십자)을 쓴다. 옆 표시와는 안 겹치게 거리를 나눈다.
+    const armX = neighborArms(xs);
+    const armY = neighborArms(ys);
+    xs.forEach((x, xi) => {
+      ys.forEach((y, yi) => {
+        if (isOuter(x, y)) return; // 바깥은 위에서 이미 찍었다
+        if (onPaperEdge(x, paperWidth) && onPaperEdge(y, paperHeight)) return;
+        out.push({ x1: x - armX[xi], y1: y, x2: x + armX[xi], y2: y });
+        out.push({ x1: x, y1: y - armY[yi], x2: x, y2: y + armY[yi] });
+      });
+    });
+  }
+
   return out;
 }
 

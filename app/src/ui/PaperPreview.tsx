@@ -1,14 +1,7 @@
 import { cropSegments, type CropMode } from '../core/crop';
 import { type DotGrid } from '../core/grid';
 import { placeSlot } from '../core/place';
-import {
-  CROP_COLOR,
-  CROP_WIDTH,
-  RULER_COLOR,
-  RULER_WIDTH,
-  SCREEN_CROP_COLOR,
-  SCREEN_CROP_WIDTH,
-} from '../core/style';
+import { CROP_COLOR, CROP_WIDTH, RULER_COLOR, RULER_WIDTH } from '../core/style';
 import { InsertView, type ViewMode } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import type { DiaryObject } from '../core/objects';
@@ -146,7 +139,7 @@ export function PaperPreview({
         );
       })}
 
-      <CropMarks layout={layout} paperWidth={pw} paperHeight={ph} mode={cropMark} viewMode={mode} />
+      <CropMarks layout={layout} paperWidth={pw} paperHeight={ph} mode={cropMark} />
 
       {/*
         인쇄 불가 영역은 화면 전용 경고다 — 'print' 모드에서는 뺀다.
@@ -199,32 +192,20 @@ function Unprintable({
   );
 }
 
-/**
- * 좌표는 core/crop이 낸다. 여기서는 그리기만 한다. PDF도 같은 좌표를 쓴다.
- *
- * **굵기·색만 화면 모드에 따라 다르다.** 인쇄되는 굵기(0.1mm)는 화면에서 거의
- * 안 보여서, "실제 인쇄 모습만 보기"가 아닌 보통 작업 화면에서는
- * SCREEN_CROP_WIDTH·SCREEN_CROP_COLOR로 굵고 진하게 보여준다(도트 격자와
- * 같은 이유). "실제 인쇄 모습만 보기"(mode==='print')에서는 실제 인쇄 굵기
- * 그대로 보여준다 — 그 토글의 목적 자체가 화면 편의용 과장을 빼고 보는 것이다.
- */
+/** 좌표는 core/crop이 낸다. 여기서는 그리기만 한다. PDF도 같은 좌표를 쓴다. */
 function CropMarks({
   layout,
   paperWidth,
   paperHeight,
   mode,
-  viewMode,
 }: {
   layout: Layout;
   paperWidth: Mm;
   paperHeight: Mm;
   mode: CropMode;
-  viewMode: ViewMode;
 }) {
-  const color = viewMode === 'print' ? CROP_COLOR : SCREEN_CROP_COLOR;
-  const width = viewMode === 'print' ? CROP_WIDTH : SCREEN_CROP_WIDTH;
   return (
-    <g className="crop" stroke={color} strokeWidth={width}>
+    <g className="crop" stroke={CROP_COLOR} strokeWidth={CROP_WIDTH}>
       {cropSegments(layout, paperWidth, paperHeight, mode).map((s, i) => (
         <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
       ))}
