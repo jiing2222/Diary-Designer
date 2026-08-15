@@ -74,6 +74,21 @@ function openDistance(x: Mm, y: Mm, dx: -1 | 0 | 1, dy: -1 | 0 | 1, slots: Slot[
   return best;
 }
 
+/** (x, y)에서 (dx, dy) 방향으로 실제 용지가 남은 거리. */
+function paperDistance(
+  x: Mm,
+  y: Mm,
+  dx: -1 | 0 | 1,
+  dy: -1 | 0 | 1,
+  paperWidth: Mm,
+  paperHeight: Mm,
+): Mm {
+  if (dx === -1) return x;
+  if (dx === 1) return paperWidth - x;
+  if (dy === -1) return y;
+  return paperHeight - y;
+}
+
 export function cropSegments(
   layout: Layout,
   paperWidth: Mm,
@@ -108,13 +123,25 @@ export function cropSegments(
   // 자르고 난 뒤 속지 위에 자국이 안 남는다. 반대쪽에서도 같은 자리를 향해
   // 표시가 나올 수 있으니(마주보는 두 속지 사이) 열린 거리의 절반까지만
   // 뻗는다 — 그래야 두 표시가 서로 넘어가 하나로 이어져 보이지 않는다.
-  // 용지 밖으로 뻗은 것은 화면(viewBox)과 PDF(페이지 경계)가 알아서 잘라낸다.
   for (const x of xs) {
     for (const y of ys) {
       if (!isOuter(x, y)) continue;
       if (onPaperEdge(x, paperWidth) && onPaperEdge(y, paperHeight)) continue;
       for (const { dx, dy } of DIRECTIONS) {
-        const half = openDistance(x, y, dx, dy, layout.slots) / 2;
+        const paperLeft = paperDistance(x, y, dx, dy, paperWidth, paperHeight);
+
+        // 예외: 속지가 용지 가장자리에 딱 붙어(정렬을 좌측 상단 등으로
+        // 몰았을 때) 그 방향엔 종이 자체가 없으면, 표시할 자리가 없다고
+        // 그냥 건너뛰지 않는다 — 아무 표시도 없으면 그 가장자리를 어디서
+        // 잘라야 할지 알 수 없다. 이때만 "내용을 침범하지 않는다"는
+        // 원칙을 깨고, 반대쪽(속지 내용 쪽)에 짧게 표시한다.
+        if (paperLeft <= CROP_MARK_GAP) {
+          if (dx !== 0) out.push({ x1: x, y1: y, x2: x - dx * CROP_MARK_LENGTH, y2: y });
+          else out.push({ x1: x, y1: y, x2: x, y2: y - dy * CROP_MARK_LENGTH });
+          continue;
+        }
+
+        const half = Math.min(openDistance(x, y, dx, dy, layout.slots) / 2, paperLeft);
         if (half <= CROP_MARK_GAP) continue; // 간격조차 못 낼 만큼 좁으면 아무것도 안 그린다
         const length = Math.min(CROP_MARK_LENGTH, half - CROP_MARK_GAP);
         const from = CROP_MARK_GAP;

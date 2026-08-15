@@ -29,7 +29,7 @@ import {
   splitLines,
   valignOf,
 } from '../core/text';
-import { mirrorLayout, type Layout } from '../core/layout';
+import type { Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import {
@@ -150,10 +150,9 @@ interface ExportInput {
   /**
    * 양면 인쇄. 켜면 장마다 뒷면 페이지를 하나씩 더 넣는다.
    *
-   * 칸 위치는 core/layout의 `mirrorLayout`로 뒤집는다(회전 배치가 아니면
-   * 좌우, 회전 배치면 상하) — 칸 안의 내용은 그대로다(설계문서 8장). 총
-   * 쪽수를 채우는 순서는 앞을 다 채운 뒤 뒤를 채운다(core/template의
-   * `frontBackFilled`).
+   * 칸 자리는 앞면과 똑같다 — 안전영역·타공만 mirror로 뒤집힌다(설계문서
+   * 8장, core/layout의 `mirrorLayout` 주석 참고). 총 쪽수를 채우는 순서는
+   * 앞을 다 채운 뒤 뒤를 채운다(core/template의 `frontBackFilled`).
    */
   duplex?: boolean;
   /**
@@ -327,17 +326,16 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     : input.totalSlots && input.totalSlots > 0 && slotsPerSheet > 0
       ? sheetsNeeded(input.totalSlots, capacityPerSheet(slotsPerSheet, duplex))
       : Math.max(1, input.sheets ?? 1);
-  // 칸 위치를 뒤집은 배치(회전 배치가 아니면 좌우, 회전 배치면 상하 — core/layout의
-  // mirrorLayout 주석 참고). 재단선도 여기서 다시 계산해야 앞뒤가 같은 자리에서 잘린다.
-  const backLayout = duplex ? mirrorLayout(input.layout, input.paperWidth, input.paperHeight) : null;
+  // 뒷면도 칸 자리는 앞면과 똑같다 — 정렬이 좌측 상단이면 뒷면도 좌측
+  // 상단으로 몰린다(core/layout의 mirrorLayout 주석 참고).
+  const backLayout = duplex ? input.layout : null;
 
   /**
    * 한 면(앞 또는 뒤)을 그린다. 페이지·배치·칸 내용 판단 함수만 갈아끼운다.
    *
-   * `mirror`는 뒷면일 때만 켠다 — 속지 자신의 가로축(구멍이 있는 축)이 항상
-   * 뒤집힌다(core/grid의 gridArea 참고) — mirrorLayout이 회전 여부에 따라
-   * 좌우·상하 중 알맞은 쪽으로 칸을 옮겨주므로, 이 안전영역 뒤집기는 회전
-   * 여부와 무관하게 항상 켠다.
+   * `mirror`는 뒷면일 때만 켠다 — 종이를 뒤집으면 속지 자신의 가로축(구멍이
+   * 있는 축)이 항상 반대쪽이 되므로(core/grid의 gridArea 참고), 칸 자리 자체와
+   * 무관하게 안전영역·타공만 항상 켠다.
    */
   function drawSide(
     page: PDFPage,

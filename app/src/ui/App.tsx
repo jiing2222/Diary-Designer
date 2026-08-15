@@ -7,7 +7,6 @@ import {
   frontBackFilled,
   sheetsNeeded,
 } from '../core/template';
-import { mirrorLayout } from '../core/layout';
 import { datasetPages } from '../core/dataset';
 import { resolveObjectsForPage } from '../core/format';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
@@ -473,11 +472,11 @@ export function App() {
                       calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
                     />
                   ) : (
-                    // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 뒤집는다(회전
-                    // 배치가 아니면 좌우, 회전 배치면 상하). 칸 안의 내용(도트·글자)은
-                    // 뒤집지 않지만, 안전영역·타공 안내는 항상 mirror로 표시한다
-                    // (설계문서 8장) — mirrorLayout이 이미 회전 여부를 반영했으므로
-                    // 이쪽은 회전과 무관하게 항상 켠다.
+                    // 뒷면 — 칸 자리는 앞면과 똑같다(정렬이 좌측 상단이면 뒷면도
+                    // 좌측 상단으로 몰린다). 칸 안의 안전영역·타공 안내만 mirror로
+                    // 뒤집어 보여준다(설계문서 8장 — 종이를 뒤집으면 구멍이 반대쪽에
+                    // 있으므로). 칸 자리 자체를 뒤집지 않는 이유는 core/layout의
+                    // `mirrorLayout` 주석 참고.
                     <PaperPreview
                       paper={{ ...s.paper, width, height }}
                       insert={active.insert}
@@ -485,7 +484,7 @@ export function App() {
                       dotGrid={active.back || s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID}
                       objects={active.back?.objects.present ?? []}
                       slotOverrides={previewBackOverrides.size > 0 ? previewBackOverrides : undefined}
-                      layout={mirrorLayout(layout, width, height)}
+                      layout={layout}
                       cropMark={s.cropMark}
                       showRuler={s.showRuler}
                       unprintable={s.unprintable}
