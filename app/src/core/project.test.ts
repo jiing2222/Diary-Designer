@@ -270,6 +270,54 @@ describe('저장했다 다시 열기', () => {
     });
     expect(r).toHaveProperty('error');
   });
+
+  it('파일 안에서 id가 겹치면 나중 것에 새 id를 매긴다', () => {
+    // 17r 이전 버그로 저장 파일 안에 이미 겹친 id가 박혀 있는 경우를 흉내낸다.
+    const r = readProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        {
+          id: 't1',
+          name: '가',
+          insert: insertFromPreset('M6'),
+          objects: [
+            { ...line, id: 'l1' },
+            { ...line, id: 'l1', y1: 20, y2: 20 }, // 같은 id, 다른 선
+          ],
+        },
+      ],
+      print: {},
+      fonts: [],
+    });
+    const restored = toTemplates((r as { ok: never }).ok);
+    const ids = restored[0].objects.present.map((o) => o.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    expect(ids).toContain('l1'); // 먼저 나온 것은 그대로 둔다
+  });
+
+  it('앞면·뒷면에 걸쳐 겹쳐도 잡는다', () => {
+    const r = readProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        {
+          id: 't1',
+          name: '가',
+          insert: insertFromPreset('M6'),
+          objects: [{ ...line, id: 'l1' }],
+          back: { objects: [{ ...line, id: 'l1', y1: 30, y2: 30 }] },
+        },
+      ],
+      print: {},
+      fonts: [],
+    });
+    const restored = toTemplates((r as { ok: never }).ok);
+    const frontId = restored[0].objects.present[0].id;
+    const backId = restored[0].back!.objects.present[0].id;
+    expect(frontId).not.toBe(backId);
+  });
 });
 
 describe('다시 등록해야 하는 글꼴', () => {

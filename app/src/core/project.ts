@@ -1,6 +1,6 @@
 import { initHistory } from './history';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
-import type { DiaryObject } from './objects';
+import { cloneObject, type DiaryObject } from './objects';
 import type { InsertSetting, RepeatSetting, Template } from './template';
 import { defaultInsert, SINGLE_REPEAT } from './template';
 
@@ -145,6 +145,33 @@ export function readProject(raw: unknown): { ok: SavedProject } | { error: strin
 }
 
 /**
+ * 이 프로젝트(모든 양식의 앞뒤를 통틀어) 안에서 겹치는 id가 있으면 새로
+ * 매긴다. 처음 나온 것만 그대로 두고, 그 뒤에 같은 id가 또 나오면 그것만
+ * 새 id를 받는다.
+ *
+ * **17r 이전에는 새로고침한 뒤 처음 그리는 것이 파일 속 객체와 같은 id를
+ * 받을 수 있었다.** 그 버그로 생긴 겹침이 이미 저장 파일에 그대로 박혀
+ * 있을 수 있다 — `ensureIdCounterAbove`(store.ts)는 "앞으로" 생길 겹침만
+ * 막을 뿐, 불러온 파일 안에 이미 있는 겹침은 못 고친다. 그래서 불러올
+ * 때마다 이 검사를 한다. 겹친 채로 두면 리액트가 둘을 같은 key로 보고
+ * 하나만 그리거나, 고르거나 옮길 때 엉뚱한 쪽이 움직인다.
+ */
+function dedupeObjectIds(objectsByGroup: DiaryObject[][]): DiaryObject[][] {
+  const seen = new Set<string>();
+  return objectsByGroup.map((objects) =>
+    objects.map((o) => {
+      if (!seen.has(o.id)) {
+        seen.add(o.id);
+        return o;
+      }
+      const fresh = cloneObject(o, 0, 0);
+      seen.add(fresh.id);
+      return fresh;
+    }),
+  );
+}
+
+/**
  * 저장 파일을 다시 양식으로.
  *
  * **없는 값은 기본값으로 채운다.** 옛 판에 없던 설정이 나중에 생겼을 때, 그
@@ -153,17 +180,28 @@ export function readProject(raw: unknown): { ok: SavedProject } | { error: strin
  * 실행취소 이력은 빈 채로 시작한다 — 방금 연 파일이 첫 모습이다.
  */
 export function toTemplates(p: SavedProject): Template[] {
-  return p.templates.map((t, i) => ({
-    id: t.id || `t${i + 1}`,
-    name: t.name,
-    insert: { ...defaultInsert(), ...t.insert },
-    dotGrid: { ...DEFAULT_DOT_GRID, ...t.dotGrid },
-    objects: initHistory(t.objects),
-    repeat: t.repeat ?? SINGLE_REPEAT,
-    // 옛 파일(뒷면 격자가 따로 있던 판)에 back.dotGrid가 남아 있어도 이제
-    // 격자는 앞뒤 공유값(위의 dotGrid)이라 여기서는 읽지 않는다.
-    back: t.back ? { objects: initHistory(t.back.objects) } : null,
-  }));
+  // 앞뒤를 통틀어 한 번에 겹침을 검사해야, 예를 들어 앞면의 id가 다른
+  // 양식 뒷면의 id와 겹치는 것까지 잡는다 — 양식·쪽 경계와 무관하게
+  // 이 프로젝트 전체에서 한 번만 나와야 한다.
+  const groups = p.templates.flatMap((t) => [t.objects, t.back?.objects ?? []]);
+  const deduped = dedupeObjectIds(groups);
+  let i = 0;
+
+  return p.templates.map((t, idx) => {
+    const objects = deduped[i++];
+    const backObjects = deduped[i++];
+    return {
+      id: t.id || `t${idx + 1}`,
+      name: t.name,
+      insert: { ...defaultInsert(), ...t.insert },
+      dotGrid: { ...DEFAULT_DOT_GRID, ...t.dotGrid },
+      objects: initHistory(objects),
+      repeat: t.repeat ?? SINGLE_REPEAT,
+      // 옛 파일(뒷면 격자가 따로 있던 판)에 back.dotGrid가 남아 있어도 이제
+      // 격자는 앞뒤 공유값(위의 dotGrid)이라 여기서는 읽지 않는다.
+      back: t.back ? { objects: initHistory(backObjects) } : null,
+    };
+  });
 }
 
 /**
