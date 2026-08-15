@@ -18,6 +18,7 @@ import {
 } from '../core/grid';
 import { roundMm } from '../core/units';
 import { InsertView } from './InsertView';
+import { ImageLibraryDialog } from './ImagePickerDialog';
 
 /**
  * 양식 관리 — 만들어둔 속지들을 한눈에 본다.
@@ -35,6 +36,7 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
   const activeId = useStore((s) => s.activeId);
   const addTemplate = useStore((s) => s.addTemplate);
   const [creating, setCreating] = useState(false);
+  const [managingImages, setManagingImages] = useState(false);
 
   const groups = groupBySize(templates);
 
@@ -47,6 +49,9 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
         */}
         <button className="primary" onClick={() => setCreating(true)}>
           + 새 양식
+        </button>
+        <button className="ghost" onClick={() => setManagingImages(true)}>
+          이미지 관리
         </button>
         <span className="gallery-hint">
           양식 {templates.length}개 · 클릭하면 그 양식으로 넘어갑니다
@@ -63,6 +68,8 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
           }}
         />
       )}
+
+      {managingImages && <ImageLibraryDialog onClose={() => setManagingImages(false)} />}
 
       <div className="gallery-body">
         {templates.length === 0 && (

@@ -54,13 +54,39 @@ import { ImagePickerDialog } from './ImagePickerDialog';
  */
 
 const WIDTHS: Mm[] = [0.1, 0.15, 0.2, 0.3, 0.4, 0.6, 0.8];
-const COLORS: { id: string; label: string }[] = [
-  { id: '#cfcfcf', label: '아주 연하게' },
-  { id: '#9e9e9e', label: '연하게' },
-  { id: '#6e6e6e', label: '중간' },
-  { id: '#3a3a3a', label: '진하게' },
-  { id: '#000000', label: '검정' },
-];
+
+/**
+ * 색 하나를 고르는 칸. 브라우저 기본 색 선택기(`input type="color"`)를
+ * 쓴다 — 회색 몇 종류가 아니라 아무 색이나(빨주노초파남보 다) 16진
+ * 코드로 직접 입력하거나 색상환에서 고를 수 있다. 예전엔 미리 정해둔
+ * 회색 5단계(`아주 연하게`~`검정`)만 골랐는데, 사용자가 전체 색을
+ * 원해서 바꿨다.
+ *
+ * **"섞임" 상태는 색 자체로 표현할 수 없다** — 이 입력은 늘 실제 색
+ * 하나를 보여줘야 하므로, 섞였을 때는 첫 번째 값을 그대로 보여주되
+ * `mixed` 클래스로 테두리를 다르게 해서 섞였다는 것만 알려준다.
+ */
+function ColorField({
+  value,
+  mixed,
+  onChange,
+  title,
+}: {
+  value: string;
+  mixed: boolean;
+  onChange: (color: string) => void;
+  title: string;
+}) {
+  return (
+    <input
+      type="color"
+      className={mixed ? 'color-field mixed' : 'color-field'}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      title={mixed ? `${title} — 색이 여러 개 섞여 있습니다` : title}
+    />
+  );
+}
 
 /**
  * 굵기·색·모양.
@@ -313,18 +339,12 @@ function LineControls({
         ))}
       </select>
 
-      <select
-        value={val('color', OBJECT_LINE_COLOR)}
-        onChange={(e) => apply({ color: e.target.value || undefined })}
+      <ColorField
+        value={(editing ? lines[0].color : draft?.color) ?? OBJECT_LINE_COLOR}
+        mixed={mixed('color')}
+        onChange={(color) => apply({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
         title="색"
-      >
-        {mixed('color') && <option value="mixed">—</option>}
-        {COLORS.map((c) => (
-          <option key={c.id} value={c.id === OBJECT_LINE_COLOR ? '' : c.id}>
-            {c.label}
-          </option>
-        ))}
-      </select>
+      />
 
       <select
         value={val('dash', 'solid')}
@@ -401,18 +421,12 @@ function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
         <option value="hanja">한자 요일</option>
       </select>
 
-      <select
-        value={colorMixed ? 'mixed' : (first.color ?? TEXT_COLOR) === TEXT_COLOR ? '' : (first.color ?? TEXT_COLOR)}
-        onChange={(e) => styleCalendar({ color: e.target.value || undefined })}
+      <ColorField
+        value={first.color ?? TEXT_COLOR}
+        mixed={colorMixed}
+        onChange={(color) => styleCalendar({ color: color === TEXT_COLOR ? undefined : color })}
         title="글자 색"
-      >
-        {colorMixed && <option value="mixed">—</option>}
-        {COLORS.map((c) => (
-          <option key={c.id} value={c.id === TEXT_COLOR ? '' : c.id}>
-            {c.label}
-          </option>
-        ))}
-      </select>
+      />
 
       <select
         value={sizeMixed ? 'mixed' : sizeScaleOf(first) === 1 ? '' : String(sizeScaleOf(first))}
@@ -479,18 +493,12 @@ function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
         ))}
       </select>
 
-      <select
-        value={colorMixed ? 'mixed' : strokeColorOf(first) === OBJECT_LINE_COLOR ? '' : strokeColorOf(first)}
-        onChange={(e) => styleShape({ color: e.target.value || undefined })}
+      <ColorField
+        value={strokeColorOf(first)}
+        mixed={colorMixed}
+        onChange={(color) => styleShape({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
         title="테두리 색"
-      >
-        {colorMixed && <option value="mixed">—</option>}
-        {COLORS.map((c) => (
-          <option key={c.id} value={c.id === OBJECT_LINE_COLOR ? '' : c.id}>
-            {c.label}
-          </option>
-        ))}
-      </select>
+      />
 
       <select
         value={dashMixed ? 'mixed' : strokeDashOf(first) === 'solid' ? '' : strokeDashOf(first)}
@@ -529,11 +537,6 @@ function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
  * (도형)·`styleText`(글자)는 이미 각자 자기 종류가 아닌 id는 걸러내므로,
  * 고른 것 전체의 id를 그대로 셋 다에 넘겨도 안전하다 — 새 액션을 만들
  * 필요가 없다.
- *
- * **`값이 없으면 기본값을 따른다` 관례의 "빈 문자열 = 기본값" 표기는 여기서
- * 못 쓴다.** 선·도형의 기본색(`OBJECT_LINE_COLOR`, "연하게")과 글자의
- * 기본색(`TEXT_COLOR`, "진하게")이 서로 달라서, 같은 빈 문자열이 종류마다
- * 다른 색을 가리키게 된다 — 섞인 선택에서는 그냥 실제 색 id를 그대로 보여준다.
  */
 function MixedColorControls({
   lines,
@@ -557,23 +560,16 @@ function MixedColorControls({
   const mixed = !colors.every((c) => c === first);
 
   return (
-    <select
-      value={mixed ? 'mixed' : first}
-      onChange={(e) => {
-        const color = e.target.value;
+    <ColorField
+      value={first}
+      mixed={mixed}
+      onChange={(color) => {
         if (lines.length > 0) styleSelected({ color });
         if (shapes.length > 0) styleShape({ color });
         if (texts.length > 0) styleText({ color });
       }}
       title="색 — 고른 선·표·글자 전부에 적용됩니다"
-    >
-      {mixed && <option value="mixed">—</option>}
-      {COLORS.map((c) => (
-        <option key={c.id} value={c.id}>
-          {c.label}
-        </option>
-      ))}
-    </select>
+    />
   );
 }
 
@@ -621,18 +617,12 @@ function TableControls({ shapes, lines }: { shapes: ShapeObject[]; lines: LineOb
         ))}
       </select>
 
-      <select
-        value={colorMixed ? 'mixed' : strokeColorOf(first) === OBJECT_LINE_COLOR ? '' : strokeColorOf(first)}
-        onChange={(e) => apply({ color: e.target.value || undefined })}
+      <ColorField
+        value={strokeColorOf(first)}
+        mixed={colorMixed}
+        onChange={(color) => apply({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
         title="색 — 테두리·안쪽 칸 선 둘 다"
-      >
-        {colorMixed && <option value="mixed">—</option>}
-        {COLORS.map((c) => (
-          <option key={c.id} value={c.id === OBJECT_LINE_COLOR ? '' : c.id}>
-            {c.label}
-          </option>
-        ))}
-      </select>
+      />
 
       <select
         value={dashMixed ? 'mixed' : strokeDashOf(first) === 'solid' ? '' : strokeDashOf(first)}
@@ -714,18 +704,12 @@ function CheckboxControls({
         ))}
       </select>
 
-      <select
-        value={val('color', OBJECT_LINE_COLOR)}
-        onChange={(e) => apply({ color: e.target.value || undefined })}
+      <ColorField
+        value={items[0].color ?? OBJECT_LINE_COLOR}
+        mixed={mixed('color')}
+        onChange={(color) => apply({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
         title="테두리 색"
-      >
-        {mixed('color') && <option value="mixed">—</option>}
-        {COLORS.map((c) => (
-          <option key={c.id} value={c.id === OBJECT_LINE_COLOR ? '' : c.id}>
-            {c.label}
-          </option>
-        ))}
-      </select>
+      />
     </>
   );
 }
@@ -1073,18 +1057,12 @@ function TextControls({
         <option value="bottom">하단</option>
       </select>
 
-      <select
-        value={val('color', TEXT_COLOR)}
-        onChange={(e) => pick({ color: e.target.value || undefined })}
+      <ColorField
+        value={items[0].color ?? TEXT_COLOR}
+        mixed={mixed('color')}
+        onChange={(color) => pick({ color: color === TEXT_COLOR ? undefined : color })}
         title="색"
-      >
-        {mixed('color') && <option value="mixed">—</option>}
-        {COLORS.map((c) => (
-          <option key={c.id} value={c.id === TEXT_COLOR ? '' : c.id}>
-            {c.label}
-          </option>
-        ))}
-      </select>
+      />
 
       <select
         value={mixed('rotate') ? 'mixed' : String(items[0].rotate ?? 0)}
