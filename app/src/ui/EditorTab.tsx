@@ -16,6 +16,7 @@ import {
   isImage,
   isLine,
   isLocked,
+  isShape,
   isText,
   objectInRect,
   rectLines,
@@ -552,6 +553,12 @@ export function EditorTab() {
     return null;
   }
 
+  /** 상자 테두리(네 변)까지의 최소 거리. */
+  function distanceToBoxEdge(b: Box, p: Point): Mm {
+    const edges = rectLines({ x: b.x, y: b.y }, { x: b.x + b.width, y: b.y + b.height });
+    return Math.min(...edges.map((e) => distanceToSegment(e, p.x, p.y)));
+  }
+
   /**
    * 그 자리에서 집히는 것. 가장 가까운 것 하나만 고른다.
    *
@@ -561,6 +568,11 @@ export function EditorTab() {
    *
    * 글자를 먼저 본다. 글자가 선 위에 얹혀 있을 때 글자를 집을 수 없으면 곤란하다.
    * 달력·이미지는 자기 상자가 곧 자리라 글꼴이 그린 크기를 잴 필요가 없다.
+   *
+   * **도형만은 안이 아니라 테두리를 눌러야 집힌다.** 표의 테두리도 도형이고,
+   * 그 안에 안쪽 칸 선이 그대로 깔려 있다 — 안을 채워서 판정하면 그 선을 다시
+   * 고를 수 없다(늘 테두리가 먼저 집힌다). 도형 안에 직접 그려 넣은 장식선도
+   * 같은 문제라, 도형은 아예 테두리 근처(GRAB)만 집히게 한다.
    */
   function hitAt(p: Point): DiaryObject | null {
     const svg = svgRef.current;
@@ -584,6 +596,10 @@ export function EditorTab() {
       const b = boxOf(o);
       // 이미지는 돌아가 있을 수 있다 — 회전 전 좌표로 되돌려 상자와 견준다.
       const test = toLocal(o, p);
+      if (isShape(o)) {
+        if (distanceToBoxEdge(b, test) <= GRAB) return o;
+        continue;
+      }
       if (test.x >= b.x && test.x <= b.x + b.width && test.y >= b.y && test.y <= b.y + b.height) return o;
     }
 
@@ -1110,7 +1126,19 @@ export function EditorTab() {
       ? cellAt(lattice, hover.x, hover.y)
       : null;
 
-  // 지금 그리는 것의 치수. 면이면 가로 × 세로, 선이면 길이.
+  /**
+   * 선의 mm 치수 뒤에 몇 칸짜리인지도 붙인다. 표(tableSize)와 같은 계산을
+   * 그대로 쓴다 — 가로나 세로 어느 한쪽으로만 그은(대개의 경우) 선은 그
+   * 방향 칸 수 하나만, 대각선처럼 둘 다 걸치면 표처럼 "가로 × 세로"로 보여준다.
+   */
+  function withCells(mmLabel: string | null, from: Point, to: Point): string | null {
+    if (!mmLabel) return null;
+    const { cols, rows } = tableSize(lattice, from, to);
+    const cellPart = cols === 1 ? `${rows}칸` : rows === 1 ? `${cols}칸` : `${cols} × ${rows}칸`;
+    return `${mmLabel} · ${cellPart}`;
+  }
+
+  // 지금 그리는 것의 치수. 면이면 가로 × 세로, 선이면 길이(+몇 칸인지).
   const sizeLabel = (() => {
     if (drag?.kind === 'draw') {
       // 표·체크박스는 mm가 아니라 몇 칸인지가 더 궁금하다. 그리기(선·면)는 지금처럼 mm.
@@ -1120,13 +1148,20 @@ export function EditorTab() {
       }
       return sizeLabelOf(rectLines(drag.from, drag.to));
     }
-    if (grip && lone && isLine(lone)) return sizeLabelOf([preview(lone, null, grip)]);
+    if (grip && lone && isLine(lone)) {
+      const s = preview(lone, null, grip);
+      return withCells(sizeLabelOf([s]), { x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 });
+    }
     if (boxGrip && lone && isBoxResizable(lone)) {
       const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
       return `${roundMm(b.width, 1)} × ${roundMm(b.height, 1)}mm`;
     }
     if (pending && hover) {
-      return sizeLabelOf([{ x1: pending.x, y1: pending.y, x2: hover.x, y2: hover.y }]);
+      return withCells(
+        sizeLabelOf([{ x1: pending.x, y1: pending.y, x2: hover.x, y2: hover.y }]),
+        pending,
+        hover,
+      );
     }
     return null;
   })();
