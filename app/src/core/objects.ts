@@ -560,6 +560,18 @@ export function moveObject(o: DiaryObject, dx: Mm, dy: Mm): DiaryObject {
   return isLine(o) ? moveSegment(o, dx, dy) : { ...o, x: o.x + dx, y: o.y + dy };
 }
 
+/**
+ * 객체를 속지 가로 폭 기준으로 좌우 뒤집는다. **자리만 옮긴다** — 글자
+ * 정렬·회전 방향·아이콘 모양은 그대로 둔다(글자를 거울상으로 뒤집으면
+ * 오히려 못 읽는다). `store.ts`의 `copyFrontToBack`이 쓴다: 타공은 뒷면에서
+ * 반대쪽에 있으므로(core/punch의 `holeCenterX`), 앞면 그대로 복사한 그림도
+ * 타공과의 거리가 유지되도록 자리를 함께 뒤집어야 한다.
+ */
+export function mirrorObjectX(o: DiaryObject, insertWidth: Mm): DiaryObject {
+  if (isLine(o)) return { ...o, x1: insertWidth - o.x1, x2: insertWidth - o.x2 };
+  return { ...o, x: insertWidth - o.x - o.width };
+}
+
 /** newId가 쓰는 종류별 접두어. 복사·표 분리처럼 다른 곳에서도 새로 id를 매길 때 쓴다. */
 const ID_PREFIX: Record<DiaryObject['type'], string> = {
   line: 'l',

@@ -1,4 +1,4 @@
-import { boxOf, cloneObject, type DiaryObject } from './objects';
+import { boxOf, cloneObject, mirrorObjectX, type DiaryObject } from './objects';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import { initHistory, type History } from './history';
 import { DEFAULT_PUNCH, type PunchSetting } from './punch';
@@ -146,9 +146,16 @@ export function newBack(): BackPage {
  * 격자는 앞뒤가 공유값이라 따로 옮길 게 없다 — 그린 것만 옮긴다.
  * `duplicateTemplate`이 뒷면을 물려받을 때와 같은 방식으로, 실행취소 이력은
  * 새로 시작한다(앞면에서 쌓아온 되돌리기까지 뒷면이 물려받으면 이상하다).
+ *
+ * **자리는 좌우로 뒤집는다.** 타공은 뒷면에서 반대쪽에 있다(core/punch의
+ * `holeCenterX`) — 그대로 옮기면 타공 옆 여백에 맞춰 그린 그림이 뒷면에서는
+ * 타공에서 먼 쪽에 놓여, 종이를 뒤집었을 때 타공과의 거리가 앞뒤가 서로
+ * 달라진다. `mirrorObjectX`로 각 객체의 자리를 뒤집어 거리를 지킨다.
  */
 export function backFromFront(t: Template): BackPage {
-  return { objects: initHistory([...t.objects.present]) };
+  return {
+    objects: initHistory(t.objects.present.map((o) => mirrorObjectX(o, t.insert.width))),
+  };
 }
 
 /**

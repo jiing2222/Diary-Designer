@@ -34,6 +34,18 @@ const a5 = on(148, 210);
 /** M6 네 장. A4에 딱 맞지 않아 오른쪽과 아래에 자투리가 남는다. */
 const m6 = on(80, 125, 'topLeft', false);
 
+/** 칸 사이 간격이 2mm뿐인 배치. 기본 팔 길이(3mm)면 양옆 표시가 겹친다. */
+const tightGap = computeLayout({
+  paperWidth: 210,
+  paperHeight: 297,
+  insertWidth: 80,
+  insertHeight: 125,
+  gap: 2,
+  printMargin: 0,
+  allowRotate: false,
+  align: 'topLeft',
+});
+
 /** 마크가 찍힌 자리만 추려낸다. 십자 하나가 선 두 개라 절반만 본다. */
 const points = (segs: ReturnType<typeof cropSegments>) => {
   const seen = new Set<string>();
@@ -108,6 +120,21 @@ describe('절취선', () => {
     expect(h.y1).toBeCloseTo(h.y2, 9);
     expect(v.y2 - v.y1).toBeCloseTo(CROP_ARM * 2, 9);
     expect(v.x1).toBeCloseTo(v.x2, 9);
+  });
+
+  it('칸 사이 간격이 좁으면 십자 팔이 겹치지 않게 짧아진다', () => {
+    // x=80(첫 칸 오른쪽 끝)과 x=82(다음 칸 왼쪽 끝) 사이는 2mm뿐이다.
+    // 기본 3mm 팔이면 양쪽에서 뻗은 팔이 겹쳐, 잘라낼 부분(간격)에 끊기지
+    // 않는 선 하나가 남는다 — 겹치지 않는 최대 반지름은 간격의 절반(1mm)이다.
+    const segs = cropSegments(tightGap, 210, 297, 'mark');
+    const h = segs.find((s) => s.y1 === s.y2 && s.y1 === 0 && (s.x1 + s.x2) / 2 === 80);
+    expect(h).toBeDefined();
+    expect(h!.x2 - h!.x1).toBeCloseTo(2, 9); // 반지름 1mm × 2
+  });
+
+  it('간격이 넓으면(0이어도 옆 칸까지 80mm) 기본 팔 길이를 그대로 쓴다', () => {
+    const [h] = cropSegments(m6, 210, 297, 'mark');
+    expect(h.x2 - h.x1).toBeCloseTo(CROP_ARM * 2, 9);
   });
 
   it('없음이면 아무것도 그리지 않는다', () => {

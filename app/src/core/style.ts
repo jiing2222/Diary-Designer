@@ -45,7 +45,8 @@ export const GRID_LINE_WIDTH: Mm = 0.12;
  */
 export const SCREEN_DOT_SIZE: Mm = 0.6;
 export const SCREEN_GRID_LINE_WIDTH: Mm = 0.2;
-export const SCREEN_GRID_COLOR = '#8c8c8c';
+// 너무 진해서 그 위에 그린 디자인이 잘 안 보인다는 요청으로 연하게 낮췄다(17단계).
+export const SCREEN_GRID_COLOR = '#c9c9c9';
 
 /**
  * 마우스가 올라간 자리. 어디에 붙을지 미리 보여준다. 화면 전용이다.

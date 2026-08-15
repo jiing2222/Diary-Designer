@@ -76,19 +76,38 @@ export function cropSegments(
   // 이쪽은 markAll에서도 뺀다. 잘라낼 것이 없다는 사실은 변하지 않는다.
   //
   // 용지 밖으로 뻗은 팔은 화면(viewBox)과 PDF(페이지 경계)가 알아서 잘라낸다.
-  const A = CROP_ARM;
+  const armX = armLengths(xs);
+  const armY = armLengths(ys);
   const keepInner = mode === 'markAll';
   const onPaperEdge = (v: Mm, size: Mm) => near(v, 0) || near(v, size);
   const onBlockEdge = (v: Mm, lo: Mm, hi: Mm) => near(v, lo) || near(v, hi);
 
   const out: Segment[] = [];
-  for (const x of xs) {
-    for (const y of ys) {
-      if (!keepInner && !onBlockEdge(x, left, right) && !onBlockEdge(y, top, bottom)) continue;
-      if (onPaperEdge(x, paperWidth) && onPaperEdge(y, paperHeight)) continue;
-      out.push({ x1: x - A, y1: y, x2: x + A, y2: y });
-      out.push({ x1: x, y1: y - A, x2: x, y2: y + A });
-    }
-  }
+  xs.forEach((x, xi) => {
+    ys.forEach((y, yi) => {
+      if (!keepInner && !onBlockEdge(x, left, right) && !onBlockEdge(y, top, bottom)) return;
+      if (onPaperEdge(x, paperWidth) && onPaperEdge(y, paperHeight)) return;
+      out.push({ x1: x - armX[xi], y1: y, x2: x + armX[xi], y2: y });
+      out.push({ x1: x, y1: y - armY[yi], x2: x, y2: y + armY[yi] });
+    });
+  });
   return out;
+}
+
+/**
+ * 각 좌표에서 십자 팔이 뻗을 수 있는 최대 길이.
+ *
+ * 옆 좌표까지 거리의 절반보다 길게 뻗으면, 칸 사이 간격이 좁을 때(기본
+ * 3mm 팔에 간격이 6mm보다 좁으면) 옆 표시의 팔과 맞닿거나 겹친다 — 자를
+ * 부분(간격)에 끊기지 않는 선 하나가 남아, 표시 두 개가 아니라 마치
+ * 재단선 하나가 그어진 것처럼 보인다. 십자 마크를 쓰는 이유(속지 위에
+ * 자국을 남기지 않는 것) 자체가 무색해진다.
+ */
+function armLengths(coords: Mm[]): Mm[] {
+  return coords.map((v, i) => {
+    let arm = CROP_ARM;
+    if (i > 0) arm = Math.min(arm, (v - coords[i - 1]) / 2);
+    if (i < coords.length - 1) arm = Math.min(arm, (coords[i + 1] - v) / 2);
+    return arm;
+  });
 }

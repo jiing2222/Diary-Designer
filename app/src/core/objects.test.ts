@@ -8,6 +8,7 @@ import {
   dedupe,
   distanceToSegment,
   fitBox,
+  mirrorObjectX,
   moveSegment,
   newId,
   objectInRect,
@@ -456,6 +457,41 @@ describe('붙여넣기 사본', () => {
   it('원본은 손대지 않는다', () => {
     cloneObject(shape, 5, 5);
     expect(shape).toEqual({ id: 'sh1', type: 'shape', x: 10, y: 10, width: 20, height: 20 });
+  });
+});
+
+describe('좌우 뒤집기(뒷면 복사)', () => {
+  const shape: DiaryObject = { id: 'sh1', type: 'shape', x: 10, y: 10, width: 20, height: 30 };
+
+  it('상자 모양은 오른쪽 끝이 왼쪽 끝이 되도록 뒤집는다 — y·크기는 그대로', () => {
+    // 속지 폭 80에서 x=10~30(오른쪽 끝 30)이던 상자는 뒤집으면
+    // 오른쪽 끝이 80-10=70, 왼쪽 끝(x)이 80-30=50이 된다.
+    expect(mirrorObjectX(shape, 80)).toEqual({ ...shape, x: 50 });
+  });
+
+  it('선은 두 끝점 다 뒤집는다', () => {
+    const line: DiaryObject = { id: 'l1', type: 'line', x1: 0, y1: 5, x2: 30, y2: 15 };
+    expect(mirrorObjectX(line, 80)).toEqual({ ...line, x1: 80, x2: 50 });
+  });
+
+  it('왼쪽 끝(안전영역 쪽)에 있던 것이 오른쪽 끝으로 간다', () => {
+    // 타공에서 5mm 띄워 그린 상자(x=5, width=10 → 오른쪽 끝 15)는
+    // 뒤집으면 반대쪽 끝에서 5mm(오른쪽 끝에서 5) 떨어진 자리로 간다.
+    const box: DiaryObject = { id: 'sh1', type: 'shape', x: 5, y: 0, width: 10, height: 10 };
+    const mirrored = mirrorObjectX(box, 80);
+    if (mirrored.type === 'line') throw new Error('shape가 line이 될 리 없다');
+    expect(mirrored.x).toBe(65); // 80-5-10
+    // 오른쪽 끝까지의 거리(80-(65+10)=5)가 원래 왼쪽 끝까지의 거리(5)와 같다.
+    expect(80 - (mirrored.x + mirrored.width)).toBe(box.x);
+  });
+
+  it('두 번 뒤집으면 제자리로 돌아온다', () => {
+    expect(mirrorObjectX(mirrorObjectX(shape, 80), 80)).toEqual(shape);
+  });
+
+  it('원본은 손대지 않는다', () => {
+    mirrorObjectX(shape, 80);
+    expect(shape).toEqual({ id: 'sh1', type: 'shape', x: 10, y: 10, width: 20, height: 30 });
   });
 });
 
