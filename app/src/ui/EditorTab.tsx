@@ -703,7 +703,10 @@ export function EditorTab() {
       const boxGripHit = boxHandleAt(raw);
       if (boxGripHit) {
         // 크기조정은 회전 전 자리 기준으로 계산한다(resizeBox와 짝이 맞아야 한다).
-        const to = lone ? toLocal(lone, raw) : raw;
+        // 격자에 앉힌 점(snap)을 쓴다 — raw 그대로 쓰면 손을 대는 순간(아직
+        // 움직이기 전)만 격자에서 살짝 벗어난 값으로 시작해, 짧게 끌고 놓을
+        // 때 도트에 잘 안 붙는 것처럼 느껴졌다.
+        const to = lone ? toLocal(lone, snap ?? raw) : (snap ?? raw);
         setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to });
         return;
       }
@@ -721,7 +724,8 @@ export function EditorTab() {
     // 늘이려다 매번 통째로 옮겨진다 — 끝점 손잡이와 같은 이유다.
     const boxGripHit = boxHandleAt(raw);
     if (boxGripHit) {
-      const to = lone ? toLocal(lone, raw) : raw;
+      // snap을 쓰는 이유는 위 이미지·달력 분기와 같다.
+      const to = lone ? toLocal(lone, snap ?? raw) : (snap ?? raw);
       setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to });
       return;
     }

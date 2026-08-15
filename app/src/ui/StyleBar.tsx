@@ -19,6 +19,7 @@ import {
   type ShapeStyle,
   type TextObject,
   type TextStyle,
+  MIN_BOX_SIZE,
 } from '../core/objects';
 import {
   DEFAULT_FONT_FAMILY,
@@ -731,6 +732,7 @@ function ImageControls({ images }: { images: ImageObject[] }) {
   const addUserImage = useStore((s) => s.addUserImage);
   const styleImage = useStore((s) => s.styleImage);
   const styleImageRotate = useStore((s) => s.styleImageRotate);
+  const resizeObject = useStore((s) => s.resizeObject);
   const pickImageFor = useStore((s) => s.pickImageFor);
   const requestImagePick = useStore((s) => s.requestImagePick);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -743,6 +745,29 @@ function ImageControls({ images }: { images: ImageObject[] }) {
 
   const rotateMixed = editing && !images.every((i) => imageRotateOf(i) === imageRotateOf(images[0]));
   const rotateValue = editing && !rotateMixed ? imageRotateOf(images[0]) : null;
+
+  const widthMixed = editing && !images.every((i) => i.width === images[0].width);
+  const heightMixed = editing && !images.every((i) => i.height === images[0].height);
+  const widthValue = editing && !widthMixed ? images[0].width : null;
+  const heightValue = editing && !heightMixed ? images[0].height : null;
+
+  /**
+   * 가로·세로를 입력으로 바꾼다 — 도트에 안 붙어 드래그로 정확히 맞추기
+   * 어렵다는 피드백이라, 숫자로 바로 정할 수 있게 했다. 왼쪽 위(x, y)는
+   * 그대로 두고 오른쪽·아래로만 자라거나 줄어든다(모서리로 끄는 것과
+   * 같은 기준점). 여럿을 골랐으면 각자 자기 x·y는 유지한 채 크기만
+   * 다 같이 바뀐다.
+   */
+  function resizeImages(patch: { width?: Mm; height?: Mm }) {
+    for (const img of images) {
+      resizeObject(img.id, {
+        x: img.x,
+        y: img.y,
+        width: patch.width ?? img.width,
+        height: patch.height ?? img.height,
+      });
+    }
+  }
 
   async function take(file: File | undefined) {
     if (!file) return;
@@ -833,15 +858,35 @@ function ImageControls({ images }: { images: ImageObject[] }) {
       )}
 
       {editing && (
-        <NumField
-          value={rotateValue}
-          unit="도"
-          title="회전 — 자유로운 각도로 돌립니다(시계 방향)"
-          min={-360}
-          max={360}
-          step={1}
-          onChange={(v) => styleImageRotate(v)}
-        />
+        <>
+          <NumField
+            value={widthValue}
+            unit="mm"
+            title="가로 — 왼쪽 위는 그대로 두고 오른쪽으로 자라거나 줄어듭니다"
+            min={MIN_BOX_SIZE}
+            max={1000}
+            step={1}
+            onChange={(v) => resizeImages({ width: v })}
+          />
+          <NumField
+            value={heightValue}
+            unit="mm"
+            title="세로 — 왼쪽 위는 그대로 두고 아래로 자라거나 줄어듭니다"
+            min={MIN_BOX_SIZE}
+            max={1000}
+            step={1}
+            onChange={(v) => resizeImages({ height: v })}
+          />
+          <NumField
+            value={rotateValue}
+            unit="도"
+            title="회전 — 자유로운 각도로 돌립니다(시계 방향)"
+            min={-360}
+            max={360}
+            step={1}
+            onChange={(v) => styleImageRotate(v)}
+          />
+        </>
       )}
     </>
   );
