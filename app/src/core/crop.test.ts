@@ -45,9 +45,6 @@ const tightGap = on(80, 125, 'topLeft', false, 2);
 /** 칸 사이 간격이 4mm인 배치 — 절반(2mm)에서 GAP(1mm)를 뺀 1mm만큼만 그을 수 있다. */
 const modestGap = on(80, 125, 'topLeft', false, 4);
 
-/** 가로·세로 모두 간격 4mm인 2×2 배치 — 안쪽 교차점에도 실제로 열린 방향이 있다. */
-const gapBothAxes = on(80, 125, 'topLeft', false, 4);
-
 /**
  * 이 좌표(모서리)에서 나가는 표시를 {left,right,up,down: 길이}로 정리한다.
  * 안쪽 끝(모서리에 더 가까운 쪽)이 "모서리 ± GAP"과 맞아야 그 방향으로 잡는다
@@ -137,19 +134,21 @@ describe('절취선', () => {
     expect(nearEnd).toBeCloseTo(10 - CROP_MARK_GAP, 9);
   });
 
-  it('안쪽까지 옵션은, 실제로 열린 방향이 있는 안쪽 교차점에는 표시를 낸다', () => {
-    // 사방이 다 내용인 m6는 markAll이어도 그을 자리가 없다(내용을 건드릴
-    // 수는 없으므로) — 대신 간격이 있어 실제로 열린 안쪽 교차점으로 시험한다.
-    const mMark = marksAt(cropSegments(gapBothAxes, 210, 297, 'mark'), 80, 125);
-    expect(mMark).toEqual({ left: 0, right: 0, up: 0, down: 0 }); // mark는 안쪽이라 아예 건너뛴다
+  it('안쪽까지 옵션은 원래 모양(모서리에 걸친 십자) 그대로, 갇힌 교차점도 찍는다', () => {
+    // mark는 사방이 내용인 안쪽 교차점을 아예 건너뛴다.
+    expect(marksAt(cropSegments(m6, 210, 297, 'mark'), 80, 125)).toEqual({
+      left: 0, right: 0, up: 0, down: 0,
+    });
 
-    const mAll = marksAt(cropSegments(gapBothAxes, 210, 297, 'markAll'), 80, 125);
-    // 이 모서리는 자기 칸(왼쪽 위)의 오른쪽 아래 끝이다 — 왼쪽·위는 자기
-    // 내용이라 막히고, 오른쪽·아래는 다음 칸까지의 간격(4mm)이 열려 있다.
-    expect(mAll.left).toBe(0);
-    expect(mAll.up).toBe(0);
-    expect(mAll.right).toBeGreaterThan(0);
-    expect(mAll.down).toBeGreaterThan(0);
+    // markAll은 프린터가 가장자리를 못 찍을 때를 대비한 것이라, 늘 뭔가
+    // 보이는 옛 방식(모서리 걸친 십자)을 그대로 쓴다 — 속지 내용을 살짝
+    // 덮는 것은 감수한다. gap-오프셋 방식이 아니므로 marksAt으로는 안
+    // 잡히고, 십자 자체(교차점을 중심으로 좌우·상하가 같은 길이)로 확인한다.
+    const segs = cropSegments(m6, 210, 297, 'markAll');
+    const h = segs.find((s) => s.y1 === 125 && s.y2 === 125 && (s.x1 + s.x2) / 2 === 80)!;
+    const v = segs.find((s) => s.x1 === 80 && s.x2 === 80 && (s.y1 + s.y2) / 2 === 125)!;
+    expect(h.x1).toBeCloseTo(80 - (h.x2 - 80), 9); // 80을 중심으로 좌우 대칭
+    expect(v.y1).toBeCloseTo(125 - (v.y2 - 125), 9); // 125를 중심으로 상하 대칭
   });
 
   it('안쪽까지 옵션에서도 용지 끝은 그리지 않는다', () => {

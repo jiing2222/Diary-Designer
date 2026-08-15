@@ -159,6 +159,14 @@ export const FONT_WEIGHT = { regular: 400, bold: 700 } as const;
 export const CROP_COLOR = '#8fb8de';
 export const CROP_WIDTH: Mm = 0.1;
 /**
+ * 화면에서만 쓰는 절취 표시 — SCREEN_GRID_COLOR·SCREEN_DOT_SIZE와 같은 이유로
+ * 실제보다 굵고 진하다. 인쇄되는 0.1mm는 화면에서는 1픽셀도 안 돼 거의 안
+ * 보인다 — 표시가 실제로 어디 있는지 눈으로 확인할 수 있어야 하므로 화면
+ * 전용으로 키운다. 인쇄되는 굵기·색(CROP_WIDTH·CROP_COLOR)은 그대로 둔다.
+ */
+export const SCREEN_CROP_WIDTH: Mm = 0.4;
+export const SCREEN_CROP_COLOR = '#4a90d9';
+/**
  * 절취 표시 — 모서리에서 바로 붙지 않고 살짝 떨어져(GAP) 짧게(LENGTH) 긋는다.
  *
  * 모서리에 바로 붙이면 표시 일부가 항상 속지 내용 쪽으로 넘어간다. 모서리에서
@@ -166,6 +174,16 @@ export const CROP_WIDTH: Mm = 0.1;
  */
 export const CROP_MARK_GAP: Mm = 1;
 export const CROP_MARK_LENGTH: Mm = 4;
+/**
+ * markAll(십자·안쪽까지) 전용 — 원래 모양(모서리에 걸친 십자) 그대로다.
+ *
+ * markAll은 프린터가 용지 가장자리를 못 찍어 바깥 표시가 사라질 때 안쪽에서도
+ * 뭔가 보이라고 있는 것이다. 속지 내용을 피해 gap만큼 물러나면, 사방이 다른
+ * 칸으로 둘러싸인 안쪽 교차점(간격 0)에는 물러날 자리가 아예 없어 아무것도 못
+ * 그린다 — markAll의 존재 이유가 사라진다. 그래서 이 모드만 내용을 살짝
+ * 덮더라도 늘 뭔가 보이는 옛 방식을 쓴다.
+ */
+export const CROP_ALL_ARM: Mm = 3;
 
 /**
  * 검증 눈금자. 자로 재야 하므로 연하게 하지 않는다.
