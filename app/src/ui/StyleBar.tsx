@@ -41,6 +41,7 @@ import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
 import { useObjects, useStore } from '../store';
 import type { Editing } from './gestures';
+import { ImagePickerDialog } from './ImagePickerDialog';
 
 /**
  * 편집 화면 위쪽의 속성 막대.
@@ -750,6 +751,7 @@ function ImageControls({ images }: { images: ImageObject[] }) {
   const requestImagePick = useStore((s) => s.requestImagePick);
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
 
   const editing = images.length > 0;
   const first = editing ? (images[0].imageId ?? '') : '';
@@ -777,14 +779,14 @@ function ImageControls({ images }: { images: ImageObject[] }) {
   }
 
   // 빈 이미지 상자를 더블클릭하면(EditorTab.tsx의 onDoubleClick) store의
-  // pickImageFor에 그 상자 id가 신호로 온다 — 파일 선택 창을 스스로
-  // 열고 신호를 지운다. 선택 상태만으로는 "같은 상자를 또 더블클릭했다"를
-  // 구분할 수 없어서(값이 그대로면 리액트가 반응하지 않는다) 더블클릭마다
-  // 새로 오는 이 신호를 따로 쓴다. 그리자마자 바로 열지는 않는다 —
-  // 여러 개를 잇달아 그릴 때 방해가 된다.
+  // pickImageFor에 그 상자 id가 신호로 온다 — 이미지 고르기 창을 스스로
+  // 연다(예전엔 곧바로 OS 파일 창을 열었다). 선택 상태만으로는 "같은
+  // 상자를 또 더블클릭했다"를 구분할 수 없어서(값이 그대로면 리액트가
+  // 반응하지 않는다) 더블클릭마다 새로 오는 이 신호를 따로 쓴다.
+  // 그리자마자 바로 열지는 않는다 — 여러 개를 잇달아 그릴 때 방해가 된다.
   useEffect(() => {
     if (pickImageFor && images.length === 1 && images[0].id === pickImageFor) {
-      fileRef.current?.click();
+      setShowPicker(true);
       requestImagePick(null);
     }
   }, [pickImageFor, images, requestImagePick]);
@@ -831,6 +833,20 @@ function ImageControls({ images }: { images: ImageObject[] }) {
           e.target.value = '';
         }}
       />
+
+      {showPicker && (
+        <ImagePickerDialog
+          onPick={(imageId) => {
+            styleImage(imageId);
+            setShowPicker(false);
+          }}
+          onAddFile={() => {
+            setShowPicker(false);
+            fileRef.current?.click();
+          }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
 
       {editing && (
         <NumField

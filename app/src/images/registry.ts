@@ -13,7 +13,7 @@
  * 다시 물어보지 않고 자동으로 되살린다.
  */
 
-import { idbEntries, idbPut } from '../storage/idb';
+import { idbDelete, idbEntries, idbPut } from '../storage/idb';
 
 const ACCEPTED = ['.png', '.jpg', '.jpeg'];
 export const IMAGE_ACCEPT = ACCEPTED.join(',');
@@ -137,4 +137,16 @@ export function reserveImageIds(ids: string[]): void {
     const n = Number(id.replace(/^img/, ''));
     if (Number.isFinite(n) && n > counter) counter = n;
   }
+}
+
+/**
+ * 자주 쓰는 이미지 목록(캐시)에서 하나를 뺀다.
+ *
+ * IndexedDB는 파일 이름으로 저장했으므로(`registerImage`) 이름으로 지운다.
+ * 다음에 새로고침해도 다시 안 돌아온다 — `restoredNames`에서도 빼서, 혹시
+ * 같은 세션에서 다시 등록하면 새 캐시로 잡히게 한다.
+ */
+export function removeImage(name: string): void {
+  restoredNames.delete(name);
+  void idbDelete('images', name);
 }

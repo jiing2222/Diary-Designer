@@ -44,6 +44,21 @@ export async function idbPut(store: Store, key: string, value: unknown): Promise
   }
 }
 
+/** 값 하나를 지운다. 실패하면 조용히 넘어간다. */
+export async function idbDelete(store: Store, key: string): Promise<void> {
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(store, 'readwrite');
+      tx.objectStore(store).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // 삭제 실패는 무시한다 — 캐싱과 같은 이유다.
+  }
+}
+
 /** store 안의 모든 [키, 값]을 가져온다. 실패하면 빈 목록이다. */
 export async function idbEntries<T>(store: Store): Promise<[string, T][]> {
   try {

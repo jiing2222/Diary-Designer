@@ -334,7 +334,7 @@ function NewTemplateDialog({
  * 바깥을 누르거나 Esc로 닫힌다. 창 안쪽 클릭이 바깥으로 새어나가 저절로 닫히는
  * 일이 없도록 배경에서만 닫기를 받는다.
  */
-function Modal({
+export function Modal({
   title,
   onClose,
   children,

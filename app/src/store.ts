@@ -23,12 +23,13 @@ import {
 } from './core/template';
 import { toTemplates, type SavedProject } from './core/project';
 import { reserveIds } from './fonts/registry';
-import { reserveImageIds } from './images/registry';
+import { removeImage, reserveImageIds } from './images/registry';
 import {
   cloneObject,
   dedupe,
   ensureIdCounterAbove,
   isDegenerate,
+  isImage,
   isLine,
   isText,
   moveObject,
@@ -317,6 +318,13 @@ interface Store extends Settings {
   addUserFont: (font: UserFont) => void;
   /** 등록을 마친 이미지를 목록에 넣는다. 파일 읽기는 images/registry가 이미 끝냈다. */
   addUserImage: (image: UserImage) => void;
+  /**
+   * 자주 쓰는 이미지 목록에서 하나를 뺀다.
+   *
+   * 지금 프로젝트 어딘가(앞뒤 어느 쪽이든)에서 쓰는 중이면 아무 일도 하지
+   * 않는다 — 지우면 그 자리가 빈 이미지로 깨지기 때문이다.
+   */
+  removeUserImage: (id: string) => void;
   /**
    * 새 이미지 오브젝트를 이 박스 크기로 만든다.
    *
@@ -869,6 +877,19 @@ export const useStore = create<Store>((set) => ({
         ? s.userImages.map((i) => (i.id === image.id ? image : i))
         : [...s.userImages, image],
     })),
+
+  removeUserImage: (id) =>
+    set((s) => {
+      const inUse = s.templates.some((t) =>
+        [...t.objects.present, ...(t.back?.objects.present ?? [])].some(
+          (o) => isImage(o) && o.imageId === id,
+        ),
+      );
+      if (inUse) return {};
+      const image = s.userImages.find((i) => i.id === id);
+      if (image) removeImage(image.name);
+      return { userImages: s.userImages.filter((i) => i.id !== id) };
+    }),
 
   commitImage: (box) =>
     set((s) => {
