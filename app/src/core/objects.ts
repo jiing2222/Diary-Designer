@@ -227,8 +227,8 @@ export type CornerRoundness = 0 | 1 | 2 | 3 | 4;
  *
  * `roundness`를 0에서 4까지 올리면 각진 사각형이 점점 둥근 사각형을
  * 거쳐 4에서 원·타원이 된다 — 사각형·타원을 서로 다른 종류로 나누지
- * 않고 값 하나로 잇는다(core/shape의 `roundedRectPath`). 지금은 테두리만
- * 그린다 — 채우기는 없다.
+ * 않고 값 하나로 잇는다(core/shape의 `roundedRectPath`). 테두리는 항상
+ * 그리고, 채우기(`fillColor`)는 정한 것만 그린다 — 안 정했으면 안 채운다.
  */
 export interface ShapeObject {
   id: string;
@@ -243,6 +243,10 @@ export interface ShapeObject {
   strokeWidth?: Mm;
   color?: string;
   dash?: Dash;
+  /** 채우기 색. 정하지 않았으면 안 채운다(테두리만). */
+  fillColor?: string;
+  /** 채우기 투명도(0~1). fillColor가 있을 때만 뜻이 있다 — 정하지 않았으면 1(불투명). */
+  fillOpacity?: number;
   /** 잠갔는가. LineObject의 `locked` 참고. */
   locked?: boolean;
 }
@@ -357,7 +361,9 @@ export type CalendarStyle = Partial<
 /** 이미지마다 따로 정할 수 있는 것들. */
 export type ImageStyle = Partial<Pick<ImageObject, 'rotate'>>;
 /** 도형마다 따로 정할 수 있는 것들. */
-export type ShapeStyle = Partial<Pick<ShapeObject, 'roundness' | 'strokeWidth' | 'color' | 'dash'>>;
+export type ShapeStyle = Partial<
+  Pick<ShapeObject, 'roundness' | 'strokeWidth' | 'color' | 'dash' | 'fillColor' | 'fillOpacity'>
+>;
 /** 체크박스마다 따로 정할 수 있는 것들. */
 export type CheckboxStyle = Partial<Pick<CheckboxObject, 'icon' | 'strokeWidth' | 'color'>>;
 
@@ -595,23 +601,31 @@ export function cloneObject(o: DiaryObject, dx: Mm, dy: Mm): DiaryObject {
 /** 모서리 이름 — 손잡이가 어느 꼭짓점인지. */
 export type Corner = 'nw' | 'ne' | 'sw' | 'se';
 
-/** 모서리 손잡이로 크기를 바꿀 때, 너무 작아 안이 안 보이는 상자를 막는다. */
+/** 모서리 손잡이로 크기를 바꿀 때, 너무 작아 안이 안 보이는 상자를 막는다. 달력·이미지의 기본값이다. */
 export const MIN_BOX_SIZE: Mm = 5;
+/** 글자 상자·도형처럼 도트 한 칸 크기까지 작아져도 되는 것들의 최소 크기. */
+export const MIN_FREE_BOX_SIZE: Mm = 1;
 
 /**
  * 상자의 한 모서리(`corner`)를 `to`로 끌었을 때의 새 상자.
  *
  * **맞은편 모서리는 움직이지 않는다.** 왼쪽 위를 끌면 오른쪽 아래가 고정된
  * 채로 자라거나 줄어든다 — 이미지 편집 프로그램에서 흔히 보는 동작이다.
- * 너무 작아지면(`MIN_BOX_SIZE` 아래) 그 이상은 줄지 않는다.
+ * 너무 작아지면(`minSize` 아래) 그 이상은 줄지 않는다 — 정하지 않으면
+ * `MIN_BOX_SIZE`(달력·이미지 기준)를 쓴다.
  */
-export function resizeBox(box: Box, corner: Corner, to: { x: Mm; y: Mm }): Box {
+export function resizeBox(
+  box: Box,
+  corner: Corner,
+  to: { x: Mm; y: Mm },
+  minSize: Mm = MIN_BOX_SIZE,
+): Box {
   const opposite = {
     x: corner.includes('e') ? box.x : box.x + box.width,
     y: corner.includes('s') ? box.y : box.y + box.height,
   };
-  const width = Math.max(MIN_BOX_SIZE, Math.abs(to.x - opposite.x));
-  const height = Math.max(MIN_BOX_SIZE, Math.abs(to.y - opposite.y));
+  const width = Math.max(minSize, Math.abs(to.x - opposite.x));
+  const height = Math.max(minSize, Math.abs(to.y - opposite.y));
   const x = to.x >= opposite.x ? opposite.x : opposite.x - width;
   const y = to.y >= opposite.y ? opposite.y : opposite.y - height;
   return { x, y, width, height };

@@ -84,6 +84,11 @@ export const IMAGE_SNAP_COLOR = '#8654c9';
 export const OBJECT_LINE_COLOR = '#9e9e9e';
 export const OBJECT_LINE_WIDTH: Mm = 0.2;
 
+/** 도형 채우기 색을 처음 켤 때 쓰는 기본색. */
+export const SHAPE_FILL_COLOR = '#ffffff';
+/** 도형 채우기 투명도. fillColor는 있는데 fillOpacity를 안 정했으면 이 값(불투명). */
+export const SHAPE_FILL_OPACITY = 1;
+
 /**
  * 선 끝 처리.
  *

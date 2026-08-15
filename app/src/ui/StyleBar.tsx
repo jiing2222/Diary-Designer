@@ -25,6 +25,7 @@ import {
   DEFAULT_FONT_FAMILY,
   OBJECT_LINE_COLOR,
   OBJECT_LINE_WIDTH,
+  SHAPE_FILL_COLOR,
   TEXT_COLOR,
   TEXT_SIZE,
 } from '../core/style';
@@ -43,7 +44,7 @@ import {
   weekdayLangOf,
   weekStartOf,
 } from '../core/calendar';
-import { roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
+import { fillColorOf, fillOpacityOf, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
 import { FONT_ACCEPT, hasFont, registerFont } from '../fonts/registry';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
@@ -529,6 +530,12 @@ function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
   const colorMixed = editing && !shapes.every((o) => strokeColorOf(o) === strokeColorOf(first));
   const dashMixed = editing && !shapes.every((o) => strokeDashOf(o) === strokeDashOf(first));
 
+  const filledOf = (o: ShapeObject) => fillColorOf(o) !== null;
+  const filledMixed = editing && !shapes.every((o) => filledOf(o) === filledOf(first));
+  const filled = editing && !filledMixed && filledOf(first);
+  const fillColorMixed = editing && !shapes.every((o) => fillColorOf(o) === fillColorOf(first));
+  const fillOpacityMixed = editing && !shapes.every((o) => fillOpacityOf(o) === fillOpacityOf(first));
+
   if (!editing) {
     return null;
   }
@@ -582,6 +589,44 @@ function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
         <option value={3}>둥글기 3</option>
         <option value={4}>원·타원</option>
       </select>
+
+      <label className="check" title="상자 안을 색으로 채울지">
+        <input
+          type="checkbox"
+          checked={filled}
+          onChange={(e) =>
+            styleShape(
+              e.target.checked
+                ? { fillColor: fillColorOf(first) ?? SHAPE_FILL_COLOR, fillOpacity: fillOpacityOf(first) }
+                : { fillColor: undefined, fillOpacity: undefined },
+            )
+          }
+        />
+        채우기
+      </label>
+
+      {filled && (
+        <>
+          <ColorField
+            value={fillColorOf(first) ?? SHAPE_FILL_COLOR}
+            mixed={fillColorMixed}
+            onChange={(c) => styleShape({ fillColor: c })}
+            title="채우기 색"
+          />
+
+          <label className="opacity-field" title="채우기 투명도">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={fillOpacityMixed ? 0 : Math.round(fillOpacityOf(first) * 100)}
+              onChange={(e) => styleShape({ fillOpacity: Number(e.target.value) / 100 })}
+            />
+            <span>{fillOpacityMixed ? '—' : `${Math.round(fillOpacityOf(first) * 100)}%`}</span>
+          </label>
+        </>
+      )}
     </>
   );
 }

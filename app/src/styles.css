@@ -243,9 +243,20 @@ button.ghost:disabled {
   min-height: 0;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
   padding: 24px;
   overflow: auto;
+}
+
+/*
+ * 속지를 감싸는 자리. justify-content: center로 가운데 두지 않고 margin:
+ * auto로 가운데 둔다 — 확대해서 속지가 화면보다 커지면(200% 줌 등)
+ * justify-content: center는 스크롤로 왼쪽 끝까지 갈 수 없다(넘친 양을
+ * 한쪽에만 있는 것처럼 계산하는 알려진 동작). margin: auto는 넘친 양을
+ * 양쪽에 정확히 나눠 계산해 양쪽 다 스크롤로 닿는다.
+ */
+.insert-sheets {
+  display: flex;
+  margin: 0 auto;
 }
 
 .tools {
@@ -420,6 +431,23 @@ button.ghost:disabled {
 }
 
 .numfield span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* 도형 채우기 투명도 — numfield와 같은 자리, 숫자 칸 대신 슬라이더. */
+.opacity-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.opacity-field input {
+  width: 60px;
+}
+
+.opacity-field span {
+  width: 32px;
   font-size: 11px;
   color: var(--muted);
 }

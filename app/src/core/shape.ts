@@ -1,5 +1,5 @@
 import type { Dash, ShapeObject } from './objects';
-import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from './style';
+import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH, SHAPE_FILL_OPACITY } from './style';
 import type { Mm } from './units';
 
 /**
@@ -30,6 +30,16 @@ export function strokeColorOf(o: Stroked): string {
 /** 테두리 점선 모양. 정하지 않았으면 실선. */
 export function strokeDashOf(o: Stroked): Dash {
   return o.dash ?? 'solid';
+}
+
+/** 채우기 색. 정하지 않았으면 null(안 채운다 — 테두리만). */
+export function fillColorOf(o: ShapeObject): string | null {
+  return o.fillColor ?? null;
+}
+
+/** 채우기 투명도(0~1). 정하지 않았으면 기본값(불투명). fillColorOf가 null이면 뜻이 없다. */
+export function fillOpacityOf(o: ShapeObject): number {
+  return o.fillOpacity ?? SHAPE_FILL_OPACITY;
 }
 
 /** 둥글기 단계. 정하지 않았으면 0(각짐). */

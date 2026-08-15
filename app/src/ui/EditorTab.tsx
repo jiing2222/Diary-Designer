@@ -18,6 +18,7 @@ import {
   isLocked,
   isShape,
   isText,
+  MIN_FREE_BOX_SIZE,
   objectInRect,
   rectLines,
   resizeBox,
@@ -246,7 +247,7 @@ export function EditorTab() {
     to: Point,
   ): { box: Box; size: Mm; lineHeight: Mm | undefined } {
     const oldBox = boxOf(t);
-    const rawBox = resizeBox(oldBox, corner, to);
+    const rawBox = resizeBox(oldBox, corner, to, MIN_FREE_BOX_SIZE);
     const oldSize = sizeOf(t);
     const required = measureTextBox(
       displayText(t),
@@ -532,6 +533,24 @@ export function EditorTab() {
   }
 
   /**
+   * `handleAt`과 달리 딱 하나 고른 것(lone)에 매이지 않는다 — 그리기 도구는
+   * 고르지 않고도 계속 선을 잇는 게 자연스러운데, 그 상태에서 이미 그은
+   * 선의 끝점 근처를 누르면(고르지 않았어도) 새 도형을 시작하는 대신 그
+   * 선을 잡아 늘이게 한다. 아무 선의 끝점이든 가장 가까운 것 하나를 찾는다.
+   */
+  function anyLineHandleAt(p: Point): { id: string; end: 1 | 2 } | null {
+    let best: { id: string; end: 1 | 2; dist: Mm } | null = null;
+    for (const o of objects) {
+      if (!isLine(o) || isLocked(o)) continue;
+      const d1 = Math.hypot(p.x - o.x1, p.y - o.y1);
+      const d2 = Math.hypot(p.x - o.x2, p.y - o.y2);
+      if (d1 <= HANDLE_GRAB && (!best || d1 < best.dist)) best = { id: o.id, end: 1, dist: d1 };
+      if (d2 <= HANDLE_GRAB && (!best || d2 < best.dist)) best = { id: o.id, end: 2, dist: d2 };
+    }
+    return best && { id: best.id, end: best.end };
+  }
+
+  /**
    * 딱 하나 고른 상자(달력·이미지)의 네 모서리 손잡이. 선의 끝점 손잡이와 짝이다.
    *
    * 이미지는 돌아가 있을 수 있다 — 화면 좌표(`p`)를 먼저 그 이미지의
@@ -662,6 +681,17 @@ export function EditorTab() {
       }
       if (snap) setDragBoth({ kind: 'draw', from: snap, to: snap });
       return;
+    }
+
+    // 그리기 도구는 고르지 않고도 계속 선을 잇는 게 보통이라, 이미 그은
+    // 선의 끝점 근처를 누르면 새로 긋는 대신 그 선을 잡아 늘인다 — 안
+    // 그러면 끝점을 끌었을 뿐인데 엉뚱한 새 도형이 하나 더 생긴다.
+    if (tool === 'draw' && !pending) {
+      const grip = anyLineHandleAt(raw);
+      if (grip) {
+        setDragBoth({ kind: 'handle', id: grip.id, end: grip.end, to: raw });
+        return;
+      }
     }
 
     // 표도 몸짓은 그리기(면)와 똑같이 점에서 끄는 드래그다. 그 사이에서
@@ -825,7 +855,8 @@ export function EditorTab() {
         const { box, size, lineHeight } = resizeTextBox(target, d.corner, d.to);
         resizeObject(d.id, box, { size, lineHeight });
       } else if (target) {
-        resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to));
+        const minSize = isShape(target) ? MIN_FREE_BOX_SIZE : undefined;
+        resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to, minSize));
       }
       return;
     }
@@ -1490,18 +1521,18 @@ export function EditorTab() {
 
           // 뒷면이 없으면 앞면만 보여준다 — "아직 뒷면이 없습니다" 안내는
           // 없앴다(사용자 요청). 뒷면은 도구막대의 "뒷면 만들기" 버튼으로 만든다.
-          if (!hasBack) return activeSvg;
+          if (!hasBack) return <div className="insert-sheets">{activeSvg}</div>;
           // 뒷면이 왼쪽, 앞면이 오른쪽 — activeSvg가 어느 쪽이냐에 따라 순서가 바뀐다.
           return activeSide === 'back' ? (
-            <>
+            <div className="insert-sheets">
               {activeSvg}
               {renderInactiveCanvas()}
-            </>
+            </div>
           ) : (
-            <>
+            <div className="insert-sheets">
               {renderInactiveCanvas()}
               {activeSvg}
-            </>
+            </div>
           );
         })()}
 
@@ -1517,8 +1548,15 @@ export function EditorTab() {
             svg={svgRef.current}
             inputRef={textInputRef}
             onChange={(text) => {
-              // 칸 하나만 누르고 길게 써도 매번 손으로 늘릴 필요가 없다 — 실제로
-              // 필요한 크기를 재서 상자를 맞춘다(늘기도, 줄기도 한다). 왼쪽 위는 그대로다.
+              // 새로 만드는 중(id 없음)에만 상자를 맞춘다 — 칸 하나만 누르고
+              // 길게 써도 매번 손으로 늘릴 필요가 없게 하려는 것이다. 이미
+              // 있던 글자를 고치는 중이면 상자를 그대로 둔다 — 글자는 상자를
+              // 넘칠 수 있다는 원칙 그대로, 고칠 때마다 상자가 저절로
+              // 커지거나 줄어들면 애써 맞춰둔 크기가 매번 흐트러진다.
+              if (editing.id) {
+                setEditing({ ...editing, text });
+                return;
+              }
               const size = editing.style.size ?? TEXT_SIZE;
               const required = measureTextBox(
                 text,

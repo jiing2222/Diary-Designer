@@ -41,7 +41,16 @@ import {
 } from '../core/template';
 import { insertSizeOf, placeSlot } from '../core/place';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
-import { cornerRadiusOf, roundedRectPath, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
+import {
+  cornerRadiusOf,
+  fillColorOf,
+  fillOpacityOf,
+  roundedRectPath,
+  roundnessOf,
+  strokeColorOf,
+  strokeDashOf,
+  strokeWidthOf,
+} from '../core/shape';
 import { checkboxPath, iconOf } from '../core/checkbox';
 import {
   CALENDAR_ADJACENT_OPACITY,
@@ -856,12 +865,15 @@ function drawShapes(
       const { rx, ry } = cornerRadiusOf(o, roundnessOf(o));
       const path = roundedRectPath({ x: 0, y: 0, width: o.width, height: o.height }, rx, ry);
       const strokeW = strokeWidthOf(o);
+      const fill = fillColorOf(o);
       const p = place.map(o.x, o.y);
       page.drawSvgPath(path, {
         x: mmToPt(p.x),
         y: mmToPt(flipY(p.y)),
         scale: PT_PER_MM,
         rotate: degrees(layout.rotated ? 90 : 0),
+        color: fill ? color(fill) : undefined,
+        opacity: fill ? fillOpacityOf(o) : undefined,
         borderColor: color(strokeColorOf(o)),
         // 굵기·점선도 scale 옵션이 적용되는 좌표계 "안"에서 적용된다(pdf-lib이
         // scale을 먼저 CTM에 얹은 다음 line width를 그 안에서 잰다) — 그래서

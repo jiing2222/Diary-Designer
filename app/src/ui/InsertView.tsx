@@ -14,7 +14,16 @@ import {
   TEXT_COLOR,
 } from '../core/style';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
-import { cornerRadiusOf, roundedRectPath, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
+import {
+  cornerRadiusOf,
+  fillColorOf,
+  fillOpacityOf,
+  roundedRectPath,
+  roundnessOf,
+  strokeColorOf,
+  strokeDashOf,
+  strokeWidthOf,
+} from '../core/shape';
 import { checkboxPath, iconOf } from '../core/checkbox';
 import {
   calendarLayout,
@@ -153,11 +162,13 @@ function ShapeLayer({ objects }: { objects: ShapeObject[] }) {
       {objects.map((o) => {
         const { rx, ry } = cornerRadiusOf(o, roundnessOf(o));
         const width = strokeWidthOf(o);
+        const fill = fillColorOf(o);
         return (
           <path
             key={o.id}
             d={roundedRectPath(o, rx, ry)}
-            fill="none"
+            fill={fill ?? 'none'}
+            fillOpacity={fill ? fillOpacityOf(o) : undefined}
             stroke={strokeColorOf(o)}
             strokeWidth={width}
             strokeDasharray={dashPattern(strokeDashOf(o), width)?.join(' ')}

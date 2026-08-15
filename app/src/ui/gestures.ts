@@ -69,7 +69,15 @@ export type Editing = {
   originalText?: string;
 };
 
-/** 있는 글자를 고치기 시작할 때, 그 글자의 스타일을 그대로 물려받는다. */
+/**
+ * 있는 글자를 고치기 시작할 때, 그 글자의 스타일을 그대로 물려받는다.
+ *
+ * **`TextStyle`의 모든 키를 다 챙겨야 한다.** `finishEditing`(EditorTab)이
+ * 이 스타일로 객체를 통째로 새로 만들기 때문에, 여기서 빠진 값은 그냥
+ * 안 보이는 게 아니라 고치고 나면 실제로 지워진다 — 글꼴(`font`)·
+ * 굵게(`bold`)를 빠뜨렸을 때 글을 고칠 때마다 기본 글꼴로 되돌아가던
+ * 사고가 이래서 났다.
+ */
 export function editingFor(t: TextObject): Editing {
   const shown = displayText(t);
   return {
@@ -81,6 +89,9 @@ export function editingFor(t: TextObject): Editing {
       valign: t.valign,
       color: t.color,
       lineHeight: t.lineHeight,
+      bold: t.bold,
+      font: t.font,
+      rotate: t.rotate,
     }),
     id: t.id,
     field: t.field,
