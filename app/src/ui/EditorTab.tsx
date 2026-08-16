@@ -1311,6 +1311,7 @@ export function EditorTab() {
         onPointerMove={onMove}
         onPointerUp={onUp}
       >
+        <div className="insert-sheets">
         {(() => {
           const activeSvg = (
             <svg
@@ -1521,18 +1522,18 @@ export function EditorTab() {
 
           // 뒷면이 없으면 앞면만 보여준다 — "아직 뒷면이 없습니다" 안내는
           // 없앴다(사용자 요청). 뒷면은 도구막대의 "뒷면 만들기" 버튼으로 만든다.
-          if (!hasBack) return <div className="insert-sheets">{activeSvg}</div>;
+          if (!hasBack) return activeSvg;
           // 뒷면이 왼쪽, 앞면이 오른쪽 — activeSvg가 어느 쪽이냐에 따라 순서가 바뀐다.
           return activeSide === 'back' ? (
-            <div className="insert-sheets">
+            <>
               {activeSvg}
               {renderInactiveCanvas()}
-            </div>
+            </>
           ) : (
-            <div className="insert-sheets">
+            <>
               {renderInactiveCanvas()}
               {activeSvg}
-            </div>
+            </>
           );
         })()}
 
@@ -1571,6 +1572,7 @@ export function EditorTab() {
             onDone={finishEditing}
           />
         )}
+        </div>
       </div>
 
       <div className="editor-foot">

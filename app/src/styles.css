@@ -237,7 +237,6 @@ button.ghost:disabled {
 }
 
 .editor-canvas {
-  /* 글자 입력칸을 속지 위에 겹쳐 놓기 위한 기준 */
   position: relative;
   flex: 1;
   min-height: 0;
@@ -253,10 +252,17 @@ button.ghost:disabled {
  * justify-content: center는 스크롤로 왼쪽 끝까지 갈 수 없다(넘친 양을
  * 한쪽에만 있는 것처럼 계산하는 알려진 동작). margin: auto는 넘친 양을
  * 양쪽에 정확히 나눠 계산해 양쪽 다 스크롤로 닿는다.
+ *
+ * position: relative — 글자 입력칸(.text-input)을 속지 위에 겹쳐 놓기
+ * 위한 기준. TextInput(EditorTab.tsx)이 svg.parentElement의 자리를
+ * 기준으로 입력칸 좌표를 계산하므로, 이 요소 자체가 자리 기준(positioned
+ * ancestor)이어야 한다 — 안 그러면 더 위(.editor-canvas)를 기준으로 삼아
+ * margin: auto로 벌어진 만큼 입력칸이 왼쪽으로 밀려 보인다.
  */
 .insert-sheets {
   display: flex;
   margin: 0 auto;
+  position: relative;
 }
 
 .tools {
