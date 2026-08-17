@@ -557,6 +557,71 @@ describe('인쇄하기에서 직접 손본 내용 — 세트형 페이지', () =
   });
 });
 
+describe('그림자 양식 — 인쇄하기에서 칸·페이지를 직접 그리기', () => {
+  it('시작하면 지금 준 내용으로 채워지고, 진짜 양식(templates)에는 안 들어간다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const realId = s().activeId;
+    const seed: DiaryObject[] = [{ id: 'seed', type: 'line', x1: 0, y1: 0, x2: 10, y2: 0 }];
+
+    s().beginShadowEdit(at().insert, at().dotGrid, seed, 'front');
+
+    expect(s().shadowTemplate?.objects.present).toEqual(seed);
+    // activeId는 그대로다 — 인쇄하기 화면의 나머지 부분이 안 바뀌어야 한다.
+    expect(s().activeId).toBe(realId);
+    expect(s().templates.some((t) => t.id === '__shadow__')).toBe(false);
+  });
+
+  it('그림자를 손보는 동안 그리기 액션은 그림자만 바꾸고, 진짜 활성 양식은 그대로다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    s().drawLines([{ x1: 5, y1: 5, x2: 50, y2: 5 }]); // 진짜 양식에 먼저 선 하나
+    const before = at().objects.present;
+
+    s().beginShadowEdit(at().insert, at().dotGrid, [], 'front');
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+
+    expect(s().shadowTemplate?.objects.present).toHaveLength(1);
+    expect(at().objects.present).toEqual(before); // 진짜 양식은 안 바뀜
+  });
+
+  it('뒷면을 손보면 그림자의 back에 담긴다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const seed: DiaryObject[] = [{ id: 'b1', type: 'line', x1: 0, y1: 0, x2: 10, y2: 0 }];
+    s().beginShadowEdit(at().insert, at().dotGrid, seed, 'back');
+
+    expect(s().shadowTemplate?.back?.objects.present).toEqual(seed);
+    expect(s().shadowTemplate?.objects.present).toEqual([]); // 앞면 쪽은 안 씀
+
+    s().drawLines([{ x1: 20, y1: 20, x2: 60, y2: 20 }]);
+    expect(s().shadowTemplate?.back?.objects.present).toHaveLength(2);
+  });
+
+  it('실행취소·다시실행이 그림자 세션 안에서만 동작한다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    s().beginShadowEdit(at().insert, at().dotGrid, [], 'front');
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    expect(s().shadowTemplate?.objects.present).toHaveLength(1);
+
+    s().undo();
+    expect(s().shadowTemplate?.objects.present).toHaveLength(0);
+
+    s().redo();
+    expect(s().shadowTemplate?.objects.present).toHaveLength(1);
+  });
+
+  it('끝내면(endShadowEdit) 사라지고, 그 뒤 그리기는 다시 진짜 활성 양식을 바꾼다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    s().beginShadowEdit(at().insert, at().dotGrid, [], 'front');
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    s().endShadowEdit();
+
+    expect(s().shadowTemplate).toBeNull();
+    expect(at().objects.present).toEqual([]); // 그림자에 그린 것은 진짜 양식에 안 남는다
+
+    s().drawLines([{ x1: 1, y1: 1, x2: 2, y2: 1 }]);
+    expect(at().objects.present).toHaveLength(1);
+  });
+});
+
 describe('반복 인쇄 설정', () => {
   const sampleDataset = {
     kind: 'date' as const,

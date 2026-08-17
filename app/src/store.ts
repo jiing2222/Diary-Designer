@@ -229,6 +229,20 @@ interface Settings {
   comboSlotOverrides: Record<number, DiaryObject[]>;
   /** 뒷면 쪽의 comboSlotOverrides. */
   comboSlotBackOverrides: Record<number, DiaryObject[]>;
+  /**
+   * 인쇄하기에서 칸·페이지 하나를 직접 손보는 중일 때만 값이 있다. 실제
+   * 양식 목록(`templates`)에는 들어가지 않는다 — 갤러리에도 저장 파일에도
+   * 안 보인다.
+   *
+   * 이게 있는 동안은 `undo`·`redo`와 그리기 관련 액션들(drawLines·commitText
+   * 등, `patchActiveSide`·`activeObjects`를 거치는 전부)이 `activeId` 대신
+   * 이 그림자 양식을 고친다 — 그 함수들의 코드는 하나도 안 바꿨다. 그래서
+   * 진짜 `activeId`는 그대로 남아, 인쇄하기 화면의 나머지 부분(다른 칸·
+   * 페이지, 인쇄 설정 전체)은 손보는 동안에도 하나도 안 바뀐 채 보인다.
+   */
+  shadowTemplate: Template | null;
+  /** shadowTemplate이 있을 때, 그중 지금 손보는 쪽(앞/뒤). */
+  shadowSide: Side;
 }
 
 interface Store extends Settings {
@@ -266,6 +280,17 @@ interface Store extends Settings {
   setPageOverride: (page: number, side: Side, objects: DiaryObject[]) => void;
   /** 손본 페이지를 지우고 다시 원본 양식에서 자동 계산하게 한다. */
   clearPageOverride: (page: number, side: Side) => void;
+  /**
+   * 인쇄하기에서 칸·페이지 하나를 직접 손보기 시작한다. 지금 그 칸·페이지에
+   * 보이는 내용(objects)으로 그림자 양식을 채운다 — 자동 계산됐든 이미 손본
+   * 것이든 상관없이, 지금 보이는 그대로가 손보기 시작하는 값이다.
+   */
+  beginShadowEdit: (insert: InsertSetting, dotGrid: DotGrid, objects: DiaryObject[], side: Side) => void;
+  /**
+   * 그림자 양식을 버린다. 결과를 comboSlotOverrides·pageOverrides 등으로
+   * 옮기는 것은 부르는 쪽(App.tsx)의 몫이다 — 이 액션 자체는 그냥 지운다.
+   */
+  endShadowEdit: () => void;
   setTool: (t: Tool) => void;
   /** 그으면 생기고 이미 있으면 지워진다. 선 하나든 면의 네 변이든 한 번으로 친다. */
   drawLines: (segs: LineSeg[]) => void;
@@ -504,11 +529,24 @@ function activeSideData(t: Template, side: Side): SideData | null {
  * 그리기·실행취소가 전부 이걸 거친다. **뒷면인데 아직 만들지 않았으면
  * 조용히 아무 일도 하지 않는다** — 화면이 `뒷면 만들기` 버튼으로 먼저 만들게
  * 하므로, 여기까지 오는 것은 사실상 일어나지 않는 경우에 대한 방어선이다.
+ *
+ * **그림자 양식(`shadowTemplate`)이 있으면 `activeId` 대신 그쪽을 고친다.**
+ * 인쇄하기에서 칸·페이지를 직접 손보는 동안 이 함수를 쓰는 그리기 액션들
+ * (drawLines·commitText 등)은 하나도 안 바꾸고, 이 안의 분기 하나로 전부
+ * 그림자를 향하게 한다.
  */
 function patchActiveSide(
-  s: Pick<Settings, 'templates' | 'activeId' | 'side'>,
+  s: Pick<Settings, 'templates' | 'activeId' | 'side' | 'shadowTemplate' | 'shadowSide'>,
   fn: (data: SideData) => Partial<SideData>,
-): Pick<Settings, 'templates'> {
+): Partial<Pick<Settings, 'templates' | 'shadowTemplate'>> {
+  if (s.shadowTemplate) {
+    const data = activeSideData(s.shadowTemplate, s.shadowSide);
+    if (!data) return {};
+    return s.shadowSide === 'front'
+      ? { shadowTemplate: { ...s.shadowTemplate, ...fn(data) } }
+      : { shadowTemplate: { ...s.shadowTemplate, back: { ...s.shadowTemplate.back!, ...fn(data) } } };
+  }
+
   const active = activeTemplate(s);
   if (!active) return { templates: s.templates };
 
@@ -529,14 +567,17 @@ function patchActiveSide(
 
 /** 지금 편집 중인 쪽의 그린 것들을 갈아끼우고 실행취소에 한 칸 쌓는다. */
 function commitObjects(
-  s: Pick<Settings, 'templates' | 'activeId' | 'side'>,
+  s: Pick<Settings, 'templates' | 'activeId' | 'side' | 'shadowTemplate' | 'shadowSide'>,
   next: DiaryObject[],
-): Pick<Settings, 'templates'> {
+): Partial<Pick<Settings, 'templates' | 'shadowTemplate'>> {
   return patchActiveSide(s, (d) => ({ objects: commit(d.objects, next) }));
 }
 
 /** 지금 편집 중인 쪽의 그린 것들. 없으면(양식이 없거나 뒷면이 없으면) 빈 목록이다. */
-function activeObjects(s: Pick<Settings, 'templates' | 'activeId' | 'side'>): DiaryObject[] {
+function activeObjects(
+  s: Pick<Settings, 'templates' | 'activeId' | 'side' | 'shadowTemplate' | 'shadowSide'>,
+): DiaryObject[] {
+  if (s.shadowTemplate) return activeSideData(s.shadowTemplate, s.shadowSide)?.objects.present ?? [];
   const active = activeTemplate(s);
   if (!active) return [];
   return activeSideData(active, s.side)?.objects.present ?? [];
@@ -674,6 +715,8 @@ export const useStore = create<Store>((set) => ({
   slotAssignment: {},
   comboSlotOverrides: {},
   comboSlotBackOverrides: {},
+  shadowTemplate: null,
+  shadowSide: 'front',
 
   setPaperPreset: (id) =>
     set((s) => {
@@ -841,6 +884,23 @@ export const useStore = create<Store>((set) => ({
         return { [key]: next };
       }),
     ),
+
+  beginShadowEdit: (insert, dotGrid, objects, side) =>
+    set({
+      shadowTemplate: {
+        id: '__shadow__',
+        name: '',
+        insert,
+        dotGrid,
+        objects: side === 'front' ? initHistory(objects) : initHistory([]),
+        repeat: SINGLE_REPEAT,
+        back: side === 'back' ? { objects: initHistory(objects) } : null,
+      },
+      shadowSide: side,
+      selectedIds: [],
+    }),
+
+  endShadowEdit: () => set({ shadowTemplate: null, selectedIds: [] }),
 
   // 도구를 바꾸면 고른 것을 놓는다. 그리기 중에 선택 테두리가 남아 있으면 헷갈린다.
   setTool: (tool) => set({ tool, selectedIds: [] }),
@@ -1310,6 +1370,18 @@ export const useStore = create<Store>((set) => ({
   // 지금 그 짝을 지우는 차례면, 하나의 선으로 보였던 것이니 함께 되돌린다.
   undo: () =>
     set((s) => {
+      // 그림자 양식을 손보는 중이면 그쪽만 되돌린다 — 앞뒤 경계를 넘는 선은
+      // 그림자에서 생기지 않으므로(한 세션에 한 쪽만 손본다) 짝 찾기 없이 바로 끝난다.
+      if (s.shadowTemplate) {
+        const data = activeSideData(s.shadowTemplate, s.shadowSide);
+        if (!data || !canUndo(data.objects)) return {};
+        const objects = undo(data.objects);
+        return {
+          ...patchActiveSide(s, () => ({ objects })),
+          selectedIds: prune(s.selectedIds, objects.present),
+        };
+      }
+
       const active = activeTemplate(s);
       const data = active && activeSideData(active, s.side);
       if (!active || !data || !canUndo(data.objects)) return {};
@@ -1343,6 +1415,16 @@ export const useStore = create<Store>((set) => ({
     }),
   redo: () =>
     set((s) => {
+      if (s.shadowTemplate) {
+        const data = activeSideData(s.shadowTemplate, s.shadowSide);
+        if (!data || !canRedo(data.objects)) return {};
+        const objects = redo(data.objects);
+        return {
+          ...patchActiveSide(s, () => ({ objects })),
+          selectedIds: prune(s.selectedIds, objects.present),
+        };
+      }
+
       const active = activeTemplate(s);
       const data = active && activeSideData(active, s.side);
       if (!active || !data || !canRedo(data.objects)) return {};
