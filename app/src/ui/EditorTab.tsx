@@ -58,7 +58,7 @@ import {
 } from './icons';
 import { measureTextBox } from './measureText';
 import { familyOf } from '../fonts/registry';
-import { PX_PER_MM_AT_100 } from './pixels';
+import { PX_PER_MM_AT_100, ZOOMS } from './pixels';
 import {
   editingFor,
   merge,
@@ -77,7 +77,6 @@ import {
   type Point,
 } from './gestures';
 
-const ZOOMS = [50, 75, 100, 150, 200, 300, 400];
 /** 상자 가운데가 로고 정렬선에서 이만큼 안이면 달라붙는다. */
 const LOGO_LINE_SNAP: Mm = 3;
 /** 방향키로 미세이동할 때 한 번에 움직이는 양. ⇧를 누르면 이 값의 10배다. */

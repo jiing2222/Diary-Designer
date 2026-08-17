@@ -971,43 +971,35 @@ select,
   color: var(--ink);
 }
 
-.page-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.page-nav button {
-  padding: 3px 9px;
-  font-size: 13px;
-  line-height: 1;
-}
-
-.stage-area {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  overflow: auto;
+/* 인쇄하기 탭의 확대 배율 — 양식 만들기의 줌 드롭다운과 같은 값 목록(ZOOMS). */
+.print-zoom {
+  margin-left: auto;
 }
 
 /*
- * 용지 그림과 우측 하단 작은 안내문을 같이 묶는 기준점.
- *
- * 높이를 여기서 못 박고(뷰포트 기준), 가로폭은 App.tsx가 인라인으로 주는
- * aspect-ratio(용지 가로:세로)로 정해지게 한다. SVG는 그 안을 100%로 채우기만
- * 한다 — SVG 자체는 내재 크기가 없는 요소라 부모 크기가 애매하면(예: 이 래퍼가
- * 그냥 block이고 플렉스 자식일 때) 0×0으로 쪼그라들 수 있다. 크기를 명시적으로
- * 확정해두면 그럴 일이 없다.
+ * 인쇄 미리보기 전체 — 이제 장을 하나씩 넘기지 않고 전부 쌓아 스크롤로 본다
+ * (page-nav는 없앴다). 여러 장·양면 나란히를 다 넣으면 화면보다 커지기
+ * 쉬우므로, .editor-canvas와 같은 이유로 justify-content: center 대신
+ * 각 장(.print-sheet)에 margin: auto를 줘서 가운데 둔다 — 그래야 확대해서
+ * 넘칠 때도 스크롤로 양쪽 다 닿는다.
  */
-.preview-wrap {
-  position: relative;
-  height: calc(100vh - 260px);
+.stage-area {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 20px;
+}
+
+/* 장 하나 — 양면이면 앞뒤 두 장을 나란히 담는다(뒷면을 왼쪽에 토글로 순서를 바꾼다). */
+.print-sheet {
+  display: flex;
+  gap: 14px;
+  width: fit-content;
+  margin: 0 auto 24px;
+}
+
+.print-sheet-page {
+  flex-shrink: 0;
 }
 
 .notice {

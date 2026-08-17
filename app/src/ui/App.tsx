@@ -18,6 +18,7 @@ import { GalleryTab } from './GalleryTab';
 import { ProjectFile } from './ProjectFile';
 import { SlotAssign } from './SlotAssign';
 import { RepeatPrint } from './RepeatPrint';
+import { PX_PER_MM_AT_100, ZOOMS } from './pixels';
 import { buildPdf, downloadPdf, type SlotContent } from '../pdf/export';
 import { loadBodyFont, loadBoldFont } from '../fonts/load';
 import { fontBytes as fontBytes_, restoreCachedFonts } from '../fonts/registry';
@@ -58,20 +59,17 @@ export function App() {
    */
   const [printPreview, setPrintPreview] = useState(true);
   /**
-   * 반복 인쇄 미리보기가 지금 몇 번째 장을 보여주는지.
-   *
-   * store에 넣지 않는다 — 실제 데이터가 아니라 "지금 뭘 보고 있는지"일 뿐이라,
-   * 다른 양식으로 옮겨가면 잊혀도 상관없다. 범위를 벗어나도(매수를 줄인 뒤 등)
-   * 아래에서 clamp하므로 따로 초기화하지 않는다.
+   * 인쇄하기 탭의 확대 배율. 양식 만들기(EditorTab)의 zoom과 같은 생각·같은
+   * 값 목록이다 — store에 넣지 않는 이유도 같다(탭을 나가면 잊혀도 되는,
+   * "지금 화면을 어떻게 보고 있는지"일 뿐인 값).
    */
-  const [previewPage, setPreviewPage] = useState(0);
+  const [zoom, setZoom] = useState(100);
   /**
-   * 인쇄하기 탭 미리보기가 지금 앞면·뒷면 중 어느 쪽을 보여주는지.
-   *
-   * 양면을 껐다 켰다 해도 잊혀도 되는 값이라 store에 넣지 않는다 — 편집 화면의
-   * `side`와 달리, 이건 그리는 대상이 아니라 "지금 뭘 보고 있는지"일 뿐이다.
+   * 양면일 때 뒷면을 왼쪽에 둘지 오른쪽에 둘지. 실제 인쇄되는 페이지 순서와는
+   * 무관하다 — 화면에서 나란히 볼 때 어느 쪽에 두고 볼지 정하는 값이라 이것도
+   * store에 넣지 않는다.
    */
-  const [previewSide, setPreviewSide] = useState<'front' | 'back'>('front');
+  const [backOnLeft, setBackOnLeft] = useState(true);
 
   const { width, height } = paperSize(s.paper);
   const layout = selectLayout(s);
@@ -123,75 +121,7 @@ export function App() {
       ? backFallback(active)
       : undefined;
 
-  if (active && printMode === 'repeat') {
-    /*
-     * 반복 인쇄(만년형) — 이 양식 하나로 모든 칸을 채운다.
-     *
-     * 지금 미리보기 페이지에서 앞·뒤 각각 모자라는 칸만 완전히 비운다.
-     * `frontBackFilled`를 core/template에서 가져와 쓴다 — pdf/export.ts도 같은
-     * 함수로 마지막 장의 빈 칸을 정하므로, 미리보기에서 본 빈 칸이 실제
-     * 인쇄물과 어긋나지 않는다.
-     */
-    const { front: frontFilled, back: backFilled } = frontBackFilled(
-      previewPage,
-      totalSlots,
-      layout.count,
-      s.duplex,
-    );
-    for (let i = frontFilled; i < layout.count; i++) {
-      previewOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
-    }
-    for (let i = backFilled; i < layout.count; i++) {
-      previewBackOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
-    }
-  } else if (active && printMode === 'dataset' && dataset) {
-    /*
-     * 세트형 — 칸마다 다른 쪽. previewPage는 지금 보는 장 번호다.
-     *
-     * 겹치기 배치(cutStack)가 꺼져 있으면 그 장의 칸 i는 전체 쪽 번호
-     * `previewPage × 칸수 + i`를 가리킨다 — pdf/export.ts와 같은 셈법이다
-     * (칸 하나 = 한 쪽의 앞뒤, 양면이어도 칸 수가 늘지 않는다). 켜져 있으면
-     * `cutStackPage`가 칸마다 담당 쪽을 따로 정해준다.
-     *
-     * 여기서는 **지금 보는 장의 칸만** 계산한다. 전체 쪽(수십~수백)을 렌더마다
-     * 다 계산하면 느려진다 — 전체는 exportPdf에서 실제로 내보낼 때만 계산한다.
-     */
-    const filled = filledSlots(previewPage, totalPages, layout.count);
-    for (let i = 0; i < layout.count; i++) {
-      const page = s.cutStack
-        ? cutStackPage(previewPage, i, totalPages, layout.count, s.cutStackGroup || undefined)
-        : i < filled
-          ? previewPage * layout.count + i
-          : null;
-
-      if (page === null) {
-        previewOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
-        previewBackOverrides.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
-        continue;
-      }
-      previewOverrides.set(i, {
-        insert: active.insert,
-        dotGrid: active.dotGrid,
-        objects: resolveObjectsForPage(active.objects.present, dataset, page),
-        calendarPage: page,
-      });
-      previewBackOverrides.set(
-        i,
-        active.back
-          ? {
-              insert: active.insert,
-              dotGrid: active.dotGrid,
-              objects: resolveObjectsForPage(active.back.objects.present, dataset, page),
-              calendarPage: page,
-            }
-          : {
-              insert: active.insert,
-              dotGrid: s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID,
-              objects: [],
-            },
-      );
-    }
-  } else if (active) {
+  if (active && printMode === 'combo') {
     /*
      * 낱장 조합 — 칸마다 다른 양식.
      *
@@ -201,6 +131,10 @@ export function App() {
      *
      * 지금 양식과 같은 칸은 굳이 override에 넣지 않는다. 대부분의 칸이 지금
      * 양식을 그대로 쓰므로, 다른 칸만 골라내는 편이 다루기 쉽다.
+     *
+     * comboSheets만큼 찍어도 장마다 이 배치가 그대로 반복된다 — 그래서
+     * 인쇄하기 탭의 장별 미리보기(sheetOverrides)는 이 값을 sheet 번호와
+     * 무관하게 그대로 돌려준다.
      */
     slotTemplates = resolveSlotTemplates(s, layout.count);
     slotTemplates.forEach((t, i) => {
@@ -227,6 +161,88 @@ export function App() {
       );
     });
   }
+
+  /**
+   * 인쇄하기 탭은 이제 장을 하나씩 넘겨보지 않고 전부 쌓아 스크롤로 본다 —
+   * 그래서 "지금 보는 장"(previewPage) 하나가 아니라 장 번호를 인자로 받아
+   * 그 장의 칸 내용을 낸다.
+   *
+   * 낱장 조합은 장마다 내용이 같으므로(comboSheets는 같은 배치의 반복) 위에서
+   * 이미 계산해둔 previewOverrides·previewBackOverrides를 그대로 돌려준다.
+   * 반복 인쇄·세트형은 장마다 달라서 그때그때 계산한다 — 세트형은 쪽수가
+   * 아주 많으면(수백 쪽) 장마다 새로 계산하는 비용이 쌓일 수 있다. 지금은
+   * "화면에 없는 장까지 다 그린다"는 단순한 방식을 쓴다 — 느려지면 그때
+   * 화면에 보이는 장만 그리는 가상화로 개선한다.
+   */
+  function overridesForSheet(sheet: number): {
+    previewOverrides: Map<number, PreviewSlotContent>;
+    previewBackOverrides: Map<number, PreviewSlotContent>;
+  } {
+    if (!active) return { previewOverrides: new Map(), previewBackOverrides: new Map() };
+
+    if (printMode === 'repeat') {
+      const front = new Map<number, PreviewSlotContent>();
+      const back = new Map<number, PreviewSlotContent>();
+      const { front: frontFilled, back: backFilled } = frontBackFilled(sheet, totalSlots, layout.count, s.duplex);
+      for (let i = frontFilled; i < layout.count; i++) {
+        front.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+      }
+      for (let i = backFilled; i < layout.count; i++) {
+        back.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+      }
+      return { previewOverrides: front, previewBackOverrides: back };
+    }
+
+    if (printMode === 'dataset' && dataset) {
+      const front = new Map<number, PreviewSlotContent>();
+      const back = new Map<number, PreviewSlotContent>();
+      const filled = filledSlots(sheet, totalPages, layout.count);
+      for (let i = 0; i < layout.count; i++) {
+        const page = s.cutStack
+          ? cutStackPage(sheet, i, totalPages, layout.count, s.cutStackGroup || undefined)
+          : i < filled
+            ? sheet * layout.count + i
+            : null;
+
+        if (page === null) {
+          front.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+          back.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+          continue;
+        }
+        front.set(i, {
+          insert: active.insert,
+          dotGrid: active.dotGrid,
+          objects: resolveObjectsForPage(active.objects.present, dataset, page),
+          calendarPage: page,
+        });
+        back.set(
+          i,
+          active.back
+            ? {
+                insert: active.insert,
+                dotGrid: active.dotGrid,
+                objects: resolveObjectsForPage(active.back.objects.present, dataset, page),
+                calendarPage: page,
+              }
+            : {
+                insert: active.insert,
+                dotGrid: s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID,
+                objects: [],
+              },
+        );
+      }
+      return { previewOverrides: front, previewBackOverrides: back };
+    }
+
+    return { previewOverrides, previewBackOverrides };
+  }
+
+  const sheets =
+    printMode === 'repeat'
+      ? sheetsNeeded(totalSlots, capacityPerSheet(layout.count, s.duplex))
+      : printMode === 'dataset'
+        ? sheetsNeeded(totalPages, layout.count)
+        : Math.max(1, s.comboSheets);
 
   async function exportPdf() {
     if (!active) return;
@@ -278,9 +294,9 @@ export function App() {
       /*
        * 세트형 — 모든 쪽의 자동 필드를 실제 값으로 채운다.
        *
-       * 미리보기와 달리 **지금 보는 장만이 아니라 전체 쪽**을 계산해야 한다.
-       * 렌더마다(previewPage 기준으로) 계산하면 느려지므로, 실제로 내보낼
-       * 때(여기)만 전체를 계산한다.
+       * 미리보기(overridesForSheet)는 장마다 그때그때 계산하지만, 여기서는
+       * PDF 한 번에 전체 쪽을 한꺼번에 계산해 넣는다 — 장별로 나눠 계산할
+       * 이유가 없고, pdf/export.ts가 장·칸 번호로 이 안에서 골라 쓴다.
        */
       let datasetOverrides: Map<number, SlotContent> | undefined;
       let datasetBackOverrides: Map<number, SlotContent> | undefined;
@@ -410,23 +426,30 @@ export function App() {
                 양면 인쇄
               </label>
 
-              {/* 양면을 껐으면 뒷면 자체가 없으니 토글을 보여줄 이유가 없다. */}
+              {/* 양면을 껐으면 앞뒤가 나란해질 일이 없으니 순서를 고를 이유가 없다. */}
               {s.duplex && (
-                <div className="tabs">
-                  <button
-                    className={previewSide === 'front' ? 'tab on' : 'tab'}
-                    onClick={() => setPreviewSide('front')}
-                  >
-                    앞면
-                  </button>
-                  <button
-                    className={previewSide === 'back' ? 'tab on' : 'tab'}
-                    onClick={() => setPreviewSide('back')}
-                  >
-                    뒷면
-                  </button>
-                </div>
+                <label className="preview-toggle">
+                  <input
+                    type="checkbox"
+                    checked={backOnLeft}
+                    onChange={(e) => setBackOnLeft(e.target.checked)}
+                  />
+                  뒷면을 왼쪽에
+                </label>
               )}
+
+              <select
+                className="print-zoom"
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                title="확대"
+              >
+                {ZOOMS.map((z) => (
+                  <option key={z} value={z}>
+                    {z}%
+                  </option>
+                ))}
+              </select>
             </div>
 
             {printMode === 'repeat' ? (
@@ -434,20 +457,16 @@ export function App() {
                 layout={layout}
                 totalCount={totalSlots}
                 unit="칸"
-                sheets={sheetsNeeded(totalSlots, capacityPerSheet(layout.count, s.duplex))}
+                sheets={sheets}
                 hint={s.duplex && <> (양면이라 앞뒤 {layout.count * 2}칸)</>}
-                page={previewPage}
-                onPageChange={setPreviewPage}
               />
             ) : printMode === 'dataset' ? (
               <RepeatPrint
                 layout={layout}
                 totalCount={totalPages}
                 unit="쪽"
-                sheets={sheetsNeeded(totalPages, layout.count)}
+                sheets={sheets}
                 hint={s.cutStack && <> · 겹치기</>}
-                page={previewPage}
-                onPageChange={setPreviewPage}
               />
             ) : (
               <SlotAssign layout={layout} />
@@ -457,44 +476,62 @@ export function App() {
               {layout.count === 0 ? (
                 <div className="empty">속지가 용지보다 큽니다. 용지를 키우거나 속지를 줄이세요.</div>
               ) : (
-                <div className="preview-wrap" style={{ aspectRatio: `${width} / ${height}` }}>
-                  {previewSide === 'front' ? (
-                    <PaperPreview
-                      paper={{ ...s.paper, width, height }}
-                      insert={active.insert}
-                      dotGrid={active.dotGrid}
-                      objects={active.objects.present}
-                      slotOverrides={previewOverrides.size > 0 ? previewOverrides : undefined}
-                      layout={layout}
-                      cropMark={s.cropMark}
-                      showRuler={s.showRuler}
-                      unprintable={s.unprintable}
-                      mode={printPreview ? 'print' : 'edit'}
-                      calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
-                    />
-                  ) : (
-                    // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 뒤집는다(회전
-                    // 배치가 아니면 좌우, 회전 배치면 상하). 칸 안의 내용(도트·글자)은
-                    // 뒤집지 않지만, 안전영역·타공 안내는 항상 mirror로 표시한다
-                    // (설계문서 8장) — mirrorLayout이 이미 회전 여부를 반영했으므로
-                    // 이쪽은 회전과 무관하게 항상 켠다.
-                    <PaperPreview
-                      paper={{ ...s.paper, width, height }}
-                      insert={active.insert}
-                      // 격자는 앞뒤 공유값이라, 뒷면이 없어도(fillEmptyBack일 때) 그대로 쓴다.
-                      dotGrid={active.back || s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID}
-                      objects={active.back?.objects.present ?? []}
-                      slotOverrides={previewBackOverrides.size > 0 ? previewBackOverrides : undefined}
-                      layout={mirrorLayout(layout, width, height)}
-                      cropMark={s.cropMark}
-                      showRuler={s.showRuler}
-                      unprintable={s.unprintable}
-                      mode={printPreview ? 'print' : 'edit'}
-                      mirror
-                      calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
-                    />
-                  )}
-                </div>
+                // 필요한 장수가 0이어도(반복 매수 0, 빈 세트형 등) 빈 칸이라도
+                // 한 장은 보여준다 — 화면이 통째로 비어 있으면 뭘 봐야 할지 모른다.
+                Array.from({ length: Math.max(1, sheets) }, (_, sheet) => {
+                  const { previewOverrides: front, previewBackOverrides: back } = overridesForSheet(sheet);
+                  const scale = (zoom / 100) * PX_PER_MM_AT_100;
+                  const pageStyle = { width: width * scale, height: height * scale };
+
+                  const frontPage = (
+                    <div className="print-sheet-page" style={pageStyle}>
+                      <PaperPreview
+                        paper={{ ...s.paper, width, height }}
+                        insert={active.insert}
+                        dotGrid={active.dotGrid}
+                        objects={active.objects.present}
+                        slotOverrides={front.size > 0 ? front : undefined}
+                        layout={layout}
+                        cropMark={s.cropMark}
+                        showRuler={s.showRuler}
+                        unprintable={s.unprintable}
+                        mode={printPreview ? 'print' : 'edit'}
+                        calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
+                      />
+                    </div>
+                  );
+
+                  // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 뒤집는다(회전
+                  // 배치가 아니면 좌우, 회전 배치면 상하). 칸 안의 내용(도트·글자)은
+                  // 뒤집지 않지만, 안전영역·타공 안내는 항상 mirror로 표시한다
+                  // (설계문서 8장) — mirrorLayout이 이미 회전 여부를 반영했으므로
+                  // 이쪽은 회전과 무관하게 항상 켠다.
+                  const backPage = s.duplex && (
+                    <div className="print-sheet-page" style={pageStyle}>
+                      <PaperPreview
+                        paper={{ ...s.paper, width, height }}
+                        insert={active.insert}
+                        // 격자는 앞뒤 공유값이라, 뒷면이 없어도(fillEmptyBack일 때) 그대로 쓴다.
+                        dotGrid={active.back || s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID}
+                        objects={active.back?.objects.present ?? []}
+                        slotOverrides={back.size > 0 ? back : undefined}
+                        layout={mirrorLayout(layout, width, height)}
+                        cropMark={s.cropMark}
+                        showRuler={s.showRuler}
+                        unprintable={s.unprintable}
+                        mode={printPreview ? 'print' : 'edit'}
+                        mirror
+                        calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
+                      />
+                    </div>
+                  );
+
+                  return (
+                    <div className="print-sheet" key={sheet}>
+                      {s.duplex ? (backOnLeft ? <>{backPage}{frontPage}</> : <>{frontPage}{backPage}</>) : frontPage}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

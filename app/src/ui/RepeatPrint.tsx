@@ -6,13 +6,13 @@ import type { Layout } from '../core/layout';
  *
  * 양식의 반복 설정이 `repeat`(만년형) 또는 `dataset`(세트형)일 때 인쇄하기
  * 탭에 뜬다. 이 양식 하나로만 여러 장을 채우므로 칸마다 다른 양식을 고를
- * 이유가 없다 — 그래서 낱장 조합 대신 몇 장이 필요한지와, 여러 장이면
- * 미리보기를 넘겨볼 수 있는 버튼을 보여준다.
+ * 이유가 없다 — 그래서 낱장 조합 대신 몇 장이 필요한지만 요약해서 보여준다.
+ * 아래 미리보기가 이제 장을 넘겨보는 대신 전부 쌓아 스크롤로 보여주므로
+ * (App.tsx), 여기엔 더 이상 장 넘기기 버튼이 없다.
  *
  * **장수 계산은 여기서 하지 않는다.** 반복 인쇄(칸 수가 양면이면 두 배)와
  * 세트형(칸 하나가 한 쪽의 앞뒤라 양면이어도 칸 수가 그대로)이 계산 방식이
- * 달라서, 부르는 쪽(App.tsx)이 이미 계산한 값을 넘긴다. 여기는 그 결과를
- * 보여주고 넘겨보기만 한다.
+ * 달라서, 부르는 쪽(App.tsx)이 이미 계산한 값을 넘긴다.
  *
  * 매수·기간 같은 값 자체를 고치는 곳도 아니다. 그건 양식의 속성이라 설정
  * 패널의 "반복" 묶음에서 고친다.
@@ -23,8 +23,6 @@ export function RepeatPrint({
   unit,
   sheets,
   hint,
-  page,
-  onPageChange,
 }: {
   layout: Layout;
   /** 총 몇 개(칸 또는 쪽)가 필요한지. */
@@ -35,12 +33,7 @@ export function RepeatPrint({
   sheets: number;
   /** 라벨 끝에 덧붙일 짧은 안내. 반복 인쇄의 "양면이라 칸 수가 두 배" 같은 것. */
   hint?: ReactNode;
-  page: number;
-  onPageChange: (page: number) => void;
 }) {
-  // 매수를 줄인 뒤에도 이전 페이지 번호가 남아 있을 수 있어 여기서 붙잡는다.
-  const clamped = Math.min(Math.max(0, page), Math.max(0, sheets - 1));
-
   return (
     <div className="repeat-print">
       <span className="repeat-print-label">
@@ -52,30 +45,6 @@ export function RepeatPrint({
         {unit}
         {hint} · <b>{sheets}장</b>
       </span>
-
-      {sheets > 1 && (
-        <div className="page-nav">
-          <button
-            className="ghost"
-            onClick={() => onPageChange(clamped - 1)}
-            disabled={clamped === 0}
-            title="이전 장"
-          >
-            ‹
-          </button>
-          <span>
-            {clamped + 1} / {sheets}쪽 미리보기
-          </span>
-          <button
-            className="ghost"
-            onClick={() => onPageChange(clamped + 1)}
-            disabled={clamped === sheets - 1}
-            title="다음 장"
-          >
-            ›
-          </button>
-        </div>
-      )}
     </div>
   );
 }
