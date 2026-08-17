@@ -3,6 +3,7 @@ import { activeTemplate, resolveSlotTemplates, useStore } from './store';
 import { insertFromPreset } from './core/template';
 import { DEFAULT_DOT_GRID } from './core/grid';
 import type { UserImage } from './images/registry';
+import type { DiaryObject } from './core/objects';
 
 const s = () => useStore.getState();
 const initial = useStore.getState();
@@ -493,6 +494,66 @@ describe('낱장 조합 — 칸 배정', () => {
 
   it('양식이 하나도 없으면 빈 배열이다', () => {
     expect(resolveSlotTemplates(s(), 4)).toEqual([]);
+  });
+});
+
+describe('인쇄하기에서 직접 손본 내용 — 낱장 조합 칸', () => {
+  const obj = (id: string): DiaryObject => ({ id, type: 'line', x1: 0, y1: 0, x2: 10, y2: 0 });
+
+  it('손보면 그 칸에 저장된다', () => {
+    s().setComboSlotOverride(2, 'front', [obj('a')]);
+    expect(s().comboSlotOverrides[2]).toEqual([obj('a')]);
+  });
+
+  it('앞뒤가 따로 저장된다', () => {
+    s().setComboSlotOverride(0, 'front', [obj('a')]);
+    s().setComboSlotOverride(0, 'back', [obj('b')]);
+    expect(s().comboSlotOverrides[0]).toEqual([obj('a')]);
+    expect(s().comboSlotBackOverrides[0]).toEqual([obj('b')]);
+  });
+
+  it('되돌리기(clear)로 다시 지운다', () => {
+    s().setComboSlotOverride(1, 'front', [obj('a')]);
+    s().clearComboSlotOverride(1, 'front');
+    expect(s().comboSlotOverrides[1]).toBeUndefined();
+  });
+
+  it('다른 칸의 값은 그대로다', () => {
+    s().setComboSlotOverride(0, 'front', [obj('a')]);
+    s().setComboSlotOverride(1, 'front', [obj('b')]);
+    s().clearComboSlotOverride(0, 'front');
+    expect(s().comboSlotOverrides[1]).toEqual([obj('b')]);
+  });
+});
+
+describe('인쇄하기에서 직접 손본 내용 — 세트형 페이지', () => {
+  const obj = (id: string): DiaryObject => ({ id, type: 'line', x1: 0, y1: 0, x2: 10, y2: 0 });
+
+  it('손보면 지금 양식의 그 페이지에 저장된다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    s().setPageOverride(3, 'front', [obj('a')]);
+    expect(at().pageOverrides?.[3]).toEqual([obj('a')]);
+  });
+
+  it('다른 양식에는 안 남는다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    s().selectTemplate(first);
+
+    s().setPageOverride(0, 'front', [obj('a')]);
+    s().selectTemplate(s().templates.find((t) => t.id !== first)!.id);
+    expect(at().pageOverrides?.[0]).toBeUndefined();
+  });
+
+  it('되돌리기(clear)로 다시 지우면 다른 페이지는 그대로다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    s().setPageOverride(0, 'front', [obj('a')]);
+    s().setPageOverride(1, 'front', [obj('b')]);
+
+    s().clearPageOverride(0, 'front');
+    expect(at().pageOverrides?.[0]).toBeUndefined();
+    expect(at().pageOverrides?.[1]).toEqual([obj('b')]);
   });
 });
 

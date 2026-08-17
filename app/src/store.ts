@@ -216,6 +216,19 @@ interface Settings {
    * 돌아간다 — `resolveSlotTemplates`가 그 판단을 한다.
    */
   slotAssignment: Record<number, string>;
+  /**
+   * 낱장 조합에서, 특정 칸만 "인쇄하기"에서 직접 손본 내용. 키는 슬롯 번호
+   * (slotAssignment와 같은 번호 매김). 값이 있으면 그 칸에 배정된 양식이
+   * 무엇이든(또는 나중에 바뀌어도) 이 내용을 그대로 쓴다.
+   *
+   * `slotAssignment`(어느 양식을 배정했는지)와 따로 두는 이유는 `Template.
+   * pageOverrides`와 같다 — 배정을 바꾼다고 애써 손본 칸이 같이 지워지면
+   * 안 된다. 양식이 아니라 이 조합 자체(store 루트)에 속한 값이라
+   * slotAssignment와 같은 자리에 둔다.
+   */
+  comboSlotOverrides: Record<number, DiaryObject[]>;
+  /** 뒷면 쪽의 comboSlotOverrides. */
+  comboSlotBackOverrides: Record<number, DiaryObject[]>;
 }
 
 interface Store extends Settings {
@@ -245,6 +258,14 @@ interface Store extends Settings {
   removeTemplate: (id: string) => void;
   /** 낱장 조합에서 이 칸에 넣을 양식. `null`이면 배정을 지우고 기본값(activeId)으로 돌린다. */
   assignSlot: (index: number, templateId: string | null) => void;
+  /** 낱장 조합의 그 칸을 "인쇄하기"에서 직접 손본 내용으로 남긴다. */
+  setComboSlotOverride: (index: number, side: Side, objects: DiaryObject[]) => void;
+  /** 손본 내용을 지우고 다시 배정된 양식을 자동으로 따르게 한다. */
+  clearComboSlotOverride: (index: number, side: Side) => void;
+  /** 세트형의 그 페이지를 "인쇄하기"에서 직접 손본 내용으로 남긴다. */
+  setPageOverride: (page: number, side: Side, objects: DiaryObject[]) => void;
+  /** 손본 페이지를 지우고 다시 원본 양식에서 자동 계산하게 한다. */
+  clearPageOverride: (page: number, side: Side) => void;
   setTool: (t: Tool) => void;
   /** 그으면 생기고 이미 있으면 지워진다. 선 하나든 면의 네 변이든 한 번으로 친다. */
   drawLines: (segs: LineSeg[]) => void;
@@ -651,6 +672,8 @@ export const useStore = create<Store>((set) => ({
   cutStackGroup: 0,
   unprintable: { show: true, width: 3 },
   slotAssignment: {},
+  comboSlotOverrides: {},
+  comboSlotBackOverrides: {},
 
   setPaperPreset: (id) =>
     set((s) => {
@@ -784,6 +807,40 @@ export const useStore = create<Store>((set) => ({
       else delete next[index];
       return { slotAssignment: next };
     }),
+
+  setComboSlotOverride: (index, side, objects) =>
+    set((s) => {
+      const key = side === 'back' ? 'comboSlotBackOverrides' : 'comboSlotOverrides';
+      return { [key]: { ...s[key], [index]: objects } };
+    }),
+
+  clearComboSlotOverride: (index, side) =>
+    set((s) => {
+      const key = side === 'back' ? 'comboSlotBackOverrides' : 'comboSlotOverrides';
+      const next = { ...s[key] };
+      delete next[index];
+      return { [key]: next };
+    }),
+
+  setPageOverride: (page, side, objects) =>
+    set((s) =>
+      patchActive(s, () => {
+        const key = side === 'back' ? 'pageBackOverrides' : 'pageOverrides';
+        const active = activeTemplate(s);
+        return { [key]: { ...active?.[key], [page]: objects } };
+      }),
+    ),
+
+  clearPageOverride: (page, side) =>
+    set((s) =>
+      patchActive(s, () => {
+        const key = side === 'back' ? 'pageBackOverrides' : 'pageOverrides';
+        const active = activeTemplate(s);
+        const next = { ...active?.[key] };
+        delete next[page];
+        return { [key]: next };
+      }),
+    ),
 
   // 도구를 바꾸면 고른 것을 놓는다. 그리기 중에 선택 테두리가 남아 있으면 헷갈린다.
   setTool: (tool) => set({ tool, selectedIds: [] }),

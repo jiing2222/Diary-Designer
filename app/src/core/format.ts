@@ -90,3 +90,20 @@ export function resolveObjectsForPage(
     return { ...rest, text };
   });
 }
+
+/**
+ * 세트형 한 쪽의 최종 내용.
+ *
+ * "인쇄하기"에서 그 쪽을 직접 손봤으면(pageOverrides에 있으면) 그 완성된
+ * 내용을 그대로 쓴다 — 원본 양식이 바뀌어도 다시 계산하지 않는다. 없으면
+ * 지금까지처럼 resolveObjectsForPage로 자동 계산한다. 화면(App.tsx)·PDF
+ * (pdf/export.ts) 둘 다 이 함수 하나를 거쳐야 어긋나지 않는다.
+ */
+export function resolvePageObjects(
+  objects: DiaryObject[],
+  dataset: Dataset,
+  page: number,
+  overrides?: Record<number, DiaryObject[]>,
+): DiaryObject[] {
+  return overrides?.[page] ?? resolveObjectsForPage(objects, dataset, page);
+}

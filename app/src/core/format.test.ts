@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, resolveObjectsForPage } from './format';
+import { formatDate, resolveObjectsForPage, resolvePageObjects } from './format';
 import { parseDate, type CalendarDataset, type Dataset } from './dataset';
 import type { DiaryObject, TextObject } from './objects';
 
@@ -118,6 +118,25 @@ describe('쪽의 자동 필드 채우기', () => {
     const mixed = { ...field(0), text: '⟨+D0⟩입니다' };
     const resolved = resolveObjectsForPage([mixed], weekly, 0);
     expect((resolved[0] as TextObject).text).toBe('1/1입니다');
+  });
+
+  describe('resolvePageObjects — 인쇄하기에서 직접 손본 페이지', () => {
+    it('손본 적 없는 페이지는 지금까지처럼 자동 계산한다', () => {
+      const resolved = resolvePageObjects([field(0)], weekly, 0, undefined);
+      expect((resolved[0] as TextObject).text).toBe('1/1');
+    });
+
+    it('손본 페이지는 원본 양식과 무관하게 저장된 내용을 그대로 쓴다', () => {
+      const saved: DiaryObject = { id: 't9', type: 'text', x: 0, y: 0, width: 5, height: 5, text: '직접 쓴 글자' };
+      const resolved = resolvePageObjects([field(0)], weekly, 0, { 0: [saved] });
+      expect(resolved).toEqual([saved]);
+    });
+
+    it('손본 페이지가 아니면 overrides에 다른 페이지가 있어도 자동 계산한다', () => {
+      const saved: DiaryObject = { id: 't9', type: 'text', x: 0, y: 0, width: 5, height: 5, text: '0쪽만 손봄' };
+      const resolved = resolvePageObjects([field(0)], weekly, 1, { 0: [saved] });
+      expect((resolved[0] as TextObject).text).toBe('1/8');
+    });
   });
 });
 

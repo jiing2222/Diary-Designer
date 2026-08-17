@@ -10,7 +10,7 @@ import {
 } from '../core/template';
 import { mirrorLayout } from '../core/layout';
 import { datasetPages } from '../core/dataset';
-import { resolveObjectsForPage } from '../core/format';
+import { resolvePageObjects } from '../core/format';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
 import { SettingsPanel } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
@@ -81,7 +81,11 @@ export function App() {
     const ro = new ResizeObserver(([entry]) => setStageWidth(entry.contentRect.width));
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+    // tab에 의존한다 — 처음 열었을 땐 기본 탭이 "양식 관리"라 .stage-area가
+    // 아직 DOM에 없다(stageRef.current가 null). 빈 배열([])로 마운트 때
+    // 한 번만 시도하면 그 순간엔 항상 실패하고 다시는 안 붙는다 — "인쇄하기"
+    // 탭에 처음 들어올 때(탭이 바뀔 때) 다시 시도해야 그때는 진짜 DOM이 있다.
+  }, [tab]);
 
   const { width, height } = paperSize(s.paper);
   const layout = selectLayout(s);
@@ -145,25 +149,34 @@ export function App() {
      */
     slotTemplates = resolveSlotTemplates(s, layout.count);
     slotTemplates.forEach((t, i) => {
-      if (t.id === active.id) return;
-      previewOverrides.set(i, { insert: t.insert, dotGrid: t.dotGrid, objects: t.objects.present });
+      // "인쇄하기"에서 그 칸을 직접 손봤으면(comboSlotOverrides) 배정된 양식이
+      // 무엇이든 그 내용을 그대로 쓴다 — 지금 양식과 같은 칸이라도 손봤으면
+      // 건너뛰지 않는다.
+      const frontOverride = s.comboSlotOverrides[i];
+      const backOverride = s.comboSlotBackOverrides[i];
+      if (t.id === active.id && !frontOverride && !backOverride) return;
+
+      const frontObjects = frontOverride ?? t.objects.present;
+      previewOverrides.set(i, { insert: t.insert, dotGrid: t.dotGrid, objects: frontObjects });
       pdfOverrides.set(i, {
         dotGrid: t.dotGrid,
-        objects: t.objects.present,
+        objects: frontObjects,
         safeZoneWidth: t.insert.punch.safeZoneWidth,
       });
       // 배정된 양식에 뒷면이 없으면 지금 양식의 뒷면(defaultBack)이 아니라
       // 이 칸만의 backFallback을 쓴다 — fillEmptyBack이 꺼져 있으면 완전히 빈다.
+      // 뒷면을 직접 손봤으면(backOverride) 원본에 뒷면이 없어도 그 내용을 쓴다.
+      const backObjects = backOverride ?? (t.back ? t.back.objects.present : null);
       previewBackOverrides.set(
         i,
-        t.back
-          ? { insert: t.insert, dotGrid: t.dotGrid, objects: t.back.objects.present }
+        backObjects
+          ? { insert: t.insert, dotGrid: t.dotGrid, objects: backObjects }
           : { insert: t.insert, dotGrid: s.fillEmptyBack ? t.dotGrid : BLANK_PREVIEW_GRID, objects: [] },
       );
       pdfBackOverrides.set(
         i,
-        t.back
-          ? { dotGrid: t.dotGrid, objects: t.back.objects.present, safeZoneWidth: t.insert.punch.safeZoneWidth }
+        backObjects
+          ? { dotGrid: t.dotGrid, objects: backObjects, safeZoneWidth: t.insert.punch.safeZoneWidth }
           : (backFallback(t) ?? null),
       );
     });
@@ -219,16 +232,21 @@ export function App() {
         front.set(i, {
           insert: active.insert,
           dotGrid: active.dotGrid,
-          objects: resolveObjectsForPage(active.objects.present, dataset, page),
+          objects: resolvePageObjects(active.objects.present, dataset, page, active.pageOverrides),
           calendarPage: page,
         });
+        // 뒷면을 직접 손봤으면(pageBackOverrides) 원본 양식에 뒷면이 없어도
+        // 그 내용을 쓴다 — 낱장 조합의 comboSlotOverrides와 같은 원리다.
+        const backOverride = active.pageBackOverrides?.[page];
         back.set(
           i,
-          active.back
+          active.back || backOverride
             ? {
                 insert: active.insert,
                 dotGrid: active.dotGrid,
-                objects: resolveObjectsForPage(active.back.objects.present, dataset, page),
+                objects: active.back
+                  ? resolvePageObjects(active.back.objects.present, dataset, page, active.pageBackOverrides)
+                  : backOverride!,
                 calendarPage: page,
               }
             : {
@@ -327,13 +345,18 @@ export function App() {
         for (let page = 0; page < totalPages; page++) {
           datasetOverrides.set(page, {
             dotGrid: active.dotGrid,
-            objects: resolveObjectsForPage(active.objects.present, dataset, page),
+            objects: resolvePageObjects(active.objects.present, dataset, page, active.pageOverrides),
             safeZoneWidth: active.insert.punch.safeZoneWidth,
           });
-          if (active.back) {
+          // 미리보기(overridesForSheet)와 같은 원리 — 뒷면을 직접 손봤으면
+          // 원본 양식에 뒷면이 없어도 그 내용을 쓴다.
+          const backOverride = active.pageBackOverrides?.[page];
+          if (active.back || backOverride) {
             datasetBackOverrides.set(page, {
               dotGrid: active.dotGrid,
-              objects: resolveObjectsForPage(active.back.objects.present, dataset, page),
+              objects: active.back
+                ? resolvePageObjects(active.back.objects.present, dataset, page, active.pageBackOverrides)
+                : backOverride!,
               safeZoneWidth: active.insert.punch.safeZoneWidth,
             });
           }

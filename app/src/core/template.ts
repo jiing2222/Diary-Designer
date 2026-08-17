@@ -92,6 +92,20 @@ export interface Template {
   repeat: RepeatSetting;
   /** 뒷면. 없으면(`null`) 단면이다. */
   back: BackPage | null;
+  /**
+   * 세트형(`repeat.mode === 'dataset'`)에서만 뜻이 있다 — 특정 페이지만
+   * 자동 계산(`resolveObjectsForPage`) 대신 직접 손본 내용. 키는 페이지
+   * 번호(0부터), 값은 그 페이지의 완성된 오브젝트 배열이다.
+   *
+   * "인쇄하기"에서 그 페이지를 고치는 순간 여기 저장되고, 그 뒤로는 원본
+   * 양식(objects)을 고쳐도 이 페이지엔 반영되지 않는다 — 파워포인트의
+   * "슬라이드 마스터를 벗어난 개별 슬라이드"와 같은 원리다(사용자가 이
+   * 트레이드오프를 확인했다). `repeat`와 따로 두는 이유는, 반복 설정(기간
+   * 등)만 고쳐도 애써 손본 페이지가 같이 지워지면 안 되기 때문이다.
+   */
+  pageOverrides?: Record<number, DiaryObject[]>;
+  /** 뒷면 쪽의 pageOverrides. 앞뒤를 따로 손볼 수 있어 따로 둔다. */
+  pageBackOverrides?: Record<number, DiaryObject[]>;
 }
 
 let counter = 0;
