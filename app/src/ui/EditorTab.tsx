@@ -42,7 +42,22 @@ import {
   rotateOf,
   sizeOf,
 } from '../core/text';
-import { useDotGrid, useHasBack, useInsert, useObjects, useSide, useStore, type Side } from '../store';
+import {
+  activeTemplate,
+  paperSize,
+  resolveSlotTemplates,
+  selectLayout,
+  useDotGrid,
+  useHasBack,
+  useInsert,
+  useObjects,
+  useSide,
+  useStore,
+  type Side,
+} from '../store';
+import { printModeOf } from '../core/template';
+import type { Slot } from '../core/layout';
+import { placeSlot, unplaceSlot } from '../core/place';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
@@ -141,9 +156,39 @@ export function EditorTab() {
   const userFonts = useStore((s) => s.userFonts);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
+  const selectTemplate = useStore((s) => s.selectTemplate);
+  /**
+   * 배치 계산(selectLayout)·낱장 조합 배정(resolveSlotTemplates)은 여러
+   * 필드를 한꺼번에 봐야 해서, 낱개 선택자 대신 전체를 구독한다 — App.tsx의
+   * `const s = useStore()`와 같은 방식이다. "속지" 모드에서는 안 쓰이지만,
+   * 이 컴포넌트는 이미 store 변화마다(수십 개 선택자) 다시 그려지므로
+   * 구독을 하나 더 늘려도 실질적인 차이는 없다.
+   */
+  const fullSettings = useStore((s) => s);
 
   const [zoom, setZoom] = useState(100);
+  /**
+   * "속지" — 지금까지처럼 칸 하나만 크게 그린다. "용지" — 인쇄될 용지
+   * 전체(다른 칸 포함)를 보여주면서, 지금 활성 양식이 들어가는 칸만 그릴 수
+   * 있게 한다. 다른 칸을 클릭하면 그 칸의 양식으로 활성이 바뀐다.
+   */
+  const [viewMode, setViewMode] = useState<'insert' | 'paper'>('insert');
   const svgRef = useRef<SVGSVGElement>(null);
+  /**
+   * 용지 모드에서, 지금 끄는 중인 몸짓이 어느 칸 기준인지 붙잡아둔다. 없으면
+   * (드래그 중이 아니면) 마우스가 지금 있는 칸을 그때그때 다시 찾는다 —
+   * 그래야 호버 미리보기가 마우스를 따라간다. 드래그 중에는 시작한 칸에
+   * 고정해야 한다 — 안 그러면 손이 살짝 옆 칸으로 넘어가는 순간 좌표
+   * 기준이 통째로 바뀌어 그리던 것이 엉뚱한 자리로 튄다.
+   */
+  const gestureSlotRef = useRef<number | null>(null);
+  /**
+   * 용지 모드에서, 지금 입력 중인 글자가 어느 칸에 있는지. gestureSlotRef와
+   * 달리 몸짓 하나가 끝나도(손을 떼도) 입력이 끝날 때까지(finishEditing)
+   * 계속 갖고 있어야 한다 — 타이핑하는 내내 입력칸을 그 칸 위에 올려둘
+   * 자리 계산(TextInput)에 필요하다.
+   */
+  const editingSlotRef = useRef<number | null>(null);
 
   /** 마우스가 붙을 자리 */
   const [hover, setHover] = useState<Point | null>(null);
@@ -200,6 +245,70 @@ export function EditorTab() {
   const gridPhase = noGrid
     ? null
     : { x0: lattice.xs[0], y0: lattice.ys[0], spacing: grid.spacing };
+
+  /*
+   * "용지" 모드 전용 계산. activeTemplateFull은 지금 활성 양식 전체다 —
+   * insert·grid·history는 이미 useInsert 등으로 따로 갖고 있지만, 여기서는
+   * id·repeat 모드가 더 필요하다. paperLayout·slotTemplates는 인쇄하기
+   * 탭(App.tsx)과 똑같은 함수(selectLayout·resolveSlotTemplates)로 계산한다
+   * — 두 화면이 각자 계산하면 언젠가 어긋난다.
+   */
+  const activeTemplateFull = activeTemplate(fullSettings);
+  const printMode = printModeOf(activeTemplateFull);
+  const paper = paperSize(fullSettings.paper);
+  const paperLayout = selectLayout(fullSettings);
+  // 반복 인쇄·세트형은 모든 칸이 지금 활성 양식 하나를 보여준다 — 배정을
+  // 따질 이유가 없다. 낱장 조합만 칸마다 다른 양식일 수 있다.
+  const slotTemplates = printMode === 'combo' ? resolveSlotTemplates(fullSettings, paperLayout.count) : [];
+
+  /** 이 칸이 지금 활성 양식을 보여주는 중이라, 손을 대면 실제로 그릴 수 있는가. */
+  function isActiveSlot(i: number): boolean {
+    if (printMode !== 'combo') return true;
+    return slotTemplates[i]?.id === activeTemplateFull?.id;
+  }
+
+  /** 용지 mm 좌표가 어느 칸 안인지. 칸 밖(여백)이면 null. */
+  function slotAt(p: Point): number | null {
+    const i = paperLayout.slots.findIndex(
+      (s) => p.x >= s.x && p.x <= s.x + s.width && p.y >= s.y && p.y <= s.y + s.height,
+    );
+    return i === -1 ? null : i;
+  }
+
+  /** 다른 칸(다른 양식)을 클릭했을 때 그 양식으로 활성을 옮긴다. */
+  function switchToSlot(i: number) {
+    const t = slotTemplates[i];
+    if (t) selectTemplate(t.id);
+  }
+
+  /**
+   * 용지 모드에서, 활성이 아닌 칸의 정적인 내용. PaperPreview.tsx와 같은
+   * 생김새(InsertView + PunchGuide)다 — 손댈 수 없는 참고용 미리보기라
+   * canvasContent(활성 칸)의 손잡이·마퀴 같은 편집 중 표시는 없다.
+   */
+  function staticSlotContent(i: number) {
+    const t = printMode === 'combo' ? (slotTemplates[i] ?? activeTemplateFull) : activeTemplateFull;
+    if (!t) return null;
+    const sideObjects = activeSide === 'back' ? (t.back?.objects.present ?? []) : t.objects.present;
+    return (
+      <>
+        <rect x={0} y={0} width={t.insert.width} height={t.insert.height} className="insert" />
+        <InsertView
+          insert={t.insert}
+          grid={t.dotGrid}
+          objects={sideObjects}
+          safeZoneWidth={t.insert.punch.safeZoneWidth}
+          mirror={activeSide === 'back'}
+        />
+        <PunchGuide
+          width={t.insert.width}
+          height={t.insert.height}
+          punch={t.insert.punch}
+          mirror={activeSide === 'back'}
+        />
+      </>
+    );
+  }
 
   // 격자점 사이 칸 개수. 도트든 그리드든 줄이든 모양과 무관하게 같은 격자에서 나온다.
   // core가 세어준다. 끝까지 채울 때 가장자리에 붙는 잘린 띠는 칸이 아니다.
@@ -279,6 +388,9 @@ export function EditorTab() {
   function setDragBoth(d: Drag | null) {
     dragRef.current = d;
     setDrag(d);
+    // 몸짓이 끝나면 용지 모드의 칸 고정도 같이 푼다 — 다음 호버부터
+    // 다시 마우스를 따라 칸을 찾아야 한다.
+    if (!d) gestureSlotRef.current = null;
   }
 
   /**
@@ -297,6 +409,7 @@ export function EditorTab() {
     commitText({ ...cur.box, text: cur.text, ...cur.style, ...(field ? { field } : {}) }, cur.id);
     setEditing(null);
     editingRef.current = null;
+    editingSlotRef.current = null;
   }
 
   /** 지금 입력 중인 상자의 크기·정렬·색을 고친다. 아직 커밋 전이라 store를 거치지 않는다. */
@@ -425,12 +538,14 @@ export function EditorTab() {
   ]);
 
   /**
-   * 마우스 위치를 속지 좌표(mm)로.
+   * 마우스 위치를 지금 svgRef의 좌표계 그대로(mm)로. "속지" 모드에서는
+   * viewBox가 이미 속지 mm라 이것이 곧 속지 좌표다. "용지" 모드에서는
+   * viewBox가 용지 mm라 이것은 용지 좌표다(칸 안 좌표로 바꾸는 건 rawMm의 몫).
    *
    * viewBox를 mm로 잡아둔 덕분에 브라우저가 직접 mm를 돌려준다.
    * 이것이 SVG를 그대로 쓰기로 한 이유다 — 픽셀을 거치는 통역이 없다.
    */
-  function rawMm(e: React.PointerEvent): Point | null {
+  function rawSvgMm(e: React.PointerEvent): Point | null {
     const svg = svgRef.current;
     const ctm = svg?.getScreenCTM();
     if (!svg || !ctm) return null;
@@ -439,6 +554,25 @@ export function EditorTab() {
     p.y = e.clientY;
     const local = p.matrixTransform(ctm.inverse());
     return { x: local.x, y: local.y };
+  }
+
+  /**
+   * 마우스 위치를 속지 좌표(mm)로 — 그리기 로직 전체가 받는 좌표다.
+   *
+   * "속지" 모드에서는 rawSvgMm 그대로다(지금까지와 동일). "용지" 모드에서는
+   * 용지 좌표를 한 번 더 칸 안 좌표로 바꾼다 — 드래그 중이면 몸짓이 시작한
+   * 칸(gestureSlotRef)에 고정하고, 아니면 지금 마우스가 있는 칸을 찾는다.
+   * 활성이 아닌 칸 위(또는 칸 밖)면 null이다 — 그릴 좌표가 없다는 뜻이고,
+   * onDown이 그 경우를 먼저 가로채(칸 전환 등) 처리한다.
+   */
+  function rawMm(e: React.PointerEvent): Point | null {
+    const raw = rawSvgMm(e);
+    if (!raw || viewMode !== 'paper') return raw;
+    const i = gestureSlotRef.current ?? slotAt(raw);
+    if (i === null || !isActiveSlot(i)) return null;
+    const slot = paperLayout.slots[i];
+    const { u, v } = unplaceSlot(slot, paperLayout.rotated, raw.x, raw.y);
+    return { x: u, y: v };
   }
 
   function snapped(e: React.PointerEvent): Point | null {
@@ -665,6 +799,21 @@ export function EditorTab() {
   }
 
   function onDown(e: React.PointerEvent) {
+    // 용지 모드에서는 먼저 어느 칸을 눌렀는지부터 본다. 활성이 아닌 칸이면
+    // 그리기를 시작하지 않고 그 칸의 양식으로 옮겨간다 — 칸 밖(여백)이면
+    // 아무 일도 하지 않는다. 활성 칸이면 이 칸에 몸짓을 고정해두고(마우스가
+    // 살짝 옆으로 나가도 좌표 기준이 안 바뀌게) 평소처럼 이어간다.
+    if (viewMode === 'paper') {
+      const paperPoint = rawSvgMm(e);
+      const i = paperPoint && slotAt(paperPoint);
+      if (i === null || i === undefined) return;
+      if (!isActiveSlot(i)) {
+        switchToSlot(i);
+        return;
+      }
+      gestureSlotRef.current = i;
+    }
+
     const raw = rawMm(e);
     const snap = snapped(e);
     if (!raw) return;
@@ -706,6 +855,7 @@ export function EditorTab() {
       if (hit && isText(hit)) {
         finishEditing();
         setEditing(editingFor(hit));
+        editingSlotRef.current = gestureSlotRef.current;
         return;
       }
       // 입력 중이었다면 먼저 확정한다. 그래야 빈 상자가 남지 않는다.
@@ -814,6 +964,10 @@ export function EditorTab() {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
     const d = dragRef.current;
+    // setDragBoth(null)이 gestureSlotRef를 곧장 비우므로, 이 몸짓이 어느
+    // 칸에서 있었는지 먼저 붙잡아둔다 — 아래에서 글자를 새로 열 때(용지
+    // 모드) 이 칸을 editingSlotRef에 넘겨준다.
+    const slotOfGesture = gestureSlotRef.current;
     setDragBoth(null);
     if (!d) return;
 
@@ -901,6 +1055,7 @@ export function EditorTab() {
       }
 
       setEditing({ box, text: '', style: draftStyle });
+      editingSlotRef.current = slotOfGesture;
       return;
     }
 
@@ -998,7 +1153,12 @@ export function EditorTab() {
    * 여는 입력을 지우지 않게 한다.
    */
   function onDoubleClickCanvas(e: React.MouseEvent) {
-    const raw = rawMm(e as unknown as React.PointerEvent);
+    const pe = e as unknown as React.PointerEvent;
+    // 더블클릭은 onDown을 두 번 거치고 오므로 그때의 gestureSlotRef는 이미
+    // 비어 있다(onUp이 매번 지운다) — 여기서 다시 직접 찾는다.
+    const paperPoint = viewMode === 'paper' ? rawSvgMm(pe) : null;
+    const paperSlotOfClick = paperPoint ? slotAt(paperPoint) : null;
+    const raw = rawMm(pe);
     if (!raw) return;
     const hit = hitAt(raw);
     setPending(null);
@@ -1010,6 +1170,7 @@ export function EditorTab() {
         setTool('text');
       }
       setEditing(editingFor(hit));
+      editingSlotRef.current = paperSlotOfClick;
       return;
     }
 
@@ -1028,6 +1189,7 @@ export function EditorTab() {
       skipToolResetRef.current = true;
       setTool('text');
       setEditing({ box: cell, text: '', style: draftStyle });
+      editingSlotRef.current = paperSlotOfClick;
     }
   }
 
@@ -1270,6 +1432,35 @@ export function EditorTab() {
             ↷
           </button>
 
+          <div className="tabs" title="용지 — 인쇄될 용지 전체를 보면서 그립니다. 다른 칸을 클릭하면 그 양식으로 옮겨갑니다">
+            <button
+              className={viewMode === 'insert' ? 'tab on' : 'tab'}
+              onClick={() => setViewMode('insert')}
+            >
+              속지
+            </button>
+            <button className={viewMode === 'paper' ? 'tab on' : 'tab'} onClick={() => setViewMode('paper')}>
+              용지
+            </button>
+          </div>
+
+          {/*
+            "속지" 모드는 뒷면을 나란히 놓고 클릭으로 옮겨간다(아래
+            renderInactiveCanvas). "용지" 모드는 칸이 이미 여러 개라 그
+            방식을 그대로 쓰기 어려워, 대신 이 단순한 앞면/뒷면 탭으로
+            옮긴다 — switchSide로 진행 중이던 입력·드래그를 먼저 정리한다.
+          */}
+          {viewMode === 'paper' && hasBack && (
+            <div className="tabs">
+              <button className={activeSide === 'front' ? 'tab on' : 'tab'} onClick={() => switchSide('front')}>
+                앞면
+              </button>
+              <button className={activeSide === 'back' ? 'tab on' : 'tab'} onClick={() => switchSide('back')}>
+                뒷면
+              </button>
+            </div>
+          )}
+
           <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
             {ZOOMS.map((z) => (
               <option key={z} value={z}>
@@ -1312,20 +1503,15 @@ export function EditorTab() {
       >
         <div className="insert-sheets">
         {(() => {
-          const activeSvg = (
-            <svg
-              ref={svgRef}
-              className={`insert-sheet active-canvas ${tool}`}
-              viewBox={`0 0 ${insert.width} ${insert.height}`}
-              width={insert.width * scale}
-              height={insert.height * scale}
-              onPointerMove={onMove}
-              onPointerLeave={() => setHover(null)}
-              onPointerDown={onDown}
-              onPointerUp={onUp}
-              onPointerCancel={() => setDragBoth(null)}
-              onDoubleClick={onDoubleClickCanvas}
-            >
+          /*
+           * 칸 안에 실제로 그려지는 것 전부 — "속지" 모드에서는 이것이 곧
+           * svg의 전체 내용이고, "용지" 모드에서는 활성 칸의 <g transform>
+           * 안에 그대로 다시 쓰인다. 좌표는 항상 속지 로컬 mm다(0~insert.
+           * width/height) — 용지 모드든 아니든 이 안의 JSX는 손댈 일이 없다,
+           * rawMm이 이미 용지 좌표를 칸 안 좌표로 바꿔서 넘겨주기 때문이다.
+           */
+          const canvasContent = (
+            <>
               <rect x={0} y={0} width={insert.width} height={insert.height} className="sheet-bg" />
 
               <InsertView
@@ -1516,6 +1702,56 @@ export function EditorTab() {
                   {sizeLabel}
                 </text>
               )}
+            </>
+          );
+
+          if (viewMode === 'paper') {
+            return (
+              <svg
+                ref={svgRef}
+                className={`insert-sheet active-canvas paper-canvas ${tool}`}
+                viewBox={`0 0 ${paper.width} ${paper.height}`}
+                width={paper.width * scale}
+                height={paper.height * scale}
+                onPointerMove={onMove}
+                onPointerLeave={() => setHover(null)}
+                onPointerDown={onDown}
+                onPointerUp={onUp}
+                onPointerCancel={() => setDragBoth(null)}
+                onDoubleClick={onDoubleClickCanvas}
+              >
+                <rect x={0} y={0} width={paper.width} height={paper.height} className="sheet-bg" />
+                {paperLayout.slots.map((slot, i) => {
+                  const active = isActiveSlot(i);
+                  return (
+                    <g
+                      key={i}
+                      className={active ? 'paper-slot active' : 'paper-slot'}
+                      transform={placeSlot(slot, paperLayout.rotated).svg}
+                    >
+                      {active ? canvasContent : staticSlotContent(i)}
+                    </g>
+                  );
+                })}
+              </svg>
+            );
+          }
+
+          const activeSvg = (
+            <svg
+              ref={svgRef}
+              className={`insert-sheet active-canvas ${tool}`}
+              viewBox={`0 0 ${insert.width} ${insert.height}`}
+              width={insert.width * scale}
+              height={insert.height * scale}
+              onPointerMove={onMove}
+              onPointerLeave={() => setHover(null)}
+              onPointerDown={onDown}
+              onPointerUp={onUp}
+              onPointerCancel={() => setDragBoth(null)}
+              onDoubleClick={onDoubleClickCanvas}
+            >
+              {canvasContent}
             </svg>
           );
 
@@ -1546,6 +1782,14 @@ export function EditorTab() {
             editing={editing}
             scale={scale}
             svg={svgRef.current}
+            // 용지 모드에서는 svg가 용지 전체라, 입력칸 자리를 입력 중인
+            // 칸의 배치(placeSlot)까지 더해서 계산해야 한다 — TextInput 안의
+            // 계산 참고.
+            paperSlot={
+              viewMode === 'paper' && editingSlotRef.current !== null
+                ? { slot: paperLayout.slots[editingSlotRef.current], rotated: paperLayout.rotated }
+                : null
+            }
             inputRef={textInputRef}
             onChange={(text) => {
               // 새로 만드는 중(id 없음)에만 상자를 맞춘다 — 칸 하나만 누르고
@@ -1620,6 +1864,7 @@ function TextInput({
   editing,
   scale,
   svg,
+  paperSlot,
   inputRef,
   onChange,
   onDone,
@@ -1627,6 +1872,8 @@ function TextInput({
   editing: Editing;
   scale: number;
   svg: SVGSVGElement | null;
+  /** 용지 모드에서, 입력 중인 칸의 배치. 속지 모드면 null. */
+  paperSlot: { slot: Slot; rotated: boolean } | null;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
   onChange: (text: string) => void;
   onDone: () => void;
@@ -1649,8 +1896,8 @@ function TextInput({
   if (!svg) return null;
   const wrap = svg.parentElement!.getBoundingClientRect();
   const at = svg.getBoundingClientRect();
-  const left = at.left - wrap.left + box.x * scale;
-  const top = at.top - wrap.top + box.y * scale;
+  const baseLeft = at.left - wrap.left;
+  const baseTop = at.top - wrap.top;
   // 회전한 글자를 고치는 중이면 입력칸도 같이 돌아가 있어야 한다 — 안 그러면
   // 타이핑하는 자리와 실제로 저장될 자리가 달라 보여서 "상자 밖에서 고치는"
   // 것처럼 보인다. CSS의 rotate() 부호는 core/objects의 rotationOf가 화면에
@@ -1658,7 +1905,29 @@ function TextInput({
   const rotate = rotateOf(editing.style);
   const cssRotate = rotate === 90 ? 90 : rotate === 270 ? -90 : 0;
 
-  return (
+  let left = baseLeft + box.x * scale;
+  let top = baseTop + box.y * scale;
+  /**
+   * 용지 모드에서는 svg가 용지 전체라 baseLeft·baseTop이 용지의 화면
+   * 자리일 뿐, 입력 중인 칸이 용지 어디 있는지는 안 담고 있다. 그 칸
+   * 자체가 core/place의 placeSlot(<g transform>으로 그려지는 것과
+   * 똑같은 값)만큼 옮겨져 있으므로, 입력칸도 같은 변환을 CSS matrix()로
+   * 옮겨서 겹쳐 놓는다 — SVG matrix()와 CSS matrix()는 같은 여섯 숫자
+   * 규칙(x'=a·x+c·y+e, y'=b·x+d·y+f)을 쓰므로 이동량(e, f)만 mm→px로
+   * 바꾸면 그대로 재사용할 수 있다.
+   */
+  let outerTransform: string | undefined;
+  if (paperSlot) {
+    const [a, b, c, d, e, f] = placeSlot(paperSlot.slot, paperSlot.rotated)
+      .svg.slice('matrix('.length, -1)
+      .split(' ')
+      .map(Number);
+    outerTransform = `matrix(${a}, ${b}, ${c}, ${d}, ${e * scale}, ${f * scale})`;
+    left = box.x * scale;
+    top = box.y * scale;
+  }
+
+  const textarea = (
     <textarea
       ref={ref}
       className="text-input"
@@ -1703,6 +1972,17 @@ function TextInput({
         onDone();
       }}
     />
+  );
+
+  if (!outerTransform) return textarea;
+
+  // "속지" 모드와 똑같은 자리 기준(.insert-sheets 기준 left·top)에 놓은 뒤,
+  // 그 위에서 칸의 배치만큼 옮기고 돌린다 — SVG의 <g transform={placeSlot}>
+  // 안에 그려지는 내용과 정확히 같은 자리로 겹친다.
+  return (
+    <div style={{ position: 'absolute', left: baseLeft, top: baseTop, transform: outerTransform, transformOrigin: '0 0' }}>
+      {textarea}
+    </div>
   );
 }
 

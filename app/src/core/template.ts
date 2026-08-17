@@ -66,6 +66,16 @@ export type RepeatSetting =
 
 export const SINGLE_REPEAT: RepeatSetting = { mode: 'single' };
 
+/** 인쇄하기·양식 만들기 화면이 함께 보는 인쇄 방식. `single`은 낱장 조합(combo)으로 친다. */
+export type PrintMode = 'combo' | 'repeat' | 'dataset';
+
+/** 지금 양식의 인쇄 방식. App.tsx·EditorTab.tsx가 각자 계산하면 언젠가 어긋난다. */
+export function printModeOf(t: Pick<Template, 'repeat'> | null | undefined): PrintMode {
+  if (t?.repeat.mode === 'repeat') return 'repeat';
+  if (t?.repeat.mode === 'dataset') return 'dataset';
+  return 'combo';
+}
+
 export interface Template {
   id: string;
   name: string;

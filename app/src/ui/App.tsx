@@ -5,6 +5,7 @@ import {
   cutStackPage,
   filledSlots,
   frontBackFilled,
+  printModeOf,
   sheetsNeeded,
 } from '../core/template';
 import { mirrorLayout } from '../core/layout';
@@ -91,12 +92,7 @@ export function App() {
    * 섞이지 않는다. `active.repeat.mode`가 어느 쪽인지 정한다 — 사용자가 따로
    * 고르지 않는다.
    */
-  const printMode: 'combo' | 'repeat' | 'dataset' =
-    active?.repeat.mode === 'repeat'
-      ? 'repeat'
-      : active?.repeat.mode === 'dataset'
-        ? 'dataset'
-        : 'combo';
+  const printMode = printModeOf(active);
   const totalSlots = active?.repeat.mode === 'repeat' ? active.repeat.count : 0;
   const dataset = active?.repeat.mode === 'dataset' ? active.repeat.dataset : null;
   const totalPages = dataset ? datasetPages(dataset) : 0;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeLayout } from './layout';
-import { insertSizeOf, placeSlot } from './place';
+import { insertSizeOf, placeSlot, unplaceSlot } from './place';
 
 /** A4에 M6 3단접이(220 × 125). 가로가 용지보다 넓어 반드시 눕는다. */
 const rotatedLayout = computeLayout({
@@ -98,6 +98,32 @@ describe('칸 안의 좌표', () => {
         [220, 125],
       ]) {
         expect(p.map(u, v)).toEqual({ x: a * u + c * v + e, y: b * u + d * v + f });
+      }
+    }
+  });
+
+  it('unplaceSlot은 placeSlot의 반대다 — 용지 좌표를 다시 속지 좌표로 되돌린다', () => {
+    // 양식 만들기의 "용지" 보기에서 마우스로 찍은 용지 좌표를 그리기 로직이
+    // 원래 받던 속지 좌표로 되돌리는 데 쓴다. 왕복(map → unplace)이 원래
+    // (u, v)로 정확히 돌아와야 한다 — 어긋나면 클릭한 자리와 실제로 찍히는
+    // 자리가 달라진다.
+    for (const [layout, rotated] of [
+      [uprightLayout, false],
+      [rotatedLayout, true],
+    ] as const) {
+      for (const slot of layout.slots) {
+        const { width: w, height: h } = insertSizeOf(slot, rotated);
+        const p = placeSlot(slot, rotated);
+        for (const [u, v] of [
+          [0, 0],
+          [w, h],
+          [w / 3, h / 4],
+        ]) {
+          const { x, y } = p.map(u, v);
+          const back = unplaceSlot(slot, rotated, x, y);
+          expect(back.u).toBeCloseTo(u, 9);
+          expect(back.v).toBeCloseTo(v, 9);
+        }
       }
     }
   });

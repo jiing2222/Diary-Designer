@@ -53,3 +53,16 @@ export function placeSlot(slot: Slot, rotated: boolean): Placement {
     svg: `matrix(${a} ${b} ${c} ${d} ${e} ${f})`,
   };
 }
+
+/**
+ * `placeSlot`의 역변환 — 용지 좌표 (x, y)가 이 칸의 속지 좌표로는 몇인지.
+ *
+ * 양식 만들기의 "용지" 보기에서, 마우스로 찍은 용지 좌표를 그 칸의 속지
+ * 좌표(기존 그리기 로직이 그대로 받는 좌표)로 되돌릴 때 쓴다. `placeSlot`과
+ * 정확히 반대 계산이어야 한다 — 어긋나면 클릭한 자리와 실제로 찍히는 자리가
+ * 달라진다.
+ */
+export function unplaceSlot(slot: Slot, rotated: boolean, x: Mm, y: Mm): { u: Mm; v: Mm } {
+  if (!rotated) return { u: x - slot.x, v: y - slot.y };
+  return { u: slot.y + slot.height - y, v: x - slot.x };
+}
