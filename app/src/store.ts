@@ -1498,10 +1498,23 @@ export const useActive = () => useStore(activeTemplate);
 export const useInsert = () => useStore((s) => activeTemplate(s)?.insert ?? NO_INSERT);
 /** 격자는 앞뒤가 공유하는 값이라 side를 받지 않는다 — 어느 쪽에서 읽어도 같다. */
 export const useDotGrid = () => useStore((s) => activeTemplate(s)?.dotGrid ?? NO_GRID);
-/** side를 주지 않으면 지금 편집 중인 쪽(s.side)이다. 앞뒤를 동시에 보여줄 때는
- * 명시해서 s.side와 무관하게 양쪽을 각각 읽는다. */
+/**
+ * side를 주지 않으면 지금 편집 중인 쪽(s.side, 그림자가 있으면 s.shadowSide)이다.
+ * 앞뒤를 동시에 보여줄 때는 명시해서 그 쪽과 무관하게 양쪽을 각각 읽는다.
+ *
+ * **그림자 양식(`shadowTemplate`)이 있으면 그쪽을 우선한다** — `StyleBar`가
+ * 인쇄하기의 칸 편집 화면(PrintSlotEditor)에서도 그대로 재사용되기 때문이다.
+ * `useInsert`·`useDotGrid`는 일부러 그림자를 안 본다 — `SettingsPanel`이
+ * 인쇄하기 탭에서도 함께 떠 있는데(App.tsx), 그 훅들까지 그림자를 보면 칸을
+ * 손보는 동안 그 패널이 그림자의 속지 설정을 보여주면서 실제로는(patchInsert
+ * 등은 그림자를 모른다) 진짜 활성 양식을 고치는 어긋난 상태가 된다. 그림자의
+ * insert·dotGrid가 필요한 곳(PrintSlotEditor)은 `shadowTemplate`을 직접 읽는다.
+ */
 export const useObjects = (side?: Side) =>
   useStore((s) => {
+    if (s.shadowTemplate) {
+      return activeSideData(s.shadowTemplate, side ?? s.shadowSide)?.objects ?? NO_OBJECTS;
+    }
     const active = activeTemplate(s);
     return (active && activeSideData(active, side ?? s.side)?.objects) ?? NO_OBJECTS;
   });

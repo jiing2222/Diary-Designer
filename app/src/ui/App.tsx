@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore } from '../store';
+import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore, type Side } from '../store';
 import {
   capacityPerSheet,
   cutStackPage,
@@ -14,6 +14,7 @@ import { resolvePageObjects } from '../core/format';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
 import { SettingsPanel } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
+import { PrintSlotEditor } from './PrintSlotEditor';
 import { EditorTab } from './EditorTab';
 import { GalleryTab } from './GalleryTab';
 import { ProjectFile } from './ProjectFile';
@@ -28,9 +29,26 @@ import {
   imageKind as imageKind_,
   restoreCachedImages,
 } from '../images/registry';
-import type { ImageObject, TextObject } from '../core/objects';
+import type { DiaryObject, ImageObject, TextObject } from '../core/objects';
 
 type Tab = 'gallery' | 'edit' | 'print';
+
+/**
+ * 인쇄하기에서 지금 칸(낱장 조합)·페이지(세트형)를 직접 손보는 중이면 그
+ * 자리 정보. `store.ts`의 `shadowTemplate`이 실제 그리는 데이터를 들고
+ * 있고, 여기는 "그 결과를 어디(칸 번호 또는 페이지 번호, 앞/뒤)로 옮겨
+ * 담을지"만 기억한다 — 그림자 자체는 그 대상을 몰라도 되게 하려는
+ * 것이다(PrintSlotEditor는 store만 보고 그린다).
+ */
+type EditingSession = {
+  sheet: number;
+  index: number;
+  side: Side;
+  /** 손보기 시작할 때의 내용 — 끝날 때 하나도 안 고쳤으면(참조가 그대로면)
+   * override를 아예 만들지 않는다. 그냥 열어보기만 했는데 "손봤다"로
+   * 남아 원본 양식 변경을 더는 안 따라가면 놀란다. */
+  seed: DiaryObject[];
+} & ({ kind: 'combo' } | { kind: 'dataset'; page: number });
 
 /**
  * 반복 인쇄에서 마지막 장의 남는 칸. 화면에서는 완전히 비워 보여준다.
@@ -100,6 +118,59 @@ export function App() {
   const totalSlots = active?.repeat.mode === 'repeat' ? active.repeat.count : 0;
   const dataset = active?.repeat.mode === 'dataset' ? active.repeat.dataset : null;
   const totalPages = dataset ? datasetPages(dataset) : 0;
+
+  const [editingSession, setEditingSession] = useState<EditingSession | null>(null);
+
+  /**
+   * 지금 손보던 것이 있으면 그 결과를 override로 옮기고 그림자를 지운다.
+   *
+   * **`s` 대신 `useStore.getState()`로 읽는다.** "완료" 버튼은 진행 중인
+   * 글자 입력을 먼저 커밋(`finishEditing` → `commitText`)한 바로 뒤에 이
+   * 함수를 부르는데, 그 커밋은 store를 그 자리에서 바로 바꾸지만 App.tsx의
+   * `s`(컴포넌트 렌더 시점의 스냅샷)는 리액트가 다시 그릴 때까지 그 변화를
+   * 모른다 — `getState()`로 읽어야 방금 커밋한 글자까지 포함해서 정확히
+   * 옮겨 담는다.
+   */
+  function commitEdit() {
+    const store = useStore.getState();
+    if (!editingSession || !store.shadowTemplate) return;
+    const data = store.shadowSide === 'front' ? store.shadowTemplate.objects : store.shadowTemplate.back?.objects;
+    const objects = data?.present ?? [];
+    // 하나도 안 고쳤으면(참조가 씨앗 그대로면) override를 만들지 않는다 —
+    // 그냥 열어만 봤는데 원본 양식을 더는 안 따라가게 되면 놀란다.
+    if (objects !== editingSession.seed) {
+      if (editingSession.kind === 'combo') {
+        store.setComboSlotOverride(editingSession.index, editingSession.side, objects);
+      } else {
+        store.setPageOverride(editingSession.page, editingSession.side, objects);
+      }
+    }
+    store.endShadowEdit();
+  }
+
+  /** 다른 칸·페이지를 손보기 시작한다 — 손보던 것이 있으면 먼저 그 결과부터 저장한다. */
+  function beginEdit(session: EditingSession, content: PreviewSlotContent) {
+    commitEdit();
+    useStore.getState().beginShadowEdit(content.insert, content.dotGrid, content.objects, session.side);
+    setEditingSession(session);
+  }
+
+  /** "완료" — 저장하고 손보기를 마친다. */
+  function finishEdit() {
+    commitEdit();
+    setEditingSession(null);
+  }
+
+  // 인쇄하기 탭을 벗어나면(양식 만들기 등으로) 손보던 것을 저장하고 끝낸다.
+  // 그림자 양식이 남아 있으면 그 사이 EditorTab의 그리기도 엉뚱하게 그림자를
+  // 향하게 된다(store.ts의 patchActiveSide가 shadowTemplate을 먼저 본다).
+  useEffect(() => {
+    if (tab !== 'print' && editingSession) {
+      commitEdit();
+      setEditingSession(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   const previewOverrides = new Map<number, PreviewSlotContent>();
   const pdfOverrides = new Map<number, SlotContent>();
@@ -526,6 +597,25 @@ export function App() {
                 Array.from({ length: Math.max(1, sheets) }, (_, sheet) => {
                   const { previewOverrides: front, previewBackOverrides: back } = overridesForSheet(sheet);
                   const pageStyle = { width: width * scale, height: height * scale };
+                  const backLayout = mirrorLayout(layout, width, height);
+
+                  // 낱장 조합·세트형에서만 칸을 손볼 수 있다 — 반복 인쇄(만년형)는
+                  // 모든 칸이 완전히 같은 내용이라(같은 양식 반복) "이 칸만" 손본다는
+                  // 개념 자체가 없다.
+                  const editable = printMode === 'combo' || printMode === 'dataset';
+                  function onSlotClickFor(side: Side) {
+                    return (index: number, content: PreviewSlotContent) => {
+                      if (printMode === 'dataset') {
+                        if (content.calendarPage === undefined) return; // 빈 칸 — 손볼 페이지가 없다
+                        beginEdit(
+                          { kind: 'dataset', sheet, index, side, page: content.calendarPage, seed: content.objects },
+                          content,
+                        );
+                      } else if (printMode === 'combo') {
+                        beginEdit({ kind: 'combo', sheet, index, side, seed: content.objects }, content);
+                      }
+                    };
+                  }
 
                   const frontPage = (
                     <div className="print-sheet-page" style={pageStyle}>
@@ -541,7 +631,16 @@ export function App() {
                         unprintable={s.unprintable}
                         mode={printPreview ? 'print' : 'edit'}
                         calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
+                        onSlotClick={editable ? onSlotClickFor('front') : undefined}
                       />
+                      {editingSession?.sheet === sheet && editingSession.side === 'front' && (
+                        <PrintSlotEditor
+                          slot={layout.slots[editingSession.index]}
+                          rotated={layout.rotated}
+                          scale={scale}
+                          onFinish={finishEdit}
+                        />
+                      )}
                     </div>
                   );
 
@@ -559,14 +658,23 @@ export function App() {
                         dotGrid={active.back || s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID}
                         objects={active.back?.objects.present ?? []}
                         slotOverrides={back.size > 0 ? back : undefined}
-                        layout={mirrorLayout(layout, width, height)}
+                        layout={backLayout}
                         cropMark={s.cropMark}
                         showRuler={s.showRuler}
                         unprintable={s.unprintable}
                         mode={printPreview ? 'print' : 'edit'}
                         mirror
                         calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
+                        onSlotClick={editable ? onSlotClickFor('back') : undefined}
                       />
+                      {editingSession?.sheet === sheet && editingSession.side === 'back' && (
+                        <PrintSlotEditor
+                          slot={backLayout.slots[editingSession.index]}
+                          rotated={backLayout.rotated}
+                          scale={scale}
+                          onFinish={finishEdit}
+                        />
+                      )}
                     </div>
                   );
 

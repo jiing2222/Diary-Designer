@@ -1025,6 +1025,14 @@ select,
 
 .print-sheet-page {
   flex-shrink: 0;
+  /* 인쇄하기에서 칸을 직접 손보는 도구막대·캔버스(PrintSlotEditor)를 이
+     장 기준으로 절대 위치시킨다 — .stage-area 전체 기준이면 스크롤할
+     때마다 자리가 어긋난다. */
+  position: relative;
+}
+
+.paper-slot-clickable {
+  cursor: pointer;
 }
 
 .notice {

@@ -49,6 +49,14 @@ interface Props {
   mirror?: boolean;
   /** 월간 달력 데이터셋의 연도. `slotOverrides`의 `calendarPage`와 함께 쓴다. */
   calendarYear?: number;
+  /**
+   * 인쇄하기에서 칸을 직접 손보는 기능(24단계)용. 주면 칸마다 클릭할 수 있게
+   * 되고, 클릭하면 그 칸 번호와 **지금 실제로 그려지는 내용**(slotOverrides로
+   * 이미 골라진 값)을 함께 넘긴다 — 손보기를 시작하는 쪽(App.tsx)이 이 값을
+   * 그대로 그림자 양식의 씨앗으로 쓴다. 여기서 다시 계산하지 않는 이유는
+   * "화면에 보이는 것과 손보기 시작하는 것이 항상 같아야 한다"는 원칙 때문이다.
+   */
+  onSlotClick?: (index: number, content: PreviewSlotContent) => void;
 }
 
 /**
@@ -70,6 +78,7 @@ export function PaperPreview({
   mode = 'edit',
   mirror = false,
   calendarYear,
+  onSlotClick,
 }: Props) {
   const { width: pw, height: ph } = paper;
 
@@ -95,7 +104,11 @@ export function PaperPreview({
         const content = slotOverrides?.get(i) ?? { insert, dotGrid, objects };
         const punch = content.insert.punch;
         return (
-          <g key={i}>
+          <g
+            key={i}
+            className={onSlotClick ? 'paper-slot-clickable' : undefined}
+            onClick={onSlotClick ? () => onSlotClick(i, content) : undefined}
+          >
             {/*
               칸 경계선. 작업할 땐 어디가 한 장인지 보여주는 안내선이지만, 실제
               인쇄물에는 없는 선이다 — 'print' 모드에서는 그리지 않는다.

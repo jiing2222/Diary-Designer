@@ -1860,7 +1860,7 @@ export function EditorTab() {
  *
  * 자리는 SVG에게 물어본다 — 확대와 스크롤을 우리가 다시 계산하면 어긋난다.
  */
-function TextInput({
+export function TextInput({
   editing,
   scale,
   svg,
@@ -2024,7 +2024,7 @@ function SideBar({
   );
 }
 
-function ToolBtn({
+export function ToolBtn({
   on,
   onClick,
   title,
