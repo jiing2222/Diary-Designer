@@ -907,6 +907,11 @@ select,
   background: var(--panel);
 }
 
+/* select 기본값이 남는 폭을 다 먹어버린다 — .editor-bar select와 같은 이유로 되돌린다. */
+.print-bar select {
+  width: auto;
+}
+
 /*
  * 낱장 조합 — 매수와 칸 배정.
  *

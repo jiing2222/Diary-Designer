@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore } from '../store';
 import {
   capacityPerSheet,
@@ -59,17 +59,28 @@ export function App() {
    */
   const [printPreview, setPrintPreview] = useState(true);
   /**
-   * 인쇄하기 탭의 확대 배율. 양식 만들기(EditorTab)의 zoom과 같은 생각·같은
-   * 값 목록이다 — store에 넣지 않는 이유도 같다(탭을 나가면 잊혀도 되는,
-   * "지금 화면을 어떻게 보고 있는지"일 뿐인 값).
+   * 인쇄하기 탭의 확대 배율. 숫자면 양식 만들기(EditorTab)의 zoom과 같은
+   * 값(%)이고, `'fit'`이면 지금 화면 폭에 맞춰(양면이면 두 쪽이 다 보이게)
+   * 자동으로 계산한다 — 기본값이다. 첫 화면부터 잘려 보이는 것보다 다
+   * 보이는 편이 낫다. store에 넣지 않는 이유는 printPreview와 같다.
    */
-  const [zoom, setZoom] = useState(100);
+  const [zoom, setZoom] = useState<number | 'fit'>('fit');
   /**
    * 양면일 때 뒷면을 왼쪽에 둘지 오른쪽에 둘지. 실제 인쇄되는 페이지 순서와는
    * 무관하다 — 화면에서 나란히 볼 때 어느 쪽에 두고 볼지 정하는 값이라 이것도
    * store에 넣지 않는다.
    */
   const [backOnLeft, setBackOnLeft] = useState(true);
+  /** `zoom === 'fit'`일 때 배율 계산의 기준이 되는, 지금 미리보기 영역의 실제 폭(px). */
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageWidth, setStageWidth] = useState(0);
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setStageWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const { width, height } = paperSize(s.paper);
   const layout = selectLayout(s);
@@ -243,6 +254,20 @@ export function App() {
       : printMode === 'dataset'
         ? sheetsNeeded(totalPages, layout.count)
         : Math.max(1, s.comboSheets);
+
+  /*
+   * 인쇄하기 탭의 px/mm 배율. 'fit'이면 지금 미리보기 영역 폭(stageWidth)에
+   * 맞춰 계산한다 — 양면이면 두 쪽이 나란히 다 들어가야 하므로 폭을 둘로
+   * 나눈다. .stage-area의 padding(20px 양쪽)·.print-sheet의 gap(14px)을
+   * 빼야 실제로 그릴 수 있는 폭이 나온다 — CSS 값이 바뀌면 여기도 맞춰야 한다.
+   * 아직 폭을 못 쟀으면(첫 렌더) 100%로 잠깐 대신한다.
+   */
+  const pagesPerRow = s.duplex ? 2 : 1;
+  const fitScale =
+    stageWidth > 0
+      ? Math.max(0.15, (stageWidth - 40 - (pagesPerRow - 1) * 14) / (width * pagesPerRow))
+      : PX_PER_MM_AT_100;
+  const scale = zoom === 'fit' ? fitScale : (zoom / 100) * PX_PER_MM_AT_100;
 
   async function exportPdf() {
     if (!active) return;
@@ -441,9 +466,10 @@ export function App() {
               <select
                 className="print-zoom"
                 value={zoom}
-                onChange={(e) => setZoom(Number(e.target.value))}
+                onChange={(e) => setZoom(e.target.value === 'fit' ? 'fit' : Number(e.target.value))}
                 title="확대"
               >
+                <option value="fit">화면에 맞춤</option>
                 {ZOOMS.map((z) => (
                   <option key={z} value={z}>
                     {z}%
@@ -472,7 +498,7 @@ export function App() {
               <SlotAssign layout={layout} />
             )}
 
-            <div className="stage-area">
+            <div className="stage-area" ref={stageRef}>
               {layout.count === 0 ? (
                 <div className="empty">속지가 용지보다 큽니다. 용지를 키우거나 속지를 줄이세요.</div>
               ) : (
@@ -480,7 +506,6 @@ export function App() {
                 // 한 장은 보여준다 — 화면이 통째로 비어 있으면 뭘 봐야 할지 모른다.
                 Array.from({ length: Math.max(1, sheets) }, (_, sheet) => {
                   const { previewOverrides: front, previewBackOverrides: back } = overridesForSheet(sheet);
-                  const scale = (zoom / 100) * PX_PER_MM_AT_100;
                   const pageStyle = { width: width * scale, height: height * scale };
 
                   const frontPage = (
