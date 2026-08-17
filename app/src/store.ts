@@ -23,8 +23,8 @@ import {
   type Template,
 } from './core/template';
 import { toTemplates, type SavedProject } from './core/project';
-import { reserveIds } from './fonts/registry';
-import { removeImage, reserveImageIds } from './images/registry';
+import { persistFontLabel, reserveIds } from './fonts/registry';
+import { persistImageMeta, removeImage, reserveImageIds } from './images/registry';
 import {
   cloneObject,
   dedupe,
@@ -317,7 +317,14 @@ interface Store extends Settings {
   styleCalendar: (patch: CalendarStyle) => void;
   /** 등록을 마친 글꼴을 목록에 넣는다. 파일 읽기는 fonts/registry가 이미 끝냈다. */
   addUserFont: (font: UserFont) => void;
-  /** 등록을 마친 이미지를 목록에 넣는다. 파일 읽기는 images/registry가 이미 끝냈다. */
+  /** 글꼴 이름(라벨)을 바꾼다. */
+  renameUserFont: (id: string, label: string) => void;
+  /**
+   * 등록을 마친 이미지를 목록에 넣는다. 파일 읽기는 images/registry가 이미 끝냈다.
+   *
+   * 디자인 관리에서 저장하지 않은("최근 사용") 이미지가 RECENT_IMAGE_CAP개를
+   * 넘으면, 지금 쓰는 중이 아닌 것 중 가장 오래된 것부터 자동으로 지운다.
+   */
   addUserImage: (image: UserImage) => void;
   /**
    * 자주 쓰는 이미지 목록에서 하나를 뺀다.
@@ -326,6 +333,12 @@ interface Store extends Settings {
    * 않는다 — 지우면 그 자리가 빈 이미지로 깨지기 때문이다.
    */
   removeUserImage: (id: string) => void;
+  /** 이미지 이름(라벨)을 바꾼다. */
+  renameUserImage: (id: string, label: string) => void;
+  /** 디자인 관리에서 "저장"을 켠다 — "최근 사용" 개수 제한을 벗어나 영구히 남는다. */
+  saveUserImage: (id: string) => void;
+  /** 저장을 끈다 — 다시 "최근 사용" 취급이 되어, 오래되면 자동으로 지워질 수 있다. */
+  unsaveUserImage: (id: string) => void;
   /**
    * 새 이미지 오브젝트를 이 박스 크기로 만든다.
    *
@@ -506,6 +519,37 @@ function activeObjects(s: Pick<Settings, 'templates' | 'activeId' | 'side'>): Di
   const active = activeTemplate(s);
   if (!active) return [];
   return activeSideData(active, s.side)?.objects.present ?? [];
+}
+
+/** "디자인 관리"에서 저장하지 않은 이미지가 이 개수를 넘으면, 안 쓰는 중인 것부터 오래된 순으로 지운다. */
+const RECENT_IMAGE_CAP = 10;
+
+/** 이 이미지를 지금 어느 템플릿(앞·뒤 어느 쪽이든)이 실제로 쓰고 있는가. */
+function imageInUse(templates: Template[], id: string): boolean {
+  return templates.some((t) =>
+    [...t.objects.present, ...(t.back?.objects.present ?? [])].some((o) => isImage(o) && o.imageId === id),
+  );
+}
+
+/**
+ * "최근 사용" 칸(저장 안 한 이미지)이 RECENT_IMAGE_CAP을 넘으면 넘치는 만큼
+ * 지운다 — 쓰는 중인 이미지는 저장한 것과 같이 취급해 후보에서 뺀다(그래야
+ * 화면에 그려진 이미지가 갑자기 사라지지 않는다). 나머지 중 `usedAt`이
+ * 오래된 것부터 지운다.
+ */
+function evictExcessRecent(
+  images: UserImage[],
+  templates: Template[],
+): { kept: UserImage[]; evicted: UserImage[] } {
+  const recent = images.filter((i) => !i.saved && !imageInUse(templates, i.id));
+  if (recent.length <= RECENT_IMAGE_CAP) return { kept: images, evicted: [] };
+
+  const oldestFirst = [...recent].sort((a, b) => (a.usedAt ?? 0) - (b.usedAt ?? 0));
+  const evictIds = new Set(oldestFirst.slice(0, recent.length - RECENT_IMAGE_CAP).map((i) => i.id));
+  return {
+    kept: images.filter((i) => !evictIds.has(i.id)),
+    evicted: images.filter((i) => evictIds.has(i.id)),
+  };
 }
 
 /**
@@ -874,24 +918,57 @@ export const useStore = create<Store>((set) => ({
         : [...s.userFonts, font],
     })),
 
+  renameUserFont: (id, label) =>
+    set((s) => {
+      const font = s.userFonts.find((f) => f.id === id);
+      if (!font) return {};
+      persistFontLabel(id, font.name, label);
+      return { userFonts: s.userFonts.map((f) => (f.id === id ? { ...f, label } : f)) };
+    }),
+
   addUserImage: (image) =>
-    set((s) => ({
-      userImages: s.userImages.some((i) => i.id === image.id)
+    set((s) => {
+      const next = s.userImages.some((i) => i.id === image.id)
         ? s.userImages.map((i) => (i.id === image.id ? image : i))
-        : [...s.userImages, image],
-    })),
+        : [...s.userImages, image];
+      const { kept, evicted } = evictExcessRecent(next, s.templates);
+      for (const i of evicted) removeImage(i.name);
+      return { userImages: kept };
+    }),
 
   removeUserImage: (id) =>
     set((s) => {
-      const inUse = s.templates.some((t) =>
-        [...t.objects.present, ...(t.back?.objects.present ?? [])].some(
-          (o) => isImage(o) && o.imageId === id,
-        ),
-      );
-      if (inUse) return {};
+      if (imageInUse(s.templates, id)) return {};
       const image = s.userImages.find((i) => i.id === id);
       if (image) removeImage(image.name);
       return { userImages: s.userImages.filter((i) => i.id !== id) };
+    }),
+
+  renameUserImage: (id, label) =>
+    set((s) => {
+      const image = s.userImages.find((i) => i.id === id);
+      if (!image) return {};
+      persistImageMeta(id, image.name, { saved: image.saved, usedAt: image.usedAt, label });
+      return { userImages: s.userImages.map((i) => (i.id === id ? { ...i, label } : i)) };
+    }),
+
+  saveUserImage: (id) =>
+    set((s) => {
+      const image = s.userImages.find((i) => i.id === id);
+      if (!image) return {};
+      persistImageMeta(id, image.name, { label: image.label, usedAt: image.usedAt, saved: true });
+      return { userImages: s.userImages.map((i) => (i.id === id ? { ...i, saved: true } : i)) };
+    }),
+
+  unsaveUserImage: (id) =>
+    set((s) => {
+      const image = s.userImages.find((i) => i.id === id);
+      if (!image) return {};
+      persistImageMeta(id, image.name, { label: image.label, usedAt: image.usedAt, saved: false });
+      const next = s.userImages.map((i) => (i.id === id ? { ...i, saved: false } : i));
+      const { kept, evicted } = evictExcessRecent(next, s.templates);
+      for (const i of evicted) removeImage(i.name);
+      return { userImages: kept };
     }),
 
   commitImage: (box) =>
@@ -913,7 +990,18 @@ export const useStore = create<Store>((set) => ({
       const next = activeObjects(s).map((o) =>
         o.type === 'image' && s.selectedIds.includes(o.id) ? { ...o, imageId } : o,
       );
-      return commitObjects(s, next);
+      // 다시 씌우는 것도 "쓴다"로 친다 — 최근 사용 순서에서 다시 맨 앞으로
+      // 온다. 저장한 이미지는 usedAt이 뜻이 없지만(개수 제한에서 이미 빠져
+      // 있다) 갱신해도 해가 없어 조건 없이 한다.
+      const image = s.userImages.find((i) => i.id === imageId);
+      const userImages = image
+        ? (() => {
+            const usedAt = Date.now();
+            persistImageMeta(imageId, image.name, { label: image.label, saved: image.saved, usedAt });
+            return s.userImages.map((i) => (i.id === imageId ? { ...i, usedAt } : i));
+          })()
+        : s.userImages;
+      return { ...commitObjects(s, next), userImages };
     }),
 
   pickImageFor: null,

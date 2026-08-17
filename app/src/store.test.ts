@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { activeTemplate, resolveSlotTemplates, useStore } from './store';
 import { insertFromPreset } from './core/template';
 import { DEFAULT_DOT_GRID } from './core/grid';
+import type { UserImage } from './images/registry';
 
 const s = () => useStore.getState();
 const initial = useStore.getState();
@@ -844,5 +845,77 @@ describe('자동 필드', () => {
     };
     expect(fieldOf(a)).toEqual({ offset: 0, format: 'M/D' });
     expect(fieldOf(b)).toEqual({ offset: 3, format: 'M/D' });
+  });
+});
+
+describe('디자인 관리 — 이미지 저장/최근 사용', () => {
+  const img = (id: string, extra: Partial<UserImage> = {}): UserImage => ({
+    id,
+    name: id,
+    url: `data:${id}`,
+    ...extra,
+  });
+
+  it('저장하지 않은 이미지가 10개를 넘으면 가장 오래 안 쓴 것부터 지운다', () => {
+    for (let i = 0; i < 11; i++) s().addUserImage(img(`img${i}`, { usedAt: i }));
+
+    const ids = s().userImages.map((i) => i.id);
+    expect(ids).toHaveLength(10);
+    expect(ids).not.toContain('img0'); // usedAt이 가장 작다 — 가장 오래됐다
+    expect(ids).toContain('img10'); // 방금 등록한 것
+  });
+
+  it('저장(saved)한 이미지는 개수 제한에서 빠진다', () => {
+    s().addUserImage(img('saved', { usedAt: 0, saved: true }));
+    for (let i = 1; i <= 10; i++) s().addUserImage(img(`img${i}`, { usedAt: i }));
+
+    const ids = s().userImages.map((i) => i.id);
+    expect(ids).toHaveLength(11);
+    expect(ids).toContain('saved');
+  });
+
+  it('지금 오브젝트에서 쓰는 중인 이미지는 가장 오래됐어도 자동으로 안 지워진다', () => {
+    // 쓰는 중인 이미지는 "최근 사용" 개수 제한 대상에서 아예 빠진다 —
+    // 10개 한도는 안 쓰는 중인 것끼리만 겨룬다.
+    s().addTemplate();
+    s().commitImage({ x: 0, y: 0, width: 10, height: 10 });
+    s().styleImage('inUse');
+    s().addUserImage(img('inUse', { usedAt: 0 }));
+    for (let i = 1; i <= 11; i++) s().addUserImage(img(`img${i}`, { usedAt: i }));
+
+    const ids = s().userImages.map((i) => i.id);
+    expect(ids).toContain('inUse');
+    expect(ids).not.toContain('img1'); // 안 쓰는 것 중 가장 오래된 것이 밀려난다
+    expect(ids).toContain('img11');
+  });
+
+  it('renameUserImage가 목록에 보일 이름(label)을 바꾼다', () => {
+    s().addUserImage(img('a'));
+    s().renameUserImage('a', '내 사진');
+    expect(s().userImages.find((i) => i.id === 'a')?.label).toBe('내 사진');
+  });
+
+  it('saveUserImage·unsaveUserImage가 저장 여부를 켜고 끈다', () => {
+    s().addUserImage(img('a'));
+    s().saveUserImage('a');
+    expect(s().userImages.find((i) => i.id === 'a')?.saved).toBe(true);
+    s().unsaveUserImage('a');
+    expect(s().userImages.find((i) => i.id === 'a')?.saved).toBe(false);
+  });
+
+  it('removeUserImage는 지금 쓰는 중이면 지우지 않는다', () => {
+    s().addTemplate();
+    s().commitImage({ x: 0, y: 0, width: 10, height: 10 });
+    s().styleImage('inUse');
+    s().addUserImage(img('inUse'));
+
+    s().removeUserImage('inUse');
+    expect(s().userImages.map((i) => i.id)).toContain('inUse');
+  });
+
+  it('renameUserFont가 목록에 보일 이름(label)을 바꾼다', () => {
+    s().addUserFont({ id: 'f1', name: 'MyFont', family: 'user-font-f1' });
+    s().renameUserFont('f1', '내 글꼴');
+    expect(s().userFonts.find((f) => f.id === 'f1')?.label).toBe('내 글꼴');
   });
 });

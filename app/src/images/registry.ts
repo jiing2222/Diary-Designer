@@ -22,10 +22,21 @@ export type ImageKind = 'png' | 'jpg';
 
 export interface UserImage {
   id: string;
-  /** 목록에 보일 이름. 파일 이름에서 확장자만 뗀 것이다. */
+  /** 파일 이름에서 확장자만 뗀 것. IndexedDB 키이자 되살리기(orphan) 매칭 기준이다 — 안 바뀐다. */
   name: string;
   /** 화면에 바로 쓸 수 있는 data URL. 저장 파일에서 이름만 살아 돌아온 경우 빈 문자열이다. */
   url: string;
+  /** 목록에 보일 이름. 사용자가 따로 바꾸지 않았으면 `name`을 그대로 쓴다. */
+  label?: string;
+  /** 디자인 관리에서 명시적으로 저장했는가. 켜져 있으면 "최근 사용" 개수 제한에서 빠진다. */
+  saved?: boolean;
+  /** 마지막으로 등록되거나 오브젝트에 씌워진 시각(ms). "최근 사용" 순서를 정한다. */
+  usedAt?: number;
+}
+
+/** 목록·저장 파일에 보일 이름. */
+export function imageLabelOf(image: Pick<UserImage, 'name' | 'label'>): string {
+  return image.label ?? image.name;
 }
 
 const bytes = new Map<string, ArrayBuffer>();
@@ -48,12 +59,20 @@ function readAsDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+/** 이미지의 디자인 관리 부가정보. IndexedDB에도 파일 바이트와 함께 얹어 남긴다. */
+interface ImageMeta {
+  label?: string;
+  saved?: boolean;
+  usedAt?: number;
+}
+
 /** 이름·바이트·종류로 실제로 등록하는 부분(등록·복원이 함께 쓴다). */
 async function loadImage(
   buffer: ArrayBuffer,
   name: string,
   kind: ImageKind,
   reuseId?: string,
+  meta?: ImageMeta,
 ): Promise<UserImage> {
   const url = await readAsDataUrl(new Blob([buffer]));
 
@@ -67,7 +86,7 @@ async function loadImage(
 
   bytes.set(id, buffer);
   kinds.set(id, kind);
-  return { id, name, url };
+  return { id, name, url, ...meta };
 }
 
 /**
@@ -77,6 +96,10 @@ async function loadImage(
  * 목록에 넣어놓고 나중에 안 그려지는 것보다 낫다. 등록에 성공하면
  * IndexedDB에도 같이 남겨서, 다음에 새로고침해도 이 파일을 다시 고르지
  * 않게 한다.
+ *
+ * 등록한 순간을 `usedAt`으로 남긴다 — 디자인 관리에서 명시적으로 저장하지
+ * 않은 이미지는 이 시각 기준 "최근 사용" 10개 안에 들어야 살아남는다
+ * (store.ts의 `addUserImage`가 넘치는 만큼 오래된 것부터 지운다).
  */
 export async function registerImage(file: File, reuseId?: string): Promise<UserImage> {
   const name = file.name.replace(/\.[^.]+$/, '');
@@ -86,9 +109,24 @@ export async function registerImage(file: File, reuseId?: string): Promise<UserI
   }
 
   const buffer = await file.arrayBuffer();
-  const image = await loadImage(buffer, name, kind, reuseId);
-  idbPut('images', name, { name, kind, buffer });
+  const usedAt = Date.now();
+  const image = await loadImage(buffer, name, kind, reuseId, { usedAt });
+  idbPut('images', name, { name, kind, buffer, usedAt });
   return image;
+}
+
+/**
+ * 이름·저장 여부·최근 사용 시각을 IndexedDB에 다시 남긴다.
+ *
+ * 이름 바꾸기·저장 켜기/끄기·다시 쓰기(usedAt 갱신)가 함께 쓴다 — 파일
+ * 바이트는 그대로 두고 부가정보만 갈아 끼운다. 파일이 없는(저장 파일에서
+ * 이름만 살아 돌아온) 이미지는 다시 저장할 바이트가 없으니 아무 일도 안 한다.
+ */
+export function persistImageMeta(id: string, name: string, meta: ImageMeta): void {
+  const buffer = bytes.get(id);
+  const kind = kinds.get(id);
+  if (!buffer || !kind) return;
+  idbPut('images', name, { name, kind, buffer, ...meta });
 }
 
 const restoredNames = new Set<string>();
@@ -99,13 +137,19 @@ const restoredNames = new Set<string>();
  * fonts/registry의 `restoreCachedFonts`와 같은 이유·같은 규칙이다.
  */
 export async function restoreCachedImages(): Promise<UserImage[]> {
-  const entries = await idbEntries<{ name: string; kind: ImageKind; buffer: ArrayBuffer }>('images');
+  const entries = await idbEntries<{ name: string; kind: ImageKind; buffer: ArrayBuffer } & ImageMeta>('images');
   const restored: UserImage[] = [];
   for (const [name, cached] of entries) {
     if (restoredNames.has(name)) continue;
     restoredNames.add(name);
     try {
-      restored.push(await loadImage(cached.buffer, cached.name, cached.kind));
+      restored.push(
+        await loadImage(cached.buffer, cached.name, cached.kind, undefined, {
+          label: cached.label,
+          saved: cached.saved,
+          usedAt: cached.usedAt,
+        }),
+      );
     } catch {
       // 깨진 캐시 — 건너뛴다.
     }

@@ -18,7 +18,7 @@ import {
 } from '../core/grid';
 import { roundMm } from '../core/units';
 import { InsertView } from './InsertView';
-import { ImageLibraryDialog } from './ImagePickerDialog';
+import { DesignLibraryDialog } from './DesignLibraryDialog';
 
 /**
  * 양식 관리 — 만들어둔 속지들을 한눈에 본다.
@@ -36,7 +36,7 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
   const activeId = useStore((s) => s.activeId);
   const addTemplate = useStore((s) => s.addTemplate);
   const [creating, setCreating] = useState(false);
-  const [managingImages, setManagingImages] = useState(false);
+  const [managingDesign, setManagingDesign] = useState(false);
 
   const groups = groupBySize(templates);
 
@@ -50,8 +50,8 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
         <button className="primary" onClick={() => setCreating(true)}>
           + 새 양식
         </button>
-        <button className="ghost" onClick={() => setManagingImages(true)}>
-          이미지 관리
+        <button className="ghost" onClick={() => setManagingDesign(true)}>
+          디자인 관리
         </button>
         <span className="gallery-hint">
           양식 {templates.length}개 · 클릭하면 그 양식으로 넘어갑니다
@@ -69,7 +69,7 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
         />
       )}
 
-      {managingImages && <ImageLibraryDialog onClose={() => setManagingImages(false)} />}
+      {managingDesign && <DesignLibraryDialog onClose={() => setManagingDesign(false)} />}
 
       <div className="gallery-body">
         {templates.length === 0 && (
@@ -345,10 +345,13 @@ export function Modal({
   title,
   onClose,
   children,
+  size = 'normal',
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** 'large' — 디자인 관리처럼 훑어볼 게 많은 창. 기본은 지금까지의 좁은 팝업. */
+  size?: 'normal' | 'large';
 }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -360,7 +363,7 @@ export function Modal({
 
   return (
     <div className="modal-backdrop" onPointerDown={onClose}>
-      <div className="modal" onPointerDown={(e) => e.stopPropagation()}>
+      <div className={`modal ${size === 'large' ? 'modal-large' : ''}`} onPointerDown={(e) => e.stopPropagation()}>
         <h2>{title}</h2>
         {children}
       </div>

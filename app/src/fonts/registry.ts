@@ -24,7 +24,7 @@ export const FONT_ACCEPT = ACCEPTED.join(',');
 
 export interface UserFont {
   id: string;
-  /** 목록에 보일 이름. 파일 이름에서 확장자만 뗀 것이다. */
+  /** 파일 이름에서 확장자만 뗀 것. IndexedDB 키이자 되살리기(orphan) 매칭 기준이다 — 안 바뀐다. */
   name: string;
   /**
    * CSS에 심을 이름.
@@ -33,6 +33,13 @@ export interface UserFont {
    * 따옴표가 들어가면 CSS가 깨진다. id에서 만든 이름이라 부딪힐 일이 없다.
    */
   family: string;
+  /** 목록에 보일 이름. 사용자가 따로 바꾸지 않았으면 `name`을 그대로 쓴다. */
+  label?: string;
+}
+
+/** 목록·속성 막대에 보일 이름. */
+export function fontLabelOf(font: Pick<UserFont, 'name' | 'label'>): string {
+  return font.label ?? font.name;
 }
 
 const bytes = new Map<string, ArrayBuffer>();
@@ -44,7 +51,7 @@ let counter = 0;
  * 심기에 실패하면(글꼴 파일이 아니거나 깨졌으면) 던진다 — 목록에 넣어놓고
  * 나중에 안 그려지는 것보다 낫다.
  */
-async function loadFont(buffer: ArrayBuffer, name: string, reuseId?: string): Promise<UserFont> {
+async function loadFont(buffer: ArrayBuffer, name: string, reuseId?: string, label?: string): Promise<UserFont> {
   // 저장 파일을 열면 글꼴 이름만 남아 있다. 같은 이름의 파일을 다시 등록하면
   // **그때의 id를 그대로 물려받아** 그 글꼴을 쓰던 글자들이 되살아난다.
   // 새 id를 주면 글자들은 영영 없는 글꼴을 가리키게 된다.
@@ -61,7 +68,7 @@ async function loadFont(buffer: ArrayBuffer, name: string, reuseId?: string): Pr
   document.fonts.add(face);
 
   bytes.set(id, buffer);
-  return { id, name, family };
+  return { id, name, family, label };
 }
 
 /**
@@ -82,6 +89,18 @@ export async function registerFont(file: File, reuseId?: string): Promise<UserFo
   return font;
 }
 
+/**
+ * 이름(라벨)을 IndexedDB에 다시 남긴다.
+ *
+ * 파일 바이트는 그대로 두고 라벨만 갈아 끼운다. 파일이 없는(저장 파일에서
+ * 이름만 살아 돌아온) 글꼴은 다시 저장할 바이트가 없으니 아무 일도 안 한다.
+ */
+export function persistFontLabel(id: string, name: string, label: string): void {
+  const buffer = bytes.get(id);
+  if (!buffer) return;
+  idbPut('fonts', name, { name, buffer, label });
+}
+
 const restoredNames = new Set<string>();
 
 /**
@@ -93,13 +112,13 @@ const restoredNames = new Set<string>();
  * 부를 수 있어서다(개발 모드의 StrictMode).
  */
 export async function restoreCachedFonts(): Promise<UserFont[]> {
-  const entries = await idbEntries<{ name: string; buffer: ArrayBuffer }>('fonts');
+  const entries = await idbEntries<{ name: string; buffer: ArrayBuffer; label?: string }>('fonts');
   const restored: UserFont[] = [];
   for (const [name, cached] of entries) {
     if (restoredNames.has(name)) continue;
     restoredNames.add(name);
     try {
-      restored.push(await loadFont(cached.buffer, cached.name));
+      restored.push(await loadFont(cached.buffer, cached.name, undefined, cached.label));
     } catch {
       // 깨진 캐시 — 건너뛴다.
     }

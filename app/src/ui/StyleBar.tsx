@@ -45,8 +45,8 @@ import {
   weekStartOf,
 } from '../core/calendar';
 import { fillColorOf, fillOpacityOf, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
-import { FONT_ACCEPT, hasFont, registerFont } from '../fonts/registry';
-import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
+import { FONT_ACCEPT, fontLabelOf, hasFont, registerFont } from '../fonts/registry';
+import { IMAGE_ACCEPT, hasImage, imageLabelOf, registerImage } from '../images/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
 import { useObjects, useStore } from '../store';
 import type { Editing } from './gestures';
@@ -926,7 +926,7 @@ function ImageControls({ images }: { images: ImageObject[] }) {
         {userImages.map((img) => (
           <option key={img.id} value={img.id}>
             {/* 저장 파일에서 이름만 살아 돌아온 것. 다시 등록해야 보인다. */}
-            {img.url ? img.name : `${img.name} (파일 없음)`}
+            {img.url ? imageLabelOf(img) : `${imageLabelOf(img)} (파일 없음)`}
           </option>
         ))}
         <option value={ADD_IMAGE}>이미지 파일 추가…</option>
@@ -1289,7 +1289,7 @@ function FontPicker({
         {userFonts.map((f) => (
           <option key={f.id} value={f.id}>
             {/* 저장 파일에서 이름만 살아 돌아온 것. 지금은 기본 글꼴로 그려진다. */}
-            {hasFont(f.id) ? f.name : `${f.name} (파일 없음)`}
+            {hasFont(f.id) ? fontLabelOf(f) : `${fontLabelOf(f)} (파일 없음)`}
           </option>
         ))}
         <option value={ADD_FONT}>글꼴 파일 추가…</option>
