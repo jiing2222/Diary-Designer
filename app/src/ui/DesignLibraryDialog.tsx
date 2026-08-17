@@ -11,8 +11,10 @@ const RECENT_IMAGE_CAP = 10;
  * 디자인 관리 — 양식 관리 화면 위쪽 "디자인 관리" 버튼으로 연다.
  *
  * 지금까지 등록한 이미지·글꼴을 훑어보고, 이름을 바꾸거나 계속 남길 것을
- * 고르는 자리다. 이미지는 핀터레스트처럼 원본 비율대로 늘어놓는다(CSS
- * `columns` — 매소너리를 계산 없이 만드는 가장 단순한 방법이다).
+ * 고르는 자리다. 이미지는 사진 크기와 무관하게 늘 같은 정사각 칸에
+ * 놓인다(처음엔 원본 비율대로 매소너리로 늘어놓았지만, 사진 크기에 따라
+ * 창 전체 높이가 들쭉날쭉해져서 고정 칸으로 바꿨다) — 칸은
+ * `object-fit: contain`으로 사진 전체를 잘리지 않고 보여준다.
  */
 export function DesignLibraryDialog({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<'image' | 'font'>('image');
@@ -78,7 +80,7 @@ function ImageManagePanel() {
       ) : (
         <div className="design-grid">
           {usable.map((img) => (
-            <div key={img.id} className="design-item">
+            <div key={img.id}>
               <div className="design-thumb">
                 <img src={img.url} alt={imageLabelOf(img)} />
               </div>
