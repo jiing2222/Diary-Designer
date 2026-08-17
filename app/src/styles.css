@@ -1648,8 +1648,8 @@ footer b {
  * 알아서 짧은 단부터 채운다.
  */
 .design-grid {
-  columns: 4;
-  column-gap: 14px;
+  columns: 6;
+  column-gap: 12px;
   padding: 2px;
 }
 
@@ -1679,12 +1679,16 @@ footer b {
   width: 100%;
   margin-top: 6px;
   padding: 2px 0;
+  border: 0;
   overflow: hidden;
+  background: none;
   color: var(--muted);
+  font: inherit;
   font-size: 12.5px;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: text;
 }
 
 .design-name-input {
@@ -1713,22 +1717,26 @@ footer b {
   color: var(--accent);
 }
 
+/* 한 줄에 셋 — 글꼴이 많아지면 목록이 너무 길어져서 옆으로도 채운다. */
 .font-manage-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
 .font-manage-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 6px;
-  border-bottom: 1px solid var(--line);
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .font-manage-preview {
-  min-width: 110px;
+  flex-shrink: 0;
+  min-width: 80px;
   font-size: 15px;
   color: var(--ink);
 }
