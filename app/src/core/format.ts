@@ -1,6 +1,12 @@
-import { dateAtOffset, dayOfWeek, weekOfYear, type CalendarDate, type Dataset } from './dataset';
+import { dateAtOffset, dayOfWeek, majorityMonthDate, weekOfYear, type CalendarDate, type Dataset } from './dataset';
 import { isText, type DiaryObject } from './objects';
 import { FIELD_PATTERN } from './text';
+
+/**
+ * "몇 월"만 보여주는 서식 — 오프셋 하나의 날짜 대신 그 쪽을 대표하는 달
+ * (majorityMonthDate)을 쓴다. `resolveObjectsForPage`에서만 쓴다.
+ */
+const MONTH_ONLY_FORMATS = new Set(['M', 'M월', 'MMM', 'MMMM']);
 
 // 일요일(0)부터. 월간 달력 오브젝트(core/calendar.ts)의 요일 이름과는 별도로
 // 둔다 — 그쪽은 달력 그리드 머리글에 쓰는 짧은 이름만 필요하지만, 여기는
@@ -70,6 +76,12 @@ export function formatDate(d: CalendarDate, formatId: string): string {
  * 데이터가 모자라면(마지막 쪽의 남는 오프셋 등) 빈 문자열이다 — 그 글자만
  * 비어 보인다. 굵기·색 같은 다른 값은 그대로 물려받는다.
  *
+ * **"몇 월"만 보여주는 서식은 오프셋의 날짜가 아니라 그 쪽의 대표 달을
+ * 쓴다**(`majorityMonthDate`). 위클리 등에서 한 쪽이 두 달에 걸치면(예:
+ * 8/31~9/6), 오프셋 0(8/31)만 보고 "8월"로 표시되면 그 쪽 대부분이 9월인데도
+ * 어색하다 — 이 쪽에 더 많이 걸친 달을 대신 쓴다(사용자 피드백). 날짜 하나를
+ * 짚어야 하는 다른 서식(일·요일·주차 등)은 그대로 오프셋의 날짜를 쓴다.
+ *
  * **월간 달력 데이터셋에는 자동 필드가 없다.** 42칸을 손으로 찍는 대신
  * 달력 오브젝트 하나가 스스로 채운다(10단계) — 이 함수는 날짜형만 다룬다.
  */
@@ -80,7 +92,12 @@ export function resolveObjectsForPage(
 ): DiaryObject[] {
   return objects.map((o) => {
     if (!isText(o) || !o.field) return o;
-    const date = dataset.kind === 'date' ? dateAtOffset(dataset, page, o.field.offset) : null;
+    const date =
+      dataset.kind !== 'date'
+        ? null
+        : MONTH_ONLY_FORMATS.has(o.field.format)
+          ? majorityMonthDate(dataset, page)
+          : dateAtOffset(dataset, page, o.field.offset);
     const value = date ? formatDate(date, o.field.format) : '';
     // 자리표시가 있던 자리만 진짜 값으로 바꿔 끼운다 — core/text의 displayText와
     // 같은 이유다. 앞뒤에 손으로 붙인 글자(예: "입니다")는 그대로 남는다.

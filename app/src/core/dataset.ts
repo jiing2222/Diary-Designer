@@ -149,6 +149,32 @@ export function dateAtOffset(dataset: DateDataset, page: number, offset: number)
 }
 
 /**
+ * 이 쪽에 걸친 날짜들 중 가장 많은 날이 속한 달의(그 달 안의 아무) 날짜.
+ *
+ * 위클리처럼 한 쪽이 두 달에 걸치면(예: 월말 3일 + 다음달 4일), "몇 월"만
+ * 보여주는 자동 필드는 오프셋 하나의 날짜가 아니라 이 쪽을 대표하는 달을
+ * 써야 자연스럽다 — 다음 달 날이 더 많은데 첫째 날 기준으로 지난달이
+ * 표시되면 어색하다(사용자 피드백). 정확히 반씩 걸치면(짝수 perPage)
+ * 앞쪽(이전) 달이 이긴다 — 나중 것으로 갈아타려면 확실한 다수가 필요하다.
+ */
+export function majorityMonthDate(dataset: DateDataset, page: number): CalendarDate | null {
+  const counts = new Map<string, { date: CalendarDate; count: number }>();
+  for (let offset = 0; offset < dataset.perPage; offset++) {
+    const d = dateAtOffset(dataset, page, offset);
+    if (!d) continue;
+    const key = `${d.year}-${d.month}`;
+    const entry = counts.get(key);
+    if (entry) entry.count++;
+    else counts.set(key, { date: d, count: 1 });
+  }
+  let best: { date: CalendarDate; count: number } | null = null;
+  for (const entry of counts.values()) {
+    if (!best || entry.count > best.count) best = entry;
+  }
+  return best?.date ?? null;
+}
+
+/**
  * 이 데이터셋이 몇 쪽인지.
  *
  * 날짜형은 `ceil(총 개수 ÷ perPage)`(설계문서 7장). 월간 달력은 1년

@@ -52,6 +52,13 @@ type EditingSession = {
   hadOverride: boolean;
 } & ({ kind: 'combo' } | { kind: 'dataset'; page: number });
 
+/** "되돌리기"가 막 지운 override — "되돌리기 취소"로 한 번 되살릴 수 있게 잠깐 기억해둔다. */
+type LastReverted = {
+  index: number;
+  side: Side;
+  objects: DiaryObject[];
+} & ({ kind: 'combo' } | { kind: 'dataset'; page: number });
+
 /**
  * 반복 인쇄에서 마지막 장의 남는 칸. 화면에서는 완전히 비워 보여준다.
  * pdf/export.ts의 `BLANK_SLOT`과 같은 생각이다 — 인쇄물과 미리보기가 같아야 한다.
@@ -174,26 +181,90 @@ export function App() {
   }
 
   /**
+   * 손보는 중에 그 칸이 아닌 바깥을 더블클릭하면 완료한다(Esc는 그대로 둔다,
+   * 사용자 피드백). `.print-slot-editor-canvas`(지금 손보는 칸 자신)나
+   * `.paper-slot-clickable`(다른 칸 — 그쪽은 이미 자기 onClick으로 옮겨가는
+   * 중이다)에서 난 더블클릭은 지나친다. 진짜 빈 여백(용지 사이 간격,
+   * .stage-area의 남는 자리)을 더블클릭했을 때만 완료한다.
+   */
+  function onStageDoubleClick(e: React.MouseEvent) {
+    if (!editingSession) return;
+    const target = e.target as Element;
+    if (target.closest('.print-slot-editor-canvas') || target.closest('.paper-slot-clickable')) return;
+    finishEdit();
+  }
+
+  /**
+   * "되돌리기" 바로 직전의 override 내용 — "되돌리기 취소"로 한 번만
+   * 되살릴 수 있다. 되돌린 슬롯이 없으면(새로 손보던 중이었으면) 없다.
+   * 다시 손대기 시작하거나(activeId가 바뀌면 — pageOverrides는 양식에
+   * 속하므로 다른 양식으로 넘어간 뒤 되살리면 엉뚱한 양식을 고치게 된다)
+   * 인쇄하기 탭을 벗어나면 비운다.
+   */
+  const [lastReverted, setLastReverted] = useState<LastReverted | null>(null);
+
+  /**
    * "되돌리기" — 지금 세션에서 그린 것은(이미 저장된 override든) 전부 버리고
    * 원본 양식을 다시 따르게 한다. `commitEdit`과 달리 그림자의 지금 내용을
-   * override로 옮기지 않는다 — 정반대로, 있던 override를 지운다.
+   * override로 옮기지 않는다 — 정반대로, 있던 override를 지운다. 지우기
+   * 전의 내용은 `lastReverted`에 담아 "되돌리기 취소"로 되살릴 수 있게 한다.
    */
   function revertEdit() {
     if (!editingSession) return;
     const store = useStore.getState();
     if (editingSession.kind === 'combo') {
+      const existing =
+        editingSession.side === 'front'
+          ? store.comboSlotOverrides[editingSession.index]
+          : store.comboSlotBackOverrides[editingSession.index];
+      if (existing) {
+        setLastReverted({ kind: 'combo', index: editingSession.index, side: editingSession.side, objects: existing });
+      }
       store.clearComboSlotOverride(editingSession.index, editingSession.side);
     } else {
+      const activeNow = store.templates.find((t) => t.id === store.activeId);
+      const existing =
+        editingSession.side === 'front'
+          ? activeNow?.pageOverrides?.[editingSession.page]
+          : activeNow?.pageBackOverrides?.[editingSession.page];
+      if (existing) {
+        setLastReverted({
+          kind: 'dataset',
+          index: editingSession.index,
+          side: editingSession.side,
+          page: editingSession.page,
+          objects: existing,
+        });
+      }
       store.clearPageOverride(editingSession.page, editingSession.side);
     }
     store.endShadowEdit();
     setEditingSession(null);
   }
 
+  /** "되돌리기 취소" — 방금 되돌리기로 지운 override를 그대로 되살린다. */
+  function undoRevert() {
+    if (!lastReverted) return;
+    const store = useStore.getState();
+    if (lastReverted.kind === 'combo') {
+      store.setComboSlotOverride(lastReverted.index, lastReverted.side, lastReverted.objects);
+    } else {
+      store.setPageOverride(lastReverted.page, lastReverted.side, lastReverted.objects);
+    }
+    setLastReverted(null);
+  }
+
+  // pageOverrides는 양식에 속한 값이라, 다른 양식으로 넘어가면 되살릴 자리가
+  // 없어진다(엉뚱한 양식을 고치게 두지 않는다) — 활성 양식이 바뀌면 비운다.
+  useEffect(() => {
+    setLastReverted(null);
+  }, [active?.id]);
+
   // 인쇄하기 탭을 벗어나면(양식 만들기 등으로) 손보던 것을 저장하고 끝낸다.
   // 그림자 양식이 남아 있으면 그 사이 EditorTab의 그리기도 엉뚱하게 그림자를
   // 향하게 된다(store.ts의 patchActiveSide가 shadowTemplate을 먼저 본다).
   useEffect(() => {
+    if (tab !== 'print') setLastReverted(null);
     if (tab !== 'print' && editingSession) {
       commitEdit();
       setEditingSession(null);
@@ -589,6 +660,16 @@ export function App() {
                 </label>
               )}
 
+              {lastReverted && (
+                <button
+                  className="ghost"
+                  onClick={undoRevert}
+                  title="방금 되돌리기로 지운 내용을 다시 살립니다"
+                >
+                  되돌리기 취소
+                </button>
+              )}
+
               <select
                 className="print-zoom"
                 value={zoom}
@@ -626,7 +707,7 @@ export function App() {
 
             <div className="editor-bar-slot" ref={setEditBarSlot} />
 
-            <div className="stage-area" ref={stageRef}>
+            <div className="stage-area" ref={stageRef} onDoubleClick={onStageDoubleClick}>
               {layout.count === 0 ? (
                 <div className="empty">속지가 용지보다 큽니다. 용지를 키우거나 속지를 줄이세요.</div>
               ) : (

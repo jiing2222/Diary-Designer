@@ -1233,6 +1233,8 @@ export const useStore = create<Store>((set) => ({
         templates.flatMap((t) => [
           ...t.objects.present.map((o) => o.id),
           ...(t.back?.objects.present.map((o) => o.id) ?? []),
+          ...Object.values(t.pageOverrides ?? {}).flatMap((objs) => objs.map((o) => o.id)),
+          ...Object.values(t.pageBackOverrides ?? {}).flatMap((objs) => objs.map((o) => o.id)),
         ]),
       );
       const print = p.print as Partial<Settings>;

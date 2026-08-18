@@ -46,6 +46,13 @@ export interface SavedTemplate {
   repeat?: RepeatSetting;
   /** 옛 파일(9단계 이전)에는 없다. 없거나 `null`이면 단면이다. */
   back?: SavedBack | null;
+  /**
+   * 세트형에서 "인쇄하기"로 직접 손본 페이지(24단계 이전 파일에는 없다).
+   * 키는 페이지 번호. 없으면 손본 페이지가 없는 것이다.
+   */
+  pageOverrides?: Record<number, DiaryObject[]>;
+  /** 뒷면 쪽의 pageOverrides. */
+  pageBackOverrides?: Record<number, DiaryObject[]>;
 }
 
 export interface SavedProject {
@@ -85,6 +92,8 @@ export function toProject(input: {
       objects: t.objects.present,
       repeat: t.repeat,
       back: t.back ? { objects: t.back.objects.present } : null,
+      pageOverrides: t.pageOverrides,
+      pageBackOverrides: t.pageBackOverrides,
     })),
     print: input.print,
     // 실제로 쓰인 글꼴만 담는다. 등록만 해놓고 안 쓴 것까지 적어두면
@@ -180,16 +189,29 @@ function dedupeObjectIds(objectsByGroup: DiaryObject[][]): DiaryObject[][] {
  * 실행취소 이력은 빈 채로 시작한다 — 방금 연 파일이 첫 모습이다.
  */
 export function toTemplates(p: SavedProject): Template[] {
-  // 앞뒤를 통틀어 한 번에 겹침을 검사해야, 예를 들어 앞면의 id가 다른
-  // 양식 뒷면의 id와 겹치는 것까지 잡는다 — 양식·쪽 경계와 무관하게
-  // 이 프로젝트 전체에서 한 번만 나와야 한다.
-  const groups = p.templates.flatMap((t) => [t.objects, t.back?.objects ?? []]);
+  // 앞뒤·손본 페이지를 전부 통틀어 한 번에 겹침을 검사해야, 예를 들어 앞면의
+  // id가 다른 양식 뒷면(또는 손본 페이지)의 id와 겹치는 것까지 잡는다 —
+  // 양식·쪽 경계와 무관하게 이 프로젝트 전체에서 한 번만 나와야 한다.
+  const groups: DiaryObject[][] = [];
+  for (const t of p.templates) {
+    groups.push(t.objects, t.back?.objects ?? []);
+    for (const objs of Object.values(t.pageOverrides ?? {})) groups.push(objs);
+    for (const objs of Object.values(t.pageBackOverrides ?? {})) groups.push(objs);
+  }
   const deduped = dedupeObjectIds(groups);
   let i = 0;
 
   return p.templates.map((t, idx) => {
     const objects = deduped[i++];
     const backObjects = deduped[i++];
+    // pageOverrides·pageBackOverrides도 groups를 채운 것과 같은 순서(Object.
+    // values와 Object.keys는 같은 정수 키 순서를 따른다)로 다시 꺼낸다.
+    const pageOverrides = t.pageOverrides
+      ? Object.fromEntries(Object.keys(t.pageOverrides).map((page) => [page, deduped[i++]]))
+      : undefined;
+    const pageBackOverrides = t.pageBackOverrides
+      ? Object.fromEntries(Object.keys(t.pageBackOverrides).map((page) => [page, deduped[i++]]))
+      : undefined;
     return {
       id: t.id || `t${idx + 1}`,
       name: t.name,
@@ -200,6 +222,8 @@ export function toTemplates(p: SavedProject): Template[] {
       // 옛 파일(뒷면 격자가 따로 있던 판)에 back.dotGrid가 남아 있어도 이제
       // 격자는 앞뒤 공유값(위의 dotGrid)이라 여기서는 읽지 않는다.
       back: t.back ? { objects: initHistory(backObjects) } : null,
+      ...(pageOverrides ? { pageOverrides } : {}),
+      ...(pageBackOverrides ? { pageBackOverrides } : {}),
     };
   });
 }

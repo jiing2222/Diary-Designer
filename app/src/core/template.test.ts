@@ -112,6 +112,12 @@ describe('복제', () => {
     expect(copy.insert.width).toBe(source.insert.width);
     expect(copy.insert.punch).not.toBe(source.insert.punch);
   });
+
+  it('세트형에서 직접 손본 페이지도 물려받는다', () => {
+    const withOverride = { ...source, pageOverrides: { 2: [line(0, 0, 5, 5)] } };
+    const copy = duplicateTemplate(withOverride, '사본');
+    expect(copy.pageOverrides).toEqual(withOverride.pageOverrides);
+  });
 });
 
 describe('불러와 더할 때 새 id 주기', () => {
@@ -163,6 +169,19 @@ describe('불러와 더할 때 새 id 주기', () => {
     const t = newTemplate('가');
     t.objects = commit(t.objects, [line(10, 10, 70, 10)]);
     expect(refreshTemplateIds(t).objects.past).toEqual([]);
+  });
+
+  it('세트형에서 직접 손본 페이지의 객체도 새 id를 받는다', () => {
+    const t = { ...newTemplate('가'), pageOverrides: { 3: [line(0, 0, 5, 5)] } };
+    const fresh = refreshTemplateIds(t);
+    expect(fresh.pageOverrides?.[3][0].id).not.toBe(t.pageOverrides[3][0].id);
+    // 자리 등 나머지 내용은 그대로다.
+    expect(fresh.pageOverrides?.[3][0]).toEqual({ ...t.pageOverrides[3][0], id: fresh.pageOverrides![3][0].id });
+  });
+
+  it('손본 페이지가 없으면 그대로 없다', () => {
+    const t = newTemplate('가');
+    expect(refreshTemplateIds(t).pageOverrides).toBeUndefined();
   });
 });
 

@@ -12,6 +12,7 @@ import {
   dayOfWeek,
   daysBetween,
   isInMonth,
+  majorityMonthDate,
   parseDate,
   weekOfYear,
   type CalendarDataset,
@@ -117,6 +118,37 @@ describe('데이터셋 — 하루 단위', () => {
 
   it('perPage가 0이면 쪽수도 0이다', () => {
     expect(datasetPages({ ...weekly, perPage: 0 })).toBe(0);
+  });
+});
+
+describe('쪽을 대표하는 달 — majorityMonthDate', () => {
+  it('한 달에 다 걸치면 그 달이다', () => {
+    const weekly: Dataset = { kind: 'date', perPage: 7, start: '2027-01-01', end: '2027-12-31', step: 'day' };
+    expect(majorityMonthDate(weekly, 0)?.month).toBe(1);
+  });
+
+  it('두 달에 걸치면 더 많은 날이 속한 달이다(8/31~9/6 → 9월이 6일로 더 많다)', () => {
+    const weekly: Dataset = { kind: 'date', perPage: 7, start: '2027-08-31', end: '2027-12-31', step: 'day' };
+    const d = majorityMonthDate(weekly, 0);
+    expect(d?.month).toBe(9);
+  });
+
+  it('4일 대 3일이면 4일 쪽(앞달)이 이긴다(8/28~9/3)', () => {
+    const weekly: Dataset = { kind: 'date', perPage: 7, start: '2027-08-28', end: '2027-12-31', step: 'day' };
+    const d = majorityMonthDate(weekly, 0);
+    expect(d?.month).toBe(8);
+  });
+
+  it('정확히 반씩이면(짝수 perPage) 앞달이 이긴다', () => {
+    // 8/29~9/3, 6일 페이지 — 8월 3일 + 9월 3일.
+    const perSix: Dataset = { kind: 'date', perPage: 6, start: '2027-08-29', end: '2027-12-31', step: 'day' };
+    const d = majorityMonthDate(perSix, 0);
+    expect(d?.month).toBe(8);
+  });
+
+  it('데이터가 하나도 없는 쪽이면 null이다', () => {
+    const weekly: Dataset = { kind: 'date', perPage: 7, start: '2027-01-01', end: '2027-01-01', step: 'day' };
+    expect(majorityMonthDate(weekly, 5)).toBeNull();
   });
 });
 

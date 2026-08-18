@@ -120,6 +120,31 @@ describe('쪽의 자동 필드 채우기', () => {
     expect((resolved[0] as TextObject).text).toBe('1/1입니다');
   });
 
+  describe('"몇 월"만 보여주는 서식은 오프셋이 아니라 그 쪽의 대표 달을 쓴다', () => {
+    // 8/31~9/6인 쪽 — 8월 1일 + 9월 6일, 9월이 대표 달이다.
+    const splitPage: Dataset = { kind: 'date', perPage: 7, start: '2027-08-31', end: '2027-12-31', step: 'day' };
+
+    it('M 서식은 오프셋 0(8/31)이 아니라 대표 달(9월)을 보여준다', () => {
+      const resolved = resolveObjectsForPage([field(0, 'M')], splitPage, 0);
+      expect((resolved[0] as TextObject).text).toBe('9');
+    });
+
+    it('MMMM 서식도 마찬가지다', () => {
+      const resolved = resolveObjectsForPage([field(0, 'MMMM')], splitPage, 0);
+      expect((resolved[0] as TextObject).text).toBe('September');
+    });
+
+    it('날짜 하나를 짚어야 하는 다른 서식(D)은 오프셋 그대로다 — 8/31이 안 바뀐다', () => {
+      const resolved = resolveObjectsForPage([field(0, 'D')], splitPage, 0);
+      expect((resolved[0] as TextObject).text).toBe('31');
+    });
+
+    it('한 달에 다 걸치는 쪽은 원래대로다', () => {
+      const resolved = resolveObjectsForPage([field(0, 'M월')], weekly, 0);
+      expect((resolved[0] as TextObject).text).toBe('1월');
+    });
+  });
+
   describe('resolvePageObjects — 인쇄하기에서 직접 손본 페이지', () => {
     it('손본 적 없는 페이지는 지금까지처럼 자동 계산한다', () => {
       const resolved = resolvePageObjects([field(0)], weekly, 0, undefined);

@@ -9,7 +9,6 @@ import {
   boxOf,
   cleanStyle,
   distanceToSegment,
-  fitBox,
   imageRotateOf,
   isBoxResizable,
   isBoxShaped,
@@ -1575,27 +1574,11 @@ export function EditorTab() {
             scale={scale}
             svg={svgRef.current}
             inputRef={textInputRef}
-            onChange={(text) => {
-              // 새로 만드는 중(id 없음)에만 상자를 맞춘다 — 칸 하나만 누르고
-              // 길게 써도 매번 손으로 늘릴 필요가 없게 하려는 것이다. 이미
-              // 있던 글자를 고치는 중이면 상자를 그대로 둔다 — 글자는 상자를
-              // 넘칠 수 있다는 원칙 그대로, 고칠 때마다 상자가 저절로
-              // 커지거나 줄어들면 애써 맞춰둔 크기가 매번 흐트러진다.
-              if (editing.id) {
-                setEditing({ ...editing, text });
-                return;
-              }
-              const size = editing.style.size ?? TEXT_SIZE;
-              const required = measureTextBox(
-                text,
-                size,
-                editing.style.lineHeight ?? size,
-                editing.style.bold,
-                familyOf(userFonts, editing.style.font),
-              );
-              const box = fitBox(editing.box, grid.spacing, required, insert.width, insert.height);
-              setEditing({ ...editing, text, box });
-            }}
+            // 새로 만드는 중이든 이미 있던 글자를 고치는 중이든, 상자는 손을 댄
+            // 그대로 둔다 — 글자는 상자를 넘칠 수 있다는 원칙 그대로다. 타이핑할
+            // 때마다 상자가 저절로 커지거나 줄어들면 직접 그린 상자 크기가
+            // 흐트러진다(사용자 피드백 — 칸을 지정해서 만들었는데 안 지켜졌다).
+            onChange={(text) => setEditing({ ...editing, text })}
             onDone={finishEditing}
           />
         )}

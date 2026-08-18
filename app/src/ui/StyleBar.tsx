@@ -64,12 +64,15 @@ import { ImagePickerDialog } from './ImagePickerDialog';
 
 const WIDTHS: Mm[] = [0.1, 0.15, 0.2, 0.3, 0.4, 0.6, 0.8];
 
+/** `#3a3a3a` 같은 6자리 16진 색 코드인지. 3자리 줄임(`#333`)은 안 받는다 — 저장되는 값이 늘 6자리라 맞춰둔다. */
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
 /**
- * 색 하나를 고르는 칸. 브라우저 기본 색 선택기(`input type="color"`)를
- * 쓴다 — 회색 몇 종류가 아니라 아무 색이나(빨주노초파남보 다) 16진
- * 코드로 직접 입력하거나 색상환에서 고를 수 있다. 예전엔 미리 정해둔
- * 회색 5단계(`아주 연하게`~`검정`)만 골랐는데, 사용자가 전체 색을
- * 원해서 바꿨다.
+ * 색 하나를 고르는 칸. 네모(브라우저 기본 색 선택기, `input type="color"`)와
+ * 16진 코드 입력칸을 나란히 둔다 — 코드를 직접 치거나 붙여넣는 쪽이 기본이고,
+ * 네모는 색상환에서 눈으로 고르고 싶을 때 쓴다(사용자 피드백 — 색 고를 때
+ * 브라우저 기본 선택기가 RGB부터 보여줘서 불편했다. 이 앱의 네모 옆
+ * 입력칸은 우리가 만든 것이라 늘 16진 코드다).
  *
  * **"섞임" 상태는 색 자체로 표현할 수 없다** — 이 입력은 늘 실제 색
  * 하나를 보여줘야 하므로, 섞였을 때는 첫 번째 값을 그대로 보여주되
@@ -86,14 +89,46 @@ function ColorField({
   onChange: (color: string) => void;
   title: string;
 }) {
+  // 입력칸 자체의 글자는 타이핑하는 동안 바깥 값과 따로 논다 — 다 쓰기 전에
+  // (예: "#3a"까지만 쳤을 때) 바깥 값으로 즉시 되돌리면 이어 칠 수 없다.
+  // 바깥에서 값이 바뀌면(다른 객체를 고르는 등) 같이 새로 맞춘다.
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+
+  function commit(raw: string) {
+    const normalized = raw.startsWith('#') ? raw : `#${raw}`;
+    if (HEX_COLOR.test(normalized)) {
+      onChange(normalized.toLowerCase());
+    } else {
+      setDraft(value); // 잘못된 코드면 되돌린다.
+    }
+  }
+
   return (
-    <input
-      type="color"
-      className={mixed ? 'color-field mixed' : 'color-field'}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      title={mixed ? `${title} — 색이 여러 개 섞여 있습니다` : title}
-    />
+    <span className={mixed ? 'color-field mixed' : 'color-field'}>
+      <input
+        type="color"
+        className="color-swatch"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        title={mixed ? `${title} — 색이 여러 개 섞여 있습니다` : title}
+      />
+      <input
+        type="text"
+        className="color-hex"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            commit(e.currentTarget.value);
+            e.currentTarget.blur();
+          }
+        }}
+        spellCheck={false}
+        title={title}
+      />
+    </span>
   );
 }
 

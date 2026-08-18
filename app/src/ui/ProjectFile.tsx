@@ -58,6 +58,14 @@ export function ProjectFile() {
         cutStack: store.cutStack,
         cutStackGroup: store.cutStackGroup,
         unprintable: store.unprintable,
+        // 낱장 조합 칸 배정과, "인쇄하기"에서 그 칸을 직접 손본 내용. loadProject가
+        // 이미 이걸 받을 준비가 돼 있었는데(pruneSlotAssignment) 여기서 실제로
+        // 담는 걸 빠뜨리고 있었다 — 지금 저장해도 이 파일엔 양식 하나만 들어가서
+        // (위 templates: [active]) 다른 칸에 배정된 양식까지는 못 담지만, 배정 자체와
+        // 그 칸의 override는 다음에 열 때도 그대로 보인다.
+        slotAssignment: store.slotAssignment,
+        comboSlotOverrides: store.comboSlotOverrides,
+        comboSlotBackOverrides: store.comboSlotBackOverrides,
       },
       fonts: store.userFonts.map((f) => ({ id: f.id, name: f.name })),
       images: store.userImages.map((i) => ({ id: i.id, name: i.name })),

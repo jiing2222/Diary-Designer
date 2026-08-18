@@ -207,6 +207,9 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
     // 뒷면도 그대로 물려받는다(격자는 공유값이라 이미 위에서 물려받았다).
     // 앞면과 마찬가지로 실행취소 이력은 새로 시작한다.
     back: t.back ? { objects: initHistory([...t.back.objects.present]) } : null,
+    // 세트형에서 직접 손본 페이지도 그대로 물려받는다 — objects·back과 같은 이유다.
+    pageOverrides: t.pageOverrides,
+    pageBackOverrides: t.pageBackOverrides,
   };
 }
 
@@ -222,13 +225,29 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
  */
 export function refreshTemplateIds(t: Template): Template {
   counter += 1;
+  const refreshed = (objects: DiaryObject[]) => objects.map((o) => cloneObject(o, 0, 0));
   return {
     ...t,
     id: `t${counter}`,
-    objects: initHistory(t.objects.present.map((o) => cloneObject(o, 0, 0))),
-    back: t.back
-      ? { objects: initHistory(t.back.objects.present.map((o) => cloneObject(o, 0, 0))) }
-      : null,
+    objects: initHistory(refreshed(t.objects.present)),
+    back: t.back ? { objects: initHistory(refreshed(t.back.objects.present)) } : null,
+    // pageOverrides·pageBackOverrides의 객체도 같이 새 id를 받아야 한다 —
+    // 안 그러면 다른 파일에서 불러온 이 값들이 지금 프로젝트의 다른 객체와
+    // id가 겹칠 수 있다(objects·back과 같은 이유).
+    ...(t.pageOverrides
+      ? {
+          pageOverrides: Object.fromEntries(
+            Object.entries(t.pageOverrides).map(([page, objs]) => [page, refreshed(objs)]),
+          ),
+        }
+      : {}),
+    ...(t.pageBackOverrides
+      ? {
+          pageBackOverrides: Object.fromEntries(
+            Object.entries(t.pageBackOverrides).map(([page, objs]) => [page, refreshed(objs)]),
+          ),
+        }
+      : {}),
   };
 }
 

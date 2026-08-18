@@ -318,6 +318,58 @@ describe('저장했다 다시 열기', () => {
     const backId = restored[0].back!.objects.present[0].id;
     expect(frontId).not.toBe(backId);
   });
+
+  it('세트형에서 직접 손본 페이지(pageOverrides)도 그대로 돌아온다', () => {
+    const t = sample();
+    t.repeat = {
+      mode: 'dataset',
+      dataset: { kind: 'date', perPage: 7, start: '2027-01-01', end: '2027-12-31', step: 'day' },
+    };
+    const front: DiaryObject = { id: 'o1', type: 'text', x: 0, y: 0, width: 5, height: 5, text: '앞면 3쪽' };
+    const back: DiaryObject = { id: 'o2', type: 'text', x: 0, y: 0, width: 5, height: 5, text: '뒷면 5쪽' };
+    t.pageOverrides = { 3: [front] };
+    t.pageBackOverrides = { 5: [back] };
+
+    const restored = toTemplates(toProject({ templates: [t], print, fonts: [] }));
+    expect(restored[0].pageOverrides).toEqual({ 3: [front] });
+    expect(restored[0].pageBackOverrides).toEqual({ 5: [back] });
+  });
+
+  it('24단계 이전 파일(pageOverrides가 없는 파일)은 undefined로 읽는다', () => {
+    const r = readProject({
+      version: 1,
+      savedAt: '',
+      templates: [{ id: 't1', name: '옛것', insert: insertFromPreset('M6'), objects: [] }],
+      print: {},
+      fonts: [],
+    });
+    const restored = toTemplates((r as { ok: never }).ok);
+    expect(restored[0].pageOverrides).toBeUndefined();
+    expect(restored[0].pageBackOverrides).toBeUndefined();
+  });
+
+  it('손본 페이지의 객체 id가 본문·뒷면과 겹쳐도 잡는다', () => {
+    const r = readProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        {
+          id: 't1',
+          name: '가',
+          insert: insertFromPreset('M6'),
+          objects: [{ ...line, id: 'l1' }],
+          back: { objects: [] },
+          pageOverrides: { 0: [{ ...line, id: 'l1', y1: 40, y2: 40 }] },
+        },
+      ],
+      print: {},
+      fonts: [],
+    });
+    const restored = toTemplates((r as { ok: never }).ok);
+    const frontId = restored[0].objects.present[0].id;
+    const overrideId = restored[0].pageOverrides![0][0].id;
+    expect(frontId).not.toBe(overrideId);
+  });
 });
 
 describe('다시 등록해야 하는 글꼴', () => {

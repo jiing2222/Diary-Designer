@@ -10,7 +10,6 @@ import {
   boxOf,
   cleanStyle,
   distanceToSegment,
-  fitBox,
   imageRotateOf,
   isBoxResizable,
   isBoxShaped,
@@ -30,7 +29,7 @@ import {
   type TextObject,
   type TextStyle,
 } from '../core/objects';
-import { SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
+import { SNAP_COLOR, SNAP_DOT_SIZE } from '../core/style';
 import { roundMm, type Mm } from '../core/units';
 import {
   boldOf,
@@ -906,6 +905,7 @@ export function PrintSlotEditor({
       {editBarSlot && createPortal(toolbar, editBarSlot)}
 
       <div
+        className="print-slot-editor-canvas"
         style={{
           position: 'absolute',
           left: 0,
@@ -1060,22 +1060,7 @@ export function PrintSlotEditor({
             scale={scale}
             svg={svgRef.current}
             inputRef={textInputRef}
-            onChange={(text) => {
-              if (editing.id) {
-                setEditing({ ...editing, text });
-                return;
-              }
-              const size = editing.style.size ?? TEXT_SIZE;
-              const required = measureTextBox(
-                text,
-                size,
-                editing.style.lineHeight ?? size,
-                editing.style.bold,
-                familyOf(userFonts, editing.style.font),
-              );
-              const box = fitBox(editing.box, grid.spacing, required, insert.width, insert.height);
-              setEditing({ ...editing, text, box });
-            }}
+            onChange={(text) => setEditing({ ...editing, text })}
             onDone={finishEditing}
           />
         )}
