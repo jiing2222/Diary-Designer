@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { checkboxIconBox } from '../core/checkbox';
 import { holeCenterX } from '../core/punch';
@@ -103,19 +104,26 @@ const NUDGE_STEP_SHIFT: Mm = 5;
  * 뒷면이든 한쪽만 손보는 세션이라(뒷면도 있는 세트형 페이지 등은 각각 별도
  * 세션) 경계를 넘는 선 잇기·양면 나란히는 필요 없다.
  *
- * **자리 잡기**: 이 컴포넌트의 SVG는 `viewBox="0 0 insert.width insert.height"`
- * (칸 하나의 속지 mm) 그대로다. 용지 위 이 칸의 자리·회전은 바깥 `<div>`의
- * CSS `matrix()`로 옮긴다 — `core/place`의 `placeSlot`이 내는 SVG
- * `matrix()`를 그대로 CSS `matrix()`로 옮기는 것으로, TextInput의 `paperSlot`
- * 처리와 같은 방식이다. 이렇게 하면 `getScreenCTM()`이 회전·이동을 전부
- * 알아서 반영해줘서, 마우스 좌표가 곧바로 이 칸의 속지 mm로 나온다 —
+ * **캔버스 자리 잡기**: 이 컴포넌트의 SVG는 `viewBox="0 0 insert.width
+ * insert.height"`(칸 하나의 속지 mm) 그대로다. 용지 위 이 칸의 자리·회전은
+ * 바깥 `<div>`의 CSS `matrix()`로 옮긴다 — `core/place`의 `placeSlot`이 내는
+ * SVG `matrix()`를 그대로 CSS `matrix()`로 옮기는 것으로, TextInput의
+ * `paperSlot` 처리와 같은 방식이다. 이렇게 하면 `getScreenCTM()`이 회전·이동을
+ * 전부 알아서 반영해줘서, 마우스 좌표가 곧바로 이 칸의 속지 mm로 나온다 —
  * `unplaceSlot`을 손으로 부를 필요가 없다.
+ *
+ * **도구막대 자리 잡기**: 칸을 따라다니면 스크롤할 때마다 도구막대가 화면
+ * 밖으로 나가버려 불편하다(써보고 나온 피드백). 그래서 도구막대는 이 칸의
+ * 자리와 무관하게, `editBarSlot`(App.tsx가 `.print-bar` 바로 아래에 둔
+ * 자리)에 `createPortal`로 그린다 — EditorTab의 `.editor-bar`처럼 스크롤
+ * 영역(`.stage-area`) 밖에 있어 늘 같은 자리에 고정돼 보인다.
  */
 export function PrintSlotEditor({
   slot,
   rotated,
   scale,
   onFinish,
+  editBarSlot,
 }: {
   /** 이 칸의 용지 위 자리(mm). App.tsx가 layout.slots에서 그대로 넘긴다. */
   slot: Slot;
@@ -124,6 +132,8 @@ export function PrintSlotEditor({
   scale: number;
   /** "완료" — 진행 중인 글자 입력을 먼저 확정한 뒤 부른다. */
   onFinish: () => void;
+  /** 도구막대를 실제로 그릴 DOM 자리. 아직 안 붙었으면(첫 렌더) null. */
+  editBarSlot: HTMLDivElement | null;
 }) {
   // useInsert·useDotGrid 대신 그림자 양식을 직접 읽는다 — 그 두 훅은 일부러
   // 그림자를 안 본다(store.ts의 doc 참고, SettingsPanel이 인쇄하기 탭에서도
@@ -791,18 +801,9 @@ export function PrintSlotEditor({
     .split(' ')
     .map(Number);
   const canvasTransform = `matrix(${a}, ${b}, ${c}, ${d}, ${e * scale}, ${f * scale})`;
-  // 도구막대는 회전과 무관하게 항상 똑바로 서 있어야 하므로, 회전된
-  // wrapper 밖에서 칸의 바깥 상자(axis-aligned, slot.x·y·width·height)
-  // 기준으로 따로 자리를 잡는다.
-  const barTop = Math.max(0, slot.y * scale - 44);
-  const barLeft = slot.x * scale;
 
-  return (
-    <>
-      <div
-        className="print-slot-editor-bar editor-bar"
-        style={{ position: 'absolute', left: barLeft, top: barTop, zIndex: 20 }}
-      >
+  const toolbar = (
+    <div className="editor-bar">
         <div className="editor-bar-tools">
           <div className="tools">
             <ToolBtn on={tool === 'select'} onClick={() => setTool('select')} title="고르기 (V)">
@@ -880,7 +881,12 @@ export function PrintSlotEditor({
             </span>
           )}
         </div>
-      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {editBarSlot && createPortal(toolbar, editBarSlot)}
 
       <div
         style={{

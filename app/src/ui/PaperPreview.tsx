@@ -110,6 +110,14 @@ export function PaperPreview({
             onClick={onSlotClick ? () => onSlotClick(i, content) : undefined}
           >
             {/*
+              보이진 않지만 칸 전체를 클릭할 수 있게 하는 판. 도트 사이 빈
+              틈처럼 실제로 그려진 것이 없는 자리는 fill이 없으면 SVG가 클릭을
+              받지 않는다(빈 곳을 눌렀는데 반응이 없던 버그) — fill="transparent"는
+              안 보이면서도 클릭은 받는다(fill="none"과 다르다).
+            */}
+            {onSlotClick && <rect x={s.x} y={s.y} width={s.width} height={s.height} fill="transparent" />}
+
+            {/*
               칸 경계선. 작업할 땐 어디가 한 장인지 보여주는 안내선이지만, 실제
               인쇄물에는 없는 선이다 — 'print' 모드에서는 그리지 않는다.
             */}

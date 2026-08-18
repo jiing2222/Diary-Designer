@@ -90,6 +90,16 @@ export function App() {
    * store에 넣지 않는다.
    */
   const [backOnLeft, setBackOnLeft] = useState(true);
+  /**
+   * 칸·페이지를 손보는 도구막대(PrintSlotEditor 안)가 자리 잡을 DOM 자리.
+   * 손보는 칸이 어디 있든(`.stage-area`를 얼마나 스크롤했든) 이 자리는
+   * 그 위, `.print-bar` 바로 아래에 고정돼 있다 — EditorTab의 `.editor-bar`와
+   * 같은 위치 원칙이다. PrintSlotEditor가 `createPortal`로 도구막대를 실제로는
+   * 여기(칸이 있는 자리가 아니라)에 그린다. state로 두는 이유는 ref만으로는
+   * PrintSlotEditor의 첫 렌더 시점에 아직 이 <div>가 커밋되지 않아 null이기
+   * 때문 — 콜백 ref로 실제 DOM 노드가 생기면 그때 다시 그려지게 한다.
+   */
+  const [editBarSlot, setEditBarSlot] = useState<HTMLDivElement | null>(null);
   /** `zoom === 'fit'`일 때 배율 계산의 기준이 되는, 지금 미리보기 영역의 실제 폭(px). */
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageWidth, setStageWidth] = useState(0);
@@ -588,6 +598,8 @@ export function App() {
               <SlotAssign layout={layout} />
             )}
 
+            <div className="editor-bar-slot" ref={setEditBarSlot} />
+
             <div className="stage-area" ref={stageRef}>
               {layout.count === 0 ? (
                 <div className="empty">속지가 용지보다 큽니다. 용지를 키우거나 속지를 줄이세요.</div>
@@ -639,6 +651,7 @@ export function App() {
                           rotated={layout.rotated}
                           scale={scale}
                           onFinish={finishEdit}
+                          editBarSlot={editBarSlot}
                         />
                       )}
                     </div>
@@ -673,6 +686,7 @@ export function App() {
                           rotated={backLayout.rotated}
                           scale={scale}
                           onFinish={finishEdit}
+                          editBarSlot={editBarSlot}
                         />
                       )}
                     </div>
