@@ -107,10 +107,12 @@ const NUDGE_STEP_SHIFT: Mm = 5;
  * **캔버스 자리 잡기**: 이 컴포넌트의 SVG는 `viewBox="0 0 insert.width
  * insert.height"`(칸 하나의 속지 mm) 그대로다. 용지 위 이 칸의 자리·회전은
  * 바깥 `<div>`의 CSS `matrix()`로 옮긴다 — `core/place`의 `placeSlot`이 내는
- * SVG `matrix()`를 그대로 CSS `matrix()`로 옮기는 것으로, TextInput의
- * `paperSlot` 처리와 같은 방식이다. 이렇게 하면 `getScreenCTM()`이 회전·이동을
- * 전부 알아서 반영해줘서, 마우스 좌표가 곧바로 이 칸의 속지 mm로 나온다 —
- * `unplaceSlot`을 손으로 부를 필요가 없다.
+ * SVG `matrix()`를 그대로 CSS `matrix()`로 옮기는 것이다. 이렇게 하면
+ * `getScreenCTM()`이 회전·이동을 전부 알아서 반영해줘서, 마우스 좌표가
+ * 곧바로 이 칸의 속지 mm로 나온다 — `unplaceSlot`을 손으로 부를 필요가
+ * 없다. `TextInput`은 이 바깥 `<div>`를 자기 `svg.parentElement`로 보고
+ * 그 안에서 `box.x·y`만큼만 옮기면 되므로, 따로 회전·칸 배치를 알 필요가
+ * 없다(EditorTab의 "속지" 모드와 완전히 같은 코드를 그대로 쓴다).
  *
  * **도구막대 자리 잡기**: 칸을 따라다니면 스크롤할 때마다 도구막대가 화면
  * 밖으로 나가버려 불편하다(써보고 나온 피드백). 그래서 도구막대는 이 칸의
@@ -1057,7 +1059,6 @@ export function PrintSlotEditor({
             editing={editing}
             scale={scale}
             svg={svgRef.current}
-            paperSlot={null}
             inputRef={textInputRef}
             onChange={(text) => {
               if (editing.id) {
