@@ -16,6 +16,13 @@ export interface PreviewSlotContent {
   objects: DiaryObject[];
   /** 세트형·월간 달력일 때만 쓴다. 이 칸이 가리키는 쪽(달, 0부터). */
   calendarPage?: number;
+  /**
+   * "인쇄하기"에서 직접 손봤으면 true(App.tsx가 comboSlotOverrides·
+   * pageOverrides를 보고 정한다). 낱장 조합에서 **다른 양식이 배정된
+   * 것뿐**인 칸은 여기 안 든다 — 손봄 표시(배지)는 실제로 손댄 칸에만
+   * 뜨는 게 맞아서, "배정이 다름"과 "직접 손봄"을 여기서 갈라둔다.
+   */
+  overridden?: boolean;
 }
 
 interface Props {
@@ -156,6 +163,18 @@ export function PaperPreview({
                 />
               )}
             </g>
+
+            {/*
+              "인쇄하기"에서 직접 손봤다는 표시. 칸의 회전과 무관하게 늘 같은
+              모서리(용지 기준 오른쪽 위)에 뜨도록 회전하는 안쪽 <g> 밖,
+              s.x·y·width 기준으로 둔다 — 인쇄되지 않는 화면 전용 표시라
+              cropMark처럼 항상 그린다(mode와 무관하다).
+            */}
+            {content.overridden && (
+              <circle cx={s.x + s.width - 3} cy={s.y + 3} r={1.6} className="override-badge">
+                <title>인쇄하기에서 직접 손봤습니다</title>
+              </circle>
+            )}
           </g>
         );
       })}

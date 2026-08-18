@@ -48,6 +48,8 @@ type EditingSession = {
    * override를 아예 만들지 않는다. 그냥 열어보기만 했는데 "손봤다"로
    * 남아 원본 양식 변경을 더는 안 따라가면 놀란다. */
   seed: DiaryObject[];
+  /** 손보기 시작할 때 이미 override가 있었는가 — "되돌리기" 버튼을 보일지 정한다. */
+  hadOverride: boolean;
 } & ({ kind: 'combo' } | { kind: 'dataset'; page: number });
 
 /**
@@ -171,6 +173,23 @@ export function App() {
     setEditingSession(null);
   }
 
+  /**
+   * "되돌리기" — 지금 세션에서 그린 것은(이미 저장된 override든) 전부 버리고
+   * 원본 양식을 다시 따르게 한다. `commitEdit`과 달리 그림자의 지금 내용을
+   * override로 옮기지 않는다 — 정반대로, 있던 override를 지운다.
+   */
+  function revertEdit() {
+    if (!editingSession) return;
+    const store = useStore.getState();
+    if (editingSession.kind === 'combo') {
+      store.clearComboSlotOverride(editingSession.index, editingSession.side);
+    } else {
+      store.clearPageOverride(editingSession.page, editingSession.side);
+    }
+    store.endShadowEdit();
+    setEditingSession(null);
+  }
+
   // 인쇄하기 탭을 벗어나면(양식 만들기 등으로) 손보던 것을 저장하고 끝낸다.
   // 그림자 양식이 남아 있으면 그 사이 EditorTab의 그리기도 엉뚱하게 그림자를
   // 향하게 된다(store.ts의 patchActiveSide가 shadowTemplate을 먼저 본다).
@@ -238,7 +257,12 @@ export function App() {
       if (t.id === active.id && !frontOverride && !backOverride) return;
 
       const frontObjects = frontOverride ?? t.objects.present;
-      previewOverrides.set(i, { insert: t.insert, dotGrid: t.dotGrid, objects: frontObjects });
+      previewOverrides.set(i, {
+        insert: t.insert,
+        dotGrid: t.dotGrid,
+        objects: frontObjects,
+        overridden: frontOverride !== undefined,
+      });
       pdfOverrides.set(i, {
         dotGrid: t.dotGrid,
         objects: frontObjects,
@@ -251,7 +275,7 @@ export function App() {
       previewBackOverrides.set(
         i,
         backObjects
-          ? { insert: t.insert, dotGrid: t.dotGrid, objects: backObjects }
+          ? { insert: t.insert, dotGrid: t.dotGrid, objects: backObjects, overridden: backOverride !== undefined }
           : { insert: t.insert, dotGrid: s.fillEmptyBack ? t.dotGrid : BLANK_PREVIEW_GRID, objects: [] },
       );
       pdfBackOverrides.set(
@@ -315,6 +339,7 @@ export function App() {
           dotGrid: active.dotGrid,
           objects: resolvePageObjects(active.objects.present, dataset, page, active.pageOverrides),
           calendarPage: page,
+          overridden: active.pageOverrides?.[page] !== undefined,
         });
         // 뒷면을 직접 손봤으면(pageBackOverrides) 원본 양식에 뒷면이 없어도
         // 그 내용을 쓴다 — 낱장 조합의 comboSlotOverrides와 같은 원리다.
@@ -329,6 +354,7 @@ export function App() {
                   ? resolvePageObjects(active.back.objects.present, dataset, page, active.pageBackOverrides)
                   : backOverride!,
                 calendarPage: page,
+                overridden: backOverride !== undefined,
               }
             : {
                 insert: active.insert,
@@ -620,11 +646,22 @@ export function App() {
                       if (printMode === 'dataset') {
                         if (content.calendarPage === undefined) return; // 빈 칸 — 손볼 페이지가 없다
                         beginEdit(
-                          { kind: 'dataset', sheet, index, side, page: content.calendarPage, seed: content.objects },
+                          {
+                            kind: 'dataset',
+                            sheet,
+                            index,
+                            side,
+                            page: content.calendarPage,
+                            seed: content.objects,
+                            hadOverride: content.overridden ?? false,
+                          },
                           content,
                         );
                       } else if (printMode === 'combo') {
-                        beginEdit({ kind: 'combo', sheet, index, side, seed: content.objects }, content);
+                        beginEdit(
+                          { kind: 'combo', sheet, index, side, seed: content.objects, hadOverride: content.overridden ?? false },
+                          content,
+                        );
                       }
                     };
                   }
@@ -651,6 +688,8 @@ export function App() {
                           rotated={layout.rotated}
                           scale={scale}
                           onFinish={finishEdit}
+                          hasOverride={editingSession.hadOverride}
+                          onRevert={revertEdit}
                           editBarSlot={editBarSlot}
                         />
                       )}
@@ -686,6 +725,8 @@ export function App() {
                           rotated={backLayout.rotated}
                           scale={scale}
                           onFinish={finishEdit}
+                          hasOverride={editingSession.hadOverride}
+                          onRevert={revertEdit}
                           editBarSlot={editBarSlot}
                         />
                       )}

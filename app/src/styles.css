@@ -1035,6 +1035,11 @@ select,
   cursor: pointer;
 }
 
+/* 인쇄하기에서 직접 손본 칸·페이지 표시. 인쇄되지 않는 화면 전용 안내다. */
+.override-badge {
+  fill: var(--accent);
+}
+
 .notice {
   display: flex;
   flex-direction: column;

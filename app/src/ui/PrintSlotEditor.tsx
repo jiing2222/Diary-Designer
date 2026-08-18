@@ -123,6 +123,8 @@ export function PrintSlotEditor({
   rotated,
   scale,
   onFinish,
+  hasOverride,
+  onRevert,
   editBarSlot,
 }: {
   /** 이 칸의 용지 위 자리(mm). App.tsx가 layout.slots에서 그대로 넘긴다. */
@@ -132,6 +134,10 @@ export function PrintSlotEditor({
   scale: number;
   /** "완료" — 진행 중인 글자 입력을 먼저 확정한 뒤 부른다. */
   onFinish: () => void;
+  /** 손보기 시작할 때 이미 override가 있었으면 true — "되돌리기" 버튼을 보인다. */
+  hasOverride: boolean;
+  /** "되돌리기" — override를 지우고 원본 양식을 다시 따르게 한다. */
+  onRevert: () => void;
   /** 도구막대를 실제로 그릴 DOM 자리. 아직 안 붙었으면(첫 렌더) null. */
   editBarSlot: HTMLDivElement | null;
 }) {
@@ -858,6 +864,15 @@ export function PrintSlotEditor({
           <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
             ↷
           </button>
+          {hasOverride && (
+            <button
+              className="ghost"
+              onClick={onRevert}
+              title="여기 직접 손본 내용을 지우고, 원본 양식을 다시 따르게 합니다"
+            >
+              되돌리기
+            </button>
+          )}
           <button onClick={finish}>완료</button>
         </div>
         <div className="editor-bar-style">
