@@ -22,6 +22,7 @@ import {
   type InsertSetting,
   type RepeatSetting,
   type Template,
+  type TemplateKind,
 } from './core/template';
 import { toTemplates, type SavedProject } from './core/project';
 import { persistFontLabel, reserveIds } from './fonts/registry';
@@ -272,7 +273,7 @@ interface Store extends Settings {
   /* ── 양식 관리 ── */
   selectTemplate: (id: string) => void;
   /** 규격·이름·격자를 주지 않으면 지금 양식의 것과 자동 이름을 쓴다. */
-  addTemplate: (insert?: InsertSetting, name?: string, grid?: DotGrid) => void;
+  addTemplate: (insert?: InsertSetting, name?: string, grid?: DotGrid, kind?: TemplateKind) => void;
   /** 규격을 주면 그 규격으로 복제한다. 원본은 손대지 않는다. */
   copyTemplate: (id: string, insert?: InsertSetting) => void;
   renameTemplate: (id: string, name: string) => void;
@@ -815,7 +816,7 @@ export const useStore = create<Store>((set) => ({
   // 뒷면 없는 다른 양식으로 넘어가면 헷갈린다.
   selectTemplate: (activeId) => set({ activeId, side: 'front', selectedIds: [] }),
 
-  addTemplate: (insert, name, grid) =>
+  addTemplate: (insert, name, grid, kind) =>
     set((s) => {
       // 규격을 주지 않으면 지금 보던 양식의 규격을 물려받는다. 갤러리에서 크기
       // 그룹의 `+`를 누르는 경우가 그렇다 — 그 크기로 하나 더 만드는 뜻이다.
@@ -824,6 +825,7 @@ export const useStore = create<Store>((set) => ({
       const made = newTemplate(
         uniqueName(s.templates, name?.trim() || defaultName(s.templates, base)),
         base,
+        kind,
       );
       if (grid) made.dotGrid = { ...grid };
       return { templates: [...s.templates, made], activeId: made.id, side: 'front', selectedIds: [] };
@@ -910,6 +912,7 @@ export const useStore = create<Store>((set) => ({
       shadowTemplate: {
         id: '__shadow__',
         name: '',
+        kind: 'insert',
         insert,
         dotGrid,
         palette: { ...DEFAULT_PALETTE },
@@ -1522,6 +1525,7 @@ export const useInsert = () => useStore((s) => activeTemplate(s)?.insert ?? NO_I
 /** 격자는 앞뒤가 공유하는 값이라 side를 받지 않는다 — 어느 쪽에서 읽어도 같다. */
 export const useDotGrid = () => useStore((s) => activeTemplate(s)?.dotGrid ?? NO_GRID);
 export const usePalette = () => useStore((s) => activeTemplate(s)?.palette ?? NO_PALETTE);
+export const useTemplateKind = () => useStore((s) => activeTemplate(s)?.kind ?? 'insert');
 /**
  * side를 주지 않으면 지금 편집 중인 쪽(s.side, 그림자가 있으면 s.shadowSide)이다.
  * 앞뒤를 동시에 보여줄 때는 명시해서 그 쪽과 무관하게 양쪽을 각각 읽는다.

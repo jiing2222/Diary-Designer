@@ -75,6 +75,14 @@ describe('양식', () => {
     expect(s().templates).toEqual([]);
   });
 
+  it('종류를 주지 않으면 속지고, 주면 그대로 따른다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    expect(at().kind).toBe('insert');
+
+    s().addTemplate(insertFromPreset('M6'), undefined, undefined, 'notebook');
+    expect(at().kind).toBe('notebook');
+  });
+
   it('규격에서 이름이 나온다', () => {
     // 목록에서 어느 속지용인지 이름만 보고 알아야 한다.
     s().addTemplate(insertFromPreset('M6'));
@@ -387,6 +395,7 @@ describe('양식 하나짜리 파일을 더해 불러오기', () => {
         name: '불러온것',
         insert: insertFromPreset('A5'),
         dotGrid: DEFAULT_DOT_GRID,
+        kind: 'insert',
         palette: { main: null, subs: [] },
         objects: { present: [], past: [], future: [] },
         repeat: { mode: 'single' },
@@ -413,6 +422,7 @@ describe('양식 하나짜리 파일을 더해 불러오기', () => {
         name: '불러온것',
         insert: insertFromPreset('M6'),
         dotGrid: DEFAULT_DOT_GRID,
+        kind: 'insert',
         palette: { main: null, subs: [] },
         objects: { present: [{ id: existingId, type: 'line', x1: 20, y1: 20, x2: 60, y2: 20 }], past: [], future: [] },
         repeat: { mode: 'single' },
@@ -435,6 +445,7 @@ describe('양식 하나짜리 파일을 더해 불러오기', () => {
         name: '위클리1',
         insert: insertFromPreset('M6'),
         dotGrid: DEFAULT_DOT_GRID,
+        kind: 'insert',
         palette: { main: null, subs: [] },
         objects: { present: [], past: [], future: [] },
         repeat: { mode: 'single' },
@@ -455,6 +466,7 @@ describe('양식 하나짜리 파일을 더해 불러오기', () => {
         name: '가',
         insert: insertFromPreset('M6'),
         dotGrid: DEFAULT_DOT_GRID,
+        kind: 'insert',
         palette: { main: null, subs: [] },
         objects: { present: [], past: [], future: [] },
         repeat: { mode: 'single' },

@@ -588,13 +588,24 @@ export function App() {
           <button className={tab === 'gallery' ? 'tab on' : 'tab'} onClick={() => setTab('gallery')}>
             양식 관리
           </button>
-          {/* 고칠 양식이 없으면 갈 수 없는 곳이다. */}
+          {/*
+            고칠 양식이 없으면 갈 수 없는 곳이다. 속지·노트는 같은 편집
+            화면(EditorTab)을 쓰지만, 지금 고른 양식의 종류(kind)에 맞는
+            버튼만 눌린다 — 다른 종류로 잘못 들어가는 일이 없게 한다.
+          */}
           <button
-            className={tab === 'edit' ? 'tab on' : 'tab'}
+            className={tab === 'edit' && active?.kind === 'insert' ? 'tab on' : 'tab'}
             onClick={() => setTab('edit')}
-            disabled={!active}
+            disabled={!active || active.kind !== 'insert'}
           >
-            양식 만들기
+            속지 제작
+          </button>
+          <button
+            className={tab === 'edit' && active?.kind === 'notebook' ? 'tab on' : 'tab'}
+            onClick={() => setTab('edit')}
+            disabled={!active || active.kind !== 'notebook'}
+          >
+            노트 제작
           </button>
           <button
             className={tab === 'print' ? 'tab on' : 'tab'}

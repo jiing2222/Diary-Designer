@@ -2,7 +2,7 @@ import { initHistory } from './history';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import { cloneObject, type DiaryObject } from './objects';
 import { DEFAULT_PALETTE, type ColorPalette } from './palette';
-import type { InsertSetting, RepeatSetting, Template } from './template';
+import type { InsertSetting, RepeatSetting, Template, TemplateKind } from './template';
 import { defaultInsert, SINGLE_REPEAT } from './template';
 
 /** 저장 파일에 담기는 뒷면 모양. Template.back과 같지만 History가 아니라 배열이다. */
@@ -40,6 +40,8 @@ export interface SavedImage {
 export interface SavedTemplate {
   id: string;
   name: string;
+  /** 속지인지 노트인지(27단계 이전 파일에는 없다). 없으면 속지로 읽는다. */
+  kind?: TemplateKind;
   insert: InsertSetting;
   dotGrid: DotGrid;
   /** 이 양식의 색상판(26단계 이전 파일에는 없다). 없으면 빈 색상판으로 읽는다. */
@@ -89,6 +91,7 @@ export function toProject(input: {
     templates: input.templates.map((t) => ({
       id: t.id,
       name: t.name,
+      kind: t.kind,
       insert: t.insert,
       dotGrid: t.dotGrid,
       palette: t.palette,
@@ -219,6 +222,7 @@ export function toTemplates(p: SavedProject): Template[] {
     return {
       id: t.id || `t${idx + 1}`,
       name: t.name,
+      kind: t.kind ?? 'insert',
       insert: { ...defaultInsert(), ...t.insert },
       dotGrid: { ...DEFAULT_DOT_GRID, ...t.dotGrid },
       palette: t.palette

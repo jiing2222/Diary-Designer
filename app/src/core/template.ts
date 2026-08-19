@@ -77,9 +77,22 @@ export function printModeOf(t: Pick<Template, 'repeat'> | null | undefined): Pri
   return 'combo';
 }
 
+/**
+ * 무슨 제품을 만드는 양식인지.
+ *
+ * `insert`(속지) — 링 바인더에 끼우는 속지. 타공 안내가 있고, 규격은
+ * INSERT_PRESETS 중에서 고른다.
+ * `notebook`(노트) — 스테이플러·바느질로 매는 노트. 타공이 없고, 규격은
+ * 완성 페이지 크기(가로×세로)에서 자동으로 나온다(core/notebook.ts) — 세로
+ * 중심에서 접으므로 실제로 그리는 양식의 가로는 완성 페이지 가로의 두 배다.
+ */
+export type TemplateKind = 'insert' | 'notebook';
+
 export interface Template {
   id: string;
   name: string;
+  /** 속지인지 노트인지. 편집 화면의 탭(속지 제작/노트 제작)과 타공 기본값을 가른다. */
+  kind: TemplateKind;
   insert: InsertSetting;
   /** 이 양식에 깔리는 격자. 양식마다 다를 수 있다. */
   dotGrid: DotGrid;
@@ -148,12 +161,17 @@ export function defaultInsert(): InsertSetting {
   return insertFromPreset(INSERT_PRESETS.find((p) => p.id === 'M6') ? 'M6' : INSERT_PRESETS[0].id);
 }
 
-/** 빈 양식 하나. 규격을 주지 않으면 기본 규격이다. */
-export function newTemplate(name: string, insert: InsertSetting = defaultInsert()): Template {
+/** 빈 양식 하나. 규격을 주지 않으면 기본 규격이다. 종류를 주지 않으면 속지다. */
+export function newTemplate(
+  name: string,
+  insert: InsertSetting = defaultInsert(),
+  kind: TemplateKind = 'insert',
+): Template {
   counter += 1;
   return {
     id: `t${counter}`,
     name,
+    kind,
     insert,
     dotGrid: { ...DEFAULT_DOT_GRID },
     palette: { main: DEFAULT_PALETTE.main, subs: [...DEFAULT_PALETTE.subs] },
@@ -201,6 +219,7 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
   return {
     id: `t${counter}`,
     name,
+    kind: t.kind,
     insert: insert ?? { ...t.insert, punch: { ...t.insert.punch } },
     dotGrid: { ...t.dotGrid },
     // 색상판도 그대로 물려받는다. 디자인을 이어가려면 쓰던 메인·서브색이 그대로 있어야 한다.

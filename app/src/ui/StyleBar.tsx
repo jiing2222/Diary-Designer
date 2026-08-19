@@ -170,7 +170,15 @@ function ColorPalettePopover({ onPick }: { onPick: (color: string) => void }) {
         ))}
       </div>
       <div className="color-popover-row">
-        {main ? (
+        {definingMain ? (
+          <ColorDefiner
+            onCommit={(c) => {
+              onPick(c);
+              setPaletteMain(c);
+              setDefiningMain(false);
+            }}
+          />
+        ) : main ? (
           <span className="palette-slot">
             <button
               type="button"
@@ -188,14 +196,6 @@ function ColorPalettePopover({ onPick }: { onPick: (color: string) => void }) {
               ✎
             </button>
           </span>
-        ) : definingMain ? (
-          <ColorDefiner
-            onCommit={(c) => {
-              onPick(c);
-              setPaletteMain(c);
-              setDefiningMain(false);
-            }}
-          />
         ) : (
           <button
             type="button"

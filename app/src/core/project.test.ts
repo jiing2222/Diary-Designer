@@ -48,6 +48,12 @@ describe('저장', () => {
     expect(p.templates[0].palette).toEqual({ main: '#ff0000', subs: ['#00ff00', '#0000ff'] });
   });
 
+  it('종류(속지·노트)가 그대로 담긴다', () => {
+    const t = { ...sample(), kind: 'notebook' as const };
+    const p = toProject({ templates: [t], print, fonts: [] });
+    expect(p.templates[0].kind).toBe('notebook');
+  });
+
   it('실행취소 이력은 담지 않는다', () => {
     // 파일을 열었을 때 남의 과거로 되돌아갈 수 있으면 놀란다.
     const p = toProject({ templates: [sample()], print, fonts: [] });
@@ -167,6 +173,18 @@ describe('저장했다 다시 열기', () => {
     });
     const restored = toTemplates((r as { ok: never }).ok);
     expect(restored[0].palette).toEqual({ main: null, subs: [] });
+  });
+
+  it('27단계 이전 파일(종류가 없는 파일)은 속지로 읽는다', () => {
+    const r = readProject({
+      version: 1,
+      savedAt: '',
+      templates: [{ id: 't1', name: '옛것', insert: insertFromPreset('M6'), objects: [] }],
+      print: {},
+      fonts: [],
+    });
+    const restored = toTemplates((r as { ok: never }).ok);
+    expect(restored[0].kind).toBe('insert');
   });
 
   it('id가 비어 있어도 채워넣는다', () => {

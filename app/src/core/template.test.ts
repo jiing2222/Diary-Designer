@@ -74,6 +74,14 @@ describe('양식', () => {
     expect(newTemplate('가').palette).toEqual({ main: null, subs: [] });
   });
 
+  it('종류를 주지 않으면 속지다', () => {
+    expect(newTemplate('가').kind).toBe('insert');
+  });
+
+  it('종류를 노트로 만들 수 있다', () => {
+    expect(newTemplate('가', insertFromPreset('M6'), 'notebook').kind).toBe('notebook');
+  });
+
   it('id가 겹치지 않는다', () => {
     const a = newTemplate('가');
     const b = newTemplate('나');
@@ -115,6 +123,11 @@ describe('복제', () => {
     const copy = duplicateTemplate(source, '사본');
     expect(copy.insert.width).toBe(source.insert.width);
     expect(copy.insert.punch).not.toBe(source.insert.punch);
+  });
+
+  it('종류를 물려받는다', () => {
+    const notebook = { ...source, kind: 'notebook' as const };
+    expect(duplicateTemplate(notebook, '사본').kind).toBe('notebook');
   });
 
   it('색상판을 물려받되 원본과 배열을 공유하지 않는다', () => {

@@ -6,7 +6,9 @@ import {
   sizeLabel,
   type InsertSetting,
   type Template,
+  type TemplateKind,
 } from '../core/template';
+import { notebookInsertSize } from '../core/notebook';
 import { INSERT_PRESETS, PAPER_PRESETS, useInsert, useStore } from '../store';
 import {
   DEFAULT_DOT_GRID,
@@ -61,8 +63,8 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
       {creating && (
         <NewTemplateDialog
           onClose={() => setCreating(false)}
-          onCreate={(insert, name, grid) => {
-            addTemplate(insert, name, grid);
+          onCreate={(insert, name, grid, kind) => {
+            addTemplate(insert, name, grid, kind);
             setCreating(false);
             onEdit();
           }}
@@ -94,7 +96,7 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
               {/* 이 크기로 하나 더. 규격을 다시 고르지 않아도 된다. */}
               <button
                 className="card card-add"
-                onClick={() => addTemplate({ ...g.templates[0].insert })}
+                onClick={() => addTemplate({ ...g.templates[0].insert }, undefined, undefined, g.templates[0].kind)}
                 title={`${g.label} 규격으로 새 양식`}
               >
                 +
@@ -121,14 +123,17 @@ function NewTemplateDialog({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (insert: InsertSetting, name: string, grid: DotGrid) => void;
+  onCreate: (insert: InsertSetting, name: string, grid: DotGrid, kind: TemplateKind) => void;
 }) {
   // 양식이 없으면(처음 열었을 때) 기본 규격에서 시작한다.
   const current = useInsert();
   const paper = useStore((s) => s.paper);
   const setPaperPreset = useStore((s) => s.setPaperPreset);
 
+  const [kind, setKind] = useState<TemplateKind>('insert');
   const [presetId, setPresetId] = useState(current.presetId);
+  // 노트일 때는 이 width·height가 "완성 페이지" 크기다 — 실제로 그리는
+  // 양식의 가로는 이 값의 두 배다(notebookInsertSize).
   const [width, setWidth] = useState(current.width);
   const [height, setHeight] = useState(current.height);
   const [name, setName] = useState('');
@@ -145,13 +150,17 @@ function NewTemplateDialog({
   const [cells, setCells] = useState(10);
 
   const insert: InsertSetting =
-    presetId === 'custom'
-      ? { presetId, width, height, punch: { ...current.punch } }
-      : { ...insertFromPreset(presetId, current), width, height };
+    kind === 'notebook'
+      ? { presetId: 'custom', ...notebookInsertSize(width, height), punch: { ...current.punch, show: false } }
+      : presetId === 'custom'
+        ? { presetId, width, height, punch: { ...current.punch } }
+        : { ...insertFromPreset(presetId, current), width, height };
 
   // 칸 수로 만들면 여기서 간격이 나온다. 딱 나누어떨어져 잘리는 칸이 없다.
+  // 실제로 그려지는 양식 크기(insert)를 쓴다 — 노트는 완성 페이지(width state)의
+  // 두 배라서, 여기서 페이지 크기를 쓰면 칸 수가 절반으로 어긋난다.
   const spacing = byCells
-    ? spacingForCells(cellAxis === 'x' ? width : height, cells, grid.toEdge ? 0 : grid.minMargin)
+    ? spacingForCells(cellAxis === 'x' ? insert.width : insert.height, cells, grid.toEdge ? 0 : grid.minMargin)
     : grid.spacing;
 
   // 지금 값으로 만들면 실제로 몇 칸이 되는지. 다른 축은 여기서 따라 나온다.
@@ -168,54 +177,98 @@ function NewTemplateDialog({
 
   function create() {
     if (width <= 0 || height <= 0 || spacing <= 0) return;
-    onCreate(insert, name, { ...grid, spacing });
+    onCreate(insert, name, { ...grid, spacing }, kind);
   }
 
   return (
     <Modal title="새 양식" onClose={onClose}>
-      <p className="modal-note">어떤 규격의 속지를 만들까요?</p>
-
-      <div className="preset-list">
-        {INSERT_PRESETS.map((p) => (
-          <button
-            key={p.id}
-            className={`preset ${presetId === p.id ? 'on' : ''}`}
-            onClick={() => pickPreset(p.id)}
-          >
-            <b>{p.name}</b>
-            <span>
-              {p.width} × {p.height}mm
-            </span>
-          </button>
-        ))}
-        <button
-          className={`preset ${presetId === 'custom' ? 'on' : ''}`}
-          onClick={() => pickPreset('custom')}
-        >
-          <b>사용자 지정</b>
-          <span>직접 입력</span>
-        </button>
+      <div className="modal-row">
+        <label className="modal-check">
+          <input type="radio" checked={kind === 'insert'} onChange={() => setKind('insert')} />
+          속지 — 링 바인더에 끼운다
+        </label>
+        <label className="modal-check">
+          <input type="radio" checked={kind === 'notebook'} onChange={() => setKind('notebook')} />
+          노트 — 스테이플러·바느질로 맨다
+        </label>
       </div>
 
-      {presetId === 'custom' && (
-        <div className="card-dialog-size">
-          <input
-            type="number"
-            value={width}
-            min={10}
-            step={1}
-            onChange={(e) => setWidth(Number(e.target.value))}
-          />
-          <span>×</span>
-          <input
-            type="number"
-            value={height}
-            min={10}
-            step={1}
-            onChange={(e) => setHeight(Number(e.target.value))}
-          />
-          <span>mm</span>
-        </div>
+      {kind === 'insert' ? (
+        <>
+          <p className="modal-note">어떤 규격의 속지를 만들까요?</p>
+
+          <div className="preset-list">
+            {INSERT_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                className={`preset ${presetId === p.id ? 'on' : ''}`}
+                onClick={() => pickPreset(p.id)}
+              >
+                <b>{p.name}</b>
+                <span>
+                  {p.width} × {p.height}mm
+                </span>
+              </button>
+            ))}
+            <button
+              className={`preset ${presetId === 'custom' ? 'on' : ''}`}
+              onClick={() => pickPreset('custom')}
+            >
+              <b>사용자 지정</b>
+              <span>직접 입력</span>
+            </button>
+          </div>
+
+          {presetId === 'custom' && (
+            <div className="card-dialog-size">
+              <input
+                type="number"
+                value={width}
+                min={10}
+                step={1}
+                onChange={(e) => setWidth(Number(e.target.value))}
+              />
+              <span>×</span>
+              <input
+                type="number"
+                value={height}
+                min={10}
+                step={1}
+                onChange={(e) => setHeight(Number(e.target.value))}
+              />
+              <span>mm</span>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="modal-note">완성됐을 때 페이지 한 쪽의 크기입니다. 타공은 없습니다.</p>
+          <div className="card-dialog-size">
+            <input
+              type="number"
+              value={width}
+              min={10}
+              step={1}
+              onChange={(e) => setWidth(Number(e.target.value))}
+            />
+            <span>×</span>
+            <input
+              type="number"
+              value={height}
+              min={10}
+              step={1}
+              onChange={(e) => setHeight(Number(e.target.value))}
+            />
+            <span>mm</span>
+          </div>
+          <p className="modal-note">
+            가운데를 접어 만들므로, 실제로 그리는 양식은{' '}
+            <b>
+              {insert.width} × {insert.height}mm
+            </b>
+            입니다.
+          </p>
+        </>
       )}
 
       <div className="modal-divider" />
