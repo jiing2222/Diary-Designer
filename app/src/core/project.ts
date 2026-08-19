@@ -10,6 +10,12 @@ interface SavedBack {
   objects: DiaryObject[];
 }
 
+/** 저장 파일에 담기는 노트 반쪽 모양. NotebookHalf와 같지만 History가 아니라 배열이다. */
+interface SavedNotebookHalf {
+  objects: DiaryObject[];
+  dotGrid: DotGrid;
+}
+
 /**
  * 저장 파일.
  *
@@ -58,6 +64,12 @@ export interface SavedTemplate {
   pageOverrides?: Record<number, DiaryObject[]>;
   /** 뒷면 쪽의 pageOverrides. */
   pageBackOverrides?: Record<number, DiaryObject[]>;
+  /** 노트의 표지(27단계 이전 파일에는 없다). 노트가 아니면 없다. */
+  cover?: { front: SavedNotebookHalf; back: SavedNotebookHalf };
+  /** 노트의 원하는 쪽수. 노트가 아니면 없다. */
+  pageCount?: number;
+  /** 노트의 쪽 배열. 노트가 아니면 없다. */
+  pages?: SavedNotebookHalf[];
 }
 
 export interface SavedProject {
@@ -101,6 +113,12 @@ export function toProject(input: {
       back: t.back ? { objects: t.back.objects.present } : null,
       pageOverrides: t.pageOverrides,
       pageBackOverrides: t.pageBackOverrides,
+      cover: t.cover && {
+        front: { objects: t.cover.front.objects.present, dotGrid: t.cover.front.dotGrid },
+        back: { objects: t.cover.back.objects.present, dotGrid: t.cover.back.dotGrid },
+      },
+      pageCount: t.pageCount,
+      pages: t.pages?.map((p) => ({ objects: p.objects.present, dotGrid: p.dotGrid })),
     })),
     print: input.print,
     // 실제로 쓰인 글꼴만 담는다. 등록만 해놓고 안 쓴 것까지 적어두면
@@ -204,6 +222,8 @@ export function toTemplates(p: SavedProject): Template[] {
     groups.push(t.objects, t.back?.objects ?? []);
     for (const objs of Object.values(t.pageOverrides ?? {})) groups.push(objs);
     for (const objs of Object.values(t.pageBackOverrides ?? {})) groups.push(objs);
+    if (t.cover) groups.push(t.cover.front.objects, t.cover.back.objects);
+    for (const half of t.pages ?? []) groups.push(half.objects);
   }
   const deduped = dedupeObjectIds(groups);
   let i = 0;
@@ -219,6 +239,15 @@ export function toTemplates(p: SavedProject): Template[] {
     const pageBackOverrides = t.pageBackOverrides
       ? Object.fromEntries(Object.keys(t.pageBackOverrides).map((page) => [page, deduped[i++]]))
       : undefined;
+    // cover·pages도 groups를 채운 것과 같은 순서로 다시 꺼낸다.
+    const cover = t.cover && {
+      front: { objects: initHistory(deduped[i++]), dotGrid: { ...DEFAULT_DOT_GRID, ...t.cover.front.dotGrid } },
+      back: { objects: initHistory(deduped[i++]), dotGrid: { ...DEFAULT_DOT_GRID, ...t.cover.back.dotGrid } },
+    };
+    const pages = t.pages?.map((half) => ({
+      objects: initHistory(deduped[i++]),
+      dotGrid: { ...DEFAULT_DOT_GRID, ...half.dotGrid },
+    }));
     return {
       id: t.id || `t${idx + 1}`,
       name: t.name,
@@ -235,6 +264,9 @@ export function toTemplates(p: SavedProject): Template[] {
       back: t.back ? { objects: initHistory(backObjects) } : null,
       ...(pageOverrides ? { pageOverrides } : {}),
       ...(pageBackOverrides ? { pageBackOverrides } : {}),
+      ...(cover ? { cover } : {}),
+      ...(t.pageCount !== undefined ? { pageCount: t.pageCount } : {}),
+      ...(pages ? { pages } : {}),
     };
   });
 }

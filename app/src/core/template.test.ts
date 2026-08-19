@@ -82,6 +82,21 @@ describe('양식', () => {
     expect(newTemplate('가', insertFromPreset('M6'), 'notebook').kind).toBe('notebook');
   });
 
+  it('노트로 만들면 표지·쪽이 함께 생긴다', () => {
+    const t = newTemplate('가', insertFromPreset('M6'), 'notebook');
+    expect(t.cover?.front.objects.present).toEqual([]);
+    expect(t.cover?.back.objects.present).toEqual([]);
+    expect(t.pageCount).toBe(8);
+    expect(t.pages).toHaveLength(8);
+    expect(t.pages?.every((p) => p.objects.present.length === 0)).toBe(true);
+  });
+
+  it('속지로 만들면 표지·쪽이 없다', () => {
+    const t = newTemplate('가');
+    expect(t.cover).toBeUndefined();
+    expect(t.pages).toBeUndefined();
+  });
+
   it('id가 겹치지 않는다', () => {
     const a = newTemplate('가');
     const b = newTemplate('나');
@@ -128,6 +143,21 @@ describe('복제', () => {
   it('종류를 물려받는다', () => {
     const notebook = { ...source, kind: 'notebook' as const };
     expect(duplicateTemplate(notebook, '사본').kind).toBe('notebook');
+  });
+
+  it('노트의 표지·쪽을 물려받되 각자 새 되돌리기 이력으로 시작하고, 그린 것을 고쳐도 원본은 그대로다', () => {
+    const notebook = newTemplate('노트', insertFromPreset('M6'), 'notebook');
+    notebook.cover!.front.objects = commit(notebook.cover!.front.objects, [line(0, 0, 10, 10)]);
+    notebook.pages![0].objects = commit(notebook.pages![0].objects, [line(1, 1, 5, 5)]);
+
+    const copy = duplicateTemplate(notebook, '사본');
+    expect(copy.cover!.front.objects.present).toEqual(notebook.cover!.front.objects.present);
+    expect(copy.cover!.front.objects.past).toEqual([]);
+    expect(copy.pages![0].objects.present).toEqual(notebook.pages![0].objects.present);
+    expect(copy.pageCount).toBe(notebook.pageCount);
+
+    copy.pages![0].objects = commit(copy.pages![0].objects, []);
+    expect(notebook.pages![0].objects.present).toHaveLength(1);
   });
 
   it('색상판을 물려받되 원본과 배열을 공유하지 않는다', () => {

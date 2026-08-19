@@ -24,6 +24,10 @@ function sample(objects: DiaryObject[] = [line, plain]) {
   return t;
 }
 
+function sampleNotebook() {
+  return newTemplate('노트1', insertFromPreset('M6'), 'notebook');
+}
+
 const print = { paper: { presetId: 'A4', width: 210, height: 297 }, gap: 2 };
 
 describe('저장', () => {
@@ -52,6 +56,18 @@ describe('저장', () => {
     const t = { ...sample(), kind: 'notebook' as const };
     const p = toProject({ templates: [t], print, fonts: [] });
     expect(p.templates[0].kind).toBe('notebook');
+  });
+
+  it('노트의 표지·쪽수·쪽이 그대로 담긴다', () => {
+    const t = sampleNotebook();
+    t.cover!.front.objects = commit(t.cover!.front.objects, [line]);
+    t.pages![0].objects = commit(t.pages![0].objects, [plain]);
+    const p = toProject({ templates: [t], print, fonts: [] });
+    expect(p.templates[0].cover?.front.objects).toEqual([line]);
+    expect(p.templates[0].cover?.back.objects).toEqual([]);
+    expect(p.templates[0].pageCount).toBe(8);
+    expect(p.templates[0].pages).toHaveLength(8);
+    expect(p.templates[0].pages?.[0].objects).toEqual([plain]);
   });
 
   it('실행취소 이력은 담지 않는다', () => {
@@ -175,6 +191,43 @@ describe('저장했다 다시 열기', () => {
     expect(restored[0].palette).toEqual({ main: null, subs: [] });
   });
 
+  it('노트의 표지·쪽수·쪽이 그대로 돌아온다', () => {
+    const t = sampleNotebook();
+    t.cover!.back.objects = commit(t.cover!.back.objects, [line]);
+    t.pages![3].objects = commit(t.pages![3].objects, [plain]);
+
+    const back = toTemplates(toProject({ templates: [t], print, fonts: [] }));
+    expect(back[0].cover?.back.objects.present).toEqual([line]);
+    expect(back[0].cover?.front.objects.present).toEqual([]);
+    expect(back[0].pageCount).toBe(8);
+    expect(back[0].pages).toHaveLength(8);
+    expect(back[0].pages?.[3].objects.present).toEqual([plain]);
+    // 실행취소는 빈 채로 시작한다.
+    expect(back[0].pages?.[3].objects.past).toEqual([]);
+  });
+
+  it('노트가 아니면 표지·쪽이 없다', () => {
+    const back = toTemplates(toProject({ templates: [sample()], print, fonts: [] }));
+    expect(back[0].cover).toBeUndefined();
+    expect(back[0].pages).toBeUndefined();
+  });
+
+  it('표지·쪽 사이에 id가 겹쳐도 잡는다', () => {
+    // 숫자로 끝나지 않는 id를 쓴다 — 겹쳐서 새로 받는 id는 항상 "l" + 숫자
+    // 모양이라, 겹치는 원본이 그 모양이면 어쩌다 같은 문자열을 다시
+    // 받아 "새로 받은 게 맞는지"를 못 가리는 경우가 생긴다.
+    const dup: DiaryObject = { ...line, id: 'dup-id' };
+    const t = sampleNotebook();
+    t.cover!.front.objects = commit(t.cover!.front.objects, [dup]);
+    t.pages![0].objects = commit(t.pages![0].objects, [{ ...dup, y1: 40, y2: 40 }]); // 일부러 같은 id
+
+    const back = toTemplates(toProject({ templates: [t], print, fonts: [] }));
+    const coverId = back[0].cover!.front.objects.present[0].id;
+    const pageId = back[0].pages![0].objects.present[0].id;
+    expect(coverId).toBe('dup-id'); // 먼저 나온 것은 그대로 둔다
+    expect(pageId).not.toBe('dup-id');
+  });
+
   it('27단계 이전 파일(종류가 없는 파일)은 속지로 읽는다', () => {
     const r = readProject({
       version: 1,
@@ -236,7 +289,10 @@ describe('저장했다 다시 열기', () => {
   });
 
   it('뒷면이 그대로 돌아온다', () => {
-    const t = sample();
+    // 앞면 기본값(line, plain)과 겹치지 않는 id로 뒷면을 채운다 — 겹치면
+    // dedup이 새 id를 매기므로(그 자체는 옳다) "그대로 돌아오는지"를
+    // 못 보게 된다. 그건 "앞면·뒷면에 걸쳐 겹쳐도 잡는다"가 따로 본다.
+    const t = sample([plain]);
     t.back = newBack();
     t.back.objects = commit(t.back.objects, [line]);
 

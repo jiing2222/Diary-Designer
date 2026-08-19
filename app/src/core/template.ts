@@ -4,6 +4,13 @@ import { initHistory, type History } from './history';
 import { DEFAULT_PUNCH, type PunchSetting } from './punch';
 import { findInsertPreset, INSERT_PRESETS } from './presets';
 import { DEFAULT_PALETTE, type ColorPalette } from './palette';
+import {
+  DEFAULT_NOTEBOOK_PAGE_COUNT,
+  duplicateNotebookHalf,
+  newNotebookHalf,
+  paddedPageCount,
+  type NotebookHalf,
+} from './notebook';
 import type { Dataset } from './dataset';
 import type { Mm } from './units';
 
@@ -122,6 +129,22 @@ export interface Template {
   pageOverrides?: Record<number, DiaryObject[]>;
   /** 뒷면 쪽의 pageOverrides. 앞뒤를 따로 손볼 수 있어 따로 둔다. */
   pageBackOverrides?: Record<number, DiaryObject[]>;
+
+  /**
+   * 노트(`kind === 'notebook'`)일 때만 뜻이 있다 — 표지. 오른쪽 반쪽(`front`)이
+   * 앞표지, 왼쪽 반쪽(`back`)이 뒤표지다(중앙 접힘선 기준, ui/NotebookMarginGuide).
+   */
+  cover?: { front: NotebookHalf; back: NotebookHalf };
+  /**
+   * 노트일 때만 뜻이 있다 — 사용자가 원하는 쪽수. 4의 배수가 아니어도 된다
+   * (`pages`는 `paddedPageCount`로 맞춘 길이를 갖는다 — 남는 쪽은 빈 쪽이다).
+   */
+  pageCount?: number;
+  /**
+   * 노트일 때만 뜻이 있다 — 쪽 배열. 인덱스 0이 1쪽이다. 각 쪽이 속지의
+   * 앞뒤면처럼 자기 그린 것·격자·되돌리기 이력을 따로 갖는다(NotebookHalf).
+   */
+  pages?: NotebookHalf[];
 }
 
 let counter = 0;
@@ -168,7 +191,7 @@ export function newTemplate(
   kind: TemplateKind = 'insert',
 ): Template {
   counter += 1;
-  return {
+  const base: Template = {
     id: `t${counter}`,
     name,
     kind,
@@ -178,6 +201,14 @@ export function newTemplate(
     objects: initHistory<DiaryObject[]>([]),
     repeat: SINGLE_REPEAT,
     back: null,
+  };
+  if (kind !== 'notebook') return base;
+
+  return {
+    ...base,
+    cover: { front: newNotebookHalf(), back: newNotebookHalf() },
+    pageCount: DEFAULT_NOTEBOOK_PAGE_COUNT,
+    pages: Array.from({ length: paddedPageCount(DEFAULT_NOTEBOOK_PAGE_COUNT) }, newNotebookHalf),
   };
 }
 
@@ -235,6 +266,12 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
     // 세트형에서 직접 손본 페이지도 그대로 물려받는다 — objects·back과 같은 이유다.
     pageOverrides: t.pageOverrides,
     pageBackOverrides: t.pageBackOverrides,
+    // 표지·쪽도 같은 이유로 물려받는다. 반쪽마다 실행취소 이력은 새로 시작한다.
+    ...(t.cover
+      ? { cover: { front: duplicateNotebookHalf(t.cover.front), back: duplicateNotebookHalf(t.cover.back) } }
+      : {}),
+    ...(t.pageCount !== undefined ? { pageCount: t.pageCount } : {}),
+    ...(t.pages ? { pages: t.pages.map(duplicateNotebookHalf) } : {}),
   };
 }
 

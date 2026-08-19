@@ -1211,6 +1211,14 @@ select,
   stroke-width: 0.3;
 }
 
+/* 노트 양식의 가운데 접힘선. 좌·우를 가르는 기준이라 재단여백보다 또렷하게 둔다. */
+.fold-line {
+  stroke: #5a5a5a;
+  stroke-width: 0.25;
+  stroke-dasharray: 2.5 2;
+  opacity: 0.5;
+}
+
 /* 노트 양식의 좌·우 재단여백 안내. 인쇄하기 화면의 회색 여백(.unprintable)과
    같은 색 계열이다 — 참고용 표시일 뿐 치수 계산에는 관여하지 않는다. */
 .trim-guide rect {
