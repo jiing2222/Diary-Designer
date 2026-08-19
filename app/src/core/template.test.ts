@@ -70,6 +70,10 @@ describe('양식', () => {
     expect(t.objects.present).toEqual([]);
   });
 
+  it('만들면 색상판도 비어 있다', () => {
+    expect(newTemplate('가').palette).toEqual({ main: null, subs: [] });
+  });
+
   it('id가 겹치지 않는다', () => {
     const a = newTemplate('가');
     const b = newTemplate('나');
@@ -111,6 +115,16 @@ describe('복제', () => {
     const copy = duplicateTemplate(source, '사본');
     expect(copy.insert.width).toBe(source.insert.width);
     expect(copy.insert.punch).not.toBe(source.insert.punch);
+  });
+
+  it('색상판을 물려받되 원본과 배열을 공유하지 않는다', () => {
+    const withPalette = { ...source, palette: { main: '#ff0000', subs: ['#00ff00'] } };
+    const copy = duplicateTemplate(withPalette, '사본');
+    expect(copy.palette).toEqual(withPalette.palette);
+
+    // 사본의 서브색을 고쳐도 원본은 그대로여야 한다.
+    copy.palette.subs.push('#0000ff');
+    expect(withPalette.palette.subs).toEqual(['#00ff00']);
   });
 
   it('세트형에서 직접 손본 페이지도 물려받는다', () => {

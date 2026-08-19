@@ -1,6 +1,7 @@
 import { initHistory } from './history';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import { cloneObject, type DiaryObject } from './objects';
+import { DEFAULT_PALETTE, type ColorPalette } from './palette';
 import type { InsertSetting, RepeatSetting, Template } from './template';
 import { defaultInsert, SINGLE_REPEAT } from './template';
 
@@ -41,6 +42,8 @@ export interface SavedTemplate {
   name: string;
   insert: InsertSetting;
   dotGrid: DotGrid;
+  /** 이 양식의 색상판(26단계 이전 파일에는 없다). 없으면 빈 색상판으로 읽는다. */
+  palette?: ColorPalette;
   objects: DiaryObject[];
   /** 옛 파일(7단계 이전)에는 없다. 없으면 `single`로 읽는다. */
   repeat?: RepeatSetting;
@@ -88,6 +91,7 @@ export function toProject(input: {
       name: t.name,
       insert: t.insert,
       dotGrid: t.dotGrid,
+      palette: t.palette,
       // 실행취소 이력은 빼고 지금 모습만.
       objects: t.objects.present,
       repeat: t.repeat,
@@ -217,6 +221,9 @@ export function toTemplates(p: SavedProject): Template[] {
       name: t.name,
       insert: { ...defaultInsert(), ...t.insert },
       dotGrid: { ...DEFAULT_DOT_GRID, ...t.dotGrid },
+      palette: t.palette
+        ? { main: t.palette.main, subs: [...t.palette.subs] }
+        : { main: DEFAULT_PALETTE.main, subs: [...DEFAULT_PALETTE.subs] },
       objects: initHistory(objects),
       repeat: t.repeat ?? SINGLE_REPEAT,
       // 옛 파일(뒷면 격자가 따로 있던 판)에 back.dotGrid가 남아 있어도 이제

@@ -3,6 +3,7 @@ import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import { initHistory, type History } from './history';
 import { DEFAULT_PUNCH, type PunchSetting } from './punch';
 import { findInsertPreset, INSERT_PRESETS } from './presets';
+import { DEFAULT_PALETTE, type ColorPalette } from './palette';
 import type { Dataset } from './dataset';
 import type { Mm } from './units';
 
@@ -82,6 +83,8 @@ export interface Template {
   insert: InsertSetting;
   /** 이 양식에 깔리는 격자. 양식마다 다를 수 있다. */
   dotGrid: DotGrid;
+  /** 이 양식의 메인·서브 색상판. 양식마다 다를 수 있다. */
+  palette: ColorPalette;
   /**
    * 그린 것들. **실행취소가 양식마다 따로 붙는다.**
    *
@@ -153,6 +156,7 @@ export function newTemplate(name: string, insert: InsertSetting = defaultInsert(
     name,
     insert,
     dotGrid: { ...DEFAULT_DOT_GRID },
+    palette: { main: DEFAULT_PALETTE.main, subs: [...DEFAULT_PALETTE.subs] },
     objects: initHistory<DiaryObject[]>([]),
     repeat: SINGLE_REPEAT,
     back: null,
@@ -199,6 +203,8 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
     name,
     insert: insert ?? { ...t.insert, punch: { ...t.insert.punch } },
     dotGrid: { ...t.dotGrid },
+    // 색상판도 그대로 물려받는다. 디자인을 이어가려면 쓰던 메인·서브색이 그대로 있어야 한다.
+    palette: { main: t.palette.main, subs: [...t.palette.subs] },
     // 실행취소 이력은 물려주지 않는다. 사본은 지금 모습에서 새로 시작한다.
     objects: initHistory([...t.objects.present]),
     // 반복 설정도 물려받는다. 54장짜리 만년형을 디자인만 바꿔보고 싶을 때

@@ -48,7 +48,7 @@ import { fillColorOf, fillOpacityOf, roundnessOf, strokeColorOf, strokeDashOf, s
 import { FONT_ACCEPT, fontLabelOf, hasFont, registerFont } from '../fonts/registry';
 import { IMAGE_ACCEPT, hasImage, imageLabelOf, registerImage } from '../images/registry';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
-import { useObjects, useStore } from '../store';
+import { useObjects, usePalette, useStore } from '../store';
 import type { Editing } from './gestures';
 import { ImagePickerDialog } from './ImagePickerDialog';
 
@@ -68,15 +68,30 @@ const WIDTHS: Mm[] = [0.1, 0.15, 0.2, 0.3, 0.4, 0.6, 0.8];
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 /**
- * 색 하나를 고르는 칸. 네모(브라우저 기본 색 선택기, `input type="color"`)와
- * 16진 코드 입력칸을 나란히 둔다 — 코드를 직접 치거나 붙여넣는 쪽이 기본이고,
- * 네모는 색상환에서 눈으로 고르고 싶을 때 쓴다(사용자 피드백 — 색 고를 때
- * 브라우저 기본 선택기가 RGB부터 보여줘서 불편했다. 이 앱의 네모 옆
- * 입력칸은 우리가 만든 것이라 늘 16진 코드다).
+ * 모든 양식이 공유하는 붙박이 회색 5단계(17w 이전에 쓰던 값 그대로). 양식별
+ * 색상판(메인·서브)과 나란히, 말풍선 첫 줄에 항상 있다.
+ */
+const GRAY_SCALE: { hex: string; label: string }[] = [
+  { hex: '#cfcfcf', label: '아주 연하게' },
+  { hex: '#9e9e9e', label: '연하게' },
+  { hex: '#6e6e6e', label: '중간' },
+  { hex: '#3a3a3a', label: '진하게' },
+  { hex: '#000000', label: '검정' },
+];
+
+/**
+ * 색 하나를 고르는 칸.
  *
- * **"섞임" 상태는 색 자체로 표현할 수 없다** — 이 입력은 늘 실제 색
- * 하나를 보여줘야 하므로, 섞였을 때는 첫 번째 값을 그대로 보여주되
- * `mixed` 클래스로 테두리를 다르게 해서 섞였다는 것만 알려준다.
+ * 버튼(지금 색)을 누르면 말풍선이 뜬다 — 붙박이 회색 5단계 · 메인색 1개 ·
+ * 서브색(개수 제한 없이 늘어남) 순으로 스와치가 있어 눌러서 바로 적용한다.
+ * 밖에서 16진 코드를 직접 치는 칸은 이제 없다 — 새 색을 정의하고 싶으면
+ * 말풍선 안의 `+`를 눌러야 `ColorDefiner`(네모+16진 조합, 예전 상단바
+ * 입력칸과 같다)가 나온다. 그렇게 정한 색은 그 자리에서 바로 적용되고
+ * 양식의 색상판에도 남는다.
+ *
+ * **"섞임" 상태는 색 자체로 표현할 수 없다** — 버튼은 늘 실제 색 하나를
+ * 보여줘야 하므로, 섞였을 때는 첫 번째 값을 그대로 보여주되 `mixed`
+ * 클래스로 테두리를 다르게 해서 섞였다는 것만 알려준다.
  */
 function ColorField({
   value,
@@ -89,34 +104,174 @@ function ColorField({
   onChange: (color: string) => void;
   title: string;
 }) {
-  // 입력칸 자체의 글자는 타이핑하는 동안 바깥 값과 따로 논다 — 다 쓰기 전에
-  // (예: "#3a"까지만 쳤을 때) 바깥 값으로 즉시 되돌리면 이어 칠 수 없다.
-  // 바깥에서 값이 바뀌면(다른 객체를 고르는 등) 같이 새로 맞춘다.
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  // SettingsPanel의 말풍선과 같은 규칙 — 바깥을 누르거나 Esc를 누르면 닫는다.
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: PointerEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <span className={mixed ? 'color-field mixed' : 'color-field'} ref={ref}>
+      <button
+        type="button"
+        className="color-swatch"
+        style={{ background: value }}
+        onClick={() => setOpen((o) => !o)}
+        title={mixed ? `${title} — 색이 여러 개 섞여 있습니다` : title}
+      />
+      {open && <ColorPalettePopover onPick={onChange} />}
+    </span>
+  );
+}
+
+/**
+ * 색상판 말풍선 — 회색 5단계 · 메인색 · 서브색을 스와치로 늘어놓는다.
+ *
+ * 메인·서브색은 지금 양식(`usePalette`)이 갖는다. 메인이 없으면(양식을 막
+ * 만들었을 때) `+` 자리만 보이고, 누르면 `ColorDefiner`로 바뀌어 새 색을
+ * 정할 수 있다 — 정하는 즉시 적용도 함께 된다. 서브색은 맨 끝의 `+`로 하나씩
+ * 늘어나고(개수 제한 없음), 각자 옆의 `×`로 지운다.
+ */
+function ColorPalettePopover({ onPick }: { onPick: (color: string) => void }) {
+  const palette = usePalette();
+  const setPaletteMain = useStore((s) => s.setPaletteMain);
+  const addPaletteColor = useStore((s) => s.addPaletteColor);
+  const removePaletteColor = useStore((s) => s.removePaletteColor);
+  const [definingMain, setDefiningMain] = useState(false);
+  const [definingNew, setDefiningNew] = useState(false);
+  const main = palette.main;
+
+  return (
+    <div className="color-popover">
+      <div className="color-popover-row">
+        {GRAY_SCALE.map((g) => (
+          <button
+            key={g.hex}
+            type="button"
+            className="color-swatch-sm"
+            style={{ background: g.hex }}
+            title={g.label}
+            onClick={() => onPick(g.hex)}
+          />
+        ))}
+      </div>
+      <div className="color-popover-row">
+        {main ? (
+          <span className="palette-slot">
+            <button
+              type="button"
+              className="color-swatch-sm"
+              style={{ background: main }}
+              title="메인색"
+              onClick={() => onPick(main)}
+            />
+            <button
+              type="button"
+              className="palette-edit"
+              title="메인색 바꾸기"
+              onClick={() => setDefiningMain(true)}
+            >
+              ✎
+            </button>
+          </span>
+        ) : definingMain ? (
+          <ColorDefiner
+            onCommit={(c) => {
+              onPick(c);
+              setPaletteMain(c);
+              setDefiningMain(false);
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className="color-swatch-sm add"
+            title="메인색 정하기"
+            onClick={() => setDefiningMain(true)}
+          >
+            +
+          </button>
+        )}
+
+        {palette.subs.map((c, i) => (
+          <span className="palette-slot" key={`${c}-${i}`}>
+            <button
+              type="button"
+              className="color-swatch-sm"
+              style={{ background: c }}
+              title="서브색"
+              onClick={() => onPick(c)}
+            />
+            <button
+              type="button"
+              className="palette-remove"
+              title="이 색 지우기"
+              onClick={() => removePaletteColor(i)}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+
+        {definingNew ? (
+          <ColorDefiner
+            onCommit={(c) => {
+              onPick(c);
+              addPaletteColor(c);
+              setDefiningNew(false);
+            }}
+          />
+        ) : (
+          <button type="button" className="color-swatch-sm add" title="색 추가" onClick={() => setDefiningNew(true)}>
+            +
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 새 색을 정의하는 칸 — 네모(브라우저 기본 색 선택기)와 16진 코드 입력칸을
+ * 나란히 둔다. `ColorPalettePopover`의 `+` 자리에서만 나온다. 값이 확정되는
+ * 즉시(`onCommit`) 적용과 색상판 등록이 함께 일어난다 — 따로 "확인" 버튼이
+ * 없다. 예전 상단바에 늘 떠 있던 입력칸과 조작 방식은 같다.
+ */
+function ColorDefiner({ onCommit }: { onCommit: (color: string) => void }) {
+  const [draft, setDraft] = useState('');
 
   function commit(raw: string) {
     const normalized = raw.startsWith('#') ? raw : `#${raw}`;
-    if (HEX_COLOR.test(normalized)) {
-      onChange(normalized.toLowerCase());
-    } else {
-      setDraft(value); // 잘못된 코드면 되돌린다.
-    }
+    if (HEX_COLOR.test(normalized)) onCommit(normalized.toLowerCase());
   }
 
   return (
-    <span className={mixed ? 'color-field mixed' : 'color-field'}>
+    <span className="color-definer">
       <input
         type="color"
-        className="color-swatch"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        title={mixed ? `${title} — 색이 여러 개 섞여 있습니다` : title}
+        className="color-swatch-sm"
+        onChange={(e) => onCommit(e.target.value)}
+        title="색상환에서 고르기"
       />
       <input
         type="text"
         className="color-hex"
         value={draft}
+        placeholder="#000000"
         onChange={(e) => setDraft(e.target.value)}
         onBlur={(e) => commit(e.target.value)}
         onKeyDown={(e) => {
@@ -126,7 +281,8 @@ function ColorField({
           }
         }}
         spellCheck={false}
-        title={title}
+        title="16진 코드"
+        autoFocus
       />
     </span>
   );

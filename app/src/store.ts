@@ -3,6 +3,7 @@ import { INSERT_PRESETS, PAPER_PRESETS, findPaperPreset } from './core/presets';
 import type { PunchSetting } from './core/punch';
 import { computeLayout, type Align, type Layout } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
+import { DEFAULT_PALETTE, type ColorPalette } from './core/palette';
 import { DEFAULT_FIELD_FORMAT } from './core/text';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import {
@@ -252,6 +253,12 @@ interface Store extends Settings {
   patchInsert: (p: Partial<Omit<InsertSetting, 'punch'>>) => void;
   patchPunch: (p: Partial<PunchSetting>) => void;
   patchDotGrid: (p: Partial<DotGrid>) => void;
+  /** 지금 양식의 메인색을 정한다. */
+  setPaletteMain: (color: string) => void;
+  /** 지금 양식의 색상판에 서브색을 하나 더한다. 이미 있는 색이면 다시 넣지 않는다. */
+  addPaletteColor: (color: string) => void;
+  /** 지금 양식의 색상판에서 서브색 하나를 지운다. */
+  removePaletteColor: (index: number) => void;
   /** 이 양식을 몇 번 찍을지. `repeat`으로 바꾸면 낱장 조합(칸 배정)은 더 이상 쓰이지 않는다. */
   patchRepeat: (repeat: RepeatSetting) => void;
   /** 지금 양식의 앞면·뒷면 중 어느 쪽을 편집할지. */
@@ -493,6 +500,7 @@ const PASTE_OFFSET: Mm = 5;
 
 const NO_INSERT = defaultInsert();
 const NO_GRID: DotGrid = { ...DEFAULT_DOT_GRID };
+const NO_PALETTE: ColorPalette = { ...DEFAULT_PALETTE };
 const NO_OBJECTS = initHistory<DiaryObject[]>([]);
 const NO_REPEAT: RepeatSetting = SINGLE_REPEAT;
 
@@ -758,6 +766,18 @@ export const useStore = create<Store>((set) => ({
   // 격자는 앞뒤가 공유하는 값이다 — 속지 크기·구멍과 같은 이유(같은 종이
   // 한 장의 배경 무늬가 앞뒤마다 다를 리 없다). side와 무관하게 늘 고친다.
   patchDotGrid: (p) => set((s) => patchActive(s, (t) => ({ dotGrid: { ...t.dotGrid, ...p } }))),
+  setPaletteMain: (color) =>
+    set((s) => patchActive(s, (t) => ({ palette: { ...t.palette, main: color } }))),
+  addPaletteColor: (color) =>
+    set((s) =>
+      patchActive(s, (t) =>
+        t.palette.subs.includes(color) ? {} : { palette: { ...t.palette, subs: [...t.palette.subs, color] } },
+      ),
+    ),
+  removePaletteColor: (index) =>
+    set((s) =>
+      patchActive(s, (t) => ({ palette: { ...t.palette, subs: t.palette.subs.filter((_, i) => i !== index) } })),
+    ),
 
   patchRepeat: (repeat) => set((s) => patchActive(s, () => ({ repeat }))),
 
@@ -892,6 +912,7 @@ export const useStore = create<Store>((set) => ({
         name: '',
         insert,
         dotGrid,
+        palette: { ...DEFAULT_PALETTE },
         objects: side === 'front' ? initHistory(objects) : initHistory([]),
         repeat: SINGLE_REPEAT,
         back: side === 'back' ? { objects: initHistory(objects) } : null,
@@ -1500,6 +1521,7 @@ export const useActive = () => useStore(activeTemplate);
 export const useInsert = () => useStore((s) => activeTemplate(s)?.insert ?? NO_INSERT);
 /** 격자는 앞뒤가 공유하는 값이라 side를 받지 않는다 — 어느 쪽에서 읽어도 같다. */
 export const useDotGrid = () => useStore((s) => activeTemplate(s)?.dotGrid ?? NO_GRID);
+export const usePalette = () => useStore((s) => activeTemplate(s)?.palette ?? NO_PALETTE);
 /**
  * side를 주지 않으면 지금 편집 중인 쪽(s.side, 그림자가 있으면 s.shadowSide)이다.
  * 앞뒤를 동시에 보여줄 때는 명시해서 그 쪽과 무관하게 양쪽을 각각 읽는다.

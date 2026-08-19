@@ -135,6 +135,34 @@ describe('양식', () => {
     expect(at().dotGrid.spacing).toBe(2);
   });
 
+  it('색상판도 양식마다 따로다', () => {
+    s().addTemplate();
+    s().setPaletteMain('#ff0000');
+    s().addPaletteColor('#00ff00');
+    const first = s().activeId;
+
+    s().addTemplate();
+    expect(at().palette).toEqual({ main: null, subs: [] });
+
+    s().selectTemplate(first);
+    expect(at().palette).toEqual({ main: '#ff0000', subs: ['#00ff00'] });
+  });
+
+  it('서브색은 같은 색을 두 번 더하지 않는다', () => {
+    s().addTemplate();
+    s().addPaletteColor('#112233');
+    s().addPaletteColor('#112233');
+    expect(at().palette.subs).toEqual(['#112233']);
+  });
+
+  it('서브색을 지우면 그 색만 빠진다', () => {
+    s().addTemplate();
+    s().addPaletteColor('#111111');
+    s().addPaletteColor('#222222');
+    s().removePaletteColor(0);
+    expect(at().palette.subs).toEqual(['#222222']);
+  });
+
   it('복제하면 원본 바로 뒤에 들어간다', () => {
     s().addTemplate();
     s().addTemplate();
@@ -359,6 +387,7 @@ describe('양식 하나짜리 파일을 더해 불러오기', () => {
         name: '불러온것',
         insert: insertFromPreset('A5'),
         dotGrid: DEFAULT_DOT_GRID,
+        palette: { main: null, subs: [] },
         objects: { present: [], past: [], future: [] },
         repeat: { mode: 'single' },
         back: null,
@@ -384,6 +413,7 @@ describe('양식 하나짜리 파일을 더해 불러오기', () => {
         name: '불러온것',
         insert: insertFromPreset('M6'),
         dotGrid: DEFAULT_DOT_GRID,
+        palette: { main: null, subs: [] },
         objects: { present: [{ id: existingId, type: 'line', x1: 20, y1: 20, x2: 60, y2: 20 }], past: [], future: [] },
         repeat: { mode: 'single' },
         back: null,
@@ -405,6 +435,7 @@ describe('양식 하나짜리 파일을 더해 불러오기', () => {
         name: '위클리1',
         insert: insertFromPreset('M6'),
         dotGrid: DEFAULT_DOT_GRID,
+        palette: { main: null, subs: [] },
         objects: { present: [], past: [], future: [] },
         repeat: { mode: 'single' },
         back: null,
@@ -424,6 +455,7 @@ describe('양식 하나짜리 파일을 더해 불러오기', () => {
         name: '가',
         insert: insertFromPreset('M6'),
         dotGrid: DEFAULT_DOT_GRID,
+        palette: { main: null, subs: [] },
         objects: { present: [], past: [], future: [] },
         repeat: { mode: 'single' },
         back: null,
