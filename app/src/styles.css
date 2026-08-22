@@ -1305,20 +1305,19 @@ select,
   flex-shrink: 0;
 }
 
-/* 좌우 여백에 작게 뜨는 쪽수·표지 이름표. */
+/*
+ * 쪽수·표지 이름표 — 각자 자기 반쪽 위 가운데에 뜬다. 전에는 왼쪽 것은
+ * 오른쪽으로, 오른쪽 것은 왼쪽으로 붙여 접힘선 쪽에 모아뒀더니 두 이름표가
+ * 서로 겹쳐 보였다(사용자 피드백) — 이제 각자 자기 폭 안에서만 가운데다.
+ */
 .notebook-half-label {
   position: absolute;
   top: -18px;
+  left: 0;
+  width: 100%;
+  text-align: center;
   font-size: 11px;
   color: var(--muted);
-}
-
-.notebook-half-slot.left .notebook-half-label {
-  right: 4px;
-}
-
-.notebook-half-slot.right .notebook-half-label {
-  left: 4px;
 }
 
 .notebook-half-preview {

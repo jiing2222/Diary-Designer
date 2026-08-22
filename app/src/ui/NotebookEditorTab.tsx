@@ -12,10 +12,12 @@ import { NotebookHalfEditor } from './NotebookHalfEditor';
 import { NotebookMarginGuide } from './NotebookMarginGuide';
 import { PX_PER_MM_AT_100 } from './pixels';
 
-/** 지금 편집 중인 반쪽을 손보지 않은 채로 볼 때(작은 미리보기)의 배율. */
-const THUMB_SCALE = PX_PER_MM_AT_100 * 0.6;
-/** 지금 편집 중인 반쪽을 직접 그릴 때(NotebookHalfEditor)의 배율. */
-const EDIT_SCALE = PX_PER_MM_AT_100 * 1.8;
+/**
+ * 미리보기든 지금 그리는 중이든 반쪽 하나의 크기는 늘 같다 — 손보기
+ * 시작한다고 갑자기 커지면(전에는 그랬다) 화면이 흔들리고 스크롤 자리를
+ * 잃는다(사용자 피드백). 도구막대만 그 위에 얹힌다.
+ */
+const SCALE = PX_PER_MM_AT_100;
 
 function sameSlot(a: NotebookSlotRef, b: NotebookSlotRef): boolean {
   if (a.part === 'cover' && b.part === 'cover') return a.side === b.side;
@@ -94,7 +96,7 @@ export function NotebookEditorTab() {
       <div className={`notebook-half-slot ${edge}`}>
         <span className="notebook-half-label">{label}</span>
         {isEditing ? (
-          <NotebookHalfEditor scale={EDIT_SCALE} onFinish={finishEditing} />
+          <NotebookHalfEditor scale={SCALE} onFinish={finishEditing} />
         ) : (
           <button
             type="button"
@@ -104,8 +106,8 @@ export function NotebookEditorTab() {
           >
             <svg
               viewBox={`0 0 ${pageWidth} ${insertHeight}`}
-              width={pageWidth * THUMB_SCALE}
-              height={insertHeight * THUMB_SCALE}
+              width={pageWidth * SCALE}
+              height={insertHeight * SCALE}
             >
               <rect x={0} y={0} width={pageWidth} height={insertHeight} className="sheet-bg" />
               <InsertView
