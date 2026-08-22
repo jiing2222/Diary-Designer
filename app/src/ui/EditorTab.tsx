@@ -1693,6 +1693,27 @@ export function TextInput({
 
   const left = baseLeft + box.x * scale;
   const top = baseTop + box.y * scale;
+  const family = familyOf(userFonts, editing.style.font);
+  const lineHeight = editing.style.lineHeight ?? size;
+
+  /*
+   * 타이핑 중인 칸의 크기는 상자(box)가 아니라 **지금 친 글자가 실제로
+   * 차지하는 크기**로 키운다.
+   *
+   * `<textarea>`는 CSS `overflow: visible`을 받아주지 않는다 — 브라우저가
+   * 조용히 `auto`(스크롤)로 바꿔버려서, 상자보다 긴 글은 넘치는 게 아니라
+   * 상자 안에 잘린 채 스크롤된다(작은 상자에 여러 글자를 치면 거의 안
+   * 보이던 문제의 진짜 원인 — 2026-08-22, 실제로 재현해서 확인했다).
+   * 상자 자체를 여기서 늘리면 클릭할 것도 없이 항상 다 보인다.
+   *
+   * **저장되는 상자(box)는 그대로다** — 여기서 만드는 값은 화면에 보여줄
+   * 칸의 크기일 뿐, `onDone`이 커밋하는 객체는 여전히 손을 댄 상자 그대로다
+   * (상자 크기 조정 때 글자가 따라 커지지 않게 한 것과 같은 원칙 — 그
+   * 반대 방향도 상자가 저절로 안 바뀌어야 한다).
+   */
+  const measured = measureTextBox(editing.text, size, lineHeight, editing.style.bold, family);
+  const liveWidth = Math.max(box.width, measured.width);
+  const liveHeight = Math.max(box.height, measured.height);
 
   const textarea = (
     <textarea
@@ -1702,14 +1723,14 @@ export function TextInput({
       style={{
         left,
         top,
-        width: box.width * scale,
-        height: box.height * scale,
+        width: liveWidth * scale,
+        height: liveHeight * scale,
         fontSize: size * scale,
-        fontFamily: familyOf(userFonts, editing.style.font),
+        fontFamily: family,
         fontWeight: editing.style.bold ? FONT_WEIGHT.bold : FONT_WEIGHT.regular,
         // 이 글자에 새겨둔 줄 간격을 그대로 쓴다 — 타이핑 중과 커밋 후가
         // 같은 자리로 보여야 한다.
-        lineHeight: `${(editing.style.lineHeight ?? size) * scale}px`,
+        lineHeight: `${lineHeight * scale}px`,
         transform: cssRotate ? `rotate(${cssRotate}deg)` : undefined,
         transformOrigin: cssRotate ? 'center' : undefined,
       }}
