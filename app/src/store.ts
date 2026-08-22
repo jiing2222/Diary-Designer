@@ -278,6 +278,8 @@ interface Store extends Settings {
   removePaletteColor: (index: number) => void;
   /** 이 양식을 몇 번 찍을지. `repeat`으로 바꾸면 낱장 조합(칸 배정)은 더 이상 쓰이지 않는다. */
   patchRepeat: (repeat: RepeatSetting) => void;
+  /** 지금 양식의 편집 화면 보기를 90도씩 돌린다. 인쇄물·좌표에는 영향이 없다. */
+  rotateView: (dir: 'left' | 'right') => void;
   /** 지금 양식의 앞면·뒷면 중 어느 쪽을 편집할지. */
   setSide: (side: Side) => void;
   /** 지금 양식에 뒷면을 만든다. 이미 있으면 아무 일도 하지 않는다. */
@@ -839,6 +841,16 @@ export const useStore = create<Store>((set) => ({
     ),
 
   patchRepeat: (repeat) => set((s) => patchActive(s, () => ({ repeat }))),
+
+  rotateView: (dir) =>
+    set((s) =>
+      patchActive(s, (t) => {
+        const now = t.viewRotation ?? 0;
+        const delta = dir === 'right' ? 90 : -90;
+        const next = ((now + delta + 360) % 360) as 0 | 90 | 180 | 270;
+        return next === 0 ? { viewRotation: undefined } : { viewRotation: next };
+      }),
+    ),
 
   setSide: (side) => set({ side, selectedIds: [] }),
 
@@ -1644,6 +1656,8 @@ export const useDotGrid = () =>
     return active?.dotGrid ?? NO_GRID;
   });
 export const usePalette = () => useStore((s) => activeTemplate(s)?.palette ?? NO_PALETTE);
+/** 지금 양식의 편집 화면 회전 각도. 대부분 0(안 돌림)이다. */
+export const useViewRotation = () => useStore((s) => activeTemplate(s)?.viewRotation ?? 0);
 export const useTemplateKind = () => useStore((s) => activeTemplate(s)?.kind ?? 'insert');
 /**
  * side를 주지 않으면 지금 편집 중인 쪽(s.side, 그림자가 있으면 s.shadowSide)이다.

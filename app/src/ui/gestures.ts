@@ -37,7 +37,10 @@ export type Point = { x: Mm; y: Mm };
 export const GRAB: Mm = 2.0;
 /** 끝점 손잡이를 집었다고 볼 거리. 선 몸통보다 먼저 집혀야 한다. */
 export const HANDLE_GRAB: Mm = 2.2;
-export const HANDLE_SIZE: Mm = 1.8;
+/** 손잡이로 보이는 사각형 크기. 잡는 범위(HANDLE_GRAB)와는 다른 값이다 —
+ *  작은 글자 상자에서 손잡이가 두꺼워 보인다는 피드백으로 줄였다. 줄여도
+ *  잡는 범위는 그대로라 잡기 어려워지지 않는다. */
+export const HANDLE_SIZE: Mm = 1.2;
 
 /**
  * 이만큼 움직이기 전까지는 끈 것이 아니라 **누른 것**이다.

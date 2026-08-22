@@ -981,6 +981,7 @@ export function NotebookHalfEditor({
             editing={editing}
             scale={scale}
             svg={svgRef.current}
+            canvasOffsetX={0}
             inputRef={textInputRef}
             onChange={(text) => setEditing({ ...editing, text })}
             onDone={finishEditing}

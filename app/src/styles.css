@@ -247,21 +247,35 @@ button.ghost:disabled {
 }
 
 /*
- * 속지를 감싸는 자리. justify-content: center로 가운데 두지 않고 margin:
- * auto로 가운데 둔다 — 확대해서 속지가 화면보다 커지면(200% 줌 등)
- * justify-content: center는 스크롤로 왼쪽 끝까지 갈 수 없다(넘친 양을
- * 한쪽에만 있는 것처럼 계산하는 알려진 동작). margin: auto는 넘친 양을
- * 양쪽에 정확히 나눠 계산해 양쪽 다 스크롤로 닿는다.
+ * 회전 보기(rotateView, EditorTab.tsx)의 바깥 상자. 90·270도로 돌리면
+ * 화면에 차지하는 자리가 가로세로 바뀌므로, 그 바뀐 크기를 이 상자에
+ * 인라인 스타일로 직접 주고(0·180도면 안 준다 — 내용 크기 그대로 둔다)
+ * flex로 가운데 맞춘다. 안쪽 .insert-sheets는 원래 크기 그대로 자기
+ * 중심(transform-origin 기본값)으로만 돌면 이 상자 한가운데서 돈다.
+ *
+ * 속지를 감싸는 자리를 justify-content: center로 두지 않고 margin: auto로
+ * 가운데 두는 이유는 .insert-sheets가 맡던 것과 같다(아래 주석 참고) — 그
+ * 역할을 이제 이 바깥 상자가 물려받았다.
+ */
+.canvas-rotate-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+/*
+ * 속지가 실제로 놓이는 자리. 확대해서 속지가 화면보다 커지면(200% 줌 등)
+ * justify-content: center는 스크롤로 왼쪽 끝까지 갈 수 없어(넘친 양을
+ * 한쪽에만 있는 것처럼 계산하는 알려진 동작) 가운데 정렬은 위
+ * .canvas-rotate-frame이 margin: auto로 대신 맡는다.
  *
  * position: relative — 글자 입력칸(.text-input)을 속지 위에 겹쳐 놓기
- * 위한 기준. TextInput(EditorTab.tsx)이 svg.parentElement의 자리를
- * 기준으로 입력칸 좌표를 계산하므로, 이 요소 자체가 자리 기준(positioned
- * ancestor)이어야 한다 — 안 그러면 더 위(.editor-canvas)를 기준으로 삼아
- * margin: auto로 벌어진 만큼 입력칸이 왼쪽으로 밀려 보인다.
+ * 위한 기준. TextInput(EditorTab.tsx)이 이 요소를 기준으로 입력칸 좌표를
+ * 계산하므로, 이 요소 자체가 자리 기준(positioned ancestor)이어야 한다.
  */
 .insert-sheets {
   display: flex;
-  margin: 0 auto;
   position: relative;
 }
 
@@ -368,11 +382,13 @@ button.ghost:disabled {
   stroke-dasharray: 1.4 0.9;
 }
 
-/* 끝점 손잡이. 실제 굵기와 무관하게 잡기 쉬워야 한다. */
+/* 끝점 손잡이. 실제 굵기와 무관하게 잡기 쉬워야 한다. 잡는 범위(HANDLE_GRAB)는
+   그대로 두고 보이는 사각형(HANDLE_SIZE)과 테두리만 줄였다 — 작은 상자에서
+   손잡이가 두꺼워 보인다는 피드백. */
 .handles rect {
   fill: #fff;
   stroke: #2f6f4f;
-  stroke-width: 0.3;
+  stroke-width: 0.2;
 }
 
 .stylebar {
@@ -553,12 +569,19 @@ button.ghost:disabled {
   pointer-events: none;
 }
 
-/* 고른 상자. 이미지만 보라(image-picked) — 초록·파랑과 헷갈리지 않게. */
+/*
+ * 고른 상자. 이미지만 보라(image-picked) — 초록·파랑과 헷갈리지 않게.
+ *
+ * 작은 글자 상자(2~3mm)에서 점선·굵기가 상자보다 두꺼워 보인다는 피드백으로
+ * 0.3 → 0.18, 점선 간격도 그만큼 줄였다. 상자 자체 크기(width/height)는
+ * boxOf(o)를 그대로 쓰므로 여기서 손댈 값이 아니다 — 두꺼워 보이는 건 이
+ * 테두리 그리는 굵기뿐이었다.
+ */
 .picked rect {
   fill: none;
   stroke: #2f6f4f;
-  stroke-width: 0.3;
-  stroke-dasharray: 1.2 0.8;
+  stroke-width: 0.18;
+  stroke-dasharray: 0.8 0.5;
 }
 
 .picked rect.image-picked {

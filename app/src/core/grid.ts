@@ -82,6 +82,14 @@ export interface DotGrid {
    */
   showOnScreen: boolean;
   print: boolean;
+  /**
+   * 속지를 가로·세로로 N등분한 자리를 안내선으로 보여준다. 0(또는 2 미만)이면 끈 것이다.
+   *
+   * 표나 별 모양처럼 "다섯 등분한 자리를 이어서" 그릴 때, 그 등분 자리가
+   * 어디인지 눈대중으로 찾기 어렵다는 요청으로 생겼다. 오직 화면 안내일
+   * 뿐이라 인쇄되지 않는다 — divisionGuide 참고.
+   */
+  divisions: number;
 }
 
 /**
@@ -105,6 +113,7 @@ export const DEFAULT_DOT_GRID: DotGrid = {
   dash: 'solid',
   showOnScreen: true,
   print: true,
+  divisions: 0,
 };
 
 /** 격자가 놓일 영역. 속지 왼쪽 위 모서리가 원점 (0, 0). */
@@ -357,6 +366,47 @@ export function gridArea(
   return mirror
     ? { x: 0, y: 0, width: insert.width - avoid, height: insert.height }
     : { x: avoid, y: 0, width: insert.width - avoid, height: insert.height };
+}
+
+export interface DivisionGuide {
+  /** 세로 안내선의 x좌표들 — 속지를 정확히 N등분한 위치(격자와 무관하다) */
+  xs: Mm[];
+  /** 가로 안내선의 y좌표들 */
+  ys: Mm[];
+  /** 안내선이 만나는 자리마다, 거기서 가장 가까운 실제 격자점 */
+  points: Dot[];
+}
+
+/**
+ * 속지를 가로·세로로 N등분했을 때 안내선이 놓일 자리.
+ *
+ * **안내선(xs·ys) 자체는 속지 치수를 그대로 나눈 정확한 값이다.** 격자
+ * 간격이 N등분과 딱 맞아떨어지는 경우가 오히려 드물어서, 안내선을 격자에
+ * 맞춰버리면 "정확히 N등분"이라는 뜻이 흐려진다.
+ *
+ * 반면 **`points`(초록 큰 원으로 강조할 자리)는 격자점으로 스냅한다** — 이
+ * 기능의 목적이 "이 자리들을 실제로 이어서 그리기 쉽게" 돕는 것이라, 손이
+ * 안 붙는 좌표를 가리켜봐야 소용없다. 안내선 교차점에서 가장 가까운
+ * 격자점을 고른다.
+ */
+export function divisionGuide(
+  insert: { width: Mm; height: Mm },
+  n: number,
+  lattice: Lattice,
+): DivisionGuide {
+  if (n < 2) return { xs: [], ys: [], points: [] };
+
+  const xs = Array.from({ length: n - 1 }, (_, i) => (insert.width * (i + 1)) / n);
+  const ys = Array.from({ length: n - 1 }, (_, i) => (insert.height * (i + 1)) / n);
+
+  const points: Dot[] = [];
+  if (lattice.xs.length > 0 && lattice.ys.length > 0) {
+    const nearest = (values: Mm[], v: Mm) =>
+      values.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+    for (const y of ys) for (const x of xs) points.push({ x: nearest(lattice.xs, x), y: nearest(lattice.ys, y) });
+  }
+
+  return { xs, ys, points };
 }
 
 /** `values`에서 `p1`·`p2` 사이(양끝 포함)에 있는 것만, 오름차순으로. */

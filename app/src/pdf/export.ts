@@ -230,6 +230,7 @@ const BLANK_SLOT: SlotContent = {
     dash: 'solid',
     showOnScreen: false,
     print: false,
+    divisions: 0,
   },
   objects: [],
   safeZoneWidth: 0,

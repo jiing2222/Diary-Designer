@@ -70,6 +70,8 @@ export interface SavedTemplate {
   pageCount?: number;
   /** 노트의 쪽 배열. 노트가 아니면 없다. */
   pages?: SavedNotebookHalf[];
+  /** 편집 화면에서 돌려 보던 각도(32단계 이전 파일에는 없다). 없으면 0도(안 돌림)로 읽는다. */
+  viewRotation?: 90 | 180 | 270;
 }
 
 export interface SavedProject {
@@ -119,6 +121,7 @@ export function toProject(input: {
       },
       pageCount: t.pageCount,
       pages: t.pages?.map((p) => ({ objects: p.objects.present, dotGrid: p.dotGrid })),
+      viewRotation: t.viewRotation,
     })),
     print: input.print,
     // 실제로 쓰인 글꼴만 담는다. 등록만 해놓고 안 쓴 것까지 적어두면
@@ -267,6 +270,7 @@ export function toTemplates(p: SavedProject): Template[] {
       ...(cover ? { cover } : {}),
       ...(t.pageCount !== undefined ? { pageCount: t.pageCount } : {}),
       ...(pages ? { pages } : {}),
+      ...(t.viewRotation !== undefined ? { viewRotation: t.viewRotation } : {}),
     };
   });
 }

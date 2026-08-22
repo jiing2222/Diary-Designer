@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
+import { divisionGuide, gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import {
   CALENDAR_ADJACENT_OPACITY,
   CONTENT_COLOR,
@@ -129,6 +129,10 @@ export function InsertView({
           mode={mode}
           mirror={mirror}
         />
+      )}
+      {/* N등분 안내선 — 순수한 작업 도우미라 화면에서만, 격자를 보고 있을 때만 보여준다. */}
+      {mode === 'edit' && showDots && grid.divisions >= 2 && (
+        <DivisionGuideLayer insert={insert} grid={grid} safeZoneWidth={safeZoneWidth} mirror={mirror} />
       )}
       <ObjectLayer objects={objects.filter(isLine)} />
 
@@ -492,6 +496,52 @@ function DotGridLayer({
           ))}
         </g>
       )}
+    </g>
+  );
+}
+
+/** N등분 안내선 색. 도트·선택 표시(짙은 초록)와 헷갈리지 않게 밝은 초록을 쓴다. */
+const DIVISION_GUIDE_COLOR = '#22c55e';
+/** 강조할 격자점의 반지름. 보통 도트보다 뚜렷하게 커야 눈에 띈다("초록 큰 원"). */
+const DIVISION_DOT_RADIUS: Mm = 1.1;
+
+/**
+ * N등분 안내선.
+ *
+ * 표나 별 모양처럼 "정확히 N등분한 자리를 이어서" 그릴 때, 그 자리를 눈대중으로
+ * 찾지 않아도 되게 돕는 순수한 화면 도우미다. **인쇄되지 않는다** — 이 레이어는
+ * `mode === 'edit'`일 때만 InsertView가 부른다.
+ */
+function DivisionGuideLayer({
+  insert,
+  grid,
+  safeZoneWidth,
+  mirror,
+}: {
+  insert: { width: Mm; height: Mm };
+  grid: DotGrid;
+  safeZoneWidth: Mm;
+  mirror: boolean;
+}) {
+  const area = gridArea(insert, grid, safeZoneWidth, mirror);
+  const lattice = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
+  const { xs, ys, points } = divisionGuide(insert, grid.divisions, lattice);
+
+  return (
+    <g pointerEvents="none">
+      <g stroke={DIVISION_GUIDE_COLOR} strokeWidth={0.15} strokeDasharray="1 0.8" opacity={0.7}>
+        {xs.map((x, i) => (
+          <line key={`x${i}`} x1={x} y1={0} x2={x} y2={insert.height} />
+        ))}
+        {ys.map((y, i) => (
+          <line key={`y${i}`} x1={0} y1={y} x2={insert.width} y2={y} />
+        ))}
+      </g>
+      <g fill={DIVISION_GUIDE_COLOR} stroke="#fff" strokeWidth={0.15}>
+        {points.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={DIVISION_DOT_RADIUS} />
+        ))}
+      </g>
     </g>
   );
 }

@@ -112,6 +112,14 @@ export interface Template {
   insert: InsertSetting;
   /** 이 양식에 깔리는 격자. 양식마다 다를 수 있다. */
   dotGrid: DotGrid;
+  /**
+   * 편집 화면에서만 돌려 보기. 90 · 180 · 270도만 있고, 없으면(대부분) 0도다.
+   *
+   * **오직 화면 보기다.** 옆으로 길게 그리고 싶을 때 화면만 돌려 놓고 그리는
+   * 편의 기능이라, 객체의 실제 좌표에도 인쇄물에도 전혀 영향을 주지 않는다
+   * (ui/EditorTab이 CSS로 캔버스만 돌린다). 양식마다 따로 기억한다.
+   */
+  viewRotation?: 90 | 180 | 270;
   /** 이 양식의 메인·서브 색상판. 양식마다 다를 수 있다. */
   palette: ColorPalette;
   /**
@@ -269,6 +277,8 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
     // 반복 설정도 물려받는다. 54장짜리 만년형을 디자인만 바꿔보고 싶을 때
     // 매번 장수를 다시 입력하지 않아도 된다.
     repeat: { ...t.repeat },
+    // 돌려 보던 각도도 그대로 물려받는다 — 화면 보기 설정일 뿐이다.
+    ...(t.viewRotation !== undefined ? { viewRotation: t.viewRotation } : {}),
     // 뒷면도 그대로 물려받는다(격자는 공유값이라 이미 위에서 물려받았다).
     // 앞면과 마찬가지로 실행취소 이력은 새로 시작한다.
     back: t.back ? { objects: initHistory([...t.back.objects.present]) } : null,

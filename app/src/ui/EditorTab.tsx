@@ -48,6 +48,7 @@ import {
   useObjects,
   useSide,
   useStore,
+  useViewRotation,
   type Side,
 } from '../store';
 import { InsertView } from './InsertView';
@@ -122,6 +123,8 @@ export function EditorTab() {
   const addBack = useStore((s) => s.addBack);
   const removeBack = useStore((s) => s.removeBack);
   const copyFrontToBack = useStore((s) => s.copyFrontToBack);
+  const viewRotation = useViewRotation();
+  const rotateView = useStore((s) => s.rotateView);
   const tool = useStore((s) => s.tool);
   const selectedIds = useStore((s) => s.selectedIds);
   const setTool = useStore((s) => s.setTool);
@@ -1200,6 +1203,20 @@ export function EditorTab() {
     return null;
   })();
 
+  /*
+   * 회전 보기(rotateView). 90·270도면 화면에 차지하는 자리가 가로세로
+   * 바뀐다 — 이 바깥 상자(canvas-rotate-frame)에 바뀐 크기를 직접 주고
+   * 가운데 두면, 안쪽(insert-sheets)은 원래 크기 그대로 자기 중심으로만
+   * 돌면 된다. 0·180도는 자리가 그대로라 굳이 크기를 지정하지 않는다
+   * (기존처럼 내용에 맞춰 저절로 정해지게 둔다).
+   */
+  const sheetsWidthPx = insert.width * scale * (hasBack ? 2 : 1);
+  const sheetsHeightPx = insert.height * scale;
+  const rotateFrameStyle =
+    viewRotation === 90 || viewRotation === 270
+      ? { width: sheetsHeightPx, height: sheetsWidthPx }
+      : undefined;
+
   return (
     <div className="editor">
       <SideBar
@@ -1269,6 +1286,20 @@ export function EditorTab() {
           <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
             ↷
           </button>
+          <button
+            className="ghost"
+            onClick={() => rotateView('left')}
+            title="화면만 왼쪽으로 90도 돌려 봅니다. 좌표·인쇄물에는 영향이 없습니다"
+          >
+            ↺
+          </button>
+          <button
+            className="ghost"
+            onClick={() => rotateView('right')}
+            title="화면만 오른쪽으로 90도 돌려 봅니다. 좌표·인쇄물에는 영향이 없습니다"
+          >
+            ↻
+          </button>
 
           <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
             {ZOOMS.map((z) => (
@@ -1310,7 +1341,8 @@ export function EditorTab() {
         onPointerMove={onMove}
         onPointerUp={onUp}
       >
-        <div className="insert-sheets">
+        <div className="canvas-rotate-frame" style={rotateFrameStyle}>
+        <div className="insert-sheets" style={viewRotation ? { transform: `rotate(${viewRotation}deg)` } : undefined}>
         {(() => {
           /*
            * 칸 안에 실제로 그려지는 것 전부 — "속지" 모드에서는 이것이 곧
@@ -1559,6 +1591,9 @@ export function EditorTab() {
             editing={editing}
             scale={scale}
             svg={svgRef.current}
+            // 뒷면이 왼쪽, 앞면이 오른쪽(activeSvg 렌더 순서와 같은 규칙) — 앞면이
+            // 활성이고 뒷면도 있으면 활성 캔버스가 한 칸만큼 오른쪽에 있다.
+            canvasOffsetX={hasBack && activeSide === 'front' ? insert.width * scale : 0}
             inputRef={textInputRef}
             // 새로 만드는 중이든 이미 있던 글자를 고치는 중이든, 상자는 손을 댄
             // 그대로 둔다 — 글자는 상자를 넘칠 수 있다는 원칙 그대로다. 타이핑할
@@ -1568,6 +1603,7 @@ export function EditorTab() {
             onDone={finishEditing}
           />
         )}
+        </div>
         </div>
       </div>
 
@@ -1611,12 +1647,19 @@ export function EditorTab() {
  * textarea 기본 동작 그대로 뒀다 — 확정은 Esc를 누르거나 바깥으로 포커스가
  * 나갈 때(onBlur)뿐이다.
  *
- * 자리는 SVG에게 물어본다 — 확대와 스크롤을 우리가 다시 계산하면 어긋난다.
+ * 자리는 SVG의 크기·확대율에서 그대로 따라온다 — 확대와 스크롤을 우리가
+ * 다시 계산하면 어긋난다. 다만 **캔버스가 왼쪽에서 얼마나 떨어져 있는지**
+ * (canvasOffsetX)만은 호출한 화면이 직접 알려준다 — 화면 돌려보기
+ * (rotateView, EditorTab)로 캔버스가 90/270도 돌아가 있으면 getBoundingClientRect
+ * 같은 화면 기준 사각형은 가로·세로가 뒤바뀐 자리를 돌려주므로 쓸 수 없고,
+ * 대신 몇 번째 칸인지(앞뒤 나란히 편집할 때 활성 쪽이 왼쪽·오른쪽 어느
+ * 쪽인지)는 이미 호출한 화면이 알고 있는 값이라 다시 물을 필요가 없다.
  */
 export function TextInput({
   editing,
   scale,
   svg,
+  canvasOffsetX,
   inputRef,
   onChange,
   onDone,
@@ -1624,6 +1667,8 @@ export function TextInput({
   editing: Editing;
   scale: number;
   svg: SVGSVGElement | null;
+  /** 지금 고치는 캔버스가 .insert-sheets 왼쪽 끝에서 떨어진 거리(px). 앞뒤가 나란한 화면에서만 0이 아니다. */
+  canvasOffsetX: number;
   inputRef: React.RefObject<HTMLTextAreaElement | null>;
   onChange: (text: string) => void;
   onDone: () => void;
@@ -1644,10 +1689,8 @@ export function TextInput({
   }, []);
 
   if (!svg) return null;
-  const wrap = svg.parentElement!.getBoundingClientRect();
-  const at = svg.getBoundingClientRect();
-  const baseLeft = at.left - wrap.left;
-  const baseTop = at.top - wrap.top;
+  const baseLeft = canvasOffsetX;
+  const baseTop = 0;
   // 회전한 글자를 고치는 중이면 입력칸도 같이 돌아가 있어야 한다 — 안 그러면
   // 타이핑하는 자리와 실제로 저장될 자리가 달라 보여서 "상자 밖에서 고치는"
   // 것처럼 보인다. CSS의 rotate() 부호는 core/objects의 rotationOf가 화면에

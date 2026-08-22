@@ -471,6 +471,18 @@ function GridGroup() {
           label="안전영역 비우기"
         />
       </Row>
+      <Row
+        label="N등분 안내"
+        hint="가로·세로를 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
+      >
+        <Num
+          value={grid.divisions}
+          step={1}
+          min={0}
+          unit="등분"
+          onChange={(n) => s.patchDotGrid({ divisions: Math.max(0, Math.round(n)) })}
+        />
+      </Row>
       <Row label="화면">
         <Check
           checked={grid.showOnScreen}
