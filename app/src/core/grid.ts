@@ -83,13 +83,16 @@ export interface DotGrid {
   showOnScreen: boolean;
   print: boolean;
   /**
-   * 속지를 가로·세로로 N등분한 자리를 안내선으로 보여준다. 0(또는 2 미만)이면 끈 것이다.
+   * 속지를 가로·세로로 각각 N등분한 자리를 안내선으로 보여준다. 가로·세로를
+   * 따로 정한다 — 정사각형이 아닌 등분(예: 가로 3 · 세로 5)도 필요해서다.
+   * 0(또는 2 미만)이면 그 축은 끈 것이다.
    *
-   * 표나 별 모양처럼 "다섯 등분한 자리를 이어서" 그릴 때, 그 등분 자리가
-   * 어디인지 눈대중으로 찾기 어렵다는 요청으로 생겼다. 오직 화면 안내일
-   * 뿐이라 인쇄되지 않는다 — divisionGuide 참고.
+   * 표나 별 모양처럼 "등분한 자리를 이어서" 그릴 때, 그 등분 자리가 어디인지
+   * 눈대중으로 찾기 어렵다는 요청으로 생겼다. 오직 화면 안내일 뿐이라
+   * 인쇄되지 않는다 — divisionGuide 참고.
    */
-  divisions: number;
+  divisionsX: number;
+  divisionsY: number;
 }
 
 /**
@@ -113,7 +116,8 @@ export const DEFAULT_DOT_GRID: DotGrid = {
   dash: 'solid',
   showOnScreen: true,
   print: true,
-  divisions: 0,
+  divisionsX: 0,
+  divisionsY: 0,
 };
 
 /** 격자가 놓일 영역. 속지 왼쪽 위 모서리가 원점 (0, 0). */
@@ -378,29 +382,31 @@ export interface DivisionGuide {
 }
 
 /**
- * 속지를 가로·세로로 N등분했을 때 안내선이 놓일 자리.
+ * 속지를 가로·세로로 각각 nx·ny등분했을 때 안내선이 놓일 자리.
+ *
+ * 가로·세로를 따로 받는다 — 정사각형이 아닌 등분(가로 3·세로 5 등)도 있어서다.
+ * 어느 한쪽만 2 미만이면 그 축의 안내선만 없다(다른 축은 그대로 나온다).
  *
  * **안내선(xs·ys) 자체는 속지 치수를 그대로 나눈 정확한 값이다.** 격자
- * 간격이 N등분과 딱 맞아떨어지는 경우가 오히려 드물어서, 안내선을 격자에
- * 맞춰버리면 "정확히 N등분"이라는 뜻이 흐려진다.
+ * 간격이 등분과 딱 맞아떨어지는 경우가 오히려 드물어서, 안내선을 격자에
+ * 맞춰버리면 "정확히 등분"이라는 뜻이 흐려진다.
  *
  * 반면 **`points`(초록 큰 원으로 강조할 자리)는 격자점으로 스냅한다** — 이
  * 기능의 목적이 "이 자리들을 실제로 이어서 그리기 쉽게" 돕는 것이라, 손이
- * 안 붙는 좌표를 가리켜봐야 소용없다. 안내선 교차점에서 가장 가까운
- * 격자점을 고른다.
+ * 안 붙는 좌표를 가리켜봐야 소용없다. **두 축이 다 켜져 있어야**(교차점이
+ * 있어야) 점이 생긴다 — 한쪽만 켜져 있으면 안내선만 보이고 점은 없다.
  */
 export function divisionGuide(
   insert: { width: Mm; height: Mm },
-  n: number,
+  nx: number,
+  ny: number,
   lattice: Lattice,
 ): DivisionGuide {
-  if (n < 2) return { xs: [], ys: [], points: [] };
-
-  const xs = Array.from({ length: n - 1 }, (_, i) => (insert.width * (i + 1)) / n);
-  const ys = Array.from({ length: n - 1 }, (_, i) => (insert.height * (i + 1)) / n);
+  const xs = nx >= 2 ? Array.from({ length: nx - 1 }, (_, i) => (insert.width * (i + 1)) / nx) : [];
+  const ys = ny >= 2 ? Array.from({ length: ny - 1 }, (_, i) => (insert.height * (i + 1)) / ny) : [];
 
   const points: Dot[] = [];
-  if (lattice.xs.length > 0 && lattice.ys.length > 0) {
+  if (xs.length > 0 && ys.length > 0 && lattice.xs.length > 0 && lattice.ys.length > 0) {
     const nearest = (values: Mm[], v: Mm) =>
       values.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
     for (const y of ys) for (const x of xs) points.push({ x: nearest(lattice.xs, x), y: nearest(lattice.ys, y) });

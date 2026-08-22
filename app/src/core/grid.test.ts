@@ -649,19 +649,32 @@ describe('표를 테두리와 안쪽 칸 선으로 나누기 — 테두리만 �
 describe('N등분 안내선', () => {
   const lattice = gridLattice(m6, 5);
 
-  it('2 미만이면 아무것도 없다', () => {
-    expect(divisionGuide(m6, 0, lattice)).toEqual({ xs: [], ys: [], points: [] });
-    expect(divisionGuide(m6, 1, lattice)).toEqual({ xs: [], ys: [], points: [] });
+  it('2 미만이면 그 축은 아무것도 없다', () => {
+    expect(divisionGuide(m6, 0, 0, lattice)).toEqual({ xs: [], ys: [], points: [] });
+    expect(divisionGuide(m6, 1, 1, lattice)).toEqual({ xs: [], ys: [], points: [] });
   });
 
   it('안내선은 속지를 정확히 N등분한 자리다 — 격자에 맞추지 않는다', () => {
-    const g = divisionGuide(m6, 4, lattice);
+    const g = divisionGuide(m6, 4, 4, lattice);
     expect(g.xs).toEqual([20, 40, 60]);
     expect(g.ys).toEqual([31.25, 62.5, 93.75]);
   });
 
+  it('가로·세로를 다르게 등분할 수 있다', () => {
+    const g = divisionGuide(m6, 2, 4, lattice);
+    expect(g.xs).toEqual([40]);
+    expect(g.ys).toEqual([31.25, 62.5, 93.75]);
+  });
+
+  it('한쪽만 켜져 있으면(2 미만) 그 축은 안내선도 점도 없다', () => {
+    const g = divisionGuide(m6, 4, 0, lattice);
+    expect(g.xs).toEqual([20, 40, 60]);
+    expect(g.ys).toEqual([]);
+    expect(g.points).toEqual([]);
+  });
+
   it('교차점(points)은 안내선에서 가장 가까운 실제 격자점으로 스냅한다', () => {
-    const g = divisionGuide(m6, 4, lattice);
+    const g = divisionGuide(m6, 4, 4, lattice);
     // (N-1) × (N-1) = 3 × 3 = 9개.
     expect(g.points).toHaveLength(9);
     for (const p of g.points) {
@@ -672,7 +685,7 @@ describe('N등분 안내선', () => {
 
   it('격자가 아예 없으면(간격이 속지보다 넓으면) 안내선만 있고 points는 비운다', () => {
     const noGrid = gridLattice(m6, 200);
-    const g = divisionGuide(m6, 4, noGrid);
+    const g = divisionGuide(m6, 4, 4, noGrid);
     expect(g.xs).toHaveLength(3);
     expect(g.points).toEqual([]);
   });

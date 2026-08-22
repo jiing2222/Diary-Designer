@@ -1288,15 +1288,8 @@ export function EditorTab() {
           </button>
           <button
             className="ghost"
-            onClick={() => rotateView('left')}
-            title="화면만 왼쪽으로 90도 돌려 봅니다. 좌표·인쇄물에는 영향이 없습니다"
-          >
-            ↺
-          </button>
-          <button
-            className="ghost"
-            onClick={() => rotateView('right')}
-            title="화면만 오른쪽으로 90도 돌려 봅니다. 좌표·인쇄물에는 영향이 없습니다"
+            onClick={() => rotateView()}
+            title="화면만 시계 방향으로 90도씩 돌려 봅니다. 좌표·인쇄물에는 영향이 없습니다"
           >
             ↻
           </button>

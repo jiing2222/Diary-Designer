@@ -278,8 +278,8 @@ interface Store extends Settings {
   removePaletteColor: (index: number) => void;
   /** 이 양식을 몇 번 찍을지. `repeat`으로 바꾸면 낱장 조합(칸 배정)은 더 이상 쓰이지 않는다. */
   patchRepeat: (repeat: RepeatSetting) => void;
-  /** 지금 양식의 편집 화면 보기를 90도씩 돌린다. 인쇄물·좌표에는 영향이 없다. */
-  rotateView: (dir: 'left' | 'right') => void;
+  /** 지금 양식의 편집 화면 보기를 시계 방향으로 90도 돌린다. 인쇄물·좌표에는 영향이 없다. */
+  rotateView: () => void;
   /** 지금 양식의 앞면·뒷면 중 어느 쪽을 편집할지. */
   setSide: (side: Side) => void;
   /** 지금 양식에 뒷면을 만든다. 이미 있으면 아무 일도 하지 않는다. */
@@ -842,12 +842,11 @@ export const useStore = create<Store>((set) => ({
 
   patchRepeat: (repeat) => set((s) => patchActive(s, () => ({ repeat }))),
 
-  rotateView: (dir) =>
+  // 버튼 하나로 90도씩 시계 방향으로만 돈다 — 눌러서 0→90→180→270→0으로 돈다.
+  rotateView: () =>
     set((s) =>
       patchActive(s, (t) => {
-        const now = t.viewRotation ?? 0;
-        const delta = dir === 'right' ? 90 : -90;
-        const next = ((now + delta + 360) % 360) as 0 | 90 | 180 | 270;
+        const next = (((t.viewRotation ?? 0) + 90) % 360) as 0 | 90 | 180 | 270;
         return next === 0 ? { viewRotation: undefined } : { viewRotation: next };
       }),
     ),

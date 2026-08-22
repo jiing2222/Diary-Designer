@@ -160,8 +160,9 @@ export const BOLD_FONT_URL = `${import.meta.env.BASE_URL}fonts/Pretendard-Bold.t
 /** 화면(CSS)과 PDF가 함께 쓰는 굵기 값. @font-face 선언과 반드시 같아야 한다. */
 export const FONT_WEIGHT = { regular: 400, bold: 700 } as const;
 
-/** 재단선·십자 마크. 인쇄되지만 자르고 나면 대부분 사라진다. */
-export const CROP_COLOR = '#8fb8de';
+/** 재단선·십자 마크. 인쇄되지만 자르고 나면 대부분 사라진다. 너무 눈에 띈다는
+ *  피드백으로 한 번 더 연하게 했다. */
+export const CROP_COLOR = '#bcd4eb';
 export const CROP_WIDTH: Mm = 0.1;
 /**
  * 절취 표시 — 모서리에서 바로 붙지 않고 살짝 떨어져(GAP) 짧게(LENGTH) 긋는다.

@@ -131,7 +131,7 @@ export function InsertView({
         />
       )}
       {/* N등분 안내선 — 순수한 작업 도우미라 화면에서만, 격자를 보고 있을 때만 보여준다. */}
-      {mode === 'edit' && showDots && grid.divisions >= 2 && (
+      {mode === 'edit' && showDots && (grid.divisionsX >= 2 || grid.divisionsY >= 2) && (
         <DivisionGuideLayer insert={insert} grid={grid} safeZoneWidth={safeZoneWidth} mirror={mirror} />
       )}
       <ObjectLayer objects={objects.filter(isLine)} />
@@ -525,7 +525,7 @@ function DivisionGuideLayer({
 }) {
   const area = gridArea(insert, grid, safeZoneWidth, mirror);
   const lattice = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
-  const { xs, ys, points } = divisionGuide(insert, grid.divisions, lattice);
+  const { xs, ys, points } = divisionGuide(insert, grid.divisionsX, grid.divisionsY, lattice);
 
   return (
     <g pointerEvents="none">

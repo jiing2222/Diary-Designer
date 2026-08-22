@@ -472,15 +472,27 @@ function GridGroup() {
         />
       </Row>
       <Row
-        label="N등분 안내"
-        hint="가로·세로를 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
+        label="가로 등분 안내"
+        hint="속지를 가로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
       >
         <Num
-          value={grid.divisions}
+          value={grid.divisionsX}
           step={1}
           min={0}
           unit="등분"
-          onChange={(n) => s.patchDotGrid({ divisions: Math.max(0, Math.round(n)) })}
+          onChange={(n) => s.patchDotGrid({ divisionsX: Math.max(0, Math.round(n)) })}
+        />
+      </Row>
+      <Row
+        label="세로 등분 안내"
+        hint="속지를 세로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
+      >
+        <Num
+          value={grid.divisionsY}
+          step={1}
+          min={0}
+          unit="등분"
+          onChange={(n) => s.patchDotGrid({ divisionsY: Math.max(0, Math.round(n)) })}
         />
       </Row>
       <Row label="화면">
