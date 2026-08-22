@@ -97,16 +97,20 @@ export function computeLayout(input: LayoutInput): Layout {
 /**
  * 양면 인쇄에서 뒷면의 칸 배치.
  *
- * 프린터가 종이를 물리적으로 뒤집는 축은 **긴 가장자리 기준(좌우 뒤집기)**과
- * **짧은 가장자리 기준(상하 뒤집기)** 두 가지가 있다(프린터 설정에서 고른다).
- * 어느 쪽을 쓰든 속지 각 칸이 인쇄되는 실제 종이 방향과 맞아야 하므로, 여기서는
- * **회전 배치(`layout.rotated`)가 아니면 좌우, 회전 배치면 상하**로 뒤집는다.
+ * **회전 배치가 아니면 좌우만, 회전 배치면 좌우·상하 둘 다 뒤집는다.**
  *
- * 칸을 90도 눕혀서 넣으면(회전 배치) 속지의 가로축(구멍이 있는 축)이 용지의
- * 세로축과 겹친다. 그래서 좌우 뒤집기는 그 축에 영향을 주지 않아 구멍이 반대편
- * 으로 튀지만, 상하 뒤집기를 쓰면 다시 속지의 가로축이 정확히 뒤집힌다 —
- * 회전이 아니든 회전이든, **속지 자신의 가로축(구멍이 있는 축)은 항상 뒤집힌다**는
- * 뜻이다. 실제로 M5(회전 배치가 되는 규격)를 상하 뒤집기로 인쇄해보고 확인했다.
+ * 프린터가 종이를 물리적으로 뒤집는 축(긴 가장자리 기준 = 좌우 뒤집기)은
+ * 회전 배치 여부와 무관하다 — 지금까지는 회전 배치면 상하만 뒤집도록
+ * 해뒀는데(9b 수정 5), 그 하나만으로는 **타공 안내가 종이 좌우로는 전혀
+ * 갈라지지 않는** 버그가 있었다(2026-08-22, 실제 인쇄를 빛에 비춰 확인 —
+ * 앞뒤 구멍이 종이 같은 쪽에 있었다).
+ *
+ * 원인: 칸을 90도 눕히면(회전 배치) 속지 자신의 가로축(구멍이 있는 축)이
+ * 종이의 **세로축**이 된다(core/place의 placeSlot). 그런데 "뒷면이면
+ * 타공을 반대쪽으로 옮긴다"는 계산(core/punch의 holeCenterX, mirror)은
+ * 여전히 **속지의 가로축**만 뒤집는다 — 회전 배치에서 그 축은 종이의
+ * 세로축이므로, 결국 종이의 위아래만 바뀌고 좌우는 앞뒤가 똑같은 자리에
+ * 그대로 겹쳤다. 칸 자체를 좌우로도 뒤집어야 종이 좌우에서도 앞뒤가 갈라진다.
  *
  * 칸 **안의 내용**(그린 것)은 어느 경우든 뒤집지 않는다 — 위치만 옮긴다.
  *
@@ -115,6 +119,13 @@ export function computeLayout(input: LayoutInput): Layout {
  */
 export function mirrorLayout(layout: Layout, paperWidth: Mm, paperHeight: Mm): Layout {
   return layout.rotated
-    ? { ...layout, slots: layout.slots.map((s) => ({ ...s, y: paperHeight - s.y - s.height })) }
+    ? {
+        ...layout,
+        slots: layout.slots.map((s) => ({
+          ...s,
+          x: paperWidth - s.x - s.width,
+          y: paperHeight - s.y - s.height,
+        })),
+      }
     : { ...layout, slots: layout.slots.map((s) => ({ ...s, x: paperWidth - s.x - s.width })) };
 }

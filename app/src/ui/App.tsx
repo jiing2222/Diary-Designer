@@ -864,10 +864,10 @@ export function App() {
                   );
 
                   // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 뒤집는다(회전
-                  // 배치가 아니면 좌우, 회전 배치면 상하). 칸 안의 내용(도트·글자)은
-                  // 뒤집지 않지만, 안전영역·타공 안내는 항상 mirror로 표시한다
-                  // (설계문서 8장) — mirrorLayout이 이미 회전 여부를 반영했으므로
-                  // 이쪽은 회전과 무관하게 항상 켠다.
+                  // 배치가 아니면 좌우만, 회전 배치면 좌우·상하 둘 다). 칸 안의
+                  // 내용(도트·글자)은 뒤집지 않지만, 안전영역·타공 안내는 항상
+                  // mirror로 표시한다(설계문서 8장) — 이쪽은 회전과 무관하게
+                  // 항상 켠다.
                   const backPage = s.duplex && (
                     <div className="print-sheet-page" style={pageStyle}>
                       <PaperPreview

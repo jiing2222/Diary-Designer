@@ -670,7 +670,7 @@ describe('양면 인쇄', () => {
 
   it('회전 배치(M5 등)에서도 양면이 안전하게 그려진다', async () => {
     // M5(62×105)는 A4에서 실제로 회전 배치가 된다(core/geometry.test.ts로 확인).
-    // 회전 배치면 mirrorLayout이 칸을 좌우 대신 상하로 뒤집는다 — 여기서는
+    // 회전 배치면 mirrorLayout이 칸을 좌우·상하 둘 다 뒤집는다 — 여기서는
     // 그 배선이 죽지 않고 정상적으로 두 쪽(앞·뒤)을 만들어내는지만 스모크로
     // 확인한다. 정확한 방향은 core/geometry.test.ts의 mirrorLayout 테스트가 잰다.
     const rotatedLayout = computeLayout({

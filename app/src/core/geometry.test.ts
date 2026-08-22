@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeLayout, mirrorLayout } from './layout';
 import { holeCenterX, holeCentersY, suggestGroupGap, type PunchSetting } from './punch';
+import { placeSlot } from './place';
 import { INSERT_PRESETS } from './presets';
 
 const punch = (holeCount: number, groupGap: number | null, markSize: number): PunchSetting => ({
@@ -152,8 +153,10 @@ describe('양면 배치 — 칸 뒤집기', () => {
     });
   });
 
-  it('회전 배치면 y만 뒤집고 x·크기는 그대로다', () => {
+  it('회전 배치면 x·y 둘 다 뒤집고 크기는 그대로다', () => {
     // M5(62×105)는 A4에서 실제로 회전 배치가 된다 — M6은 안 눕고 M5는 눕는다.
+    // x도 뒤집어야 하는 이유는 이 파일 아래 "타공이 종이 좌우로 갈라지는지"
+    // 시험, 그리고 mirrorLayout의 주석을 참고.
     const front = computeLayout({
       paperWidth: 210,
       paperHeight: 297,
@@ -169,7 +172,7 @@ describe('양면 배치 — 칸 뒤집기', () => {
 
     front.slots.forEach((s, i) => {
       const b = back.slots[i];
-      expect(b.x).toBe(s.x);
+      expect(b.x).toBeCloseTo(210 - s.x - s.width, 6);
       expect(b.y).toBeCloseTo(297 - s.y - s.height, 6);
       expect(b.width).toBe(s.width);
       expect(b.height).toBe(s.height);
@@ -221,6 +224,41 @@ describe('양면 배치 — 칸 뒤집기', () => {
       align: 'center',
     });
     expect(layout.rotated).toBe(true);
+  });
+
+  it('회전 배치에서 앞뒤 타공이 종이 좌우로 갈라진다(실제로 인쇄해 발견한 버그)', () => {
+    // 칸을 90도 눕히면 속지의 가로축(구멍이 있는 축)이 종이의 세로축이
+    // 된다(core/place의 placeSlot) — 그래서 holeCenterX의 mirror(속지의
+    // 가로축만 뒤집는다)만으로는 종이 좌우가 전혀 안 갈라진다. mirrorLayout이
+    // 칸 자체를 좌우로도 뒤집어야 한다(위 "x·y 둘 다 뒤집는다" 시험 참고).
+    //
+    // 2026-08-22 실제 인쇄를 빛에 비춰 확인한 버그 — 그때는 앞뒤 구멍이
+    // 종이 같은 쪽에 있었다.
+    const front = computeLayout({
+      paperWidth: 210,
+      paperHeight: 297,
+      insertWidth: 62,
+      insertHeight: 105,
+      gap: 0,
+      printMargin: 0,
+      allowRotate: true,
+      align: 'center',
+    });
+    const back = mirrorLayout(front, 210, 297);
+    const p = punch(5, null, 4); // M5 규격 — edgeToHole 3, markSize 4 → 5mm
+
+    const frontSlot = front.slots[0];
+    const backSlot = back.slots[0];
+    const frontHoleX = holeCenterX(p, 62, false);
+    const backHoleX = holeCenterX(p, 62, true);
+
+    // 구멍 하나(첫 번째)의 종이 위 실제 좌표. placeSlot이 회전 배치의
+    // 좌표 변환을 맡는다 — 화면·PDF가 함께 쓰는 바로 그 함수다.
+    const frontOnPaper = placeSlot(frontSlot, true).map(frontHoleX, holeCentersY(62, p)[0]);
+    const backOnPaper = placeSlot(backSlot, true).map(backHoleX, holeCentersY(62, p)[0]);
+
+    // 종이 좌우(x)로 확실히 갈라져야 한다 — 같은 x면 버그가 되살아난 것이다.
+    expect(Math.abs(frontOnPaper.x - backOnPaper.x)).toBeGreaterThan(1);
   });
 });
 
