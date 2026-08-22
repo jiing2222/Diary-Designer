@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   notebookPageWidth,
   paddedPageCount,
+  parsePageRange,
   type NotebookHalf,
   type NotebookSlotRef,
 } from '../core/notebook';
@@ -45,6 +46,7 @@ export function NotebookEditorTab() {
   const active = useActive();
   const setNotebookHalf = useStore((s) => s.setNotebookHalf);
   const setNotebookPageCount = useStore((s) => s.setNotebookPageCount);
+  const copyNotebookPage = useStore((s) => s.copyNotebookPage);
   const beginShadowEdit = useStore((s) => s.beginShadowEdit);
   const endShadowEdit = useStore((s) => s.endShadowEdit);
 
@@ -94,6 +96,21 @@ export function NotebookEditorTab() {
     setEditingSlot(target);
   }
 
+  /**
+   * 지금 그리는 중인 쪽을 다른 쪽들에도 복사한다. 아직 "완료"를 안 눌렀어도
+   * 지금 그림자에 있는 내용을 그대로 쓴다 — `finishEditing`이 저장할 값과
+   * 같다. 표지를 손보는 중이면(part !== 'page') 아무 일도 하지 않는다.
+   */
+  function copyEditingPageTo(range: string) {
+    const slot = editingSlotRef.current;
+    const shadow = useStore.getState().shadowTemplate;
+    if (!slot || slot.part !== 'page' || !shadow || !active?.pages) return;
+    const half: NotebookHalf = { objects: shadow.objects, dotGrid: shadow.dotGrid };
+    const targets = parsePageRange(range, active.pages.length).map((n) => n - 1); // 1쪽 → 인덱스 0
+    if (targets.length === 0) return;
+    copyNotebookPage(half, slot.index, targets);
+  }
+
   function renderHalf(target: NotebookSlotRef, half: NotebookHalf, edge: 'left' | 'right', label: string) {
     const isEditing = editingSlot && sameSlot(editingSlot, target);
     return (
@@ -135,6 +152,14 @@ export function NotebookEditorTab() {
     <div className="notebook-editor">
       <PageCountField value={active.pageCount ?? pages.length} onCommit={setNotebookPageCount} />
       <div className="notebook-toolbar-slot" ref={setToolbarSlot} />
+      {editingSlot?.part === 'page' && (
+        <PageCopyField
+          key={editingSlot.index}
+          sourcePage={editingSlot.index + 1}
+          maxPage={pages.length}
+          onCopy={copyEditingPageTo}
+        />
+      )}
 
       <div className="notebook-scroll">
         <section className="notebook-spread">
@@ -210,6 +235,51 @@ function PageCountField({
         <span>쪽</span>
       </label>
       <span className="notebook-editor-hint">종이 {value / 4}장 (한 장 = 4쪽)</span>
+    </div>
+  );
+}
+
+/**
+ * "복사하기" — 지금 손보는 쪽(`sourcePage`)을 여러 쪽에 한 번에 뿌린다.
+ *
+ * 쪽 범위는 "2~4"(범위)나 "2, 4~5"(쉼표로 여럿, 3쪽은 빠짐)처럼 쓴다
+ * (`core/notebook`의 `parsePageRange`). Enter나 "복사" 버튼으로 확정하면
+ * 그 자리에서 바로 반영되고, 입력칸은 비워져 바로 다음 복사를 이어 칠 수
+ * 있다. 다른 쪽으로 옮기면(부모가 `key`로) 이 칸은 새로 시작한다 — 옮긴
+ * 뒤에도 이전 쪽에 쓰던 범위가 남아 있으면 헷갈린다.
+ */
+function PageCopyField({
+  sourcePage,
+  maxPage,
+  onCopy,
+}: {
+  sourcePage: number;
+  maxPage: number;
+  onCopy: (range: string) => void;
+}) {
+  const [range, setRange] = useState('');
+
+  function commit() {
+    if (!range.trim()) return;
+    onCopy(range);
+    setRange('');
+  }
+
+  return (
+    <div className="notebook-copy-bar">
+      <span className="notebook-copy-label">{sourcePage}쪽을</span>
+      <input
+        type="text"
+        className="notebook-copy-input"
+        value={range}
+        placeholder={`예: 2~4, 6 (1~${maxPage})`}
+        onChange={(e) => setRange(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && commit()}
+      />
+      <span className="notebook-copy-label">쪽에</span>
+      <button type="button" onClick={commit} disabled={!range.trim()}>
+        복사
+      </button>
     </div>
   );
 }

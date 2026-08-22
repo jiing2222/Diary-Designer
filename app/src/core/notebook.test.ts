@@ -11,6 +11,7 @@ import {
   notebookPrintUnit,
   notebookPrintUnitCount,
   paddedPageCount,
+  parsePageRange,
   resizePages,
   type NotebookCover,
   type NotebookHalf,
@@ -167,5 +168,41 @@ describe('노트에 쓰인 모든 그린 것 모으기', () => {
     const pages = [halfWith('1쪽'), halfWith('2쪽')];
     const ids = allNotebookObjects(cover, pages).map((o) => o.id);
     expect(ids).toEqual(['앞표지', '뒤표지', '1쪽', '2쪽']);
+  });
+});
+
+describe('쪽 범위 입력 판독 — "복사하기"', () => {
+  it('범위("2~4")를 연속된 쪽 번호로 편다', () => {
+    expect(parsePageRange('2~4', 10)).toEqual([2, 3, 4]);
+  });
+
+  it('쉼표로 여럿을 섞을 수 있다 — "2, 4~5"는 3쪽을 뺀다', () => {
+    expect(parsePageRange('2, 4~5', 10)).toEqual([2, 4, 5]);
+  });
+
+  it('거꾸로 써도(4~2) 순서를 바로잡는다', () => {
+    expect(parsePageRange('4~2', 10)).toEqual([2, 3, 4]);
+  });
+
+  it('중복은 한 번만 남고, 오름차순으로 정렬된다', () => {
+    expect(parsePageRange('5, 2, 2~3', 10)).toEqual([2, 3, 5]);
+  });
+
+  it('maxPage를 벗어난 값은 뺀다', () => {
+    expect(parsePageRange('1~20', 8)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(parsePageRange('0, 9', 8)).toEqual([]);
+  });
+
+  it('잘못 친 조각은 건너뛰고 나머지는 그대로 읽는다', () => {
+    expect(parsePageRange('2, 글자, 4', 10)).toEqual([2, 4]);
+  });
+
+  it('빈 입력이나 전부 잘못 쳤으면 빈 배열이다', () => {
+    expect(parsePageRange('', 10)).toEqual([]);
+    expect(parsePageRange('abc', 10)).toEqual([]);
+  });
+
+  it('공백은 무시한다', () => {
+    expect(parsePageRange(' 2 ~ 4 , 6 ', 10)).toEqual([2, 3, 4, 6]);
   });
 });

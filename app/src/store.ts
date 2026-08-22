@@ -4,7 +4,7 @@ import type { PunchSetting } from './core/punch';
 import { computeLayout, type Align, type Layout } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
 import { DEFAULT_PALETTE, type ColorPalette } from './core/palette';
-import { resizePages, type NotebookHalf, type NotebookSlotRef } from './core/notebook';
+import { duplicateNotebookHalf, resizePages, type NotebookHalf, type NotebookSlotRef } from './core/notebook';
 import { DEFAULT_FIELD_FORMAT } from './core/text';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import {
@@ -279,6 +279,12 @@ interface Store extends Settings {
   setNotebookHalf: (target: NotebookSlotRef, half: NotebookHalf) => void;
   /** 지금 양식(노트)의 쪽수를 바꾼다. 4의 배수가 아니면 빈 쪽으로 채워 맞춘다. */
   setNotebookPageCount: (count: number) => void;
+  /**
+   * 지금 양식(노트)의 쪽 하나(`sourceIndex`)를 여러 쪽(`targetIndices`)에
+   * 복사한다. `half`는 소스 쪽에도 그대로 반영된다 — 아직 "완료"를 안
+   * 누른 지금 그린 내용까지 함께 복사·저장하려는 것이다.
+   */
+  copyNotebookPage: (half: NotebookHalf, sourceIndex: number, targetIndices: number[]) => void;
   /** 규격을 주면 그 규격으로 복제한다. 원본은 손대지 않는다. */
   copyTemplate: (id: string, insert?: InsertSetting) => void;
   renameTemplate: (id: string, name: string) => void;
@@ -865,6 +871,22 @@ export const useStore = create<Store>((set) => ({
       patchActive(s, (t) =>
         t.pages ? { pageCount: count, pages: resizePages(t.pages, count) } : {},
       ),
+    ),
+
+  copyNotebookPage: (half, sourceIndex, targetIndices) =>
+    set((s) =>
+      patchActive(s, (t) => {
+        if (!t.pages) return {};
+        const pages = [...t.pages];
+        pages[sourceIndex] = half;
+        // 각자 되돌리기 이력을 새로 시작한다 — 복제할 때와 같은 원칙이다.
+        // 같은 History 참조를 여러 쪽이 나눠 가지면, 한 쪽에서 되돌리기를
+        // 눌렀을 때 다른 쪽까지 함께 바뀐다.
+        for (const i of targetIndices) {
+          if (i !== sourceIndex && i >= 0 && i < pages.length) pages[i] = duplicateNotebookHalf(half);
+        }
+        return { pages };
+      }),
     ),
 
   copyTemplate: (id, insert) =>

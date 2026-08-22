@@ -176,3 +176,29 @@ export function notebookPrintUnit(
 export function allNotebookObjects(cover: NotebookCover, pages: NotebookHalf[]): DiaryObject[] {
   return [cover.front, cover.back, ...pages].flatMap((h) => h.objects.present);
 }
+
+/**
+ * "2~4, 6" 같은 쪽 범위 입력을 실제 쪽 번호(1부터) 목록으로 판독한다 —
+ * "복사하기"에서 쓴다. 쉼표로 나눈 조각마다 단일 쪽("6")이거나 범위
+ * ("2~4")다. **잘못 친 조각은 그냥 건너뛴다** — 하나 잘못 쳤다고 나머지
+ * 입력까지 전부 막을 이유가 없다. `maxPage`를 벗어난 값도 뺀다. 결과는
+ * 중복 없이 오름차순으로 정렬된다.
+ */
+export function parsePageRange(input: string, maxPage: number): number[] {
+  const result = new Set<number>();
+  for (const token of input.split(',')) {
+    const trimmed = token.trim();
+    const range = trimmed.match(/^(\d+)\s*~\s*(\d+)$/);
+    if (range) {
+      const lo = Math.min(Number(range[1]), Number(range[2]));
+      const hi = Math.max(Number(range[1]), Number(range[2]));
+      for (let n = lo; n <= hi; n++) if (n >= 1 && n <= maxPage) result.add(n);
+      continue;
+    }
+    if (/^\d+$/.test(trimmed)) {
+      const n = Number(trimmed);
+      if (n >= 1 && n <= maxPage) result.add(n);
+    }
+  }
+  return [...result].sort((a, b) => a - b);
+}

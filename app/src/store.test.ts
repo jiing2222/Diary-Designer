@@ -264,6 +264,42 @@ describe('노트 — 표지·쪽', () => {
     expect(at().pageCount).toBeUndefined();
     expect(at().pages).toBeUndefined();
   });
+
+  it('복사하기 — 소스 쪽에도 반영되고, 대상 쪽들에도 같은 내용이 퍼진다', () => {
+    s().addTemplate(insertFromPreset('M6'), undefined, undefined, 'notebook');
+    const line: DiaryObject = { id: 'l1', type: 'line', x1: 0, y1: 0, x2: 5, y2: 5 };
+    const half = { objects: { past: [], present: [line], future: [] }, dotGrid: { ...DEFAULT_DOT_GRID, spacing: 3 } };
+
+    s().copyNotebookPage(half, 0, [2, 4]);
+
+    expect(at().pages?.[0]).toEqual(half); // 소스 쪽에도 지금 그린 내용이 그대로 반영된다
+    expect(at().pages?.[2].objects.present).toEqual([line]);
+    expect(at().pages?.[4].objects.present).toEqual([line]);
+    expect(at().pages?.[1].objects.present).toEqual([]); // 대상이 아닌 쪽은 그대로
+  });
+
+  it('복사하기 — 대상 쪽마다 되돌리기 이력을 따로 새로 시작한다', () => {
+    s().addTemplate(insertFromPreset('M6'), undefined, undefined, 'notebook');
+    const half = { objects: { past: [[]], present: [], future: [] }, dotGrid: { ...DEFAULT_DOT_GRID } };
+
+    s().copyNotebookPage(half, 0, [1, 2]);
+
+    expect(at().pages?.[1].objects.past).toEqual([]);
+    expect(at().pages?.[2].objects.past).toEqual([]);
+    // 같은 History 참조를 나눠 가지면 안 된다 — 한 쪽을 되돌려도 다른 쪽은 그대로여야 한다.
+    expect(at().pages?.[1].objects).not.toBe(at().pages?.[2].objects);
+  });
+
+  it('복사하기 — 대상 목록에 소스 자신이 들어 있어도 두 번 처리되지 않는다', () => {
+    s().addTemplate(insertFromPreset('M6'), undefined, undefined, 'notebook');
+    const line: DiaryObject = { id: 'l1', type: 'line', x1: 0, y1: 0, x2: 5, y2: 5 };
+    const half = { objects: { past: [], present: [line], future: [] }, dotGrid: { ...DEFAULT_DOT_GRID } };
+
+    s().copyNotebookPage(half, 0, [0, 3]);
+
+    expect(at().pages?.[0]).toEqual(half); // 소스는 원본 그대로(복제되지 않음)
+    expect(at().pages?.[3].objects.present).toEqual([line]);
+  });
 });
 
 describe('객체 복사·붙여넣기', () => {
