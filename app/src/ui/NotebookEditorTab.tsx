@@ -127,11 +127,7 @@ export function NotebookEditorTab() {
 
   return (
     <div className="notebook-editor">
-      <PageCountField
-        value={active.pageCount ?? pages.length}
-        actualLength={pages.length}
-        onCommit={setNotebookPageCount}
-      />
+      <PageCountField value={active.pageCount ?? pages.length} onCommit={setNotebookPageCount} />
 
       <div className="notebook-scroll">
         <section className="notebook-spread">
@@ -158,6 +154,11 @@ export function NotebookEditorTab() {
 /**
  * 총 쪽수 입력칸.
  *
+ * **10을 쳐도 확정하면 곧바로 12로 보인다** — 종이 한 장이 늘 4쪽씩이라
+ * 4의 배수가 아닌 값은 뜻이 없다. 값을 그대로 받아만 두고 안내 문구로
+ * "실제로는 이렇게 됩니다"라고 따로 설명하지 않는다 — 칸에 보이는 값이
+ * 곧 진짜 값이다.
+ *
  * **글자를 치는 중간값으로는 바꾸지 않는다.** `setNotebookPageCount`는
  * 쪽이 줄면 뒤쪽 내용을 그대로 잘라내므로(`resizePages`), "20"을 치는
  * 동안 "2"가 먼저 적용되면 3쪽 이후 내용이 사라진다. 그래서 blur·Enter
@@ -165,23 +166,21 @@ export function NotebookEditorTab() {
  */
 function PageCountField({
   value,
-  actualLength,
   onCommit,
 }: {
   value: number;
-  actualLength: number;
   onCommit: (count: number) => void;
 }) {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
 
+  // 종이 한 장이 늘 4쪽씩이라, 친 값을 그대로 두지 않고 다음 4의 배수로
+  // 올려서 커밋한다 — 입력칸에 바로 그 값이 보이므로 따로 설명이 필요 없다.
   function commit(raw: string) {
     const n = Math.round(Number(raw));
-    if (Number.isFinite(n) && n > 0) onCommit(n);
+    if (Number.isFinite(n) && n > 0) onCommit(paddedPageCount(n));
     else setDraft(String(value));
   }
-
-  const padded = paddedPageCount(value);
 
   return (
     <div className="notebook-editor-toolbar">
@@ -189,7 +188,8 @@ function PageCountField({
         총 쪽수
         <input
           type="number"
-          min={1}
+          min={4}
+          step={4}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={(e) => commit(e.target.value)}
@@ -202,16 +202,7 @@ function PageCountField({
         />
         <span>쪽</span>
       </label>
-      {padded !== value ? (
-        <span className="notebook-editor-hint">
-          한 장(종이 하나)이 4쪽씩이라, {padded}쪽({padded / 4}장)으로 맞춰 남는 {padded - value}쪽은
-          비워둡니다.
-        </span>
-      ) : (
-        <span className="notebook-editor-hint">
-          {actualLength}쪽 · 종이 {actualLength / 4}장
-        </span>
-      )}
+      <span className="notebook-editor-hint">종이 {value / 4}장 (한 장 = 4쪽)</span>
     </div>
   );
 }
