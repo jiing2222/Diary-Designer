@@ -9,10 +9,7 @@ import {
   boundsOfObjects,
   boxOf,
   cleanStyle,
-  distanceToSegment,
-  imageRotateOf,
   isBoxResizable,
-  isBoxShaped,
   isImage,
   isLine,
   isLocked,
@@ -23,24 +20,12 @@ import {
   rectLines,
   resizeBox,
   rotationOf,
-  type Box,
-  type Corner,
   type DiaryObject,
-  type TextObject,
   type TextStyle,
 } from '../core/objects';
 import { SNAP_COLOR, SNAP_DOT_SIZE } from '../core/style';
 import { roundMm, type Mm } from '../core/units';
-import {
-  boldOf,
-  displayText,
-  fieldPlaceholder,
-  lineHeightOf,
-  newTextStyle,
-  parseFieldText,
-  rotateOf,
-  sizeOf,
-} from '../core/text';
+import { fieldPlaceholder, newTextStyle, parseFieldText } from '../core/text';
 import { useObjects, useStore } from '../store';
 import { defaultInsert } from '../core/template';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
@@ -60,20 +45,25 @@ import {
   TableIcon,
   TextIcon,
 } from './icons';
-import { measureTextBox } from './measureText';
-import { familyOf } from '../fonts/registry';
 import {
+  anyLineHandleAt,
+  boxHandleAt,
+  centerOnLogoLine,
   editingFor,
+  handleAt,
+  hitAt,
   merge,
   preview,
   previewBox,
   rectOf,
+  resizeTextBoxTo,
+  rotationDegOf,
   segProps,
   sizeLabelOf,
   toggleId,
+  toLocal,
+  withCells,
   DRAG_START,
-  GRAB,
-  HANDLE_GRAB,
   HANDLE_SIZE,
   type Drag,
   type Editing,
@@ -84,8 +74,6 @@ import {
 const NO_INSERT = defaultInsert();
 const NO_GRID: DotGrid = { ...DEFAULT_DOT_GRID };
 
-/** 상자 가운데가 로고 정렬선에서 이만큼 안이면 달라붙는다. EditorTab과 같은 값이다. */
-const LOGO_LINE_SNAP: Mm = 3;
 const NUDGE_STEP: Mm = 0.5;
 const NUDGE_STEP_SHIFT: Mm = 5;
 
@@ -333,125 +321,9 @@ export function PrintSlotEditor({
 
   const logoLineX = holeCenterX(insert.punch, insert.width, side === 'back');
 
-  function centerOnLogoLine<T extends { x: Mm; width: Mm }>(box: T): T {
-    const cx = box.x + box.width / 2;
-    return Math.abs(cx - logoLineX) <= LOGO_LINE_SNAP ? { ...box, x: logoLineX - box.width / 2 } : box;
-  }
-
-  // 상자만 조절해도 글자 크기는 그대로 둔다(EditorTab.tsx의 같은 함수와
-  // 같은 이유 — 사용자 피드백). 지금 글자가 필요로 하는 최소 크기보다는
-  // 작아지지 않는다(그 밑은 상자를 넘친다).
-  function resizeTextBox(t: TextObject, corner: Corner, to: Point): { box: Box } {
-    const oldBox = boxOf(t);
-    const rawBox = resizeBox(oldBox, corner, to, MIN_FREE_BOX_SIZE);
-    const required = measureTextBox(
-      displayText(t),
-      sizeOf(t),
-      lineHeightOf(t),
-      boldOf(t),
-      familyOf(userFonts, t.font),
-    );
-    const width = Math.max(rawBox.width, required.width);
-    const height = Math.max(rawBox.height, required.height);
-    const x = corner.includes('w') ? rawBox.x - (width - rawBox.width) : rawBox.x;
-    const y = corner.includes('n') ? rawBox.y - (height - rawBox.height) : rawBox.y;
-    return { box: { x, y, width, height } };
-  }
-
   const draftStyle = newTextStyle(textDraftStyle, grid.spacing);
 
   const lone = selectedIds.length === 1 ? (objects.find((o) => o.id === selectedIds[0]) ?? null) : null;
-
-  function rotationDegOf(o: DiaryObject): number {
-    if (isText(o)) return rotateOf(o);
-    if (isImage(o)) return imageRotateOf(o);
-    return 0;
-  }
-
-  function toLocal(o: DiaryObject, p: Point): Point {
-    const rot = rotationDegOf(o);
-    return rot === 0 ? p : rotationOf(boxOf(o), -rot).map(p);
-  }
-
-  function handleAt(p: Point): { id: string; end: 1 | 2 } | null {
-    if (!lone || !isLine(lone)) return null;
-    const d1 = Math.hypot(p.x - lone.x1, p.y - lone.y1);
-    const d2 = Math.hypot(p.x - lone.x2, p.y - lone.y2);
-    if (d1 <= HANDLE_GRAB && d1 <= d2) return { id: lone.id, end: 1 };
-    if (d2 <= HANDLE_GRAB) return { id: lone.id, end: 2 };
-    return null;
-  }
-
-  function anyLineHandleAt(p: Point): { id: string; end: 1 | 2 } | null {
-    let best: { id: string; end: 1 | 2; dist: Mm } | null = null;
-    for (const o of objects) {
-      if (!isLine(o) || isLocked(o)) continue;
-      const d1 = Math.hypot(p.x - o.x1, p.y - o.y1);
-      const d2 = Math.hypot(p.x - o.x2, p.y - o.y2);
-      if (d1 <= HANDLE_GRAB && (!best || d1 < best.dist)) best = { id: o.id, end: 1, dist: d1 };
-      if (d2 <= HANDLE_GRAB && (!best || d2 < best.dist)) best = { id: o.id, end: 2, dist: d2 };
-    }
-    return best && { id: best.id, end: best.end };
-  }
-
-  function boxHandleAt(p: Point): { id: string; corner: Corner } | null {
-    if (!lone || !isBoxResizable(lone)) return null;
-    const b = boxOf(lone);
-    const test = toLocal(lone, p);
-    const corners: { corner: Corner; x: number; y: number }[] = [
-      { corner: 'nw', x: b.x, y: b.y },
-      { corner: 'ne', x: b.x + b.width, y: b.y },
-      { corner: 'sw', x: b.x, y: b.y + b.height },
-      { corner: 'se', x: b.x + b.width, y: b.y + b.height },
-    ];
-    for (const c of corners) {
-      if (Math.hypot(test.x - c.x, test.y - c.y) <= HANDLE_GRAB) return { id: lone.id, corner: c.corner };
-    }
-    return null;
-  }
-
-  function distanceToBoxEdge(b: Box, p: Point): Mm {
-    const edges = rectLines({ x: b.x, y: b.y }, { x: b.x + b.width, y: b.y + b.height });
-    return Math.min(...edges.map((e) => distanceToSegment(e, p.x, p.y)));
-  }
-
-  function hitAt(p: Point): DiaryObject | null {
-    const svg = svgRef.current;
-    if (svg) {
-      for (const el of [...svg.querySelectorAll<SVGTextElement>('text[data-id]')].reverse()) {
-        const found = objects.find((o) => o.id === el.dataset.id);
-        if (!found || !isText(found) || isLocked(found)) continue;
-        const test = toLocal(found, p);
-        const b = el.getBBox();
-        if (test.x >= b.x && test.x <= b.x + b.width && test.y >= b.y && test.y <= b.y + b.height) {
-          return found;
-        }
-      }
-    }
-
-    for (const o of [...objects].reverse()) {
-      if (!isBoxShaped(o) || isLocked(o)) continue;
-      const b = boxOf(o);
-      const test = toLocal(o, p);
-      if (isShape(o)) {
-        if (distanceToBoxEdge(b, test) <= GRAB) return o;
-        continue;
-      }
-      if (test.x >= b.x && test.x <= b.x + b.width && test.y >= b.y && test.y <= b.y + b.height) return o;
-    }
-
-    let best: DiaryObject | null = null;
-    let bestGap = GRAB;
-    for (const o of objects) {
-      if (!isLine(o) || isLocked(o)) continue;
-      const gap = distanceToSegment(o, p.x, p.y);
-      if (gap <= bestGap) {
-        best = o;
-        bestGap = gap;
-      }
-    }
-    return best;
-  }
 
   function startMove(hit: DiaryObject, raw: Point, e: React.PointerEvent) {
     if (e.shiftKey) {
@@ -480,7 +352,7 @@ export function PrintSlotEditor({
     e.currentTarget.setPointerCapture(e.pointerId);
 
     if (tool === 'checkbox') {
-      const hit = hitAt(raw);
+      const hit = hitAt(svgRef.current, objects, raw);
       if (hit) {
         startMove(hit, raw, e);
         return;
@@ -490,7 +362,7 @@ export function PrintSlotEditor({
     }
 
     if (tool === 'draw' && !pending) {
-      const grip = anyLineHandleAt(raw);
+      const grip = anyLineHandleAt(objects, raw);
       if (grip) {
         setDragBoth({ kind: 'handle', id: grip.id, end: grip.end, to: raw });
         return;
@@ -503,7 +375,7 @@ export function PrintSlotEditor({
     }
 
     if (tool === 'text') {
-      const hit = hitAt(raw);
+      const hit = hitAt(svgRef.current, objects, raw);
       if (hit && isText(hit)) {
         finishEditing();
         setEditing(editingFor(hit));
@@ -515,7 +387,7 @@ export function PrintSlotEditor({
     }
 
     if (tool === 'field') {
-      const hit = hitAt(raw);
+      const hit = hitAt(svgRef.current, objects, raw);
       if (hit) {
         select([hit.id]);
         return;
@@ -525,13 +397,13 @@ export function PrintSlotEditor({
     }
 
     if (tool === 'calendar' || tool === 'image') {
-      const boxGripHit = boxHandleAt(raw);
+      const boxGripHit = boxHandleAt(lone, raw);
       if (boxGripHit) {
         const to = lone ? toLocal(lone, snap ?? raw) : (snap ?? raw);
         setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to });
         return;
       }
-      const hit = hitAt(raw);
+      const hit = hitAt(svgRef.current, objects, raw);
       if (hit) {
         startMove(hit, raw, e);
         return;
@@ -540,20 +412,20 @@ export function PrintSlotEditor({
       return;
     }
 
-    const boxGripHit = boxHandleAt(raw);
+    const boxGripHit = boxHandleAt(lone, raw);
     if (boxGripHit) {
       const to = lone ? toLocal(lone, snap ?? raw) : (snap ?? raw);
       setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to });
       return;
     }
 
-    const grip = handleAt(raw);
+    const grip = handleAt(lone, raw);
     if (grip) {
       setDragBoth({ kind: 'handle', id: grip.id, end: grip.end, to: raw });
       return;
     }
 
-    const hit = hitAt(raw);
+    const hit = hitAt(svgRef.current, objects, raw);
     if (hit) {
       startMove(hit, raw, e);
       return;
@@ -605,7 +477,7 @@ export function PrintSlotEditor({
       if (lone && (isText(lone) || isImage(lone))) {
         const b = boxOf(lone);
         const moved = { ...b, x: b.x + dx };
-        const centered = centerOnLogoLine(moved);
+        const centered = centerOnLogoLine(moved, logoLineX);
         dx += centered.x - moved.x;
       }
       moveSelected(dx, dy);
@@ -620,7 +492,7 @@ export function PrintSlotEditor({
     if (d.kind === 'boxHandle') {
       const target = objects.find((o) => o.id === d.id);
       if (target && isText(target)) {
-        const { box } = resizeTextBox(target, d.corner, d.to);
+        const { box } = resizeTextBoxTo(target, d.corner, d.to, userFonts);
         resizeObject(d.id, box);
       } else if (target) {
         const minSize = isShape(target) ? MIN_FREE_BOX_SIZE : undefined;
@@ -714,7 +586,7 @@ export function PrintSlotEditor({
     const pe = e as unknown as React.PointerEvent;
     const raw = rawMm(pe);
     if (!raw) return;
-    const hit = hitAt(raw);
+    const hit = hitAt(svgRef.current, objects, raw);
     setPending(null);
     setDragBoth(null);
 
@@ -764,13 +636,6 @@ export function PrintSlotEditor({
       ? cellAt(lattice, hover.x, hover.y)
       : null;
 
-  function withCells(mmLabel: string | null, from: Point, to: Point): string | null {
-    if (!mmLabel) return null;
-    const { cols, rows } = tableSize(lattice, from, to);
-    const cellPart = cols === 1 ? `${rows}칸` : rows === 1 ? `${cols}칸` : `${cols} × ${rows}칸`;
-    return `${mmLabel} · ${cellPart}`;
-  }
-
   const sizeLabel = (() => {
     if (drag?.kind === 'draw') {
       if (tool === 'table' || tool === 'checkbox') {
@@ -781,14 +646,19 @@ export function PrintSlotEditor({
     }
     if (grip && lone && isLine(lone)) {
       const s = preview(lone, null, grip);
-      return withCells(sizeLabelOf([s]), { x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 });
+      return withCells(lattice, sizeLabelOf([s]), { x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 });
     }
     if (boxGrip && lone && isBoxResizable(lone)) {
       const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
       return `${roundMm(b.width, 1)} × ${roundMm(b.height, 1)}mm`;
     }
     if (pending && hover) {
-      return withCells(sizeLabelOf([{ x1: pending.x, y1: pending.y, x2: hover.x, y2: hover.y }]), pending, hover);
+      return withCells(
+        lattice,
+        sizeLabelOf([{ x1: pending.x, y1: pending.y, x2: hover.x, y2: hover.y }]),
+        pending,
+        hover,
+      );
     }
     return null;
   })();
