@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { checkboxIconBox } from '../core/checkbox';
 import { moveDelta, snapToLattice } from '../core/snap';
@@ -88,9 +89,13 @@ const NUDGE_STEP_SHIFT: Mm = 5;
  *
  * `PrintSlotEditor`(인쇄하기의 칸·페이지 손보기)를 그대로 옮겨왔다 —
  * 그것도 `store.ts`의 `shadowTemplate`을 그리는 "그림자 하나 = 한쪽만"
- * 편집 화면이라 구조가 완전히 같다. 다른 점은 둘뿐이다: 이 화면엔 용지
- * 위 자리(회전·매트릭스)도, 스크롤을 따라다니는 도구막대 포털도 필요
- * 없다 — 부모(`NotebookEditorTab`)가 이미 평범한 세로 목록 안에 놓아준다.
+ * 편집 화면이라 구조가 완전히 같다. 용지 위 자리(회전·매트릭스)는 필요
+ * 없지만, **도구막대 포털은 그대로 물려받았다** — 처음엔 "부모가 평범한
+ * 목록 안에 놓아주니 필요 없다"고 뺐는데, 손보는 반쪽마다 도구막대가
+ * 캔버스와 함께 목록 안 그 자리에 나타나 "새 창이 뜨는 것처럼" 보인다는
+ * 피드백을 받았다. `속지 제작`(EditorTab)처럼 도구막대는 스크롤과
+ * 무관하게 상단 한 자리(`toolbarSlot`)에 고정하고, 캔버스만 목록 안
+ * 제자리에서 커진다.
  *
  * `beginShadowEdit`을 부르는 쪽(부모)이 언제나 `side: 'front'`로만
  * 시작한다 — 표지 뒤·내지 오른쪽 같은 "물리적 반대쪽"이 아니라, 반쪽마다
@@ -101,11 +106,14 @@ const NUDGE_STEP_SHIFT: Mm = 5;
 export function NotebookHalfEditor({
   scale,
   onFinish,
+  toolbarSlot,
 }: {
   /** 지금 확대 배율(px/mm). */
   scale: number;
   /** 진행 중인 글자 입력을 먼저 확정한 뒤 부른다 — "완료"·바깥 클릭·Esc가 부른다. */
   onFinish: () => void;
+  /** 도구막대를 실제로 그릴 DOM 자리. 아직 안 붙었으면(첫 렌더) null. */
+  toolbarSlot: HTMLDivElement | null;
 }) {
   // useInsert·useDotGrid 대신 그림자 양식을 직접 읽는다 — 그 두 훅은
   // 속지의 그림자 편집(인쇄하기 칸 손보기)에서 일부러 그림자를 안 본다.
@@ -836,7 +844,7 @@ export function NotebookHalfEditor({
 
   return (
     <div className="notebook-half-editor">
-      {toolbar}
+      {toolbarSlot && createPortal(toolbar, toolbarSlot)}
 
       <div className="notebook-half-editor-canvas">
         <svg

@@ -51,6 +51,10 @@ export function NotebookEditorTab() {
   const [editingSlot, setEditingSlot] = useState<NotebookSlotRef | null>(null);
   const editingSlotRef = useRef(editingSlot);
   editingSlotRef.current = editingSlot;
+  // 도구막대를 실제로 그릴 자리 — 속지 제작(EditorTab)의 .editor-bar처럼
+  // 스크롤과 무관하게 상단 한 곳에 고정한다. 손보는 반쪽이 바뀌어도
+  // 도구막대는 이 자리에 그대로 있고, 캔버스만 목록 안에서 바뀐다.
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
 
   /** 지금 그림자에 담긴 내용을 그 반쪽 자리에 저장하고 그림자를 끝낸다. */
   function finishEditing() {
@@ -96,7 +100,7 @@ export function NotebookEditorTab() {
       <div className={`notebook-half-slot ${edge}`}>
         <span className="notebook-half-label">{label}</span>
         {isEditing ? (
-          <NotebookHalfEditor scale={SCALE} onFinish={finishEditing} />
+          <NotebookHalfEditor scale={SCALE} onFinish={finishEditing} toolbarSlot={toolbarSlot} />
         ) : (
           <button
             type="button"
@@ -130,6 +134,7 @@ export function NotebookEditorTab() {
   return (
     <div className="notebook-editor">
       <PageCountField value={active.pageCount ?? pages.length} onCommit={setNotebookPageCount} />
+      <div className="notebook-toolbar-slot" ref={setToolbarSlot} />
 
       <div className="notebook-scroll">
         <section className="notebook-spread">
