@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeLayout, localAxisMirror, mirrorLayout } from './layout';
-import { holeCenterX, holeCentersY, suggestGroupGap, type PunchSetting } from './punch';
+import { holeCenterX, holeCentersY, suggestGroupGap, topMargin, type PunchSetting } from './punch';
 import { placeSlot } from './place';
 import { INSERT_PRESETS } from './presets';
 
@@ -384,6 +384,16 @@ describe('타공 위치', () => {
     const m5 = holeCentersY(105, punch(5, null, 4));
     const m5tri = holeCentersY(105, punch(5, null, 4));
     expect(m5tri).toEqual(m5);
+  });
+
+  it('구멍 수를 0으로 두면(설정 패널에서 입력 가능) NaN 대신 빈 배열·0을 돌려준다', () => {
+    // 37단계 전면검토에서 찾은 허점 — holeCentersY가 빈 offsets의 [0]을
+    // 그대로 꺼내 써서 margin이 NaN이었다. 지금 유일한 호출부(SettingsPanel의
+    // PunchReadout)는 결과를 쓰기 전에 따로 걸러내서 눈에 보이는 버그는
+    // 아니었지만, 함수 자체가 스스로를 지키지 않고 있었다.
+    const p = punch(0, null, 4);
+    expect(holeCentersY(125, p)).toEqual([]);
+    expect(topMargin(125, p)).toBe(0);
   });
 });
 

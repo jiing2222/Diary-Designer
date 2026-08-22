@@ -57,6 +57,10 @@ export function holeSpan(punch: PunchSetting): Mm {
  */
 export function holeCentersY(insertHeight: Mm, punch: PunchSetting): Mm[] {
   const offsets = holeOffsets(punch.holeCount, punch.groupGap);
+  // 구멍 수를 0으로 두면(설정 패널에서 입력 가능) offsets가 빈 배열이라
+  // offsets[offsets.length - 1]이 undefined다 — margin이 NaN이 되는 걸
+  // 여기서 미리 막는다(호출부가 항상 빈 배열을 따로 거르지는 않는다).
+  if (offsets.length === 0) return [];
   const span = offsets[offsets.length - 1];
   const margin = (insertHeight - span) / 2 + punch.offsetY;
   return offsets.map((o) => margin + o);
@@ -93,5 +97,7 @@ export function holeCenterX(punch: PunchSetting, insertWidth: Mm, mirror = false
 /** 맨 위 구멍 가장자리까지의 여백. 화면에 보여주기 위한 값. */
 export function topMargin(insertHeight: Mm, punch: PunchSetting): Mm {
   const centers = holeCentersY(insertHeight, punch);
+  // 구멍이 하나도 없으면(holeCount 0) 여백이라는 개념 자체가 없다 — 0으로 둔다.
+  if (centers.length === 0) return 0;
   return centers[0] - punch.markSize / 2;
 }
