@@ -48,11 +48,9 @@ import {
   useObjects,
   useSide,
   useStore,
-  useTemplateKind,
   type Side,
 } from '../store';
 import { InsertView } from './InsertView';
-import { NotebookMarginGuide } from './NotebookMarginGuide';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
 import {
@@ -106,7 +104,6 @@ const NUDGE_STEP_SHIFT: Mm = 5;
 export function EditorTab() {
   // 속지·격자·그린 것은 지금 고르고 있는 양식의, 지금 보는 쪽(앞/뒤)의 것이다.
   const insert = useInsert();
-  const kind = useTemplateKind();
   const side = useSide();
   const hasBack = useHasBack();
   // 뒷면이 없으면 side가 어떻든 무조건 앞면이 활성이다 — 뒷면 없이 'back'
@@ -1145,7 +1142,6 @@ export function EditorTab() {
           punch={insert.punch}
           mirror={inactiveSide === 'back'}
         />
-        {kind === 'notebook' && <NotebookMarginGuide width={insert.width} height={insert.height} />}
       </svg>
     );
   }
@@ -1363,7 +1359,6 @@ export function EditorTab() {
                 punch={insert.punch}
                 mirror={activeSide === 'back'}
               />
-              {kind === 'notebook' && <NotebookMarginGuide width={insert.width} height={insert.height} />}
 
               {/* 고른 것 표시. 옮기거나 끝점을 끄는 중이면 갈 자리에 미리 보여준다.
                   선은 선 자체를, 글자·이미지는 상자를 두른다 — 돌아가 있으면

@@ -1,9 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { newNotebookHalf, notebookImposition, notebookInsertSize, paddedPageCount } from './notebook';
+import { commit } from './history';
+import {
+  newNotebookHalf,
+  notebookImposition,
+  notebookInsertSize,
+  notebookPageWidth,
+  paddedPageCount,
+  resizePages,
+} from './notebook';
 
 describe('노트 양식 크기', () => {
   it('가로는 완성 페이지의 두 배, 세로는 그대로다', () => {
     expect(notebookInsertSize(70, 105)).toEqual({ width: 140, height: 105 });
+  });
+
+  it('양식 가로에서 완성 페이지 가로를 거꾸로 낸다', () => {
+    expect(notebookPageWidth(140)).toBe(70);
   });
 });
 
@@ -27,6 +39,27 @@ describe('4의 배수로 맞추기', () => {
 
   it('0이어도 최소 4쪽(한 장)이다', () => {
     expect(paddedPageCount(0)).toBe(4);
+  });
+});
+
+describe('쪽수 바꾸기', () => {
+  it('늘어난 자리는 빈 반쪽으로 채운다', () => {
+    const pages = resizePages([newNotebookHalf(), newNotebookHalf()], 8);
+    expect(pages).toHaveLength(8);
+    expect(pages.every((p) => p.objects.present.length === 0)).toBe(true);
+  });
+
+  it('줄어들면 뒤쪽부터 잘라내고, 남은 쪽은 그대로 물려받는다', () => {
+    const first = newNotebookHalf();
+    first.objects = commit(first.objects, [{ id: 'l1', type: 'line', x1: 0, y1: 0, x2: 5, y2: 5 }]);
+    const pages = resizePages([first, newNotebookHalf(), newNotebookHalf(), newNotebookHalf()], 1);
+    expect(pages).toHaveLength(4); // 1은 4로 맞춰진다
+    expect(pages[0]).toBe(first);
+  });
+
+  it('4의 배수로 이미 맞으면 배열을 그대로 둔다', () => {
+    const pages = [newNotebookHalf(), newNotebookHalf(), newNotebookHalf(), newNotebookHalf()];
+    expect(resizePages(pages, 4)).toBe(pages);
   });
 });
 

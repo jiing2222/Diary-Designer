@@ -227,6 +227,45 @@ describe('양식', () => {
   });
 });
 
+describe('노트 — 표지·쪽', () => {
+  it('표지 반쪽 하나를 통째로 갈아끼운다', () => {
+    s().addTemplate(insertFromPreset('M6'), undefined, undefined, 'notebook');
+    const line: DiaryObject = { id: 'l1', type: 'line', x1: 0, y1: 0, x2: 5, y2: 5 };
+    const half = { objects: { past: [], present: [line], future: [] }, dotGrid: { ...DEFAULT_DOT_GRID, spacing: 3 } };
+
+    s().setNotebookHalf({ part: 'cover', side: 'front' }, half);
+    expect(at().cover?.front).toEqual(half);
+    expect(at().cover?.back.objects.present).toEqual([]); // 다른 반쪽은 그대로
+
+    s().setNotebookHalf({ part: 'page', index: 2 }, half);
+    expect(at().pages?.[2]).toEqual(half);
+    expect(at().pages?.[0].objects.present).toEqual([]); // 다른 쪽은 그대로
+  });
+
+  it('쪽수를 바꾸면 pageCount와 pages 배열이 같이 바뀐다', () => {
+    s().addTemplate(insertFromPreset('M6'), undefined, undefined, 'notebook');
+    expect(at().pageCount).toBe(8); // 기본값
+
+    s().setNotebookPageCount(20);
+    expect(at().pageCount).toBe(20);
+    expect(at().pages).toHaveLength(20); // 20은 이미 4의 배수
+  });
+
+  it('4의 배수가 아니면 pages는 다음 4의 배수 길이로 맞춰진다', () => {
+    s().addTemplate(insertFromPreset('M6'), undefined, undefined, 'notebook');
+    s().setNotebookPageCount(10);
+    expect(at().pageCount).toBe(10); // 사용자가 원한 값은 그대로 기억한다
+    expect(at().pages).toHaveLength(12); // 실제 배열은 4의 배수로
+  });
+
+  it('속지에는 아무 일도 하지 않는다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    s().setNotebookPageCount(20);
+    expect(at().pageCount).toBeUndefined();
+    expect(at().pages).toBeUndefined();
+  });
+});
+
 describe('객체 복사·붙여넣기', () => {
   it('아무것도 안 골랐으면 복사해도 클립보드가 비어 있다', () => {
     s().addTemplate();
@@ -663,6 +702,29 @@ describe('그림자 양식 — 인쇄하기에서 칸·페이지를 직접 그�
 
     s().drawLines([{ x1: 1, y1: 1, x2: 2, y2: 1 }]);
     expect(at().objects.present).toHaveLength(1);
+  });
+
+  it('노트를 그림자로 손보는 동안은 patchDotGrid가 그림자의 격자를 고친다', () => {
+    // 노트는 반쪽마다 격자가 따로다(NotebookHalf.dotGrid) — 속지처럼
+    // 양식 하나가 공유하는 dotGrid를 고치면 안 된다.
+    s().addTemplate(insertFromPreset('M6'), undefined, undefined, 'notebook');
+    const templateGridBefore = at().dotGrid.spacing;
+    s().beginShadowEdit(at().insert, at().cover!.front.dotGrid, [], 'front');
+
+    s().patchDotGrid({ spacing: 9 });
+
+    expect(s().shadowTemplate?.dotGrid.spacing).toBe(9);
+    expect(at().dotGrid.spacing).toBe(templateGridBefore); // 양식 공유값은 안 바뀐다
+  });
+
+  it('속지를 그림자로 손보는 동안은(인쇄하기 칸 손보기) patchDotGrid가 그대로 양식을 고친다', () => {
+    // 기존 동작 — 인쇄하기의 칸 손보기는 격자 설정 패널과 어긋나면 안 된다.
+    s().addTemplate(insertFromPreset('M6'));
+    s().beginShadowEdit(at().insert, at().dotGrid, [], 'front');
+
+    s().patchDotGrid({ spacing: 9 });
+
+    expect(at().dotGrid.spacing).toBe(9);
   });
 });
 

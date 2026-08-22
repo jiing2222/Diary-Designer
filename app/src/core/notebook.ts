@@ -21,6 +21,11 @@ export function notebookInsertSize(pageWidth: Mm, pageHeight: Mm): { width: Mm; 
   return { width: pageWidth * 2, height: pageHeight };
 }
 
+/** 양식 가로에서 완성 페이지(반쪽 하나) 가로를 거꾸로 낸다. */
+export function notebookPageWidth(insertWidth: Mm): Mm {
+  return insertWidth / 2;
+}
+
 /**
  * 노트의 "반쪽" 하나 — 표지 앞면·뒷면, 또는 내지 한 쪽.
  *
@@ -47,12 +52,31 @@ export function duplicateNotebookHalf(h: NotebookHalf): NotebookHalf {
 export const DEFAULT_NOTEBOOK_PAGE_COUNT = 8;
 
 /**
+ * 노트 안의 반쪽 하나를 가리키는 자리 — 표지 앞/뒤, 또는 내지 몇 번째 쪽.
+ * `index`는 0부터(0 = 1쪽).
+ */
+export type NotebookSlotRef = { part: 'cover'; side: 'front' | 'back' } | { part: 'page'; index: number };
+
+/**
  * 종이 한 장을 접으면 쪽 4개(앞면 좌우 + 뒷면 좌우)가 나온다 — "장"은
  * 늘 4쪽 단위로만 늘어난다. 사용자가 4의 배수가 아닌 쪽수를 입력하면
  * 다음 4의 배수까지 빈 쪽으로 채운다. 최소 4쪽(한 장)이다.
  */
 export function paddedPageCount(count: number): number {
   return Math.max(4, Math.ceil(count / 4) * 4);
+}
+
+/**
+ * 쪽수를 바꾼다. 늘어난 자리는 새 반쪽(빈 채로)으로 채우고, 줄어들면
+ * 뒤쪽부터 잘라낸다 — 실제 배열 길이는 `paddedPageCount(count)`를 따른다.
+ * 남는 자리(원한 쪽수가 4의 배수가 아닐 때)는 빈 쪽으로 존재하되 여전히
+ * 그릴 수 있다.
+ */
+export function resizePages(pages: NotebookHalf[], count: number): NotebookHalf[] {
+  const target = paddedPageCount(count);
+  if (pages.length === target) return pages;
+  if (pages.length > target) return pages.slice(0, target);
+  return [...pages, ...Array.from({ length: target - pages.length }, newNotebookHalf)];
 }
 
 /** 물리적 장 한 장 — 앞면 좌·우, 뒷면 좌·우에 어느 쪽(0부터 세는 쪽 번호)이 오는지. */

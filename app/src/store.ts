@@ -4,6 +4,7 @@ import type { PunchSetting } from './core/punch';
 import { computeLayout, type Align, type Layout } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
 import { DEFAULT_PALETTE, type ColorPalette } from './core/palette';
+import { resizePages, type NotebookHalf, type NotebookSlotRef } from './core/notebook';
 import { DEFAULT_FIELD_FORMAT } from './core/text';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import {
@@ -274,6 +275,10 @@ interface Store extends Settings {
   selectTemplate: (id: string) => void;
   /** 규격·이름·격자를 주지 않으면 지금 양식의 것과 자동 이름을 쓴다. */
   addTemplate: (insert?: InsertSetting, name?: string, grid?: DotGrid, kind?: TemplateKind) => void;
+  /** 지금 양식(노트)의 표지·쪽 중 한 반쪽을 통째로 갈아끼운다. */
+  setNotebookHalf: (target: NotebookSlotRef, half: NotebookHalf) => void;
+  /** 지금 양식(노트)의 쪽수를 바꾼다. 4의 배수가 아니면 빈 쪽으로 채워 맞춘다. */
+  setNotebookPageCount: (count: number) => void;
   /** 규격을 주면 그 규격으로 복제한다. 원본은 손대지 않는다. */
   copyTemplate: (id: string, insert?: InsertSetting) => void;
   renameTemplate: (id: string, name: string) => void;
@@ -766,7 +771,15 @@ export const useStore = create<Store>((set) => ({
 
   // 격자는 앞뒤가 공유하는 값이다 — 속지 크기·구멍과 같은 이유(같은 종이
   // 한 장의 배경 무늬가 앞뒤마다 다를 리 없다). side와 무관하게 늘 고친다.
-  patchDotGrid: (p) => set((s) => patchActive(s, (t) => ({ dotGrid: { ...t.dotGrid, ...p } }))),
+  // useDotGrid와 같은 예외 — 노트 반쪽을 손보는 중이면 그 반쪽의 격자를 고친다.
+  patchDotGrid: (p) =>
+    set((s) => {
+      const active = activeTemplate(s);
+      if (active?.kind === 'notebook' && s.shadowTemplate) {
+        return { shadowTemplate: { ...s.shadowTemplate, dotGrid: { ...s.shadowTemplate.dotGrid, ...p } } };
+      }
+      return patchActive(s, (t) => ({ dotGrid: { ...t.dotGrid, ...p } }));
+    }),
   setPaletteMain: (color) =>
     set((s) => patchActive(s, (t) => ({ palette: { ...t.palette, main: color } }))),
   addPaletteColor: (color) =>
@@ -830,6 +843,27 @@ export const useStore = create<Store>((set) => ({
       if (grid) made.dotGrid = { ...grid };
       return { templates: [...s.templates, made], activeId: made.id, side: 'front', selectedIds: [] };
     }),
+
+  setNotebookHalf: (target, half) =>
+    set((s) =>
+      patchActive(s, (t) => {
+        if (target.part === 'cover') {
+          if (!t.cover) return {};
+          return { cover: { ...t.cover, [target.side]: half } };
+        }
+        if (!t.pages) return {};
+        const pages = [...t.pages];
+        pages[target.index] = half;
+        return { pages };
+      }),
+    ),
+
+  setNotebookPageCount: (count) =>
+    set((s) =>
+      patchActive(s, (t) =>
+        t.pages ? { pageCount: count, pages: resizePages(t.pages, count) } : {},
+      ),
+    ),
 
   copyTemplate: (id, insert) =>
     set((s) => {
@@ -1522,8 +1556,24 @@ export function selectLayout(s: Settings): Layout {
  */
 export const useActive = () => useStore(activeTemplate);
 export const useInsert = () => useStore((s) => activeTemplate(s)?.insert ?? NO_INSERT);
-/** 격자는 앞뒤가 공유하는 값이라 side를 받지 않는다 — 어느 쪽에서 읽어도 같다. */
-export const useDotGrid = () => useStore((s) => activeTemplate(s)?.dotGrid ?? NO_GRID);
+/**
+ * 격자는 앞뒤가 공유하는 값이라 side를 받지 않는다 — 어느 쪽에서 읽어도 같다.
+ *
+ * **노트(`kind === 'notebook'`)는 예외다.** 반쪽마다 격자를 따로 갖는다
+ * (NotebookHalf.dotGrid — 사용자 요청). 그림자 양식으로 반쪽 하나를 손보는
+ * 중이면 그 반쪽의 격자를 보여준다 — `useInsert`가 여전히 그림자를 안 보는
+ * 것과 다른 이유다: 노트의 그림자는 인쇄하기의 칸 손보기(다른 용도)가 아니라
+ * 이 반쪽 자체를 그리는 화면(NotebookHalfEditor)이 직접 SettingsPanel도
+ * 함께 쓰므로, 여기서 어긋날 다른 화면이 없다. 속지(`kind === 'insert'`)는
+ * 전혀 안 건드린다 — 인쇄하기의 그림자 편집이 여전히 진짜 양식의 격자를
+ * 그대로 보여줘야 하기 때문이다(바로 위 주석 참고).
+ */
+export const useDotGrid = () =>
+  useStore((s) => {
+    const active = activeTemplate(s);
+    if (active?.kind === 'notebook' && s.shadowTemplate) return s.shadowTemplate.dotGrid;
+    return active?.dotGrid ?? NO_GRID;
+  });
 export const usePalette = () => useStore((s) => activeTemplate(s)?.palette ?? NO_PALETTE);
 export const useTemplateKind = () => useStore((s) => activeTemplate(s)?.kind ?? 'insert');
 /**

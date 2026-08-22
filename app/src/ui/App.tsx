@@ -16,6 +16,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
 import { PrintSlotEditor } from './PrintSlotEditor';
 import { EditorTab } from './EditorTab';
+import { NotebookEditorTab } from './NotebookEditorTab';
 import { GalleryTab } from './GalleryTab';
 import { ProjectFile } from './ProjectFile';
 import { SlotAssign } from './SlotAssign';
@@ -633,7 +634,7 @@ export function App() {
         {tab === 'gallery' || !active ? (
           <GalleryTab onEdit={() => setTab('edit')} />
         ) : tab === 'edit' ? (
-          <EditorTab />
+          active.kind === 'notebook' ? <NotebookEditorTab /> : <EditorTab />
         ) : (
           <div className="print-tab">
             {/* 양식 만들기 화면의 상단 도구줄과 같은 자리 — 같은 위치에 있어야 찾기 쉽다. */}
