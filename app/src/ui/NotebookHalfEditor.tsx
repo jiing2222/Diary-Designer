@@ -303,32 +303,24 @@ export function NotebookHalfEditor({
     return raw && snapToLattice(lattice, raw.x, raw.y);
   }
 
-  function resizeTextBox(
-    t: TextObject,
-    corner: Corner,
-    to: Point,
-  ): { box: Box; size: Mm; lineHeight: Mm | undefined } {
+  // 상자만 조절해도 글자 크기는 그대로 둔다(EditorTab.tsx의 같은 함수와
+  // 같은 이유 — 사용자 피드백). 지금 글자가 필요로 하는 최소 크기보다는
+  // 작아지지 않는다(그 밑은 상자를 넘친다).
+  function resizeTextBox(t: TextObject, corner: Corner, to: Point): { box: Box } {
     const oldBox = boxOf(t);
     const rawBox = resizeBox(oldBox, corner, to, MIN_FREE_BOX_SIZE);
-    const oldSize = sizeOf(t);
     const required = measureTextBox(
       displayText(t),
-      oldSize,
+      sizeOf(t),
       lineHeightOf(t),
       boldOf(t),
       familyOf(userFonts, t.font),
     );
-    const heightRatio = rawBox.height / oldBox.height;
-    const width = Math.max(rawBox.width, required.width * heightRatio);
-    const height = Math.max(rawBox.height, required.height * heightRatio);
+    const width = Math.max(rawBox.width, required.width);
+    const height = Math.max(rawBox.height, required.height);
     const x = corner.includes('w') ? rawBox.x - (width - rawBox.width) : rawBox.x;
     const y = corner.includes('n') ? rawBox.y - (height - rawBox.height) : rawBox.y;
-    const box: Box = { x, y, width, height };
-    return {
-      box,
-      size: oldSize * heightRatio,
-      lineHeight: t.lineHeight !== undefined ? t.lineHeight * heightRatio : undefined,
-    };
+    return { box: { x, y, width, height } };
   }
 
   const draftStyle = newTextStyle(textDraftStyle, grid.spacing);
@@ -587,8 +579,8 @@ export function NotebookHalfEditor({
     if (d.kind === 'boxHandle') {
       const target = objects.find((o) => o.id === d.id);
       if (target && isText(target)) {
-        const { box, size, lineHeight } = resizeTextBox(target, d.corner, d.to);
-        resizeObject(d.id, box, { size, lineHeight });
+        const { box } = resizeTextBox(target, d.corner, d.to);
+        resizeObject(d.id, box);
       } else if (target) {
         const minSize = isShape(target) ? MIN_FREE_BOX_SIZE : undefined;
         resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to, minSize));

@@ -124,6 +124,13 @@ interface Settings {
    */
   clipboard: DiaryObject[];
   /**
+   * 복사할 때 어느 "면"이었는지. 붙여넣을 때 여기와 지금이 같은 면이면
+   * 살짝 밀어서 겹치지 않게 하고(기존 동작), 다른 면(앞↔뒤, 노트의 다른
+   * 쪽)이면 **자리를 그대로 유지한다** — "이전 면과 같은 위치에" 붙여
+   * 넣고 싶다는 사용자 피드백. `null`이면 아직 아무것도 안 복사했다.
+   */
+  clipboardOrigin: ClipboardOrigin | null;
+  /**
    * 뒷면·앞면 경계를 넘어 이어 그은 선의 반쪽 쌍들. `commitCrossBoundaryLine`이
    * 쌓고, `undo`·`redo`가 이 목록을 보고 반쪽 하나를 되돌릴 때 반대쪽도
    * 함께 되돌린다(하나의 선으로 보였으니 하나의 되돌리기여야 한다).
@@ -246,6 +253,14 @@ interface Settings {
   shadowTemplate: Template | null;
   /** shadowTemplate이 있을 때, 그중 지금 손보는 쪽(앞/뒤). */
   shadowSide: Side;
+  /**
+   * `beginShadowEdit`을 부를 때마다 하나씩 올라간다. 그림자 세션끼리(인쇄
+   * 하기의 칸·페이지 손보기, 노트 반쪽 편집) 서로 구별하는 값이다 —
+   * `shadowTemplate` 자체는 세션마다 새로 채워질 뿐 "몇 번째 세션인지"를
+   * 모르므로, 복사·붙여넣기가 "같은 자리를 다시 손보는 중"인지 "다른
+   * 자리로 옮겨왔는지" 가리는 데 쓴다(`clipboardOrigin`).
+   */
+  shadowToken: number;
 }
 
 interface Store extends Settings {
@@ -482,6 +497,11 @@ export type Tool =
   | 'checkbox';
 export type Side = 'front' | 'back';
 
+/** `clipboardOrigin` 참고 — 복사한 순간의 "면"을 가리키는 값. */
+export type ClipboardOrigin =
+  | { kind: 'template'; id: string; side: Side }
+  | { kind: 'shadow'; token: number };
+
 /** 그리기 도구의 다음 몸짓에 쓰일 모양 — LineStyle에 도형 여부를 가르는 둥글기만 더한다. */
 export type DrawStyle = LineStyle & { roundness?: CornerRoundness };
 
@@ -603,6 +623,21 @@ function activeObjects(
   return activeSideData(active, s.side)?.objects.present ?? [];
 }
 
+/** 지금 어느 "면"을 편집 중인지 — `clipboardOrigin`과 견줘 같은 면인지 가른다. */
+function activeContext(
+  s: Pick<Settings, 'activeId' | 'side' | 'shadowTemplate' | 'shadowToken'>,
+): ClipboardOrigin {
+  if (s.shadowTemplate) return { kind: 'shadow', token: s.shadowToken };
+  return { kind: 'template', id: s.activeId, side: s.side };
+}
+
+function sameContext(a: ClipboardOrigin, b: ClipboardOrigin): boolean {
+  if (a.kind !== b.kind) return false;
+  return a.kind === 'template' && b.kind === 'template'
+    ? a.id === b.id && a.side === b.side
+    : a.kind === 'shadow' && b.kind === 'shadow' && a.token === b.token;
+}
+
 /** "디자인 관리"에서 저장하지 않은 이미지가 이 개수를 넘으면, 안 쓰는 중인 것부터 오래된 순으로 지운다. */
 const RECENT_IMAGE_CAP = 10;
 
@@ -712,6 +747,7 @@ export const useStore = create<Store>((set) => ({
   tool: 'draw',
   selectedIds: [],
   clipboard: [],
+  clipboardOrigin: null,
   crossBoundaryPairs: [],
   drawStyle: {},
   checkboxDraftStyle: {},
@@ -739,6 +775,7 @@ export const useStore = create<Store>((set) => ({
   comboSlotBackOverrides: {},
   shadowTemplate: null,
   shadowSide: 'front',
+  shadowToken: 0,
 
   setPaperPreset: (id) =>
     set((s) => {
@@ -966,7 +1003,7 @@ export const useStore = create<Store>((set) => ({
     ),
 
   beginShadowEdit: (insert, dotGrid, objects, side) =>
-    set({
+    set((s) => ({
       shadowTemplate: {
         id: '__shadow__',
         name: '',
@@ -979,8 +1016,11 @@ export const useStore = create<Store>((set) => ({
         back: side === 'back' ? { objects: initHistory(objects) } : null,
       },
       shadowSide: side,
+      // 세션마다 하나씩 올린다 — 예를 들어 노트 쪽 A를 손보다 쪽 B로
+      // 넘어가면 shadowSide는 둘 다 'front'라 이걸로만 구별한다.
+      shadowToken: s.shadowToken + 1,
       selectedIds: [],
-    }),
+    })),
 
   endShadowEdit: () => set({ shadowTemplate: null, selectedIds: [] }),
 
@@ -1371,13 +1411,18 @@ export const useStore = create<Store>((set) => ({
     set((s) => {
       if (s.selectedIds.length === 0) return {};
       const picked = activeObjects(s).filter((o) => s.selectedIds.includes(o.id));
-      return { clipboard: picked };
+      return { clipboard: picked, clipboardOrigin: activeContext(s) };
     }),
 
   pasteClipboard: () =>
     set((s) => {
       if (s.clipboard.length === 0) return {};
-      const pasted = s.clipboard.map((o) => cloneObject(o, PASTE_OFFSET, PASTE_OFFSET));
+      // 복사할 때와 지금이 같은 면이면(예: 그대로 붙여넣기) 살짝 밀어서
+      // 겹치지 않게 한다 — 다른 면(앞↔뒤, 노트의 다른 쪽)이면 "이전 면과
+      // 같은 위치에" 붙여 넣고 싶다는 피드백대로 자리를 그대로 둔다.
+      const samePlace = s.clipboardOrigin !== null && sameContext(s.clipboardOrigin, activeContext(s));
+      const offset = samePlace ? PASTE_OFFSET : 0;
+      const pasted = s.clipboard.map((o) => cloneObject(o, offset, offset));
       return {
         ...commitObjects(s, [...activeObjects(s), ...pasted]),
         selectedIds: pasted.map((o) => o.id),

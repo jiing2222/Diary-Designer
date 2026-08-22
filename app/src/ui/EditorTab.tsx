@@ -235,35 +235,26 @@ export function EditorTab() {
   }
 
   /**
-   * 글자 상자를 손잡이로 조절하면, 세로(높이) 비율만큼 글자 크기도 같이
-   * 바뀐다 — 달력이 상자 높이로 글자 크기를 정하는 것과 같은 생각이다.
-   * 가로만 늘리거나 줄이면 글자 크기는 그대로고 줄바꿈 폭(여백)만
-   * 바뀐다 — 자동 줄바꿈은 하지 않으므로 실제로 줄 수가 바뀌지는 않는다.
+   * 글자 상자를 손잡이로 조절해도 **글자 크기는 그대로 둔다.** 예전엔
+   * 세로(높이) 비율만큼 글자 크기도 같이 바뀌었는데, 상자만 조절하려는
+   * 건데 글자까지 저절로 커지거나 작아진다는 피드백으로 뺐다.
    *
    * **상자는 지금 글자가 실제로 필요로 하는 크기보다 작아지지 않는다.**
-   * 새 글자 크기에서 다시 재는 대신, 지금(옮기기 전) 크기에서 잰 값을
-   * 비율만큼 그대로 늘려 쓴다 — 자동 줄바꿈이 없어 줄 수가 바뀌지
-   * 않으므로 필요한 크기는 글자 크기에 정확히 비례한다(재측정과 같은
-   * 값이 나온다), 다시 젤 필요가 없다.
+   * 그 밑으로 끌면 글자가 상자를 넘친다 — 이미 있는 원칙이다(25단계,
+   * `core/text`의 "글자는 상자를 넘칠 수 있다").
    */
-  function resizeTextBox(
-    t: TextObject,
-    corner: Corner,
-    to: Point,
-  ): { box: Box; size: Mm; lineHeight: Mm | undefined } {
+  function resizeTextBox(t: TextObject, corner: Corner, to: Point): { box: Box } {
     const oldBox = boxOf(t);
     const rawBox = resizeBox(oldBox, corner, to, MIN_FREE_BOX_SIZE);
-    const oldSize = sizeOf(t);
     const required = measureTextBox(
       displayText(t),
-      oldSize,
+      sizeOf(t),
       lineHeightOf(t),
       boldOf(t),
       familyOf(userFonts, t.font),
     );
-    const heightRatio = rawBox.height / oldBox.height;
-    const width = Math.max(rawBox.width, required.width * heightRatio);
-    const height = Math.max(rawBox.height, required.height * heightRatio);
+    const width = Math.max(rawBox.width, required.width);
+    const height = Math.max(rawBox.height, required.height);
     // 최소 크기에 걸려 raw보다 커지면, resizeBox와 같은 규칙으로 고정된
     // 모서리(반대쪽)가 밀리지 않게 x·y도 그만큼 보정한다 — 예를 들어
     // 오른쪽(east) 손잡이를 끌 때는 왼쪽이 고정이라 x는 그대로여야 하는데,
@@ -271,12 +262,7 @@ export function EditorTab() {
     // 밀려난 것처럼 보였다.
     const x = corner.includes('w') ? rawBox.x - (width - rawBox.width) : rawBox.x;
     const y = corner.includes('n') ? rawBox.y - (height - rawBox.height) : rawBox.y;
-    const box: Box = { x, y, width, height };
-    return {
-      box,
-      size: oldSize * heightRatio,
-      lineHeight: t.lineHeight !== undefined ? t.lineHeight * heightRatio : undefined,
-    };
+    return { box: { x, y, width, height } };
   }
 
   // 새로 쓸 글자에 붙일 스타일. 줄 간격을 따로 정해두지 않았으면 지금 도트 간격이 새겨진다.
@@ -864,8 +850,8 @@ export function EditorTab() {
     if (d.kind === 'boxHandle') {
       const target = objects.find((o) => o.id === d.id);
       if (target && isText(target)) {
-        const { box, size, lineHeight } = resizeTextBox(target, d.corner, d.to);
-        resizeObject(d.id, box, { size, lineHeight });
+        const { box } = resizeTextBox(target, d.corner, d.to);
+        resizeObject(d.id, box);
       } else if (target) {
         const minSize = isShape(target) ? MIN_FREE_BOX_SIZE : undefined;
         resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to, minSize));

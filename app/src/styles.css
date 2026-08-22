@@ -624,8 +624,15 @@ button.ghost:disabled {
 /*
  * 글자 입력칸.
  * 상자와 같은 자리에 겹쳐 놓고, 결과와 같아 보이게 글꼴·크기를 맞춘다.
- * 여러 줄을 쓸 수 있어 textarea를 쓴다 — 자동으로 넓어지는 상자 안에서
- * 줄바꿈 없이 옆으로 흐르게 white-space: pre로 둔다.
+ * 여러 줄을 쓸 수 있어 textarea를 쓴다 — 줄바꿈 없이 옆으로 흐르게
+ * white-space: pre로 둔다.
+ *
+ * **상자 밖으로 넘쳐도 잘리지 않는다(overflow: visible).** "글자는 상자를
+ * 넘칠 수 있다"는 원칙(25단계, InsertView의 실제 렌더링도 글자 상자
+ * 하나하나는 안 자른다 — 페이지 전체만 인쇄 미리보기에서 자른다)과 이
+ * 입력칸이 어긋나 있었다 — 상자가 작으면(예: 2.5×2.5mm 칸 하나) 치는
+ * 동안 글자가 상자 밖으로 넘치는 순간 안 보여서 고치기 어려웠다
+ * (사용자 피드백). 결과와 똑같이 넘치게 보여준다.
  */
 .text-input {
   position: absolute;
@@ -634,7 +641,7 @@ button.ghost:disabled {
   border: none;
   outline: none;
   resize: none;
-  overflow: hidden;
+  overflow: visible;
   background: transparent;
   font-family: 'Pretendard', sans-serif;
   color: #3a3a3a;

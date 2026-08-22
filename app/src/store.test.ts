@@ -366,6 +366,37 @@ describe('객체 복사·붙여넣기', () => {
     s().pasteClipboard();
     expect(at().objects.present).toEqual([]);
   });
+
+  it('다른 면(뒷면)에 붙여넣으면 자리를 그대로 유지한다', () => {
+    // 사용자 피드백 — 앞면에서 복사해 뒷면에 붙이면 "이전 면과 같은 위치"를
+    // 기대한다. 같은 면에서 그대로 붙여넣을 때만(위 테스트들) 겹치지 않게
+    // 살짝 민다.
+    s().addTemplate();
+    s().addBack();
+    s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
+    s().select([at().objects.present[0].id]);
+    s().copySelected();
+
+    s().setSide('back');
+    s().pasteClipboard();
+    expect(at().back!.objects.present).toHaveLength(1);
+    expect(at().back!.objects.present[0]).toMatchObject({ x1: 10, y1: 10, x2: 70, y2: 10 });
+  });
+
+  it('그림자 세션이 바뀌면(예: 노트의 다른 쪽) 다른 면으로 친다', () => {
+    s().addTemplate();
+    s().beginShadowEdit(insertFromPreset('M6'), DEFAULT_DOT_GRID, [], 'front');
+    s().drawLines([{ x1: 5, y1: 5, x2: 20, y2: 5 }]);
+    s().select([s().shadowTemplate!.objects.present[0].id]);
+    s().copySelected();
+    s().endShadowEdit();
+
+    // 새 그림자 세션(다른 노트 쪽을 손보는 상황을 흉내낸다) — shadowSide는
+    // 둘 다 'front'라 shadowToken으로만 구별된다.
+    s().beginShadowEdit(insertFromPreset('M6'), DEFAULT_DOT_GRID, [], 'front');
+    s().pasteClipboard();
+    expect(s().shadowTemplate!.objects.present[0]).toMatchObject({ x1: 5, y1: 5, x2: 20, y2: 5 });
+  });
 });
 
 describe('저장 파일 불러오기', () => {
