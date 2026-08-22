@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { commit } from './history';
+import type { DiaryObject } from './objects';
 import {
+  allNotebookObjects,
+  composeSpread,
   newNotebookHalf,
   notebookImposition,
   notebookInsertSize,
   notebookPageWidth,
+  notebookPrintUnit,
+  notebookPrintUnitCount,
   paddedPageCount,
   resizePages,
+  type NotebookCover,
+  type NotebookHalf,
 } from './notebook';
 
 describe('노트 양식 크기', () => {
@@ -94,5 +101,71 @@ describe('새들스티치 인쇄 배치', () => {
     expect(new Set(all).size).toBe(12);
     expect(Math.min(...all)).toBe(0);
     expect(Math.max(...all)).toBe(11);
+  });
+});
+
+describe('왼쪽·오른쪽 반쪽을 인쇄될 한 장으로 합치기', () => {
+  const line: DiaryObject = { id: 'l1', type: 'line', x1: 0, y1: 0, x2: 5, y2: 5 };
+
+  it('왼쪽은 그대로, 오른쪽은 페이지 폭만큼 밀린다', () => {
+    const left = newNotebookHalf();
+    left.objects = commit(left.objects, [line]);
+    const right = newNotebookHalf();
+    right.objects = commit(right.objects, [{ ...line, id: 'l2', x1: 1, x2: 6 }]);
+
+    const spread = composeSpread(left, right, 70);
+    expect(spread.objects).toEqual([line, { ...line, id: 'l2', x1: 71, x2: 76 }]);
+  });
+
+  it('격자는 왼쪽 반쪽 것만 쓴다', () => {
+    const left = newNotebookHalf();
+    left.dotGrid = { ...left.dotGrid, spacing: 3 };
+    const right = newNotebookHalf();
+    right.dotGrid = { ...right.dotGrid, spacing: 8 };
+
+    expect(composeSpread(left, right, 70).dotGrid.spacing).toBe(3);
+  });
+
+  it('둘 다 비어 있으면 빈 채로 합쳐진다', () => {
+    expect(composeSpread(newNotebookHalf(), newNotebookHalf(), 70).objects).toEqual([]);
+  });
+});
+
+/** id만 다른 반쪽 하나 — "이 반쪽이 실제로 쓰였는지"를 id로 확인하는 데 쓴다. */
+function halfWith(id: string): NotebookHalf {
+  const h = newNotebookHalf();
+  h.objects = commit(h.objects, [{ id, type: 'line', x1: 0, y1: 0, x2: 1, y2: 1 }]);
+  return h;
+}
+
+describe('인쇄 단위(표지 + 내지) 계산', () => {
+  const cover: NotebookCover = { front: halfWith('앞표지'), back: halfWith('뒤표지') };
+  const pages = [halfWith('1쪽'), halfWith('2쪽'), halfWith('3쪽'), halfWith('4쪽')];
+  const imposition = notebookImposition(4); // 장 1개
+
+  it('전체 인쇄 단위는 표지 1장 + 내지 장 수다', () => {
+    expect(notebookPrintUnitCount(imposition)).toBe(2); // 표지 1 + 내지 1장
+  });
+
+  it('0번 단위는 표지 — 뒤표지(왼쪽)+앞표지(오른쪽), 뒷면은 없다', () => {
+    const unit = notebookPrintUnit(cover, pages, imposition, 70, 0);
+    expect(unit.front.objects.map((o) => o.id)).toEqual(['뒤표지', '앞표지']);
+    expect(unit.back).toBeNull();
+  });
+
+  it('1번 단위는 첫 내지 장 — imposition이 정한 쪽이 앞뒤에 온다', () => {
+    // notebookImposition(4) → frontLeft=3(4쪽) frontRight=0(1쪽) backLeft=1(2쪽) backRight=2(3쪽)
+    const unit = notebookPrintUnit(cover, pages, imposition, 70, 1);
+    expect(unit.front.objects.map((o) => o.id)).toEqual(['4쪽', '1쪽']);
+    expect(unit.back?.objects.map((o) => o.id)).toEqual(['2쪽', '3쪽']);
+  });
+});
+
+describe('노트에 쓰인 모든 그린 것 모으기', () => {
+  it('표지 앞뒤·내지 전부를 모은다', () => {
+    const cover: NotebookCover = { front: halfWith('앞표지'), back: halfWith('뒤표지') };
+    const pages = [halfWith('1쪽'), halfWith('2쪽')];
+    const ids = allNotebookObjects(cover, pages).map((o) => o.id);
+    expect(ids).toEqual(['앞표지', '뒤표지', '1쪽', '2쪽']);
   });
 });

@@ -9,6 +9,7 @@ import {
   duplicateNotebookHalf,
   newNotebookHalf,
   paddedPageCount,
+  type NotebookCover,
   type NotebookHalf,
 } from './notebook';
 import type { Dataset } from './dataset';
@@ -75,10 +76,18 @@ export type RepeatSetting =
 export const SINGLE_REPEAT: RepeatSetting = { mode: 'single' };
 
 /** 인쇄하기·양식 만들기 화면이 함께 보는 인쇄 방식. `single`은 낱장 조합(combo)으로 친다. */
-export type PrintMode = 'combo' | 'repeat' | 'dataset';
+export type PrintMode = 'combo' | 'repeat' | 'dataset' | 'notebook';
 
-/** 지금 양식의 인쇄 방식. App.tsx·EditorTab.tsx가 각자 계산하면 언젠가 어긋난다. */
-export function printModeOf(t: Pick<Template, 'repeat'> | null | undefined): PrintMode {
+/**
+ * 지금 양식의 인쇄 방식. App.tsx·EditorTab.tsx가 각자 계산하면 언젠가 어긋난다.
+ *
+ * **노트(`kind === 'notebook'`)는 `repeat.mode`와 무관하게 늘 `'notebook'`이다.**
+ * 노트는 `repeat`을 `single`로 둔 채로 만들어지지만(설계상 반복·세트형 개념이
+ * 따로 없다 — 표지+쪽 전체가 하나의 인쇄 단위다), 낱장 조합(combo)에 다른
+ * 양식과 섞이면 안 된다. 그래서 `kind`를 `repeat.mode`보다 먼저 본다.
+ */
+export function printModeOf(t: Pick<Template, 'repeat' | 'kind'> | null | undefined): PrintMode {
+  if (t?.kind === 'notebook') return 'notebook';
   if (t?.repeat.mode === 'repeat') return 'repeat';
   if (t?.repeat.mode === 'dataset') return 'dataset';
   return 'combo';
@@ -134,7 +143,7 @@ export interface Template {
    * 노트(`kind === 'notebook'`)일 때만 뜻이 있다 — 표지. 오른쪽 반쪽(`front`)이
    * 앞표지, 왼쪽 반쪽(`back`)이 뒤표지다(중앙 접힘선 기준, ui/NotebookMarginGuide).
    */
-  cover?: { front: NotebookHalf; back: NotebookHalf };
+  cover?: NotebookCover;
   /**
    * 노트일 때만 뜻이 있다 — 사용자가 원하는 쪽수. 4의 배수가 아니어도 된다
    * (`pages`는 `paddedPageCount`로 맞춘 길이를 갖는다 — 남는 쪽은 빈 쪽이다).

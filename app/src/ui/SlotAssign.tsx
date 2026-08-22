@@ -29,7 +29,7 @@ export function SlotAssign({ layout }: { layout: Layout }) {
   if (!active || layout.count === 0) return null;
 
   const group = templates.filter(
-    (t) => sameSize(t.insert, active.insert) && t.repeat.mode === 'single',
+    (t) => sameSize(t.insert, active.insert) && t.repeat.mode === 'single' && t.kind !== 'notebook',
   );
 
   return (

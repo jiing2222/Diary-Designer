@@ -575,6 +575,19 @@ describe('낱장 조합 — 칸 배정', () => {
     expect(resolveSlotTemplates(s(), 1)[0].id).toBe(first);
   });
 
+  it('노트로 배정하면 유효하지 않아 지금 양식으로 대신한다', () => {
+    // 노트는 repeat이 single로 남아 있지만 낱장 조합에 다른 양식과 섞이면
+    // 안 된다 — 표지+쪽 전체가 하나의 인쇄 단위라서다.
+    s().addTemplate(insertFromPreset('M6'));
+    const insertId = s().activeId;
+    s().addTemplate(insertFromPreset('M6'), undefined, undefined, 'notebook');
+    const notebookId = s().activeId;
+    s().selectTemplate(insertId);
+
+    s().assignSlot(0, notebookId);
+    expect(resolveSlotTemplates(s(), 1)[0].id).toBe(insertId);
+  });
+
   it('양식이 하나도 없으면 빈 배열이다', () => {
     expect(resolveSlotTemplates(s(), 4)).toEqual([]);
   });

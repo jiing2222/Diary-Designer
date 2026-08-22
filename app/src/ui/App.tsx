@@ -11,6 +11,14 @@ import {
 import { mirrorLayout } from '../core/layout';
 import { datasetPages } from '../core/dataset';
 import { resolvePageObjects } from '../core/format';
+import {
+  allNotebookObjects,
+  notebookImposition,
+  notebookPageWidth,
+  notebookPrintUnit,
+  notebookPrintUnitCount,
+  paddedPageCount,
+} from '../core/notebook';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
 import { SettingsPanel } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
@@ -138,6 +146,14 @@ export function App() {
   const totalSlots = active?.repeat.mode === 'repeat' ? active.repeat.count : 0;
   const dataset = active?.repeat.mode === 'dataset' ? active.repeat.dataset : null;
   const totalPages = dataset ? datasetPages(dataset) : 0;
+  /**
+   * 노트 — 표지 1장 + `notebookImposition`이 정한 내지 장 수. 세트형의
+   * "쪽"과 같은 자리(장 하나 = 인쇄 단위 하나)에서 쓰인다.
+   */
+  const notebookImp =
+    printMode === 'notebook' && active?.pages ? notebookImposition(paddedPageCount(active.pageCount ?? active.pages.length)) : null;
+  const totalNotebookUnits = notebookImp ? notebookPrintUnitCount(notebookImp) : 0;
+  const notebookPageW = active ? notebookPageWidth(active.insert.width) : 0;
 
   const [editingSession, setEditingSession] = useState<EditingSession | null>(null);
 
@@ -438,6 +454,33 @@ export function App() {
       return { previewOverrides: front, previewBackOverrides: back };
     }
 
+    if (printMode === 'notebook' && notebookImp && active.cover && active.pages) {
+      const front = new Map<number, PreviewSlotContent>();
+      const back = new Map<number, PreviewSlotContent>();
+      const filled = filledSlots(sheet, totalNotebookUnits, layout.count);
+      for (let i = 0; i < layout.count; i++) {
+        const unit = i < filled ? sheet * layout.count + i : null;
+        if (unit === null) {
+          front.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+          back.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
+          continue;
+        }
+        const content = notebookPrintUnit(active.cover, active.pages, notebookImp, notebookPageW, unit);
+        front.set(i, { insert: active.insert, dotGrid: content.front.dotGrid, objects: content.front.objects });
+        back.set(
+          i,
+          content.back
+            ? { insert: active.insert, dotGrid: content.back.dotGrid, objects: content.back.objects }
+            : {
+                insert: active.insert,
+                dotGrid: s.fillEmptyBack ? content.front.dotGrid : BLANK_PREVIEW_GRID,
+                objects: [],
+              },
+        );
+      }
+      return { previewOverrides: front, previewBackOverrides: back };
+    }
+
     return { previewOverrides, previewBackOverrides };
   }
 
@@ -446,7 +489,9 @@ export function App() {
       ? sheetsNeeded(totalSlots, capacityPerSheet(layout.count, s.duplex))
       : printMode === 'dataset'
         ? sheetsNeeded(totalPages, layout.count)
-        : Math.max(1, s.comboSheets);
+        : printMode === 'notebook'
+          ? sheetsNeeded(totalNotebookUnits, layout.count)
+          : Math.max(1, s.comboSheets);
 
   /*
    * 인쇄하기 탭의 px/mm 배율. 'fit'이면 지금 미리보기 영역 폭(stageWidth)에
@@ -476,10 +521,13 @@ export function App() {
           : [...new Map(slotTemplates.map((t) => [t.id, t])).values()];
       const isText = (o: { type: string }): o is TextObject => o.type === 'text';
       // 뒷면 글자도 함께 본다 — 앞면만 보면 뒷면에만 있는 글꼴이 빠진다.
-      const allTexts: TextObject[] = uniqueTemplates.flatMap((t) => [
-        ...t.objects.present.filter(isText),
-        ...(t.back?.objects.present.filter(isText) ?? []),
-      ]);
+      // 노트는 objects·back이 아니라 표지·쪽에 실제로 그린 것이 있다
+      // (core/notebook의 NotebookHalf) — 그래서 소스를 완전히 갈아 낀다.
+      const allSourceObjects: DiaryObject[] =
+        printMode === 'notebook' && active.cover && active.pages
+          ? allNotebookObjects(active.cover, active.pages)
+          : uniqueTemplates.flatMap((t) => [...t.objects.present, ...(t.back?.objects.present ?? [])]);
+      const allTexts: TextObject[] = allSourceObjects.filter(isText);
 
       // 글자가 있을 때만 글꼴을 받는다. 하나에 2.7MB짜리라 괜히 받을 이유가 없다.
       // 굵기마다 파일이 따로라 Bold도 굵은 글자가 실제로 있을 때만 받는다.
@@ -497,10 +545,7 @@ export function App() {
       // 이미지도 같은 방식이다 — 등록소에 없는 id(새로고침 뒤 다시 등록하지
       // 않은 이미지)는 빠지고, PDF에서도 화면처럼 그 자리만 비게 된다.
       const isImageObj = (o: { type: string }): o is ImageObject => o.type === 'image';
-      const allImages: ImageObject[] = uniqueTemplates.flatMap((t) => [
-        ...t.objects.present.filter(isImageObj),
-        ...(t.back?.objects.present.filter(isImageObj) ?? []),
-      ]);
+      const allImages: ImageObject[] = allSourceObjects.filter(isImageObj);
       const userImages = new Map<string, { bytes: ArrayBuffer; kind: 'png' | 'jpg' }>();
       for (const o of allImages) {
         if (!o.imageId) continue; // 아직 사진을 안 고른 빈 상자.
@@ -542,6 +587,23 @@ export function App() {
         }
       }
 
+      // 노트 — 표지 1장 + notebookImp가 정한 내지 장 수, 세트형과 같은 자리
+      // (datasetOverrides/datasetBackOverrides)에 담는다. 표지 뒷면(안쪽)은
+      // 아직 디자인할 자리가 없어 fillEmptyBack일 때만 빈 면으로 채운다.
+      if (printMode === 'notebook' && notebookImp && active.cover && active.pages) {
+        datasetOverrides = new Map();
+        datasetBackOverrides = new Map();
+        for (let unit = 0; unit < totalNotebookUnits; unit++) {
+          const content = notebookPrintUnit(active.cover, active.pages, notebookImp, notebookPageW, unit);
+          datasetOverrides.set(unit, { dotGrid: content.front.dotGrid, objects: content.front.objects, safeZoneWidth: 0 });
+          if (content.back) {
+            datasetBackOverrides.set(unit, { dotGrid: content.back.dotGrid, objects: content.back.objects, safeZoneWidth: 0 });
+          } else if (s.fillEmptyBack) {
+            datasetBackOverrides.set(unit, { dotGrid: content.front.dotGrid, objects: [], safeZoneWidth: 0 });
+          }
+        }
+      }
+
       const bytes = await buildPdf({
         paperWidth: width,
         paperHeight: height,
@@ -556,10 +618,13 @@ export function App() {
         sheets: printMode === 'combo' ? s.comboSheets : undefined,
         datasetOverrides,
         datasetBackOverrides,
-        datasetPages: printMode === 'dataset' ? totalPages : undefined,
+        datasetPages:
+          printMode === 'dataset' ? totalPages : printMode === 'notebook' ? totalNotebookUnits : undefined,
         calendarYear: dataset?.kind === 'calendar' ? dataset.year : undefined,
-        // 겹치기 배치도 세트형에서만 의미가 있다 — 반복 인쇄·낱장 조합은 모든
-        // 칸의 내용이 같아 순서가 결과에 영향을 주지 않는다.
+        // 겹치기 배치는 세트형에서만 고를 수 있다 — 노트는 자기만의 배치
+        // (notebookImp)를 이미 따로 계산해 datasetOverrides에 담았으니, 여기
+        // 순서를 또 바꾸면 안 된다. 반복 인쇄·낱장 조합도 모든 칸의 내용이
+        // 같아 순서가 결과에 영향을 주지 않는다.
         cutStack: printMode === 'dataset' ? s.cutStack : undefined,
         cutStackGroup: printMode === 'dataset' ? s.cutStackGroup || undefined : undefined,
         fontBytes,
@@ -573,7 +638,8 @@ export function App() {
         defaultBack,
         backSlotOverrides: printMode === 'combo' && pdfBackOverrides.size > 0 ? pdfBackOverrides : undefined,
       });
-      downloadPdf(bytes, `속지_${active.insert.presetId}_${s.paper.presetId}.pdf`);
+      const filePrefix = printMode === 'notebook' ? '노트' : '속지';
+      downloadPdf(bytes, `${filePrefix}_${active.insert.presetId}_${s.paper.presetId}.pdf`);
     } finally {
       setBusy(false);
     }
@@ -712,6 +778,14 @@ export function App() {
                 unit="쪽"
                 sheets={sheets}
                 hint={s.cutStack && <> · 겹치기</>}
+              />
+            ) : printMode === 'notebook' ? (
+              <RepeatPrint
+                layout={layout}
+                totalCount={totalNotebookUnits}
+                unit="장"
+                sheets={sheets}
+                hint={!s.duplex && <> · 양면 인쇄를 켜야 뒤쪽 쪽들이 함께 찍힙니다</>}
               />
             ) : (
               <SlotAssign layout={layout} />

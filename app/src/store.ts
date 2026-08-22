@@ -678,7 +678,9 @@ export function resolveSlotTemplates(s: Settings, count: number): Template[] {
     // 규격이 같고, 그 양식도 낱장 조합에 낄 수 있어야(single) 유효하다.
     // 반복(repeat) 양식은 자기 하나로만 여러 장을 채우는 것이라 낄 수 없다 —
     // 뒤늦게 repeat으로 바뀐 양식이 배정에 남아 있는 경우를 여기서 막는다.
-    const valid = t && t.repeat.mode === 'single' && sameSize(t.insert, base.insert);
+    // 노트도 마찬가지다 — repeat은 single로 남아 있지만 표지+쪽 전체가 하나의
+    // 인쇄 단위라 다른 양식과 섞일 수 없다(printModeOf가 kind를 우선 본다).
+    const valid = t && t.repeat.mode === 'single' && t.kind !== 'notebook' && sameSize(t.insert, base.insert);
     out.push(valid ? t : base);
   }
   return out;

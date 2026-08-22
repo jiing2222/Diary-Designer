@@ -12,6 +12,7 @@ import {
   newBack,
   newTemplate,
   outsideCount,
+  printModeOf,
   refreshTemplateIds,
   sheetsNeeded,
   sizeLabel,
@@ -355,6 +356,26 @@ describe('반복 인쇄', () => {
     const copy = duplicateTemplate(t, '가 사본');
     copy.repeat = { mode: 'repeat', count: 1 };
     expect(t.repeat).toEqual({ mode: 'repeat', count: 54 });
+  });
+});
+
+describe('인쇄 방식', () => {
+  it('속지는 repeat.mode를 따른다', () => {
+    expect(printModeOf(newTemplate('가'))).toBe('combo');
+    expect(printModeOf({ ...newTemplate('가'), repeat: { mode: 'repeat', count: 3 } })).toBe('repeat');
+  });
+
+  it('노트는 repeat.mode가 single이어도 늘 notebook이다', () => {
+    // 노트는 만들어질 때 repeat이 single로 남지만(반복·세트형 개념이 따로
+    // 없다), 낱장 조합(combo)에 다른 양식과 섞이면 안 된다.
+    const t = newTemplate('가', undefined, 'notebook');
+    expect(t.repeat).toEqual({ mode: 'single' });
+    expect(printModeOf(t)).toBe('notebook');
+  });
+
+  it('양식이 없으면 combo다', () => {
+    expect(printModeOf(null)).toBe('combo');
+    expect(printModeOf(undefined)).toBe('combo');
   });
 });
 

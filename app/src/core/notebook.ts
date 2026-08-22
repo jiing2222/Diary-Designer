@@ -1,6 +1,6 @@
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import { initHistory, type History } from './history';
-import type { DiaryObject } from './objects';
+import { moveObject, type DiaryObject } from './objects';
 import type { Mm } from './units';
 
 /**
@@ -108,4 +108,71 @@ export function notebookImposition(pageCount: number): SheetImposition[] {
     backLeft: 2 * i + 1,
     backRight: pageCount - 2 - 2 * i,
   }));
+}
+
+/**
+ * 왼쪽 반쪽·오른쪽 반쪽을 인쇄될 한 장(완성 폭 전체)의 그린 것으로 합친다.
+ *
+ * 왼쪽은 자기 좌표(0~pageWidth)를 그대로 쓰고, 오른쪽은 `pageWidth`만큼
+ * 오른쪽으로 밀어 자기 자리(pageWidth~2×pageWidth)로 옮긴다 — 편집
+ * 화면에서 두 반쪽이 완전히 독립된 좌표계를 갖는 것과 짝을 이루는 계산이다.
+ *
+ * **격자는 왼쪽 반쪽 것만 쓴다.** 인쇄 파이프라인(SlotContent)이 칸 하나에
+ * 격자 하나만 그릴 수 있어서다 — 좌우가 다른 격자를 쓰면 인쇄물엔 왼쪽
+ * 것만 보인다(알려진 단순화, 진행상황.md 참고).
+ */
+export function composeSpread(
+  left: NotebookHalf,
+  right: NotebookHalf,
+  pageWidth: Mm,
+): { objects: DiaryObject[]; dotGrid: DotGrid } {
+  return {
+    objects: [...left.objects.present, ...right.objects.present.map((o) => moveObject(o, pageWidth, 0))],
+    dotGrid: left.dotGrid,
+  };
+}
+
+export interface NotebookCover {
+  front: NotebookHalf;
+  back: NotebookHalf;
+}
+
+/** 표지까지 합친, 인쇄될 전체 장 수(0번 = 표지 1장 + 내지 장 수). */
+export function notebookPrintUnitCount(imposition: SheetImposition[]): number {
+  return imposition.length + 1;
+}
+
+/**
+ * 인쇄 단위 하나(0번 = 표지, 1번부터 = 내지)의 앞·뒤 내용.
+ *
+ * 표지는 뒤표지(왼쪽)+앞표지(오른쪽)를 합쳐 앞면으로 삼고, 표지 안쪽(뒷면)은
+ * 아직 디자인할 자리가 없어 `null`을 낸다 — 부르는 쪽이 속지 뒷면 없을 때와
+ * 같은 규칙(`fillEmptyBack`)으로 채울지 완전히 비울지 정한다.
+ *
+ * 내지는 `notebookImposition`이 정한 대로 앞면 = frontLeft+frontRight,
+ * 뒷면 = backLeft+backRight를 합친다.
+ */
+export function notebookPrintUnit(
+  cover: NotebookCover,
+  pages: NotebookHalf[],
+  imposition: SheetImposition[],
+  pageWidth: Mm,
+  unit: number,
+): {
+  front: { objects: DiaryObject[]; dotGrid: DotGrid };
+  back: { objects: DiaryObject[]; dotGrid: DotGrid } | null;
+} {
+  if (unit === 0) {
+    return { front: composeSpread(cover.back, cover.front, pageWidth), back: null };
+  }
+  const sheet = imposition[unit - 1];
+  return {
+    front: composeSpread(pages[sheet.frontLeft], pages[sheet.frontRight], pageWidth),
+    back: composeSpread(pages[sheet.backLeft], pages[sheet.backRight], pageWidth),
+  };
+}
+
+/** 폰트·이미지 수집처럼 "이 노트에 쓰인 모든 그린 것"이 필요할 때 쓴다. */
+export function allNotebookObjects(cover: NotebookCover, pages: NotebookHalf[]): DiaryObject[] {
+  return [cover.front, cover.back, ...pages].flatMap((h) => h.objects.present);
 }
