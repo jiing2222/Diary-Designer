@@ -116,6 +116,17 @@ export function computeLayout(input: LayoutInput): Layout {
  *
  * 절취선(core/crop)은 칸 좌표만 보고 계산하므로, 이 배치를 그대로 넘기면
  * 절취선도 저절로 앞뒤가 맞는 자리에 나온다 — 따로 뒤집는 코드가 필요 없다.
+ *
+ * **`localAxisMirror`(회전 배치면 안전영역·타공 안내의 뒷면 뒤집기를 꺼버리는
+ * 함수)를 만들었다가 다시 지웠다(2026-08-22).** "칸 자체가 좌우로 이미
+ * 갈라지니 안전영역까지 뒤집으면 위아래로 한 번 더 갈라진다"는 추론으로
+ * 넣었는데, 이건 **실제 인쇄가 아니라 미리보기 스크린샷만 보고** 내린
+ * 판단이었다. 그 결과 속지양식 편집 화면(EditorTab, 회전을 모르고 뒷면이면
+ * 항상 뒤집는다)과 인쇄하기 탭(회전 배치면 안 뒤집는다)이 **같은 뒷면
+ * 카드의 안전영역을 서로 다른 자리에 그리는** 화면 불일치를 냈다 — 사용자가
+ * 편집 화면에서 안전영역 옆에 붙여 그린 상자가 인쇄하기 탭에서는 반대쪽에
+ * 떨어져 보이는 것으로 발견됐다. 두 화면 다 "뒷면이면 항상 뒤집는다"로
+ * 돌아가는 편이 최소한 서로 일관되므로 되돌렸다.
  */
 export function mirrorLayout(layout: Layout, paperWidth: Mm, paperHeight: Mm): Layout {
   return layout.rotated
@@ -128,26 +139,4 @@ export function mirrorLayout(layout: Layout, paperWidth: Mm, paperHeight: Mm): L
         })),
       }
     : { ...layout, slots: layout.slots.map((s) => ({ ...s, x: paperWidth - s.x - s.width })) };
-}
-
-/**
- * 속지 자신의 가로축(구멍이 있는 축)을 뒤집어야 하는가 — `core/grid`의
- * `gridArea`, `core/punch`의 `holeCenterX`에 넘길 `mirror` 값.
- *
- * **회전 배치면 언제나 `false`다.** 뒷면(`wantMirror`)이라도 마찬가지다.
- *
- * 이 속지의 가로축은 회전 배치가 아니면 종이의 가로축과 겹치지만, 회전
- * 배치면 종이의 **세로축**과 겹친다(core/place의 placeSlot). `gridArea`·
- * `holeCenterX`의 `mirror`는 언제나 **속지 자신의 가로축**만 뒤집으므로,
- * 회전 배치에서 그대로 걸면 종이 좌우가 아니라 종이 **위아래**로 앞뒤가
- * 갈라진다 — 앞뒤가 종이 좌우로 갈라지는 것은 이미 `mirrorLayout`이 칸
- * 자체를 옮기는 몫이라, 여기서 또 걸면 원치 않는 효과가 겹친다.
- *
- * 이 판단을 부르는 자리마다(`pdf/export.ts`·`ui/PaperPreview.tsx`·
- * `ui/PrintSlotEditor.tsx`) 각자 `mirror && !rotated`를 적지 않고 한
- * 곳에 모은 이유는, 새 자리가 하나 더 생겼을 때 이 조건을 빠뜨리면
- * 2026-08-22에 실제 인쇄로 찾은 바로 그 버그가 되살아나기 때문이다.
- */
-export function localAxisMirror(wantMirror: boolean, rotated: boolean): boolean {
-  return wantMirror && !rotated;
 }

@@ -29,7 +29,7 @@ import { fieldPlaceholder, newTextStyle, parseFieldText } from '../core/text';
 import { useObjects, useStore } from '../store';
 import { defaultInsert } from '../core/template';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
-import { localAxisMirror, type Slot } from '../core/layout';
+import type { Slot } from '../core/layout';
 import { placeSlot } from '../core/place';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
@@ -791,13 +791,12 @@ export function PrintSlotEditor({
         >
           <rect x={0} y={0} width={insert.width} height={insert.height} className="sheet-bg" />
 
-          {/* 회전 배치면 mirror를 걸지 않는다 — core/layout의 localAxisMirror 주석 참고. */}
           <InsertView
             insert={insert}
             grid={grid}
             objects={objects}
             safeZoneWidth={insert.punch.safeZoneWidth}
-            mirror={localAxisMirror(side === 'back', rotated)}
+            mirror={side === 'back'}
             hiddenId={editing?.id}
           />
 
@@ -805,7 +804,7 @@ export function PrintSlotEditor({
             width={insert.width}
             height={insert.height}
             punch={insert.punch}
-            mirror={localAxisMirror(side === 'back', rotated)}
+            mirror={side === 'back'}
           />
 
           <g className="picked">

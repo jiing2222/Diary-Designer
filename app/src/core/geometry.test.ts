@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout, localAxisMirror, mirrorLayout } from './layout';
+import { computeLayout, mirrorLayout } from './layout';
 import { holeCenterX, holeCentersY, suggestGroupGap, topMargin, type PunchSetting } from './punch';
 import { placeSlot } from './place';
 import { INSERT_PRESETS } from './presets';
@@ -261,19 +261,14 @@ describe('양면 배치 — 칸 뒤집기', () => {
     expect(Math.abs(frontOnPaper.x - backOnPaper.x)).toBeGreaterThan(1);
   });
 
-  it('localAxisMirror — 회전 배치면 언제나 false다', () => {
-    expect(localAxisMirror(false, false)).toBe(false);
-    expect(localAxisMirror(true, false)).toBe(true);
-    expect(localAxisMirror(false, true)).toBe(false);
-    expect(localAxisMirror(true, true)).toBe(false);
-  });
-
-  it('회전 배치에서 앞뒤 타공이 슬롯 안 같은 자리(위/아래)에 있다 — 종이 위아래로 갈라지면 버그다', () => {
-    // 위 시험(종이 좌우로 갈라진다)의 짝이다. mirrorLayout이 칸 자체를 좌우로
-    // 옮겨 종이 좌우는 이미 갈라지므로, holeCenterX의 mirror까지 걸면
-    // (localAxisMirror 없이 그냥 side==='back'을 그대로 넘기면) 종이 위아래로도
-    // 한 번 더 갈라진다 — 2026-08-22, 인쇄 미리보기에서 앞뒤 타공이 슬롯 안에서
-    // 위/아래로 반대인 게 보여 찾았다(사진으로 확인).
+  it('회전 배치에서도 뒷면 타공은 앞면과 슬롯 안 반대쪽(위/아래)에 있다 — EditorTab과 같은 계산이다', () => {
+    // EditorTab(속지양식 편집 화면)은 회전 배치인지 모르고 "뒷면이면 항상
+    // 뒤집는다"로 안전영역·타공을 그린다. 인쇄하기 탭·PDF가 이와 다른 값을
+    // 쓰면(예: 한때 있던 localAxisMirror처럼 회전 배치일 때 뒤집기를 꺼버리면)
+    // 같은 뒷면 카드의 타공 안내가 화면마다 다른 자리에 그려진다 — 2026-08-22,
+    // 편집 화면에서 타공 옆에 붙여 그린 상자가 인쇄하기 탭에서는 반대쪽에
+    // 떨어져 보이는 것으로 발견됐다. 그러니 여기서도 holeCenterX(p, w, true/false)를
+    // 그대로 써야 한다 — 회전 배치라고 값을 바꾸지 않는다.
     const front = computeLayout({
       paperWidth: 210,
       paperHeight: 297,
@@ -289,19 +284,19 @@ describe('양면 배치 — 칸 뒤집기', () => {
 
     const frontSlot = front.slots[0];
     const backSlot = back.slots[0];
-    // 실제 앱이 부르는 그대로 — localAxisMirror를 거친 값을 holeCenterX에 넘긴다.
-    const frontHoleX = holeCenterX(p, 62, localAxisMirror(false, true));
-    const backHoleX = holeCenterX(p, 62, localAxisMirror(true, true));
+    const frontHoleX = holeCenterX(p, 62, false);
+    const backHoleX = holeCenterX(p, 62, true);
     const v = holeCentersY(62, p)[0];
 
     const frontOnPaper = placeSlot(frontSlot, true).map(frontHoleX, v);
     const backOnPaper = placeSlot(backSlot, true).map(backHoleX, v);
 
     // 슬롯 안에서 위에서부터의 상대 위치(0~1) — front·back 슬롯 높이가 같으므로
-    // 그대로 비교할 수 있다. 같아야 한다(둘 다 슬롯 같은 쪽에 있어야 한다).
+    // 그대로 비교할 수 있다. holeCenterX의 mirror가 반대쪽 끝을 잰 값이므로,
+    // 둘을 더하면 정확히 1이어야 한다(슬롯 안에서 서로 반대쪽).
     const frontRel = (frontOnPaper.y - frontSlot.y) / frontSlot.height;
     const backRel = (backOnPaper.y - backSlot.y) / backSlot.height;
-    expect(backRel).toBeCloseTo(frontRel, 6);
+    expect(frontRel + backRel).toBeCloseTo(1, 6);
   });
 });
 

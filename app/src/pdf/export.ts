@@ -29,7 +29,7 @@ import {
   splitLines,
   valignOf,
 } from '../core/text';
-import { localAxisMirror, mirrorLayout, type Layout } from '../core/layout';
+import { mirrorLayout, type Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import {
@@ -474,7 +474,7 @@ function drawDotGrid(
     const insert = insertSizeOf(slot, layout.rotated);
     const place = placeSlot(slot, layout.rotated);
 
-    const area = gridArea(insert, grid, safeZoneWidth, localAxisMirror(mirror, layout.rotated));
+    const area = gridArea(insert, grid, safeZoneWidth, mirror);
     const lattice = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
     // 인쇄물이므로 가장자리에 덧붙인 안내용 자리에는 도트를 찍지 않는다.
     const { dots, lines } = gridShapes(lattice, grid.style, grid.toEdge ? area : null, true);
