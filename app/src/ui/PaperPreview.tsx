@@ -89,7 +89,8 @@ export function PaperPreview({
 }: Props) {
   const { width: pw, height: ph } = paper;
 
-  // 회전 배치면 속지 안의 타공도 함께 돌아야 한다.
+  // 회전 배치면 속지 안의 타공도 함께 돌아야 한다. 뒷면을 반 바퀴 돌린
+  // 배치(layout.turn180)면 칸 안의 내용도 같이 돈다 — 아래 placeSlot 참고.
   const rotated = layout.rotated;
 
   return (
@@ -139,7 +140,7 @@ export function PaperPreview({
               그리는 순서가 곧 층이다. 도트 → 선 → 글자. 타공 안내는 인쇄되지
               않는 화면 표시라 맨 위에 얹는다 — 'print' 모드에서는 아예 그리지 않는다.
             */}
-            <g transform={placeSlot(s, rotated).svg}>
+            <g transform={placeSlot(s, rotated, layout.turn180).svg}>
               <InsertView
                 insert={content.insert}
                 grid={content.dotGrid}

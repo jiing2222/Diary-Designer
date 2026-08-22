@@ -39,14 +39,23 @@ export function insertSizeOf(slot: Slot, rotated: boolean): { width: Mm; height:
  * 회전 배치면 속지를 왼쪽으로 90도 눕힌다. 속지의 왼쪽 변(구멍이 있는 쪽)이
  * 아래로 가고, 속지 안의 도트도 글자도 전부 함께 돈다.
  *
+ * `turn180`이면 거기서 한 번 더 반 바퀴 돌린다. 양면 인쇄에서 뒷면 전체를
+ * 뒤집을 때 쓴다(core/layout의 `turnLayout180`) — **칸 안의 내용까지 같이
+ * 돌아야** 종이를 짧은 변으로 넘기는 프린터에서 앞뒤 타공이 겹친다. 칸
+ * 위치만 옮기고 내용을 세워두면 구멍이 속지 반대쪽 끝에 뚫린다.
+ *
  * SVG의 matrix(a b c d e f)는 이렇게 계산된다.
  *   x' = a·u + c·v + e
  *   y' = b·u + d·v + f
  */
-export function placeSlot(slot: Slot, rotated: boolean): Placement {
+export function placeSlot(slot: Slot, rotated: boolean, turn180 = false): Placement {
   const [a, b, c, d, e, f] = rotated
-    ? [0, -1, 1, 0, slot.x, slot.y + slot.height]
-    : [1, 0, 0, 1, slot.x, slot.y];
+    ? turn180
+      ? [0, 1, -1, 0, slot.x + slot.width, slot.y]
+      : [0, -1, 1, 0, slot.x, slot.y + slot.height]
+    : turn180
+      ? [-1, 0, 0, -1, slot.x + slot.width, slot.y + slot.height]
+      : [1, 0, 0, 1, slot.x, slot.y];
 
   return {
     map: (u, v) => ({ x: a * u + c * v + e, y: b * u + d * v + f }),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout, mirrorLayout } from './layout';
+import { computeLayout, mirrorLayout, turnLayout180 } from './layout';
 import { holeCenterX, holeCentersY, suggestGroupGap, topMargin, type PunchSetting } from './punch';
-import { placeSlot } from './place';
+import { insertSizeOf, placeSlot } from './place';
 import { INSERT_PRESETS } from './presets';
 
 const punch = (holeCount: number, groupGap: number | null, markSize: number): PunchSetting => ({
@@ -153,10 +153,10 @@ describe('양면 배치 — 칸 뒤집기', () => {
     });
   });
 
-  it('회전 배치면 x·y 둘 다 뒤집고 크기는 그대로다', () => {
+  it('회전 배치도 좌우만 뒤집고, 대신 칸 안의 내용이 반 바퀴 돈다', () => {
     // M5(62×105)는 A4에서 실제로 회전 배치가 된다 — M6은 안 눕고 M5는 눕는다.
-    // x도 뒤집어야 하는 이유는 이 파일 아래 "타공이 종이 좌우로 갈라지는지"
-    // 시험, 그리고 mirrorLayout의 주석을 참고.
+    // 한때는 여기서 y도 함께 뒤집었다(2026-08-22). 그러면 앞면 i번 칸 뒤에
+    // 뒷면 i번이 아닌 다른 칸이 와서 내용 짝이 어긋난다 — mirrorLayout 주석 참고.
     const front = computeLayout({
       paperWidth: 210,
       paperHeight: 297,
@@ -169,11 +169,12 @@ describe('양면 배치 — 칸 뒤집기', () => {
     });
     expect(front.rotated).toBe(true);
     const back = mirrorLayout(front, 210, 297);
+    expect(back.turn180).toBe(true);
 
     front.slots.forEach((s, i) => {
       const b = back.slots[i];
       expect(b.x).toBeCloseTo(210 - s.x - s.width, 6);
-      expect(b.y).toBeCloseTo(297 - s.y - s.height, 6);
+      expect(b.y).toBe(s.y);
       expect(b.width).toBe(s.width);
       expect(b.height).toBe(s.height);
     });
@@ -226,78 +227,68 @@ describe('양면 배치 — 칸 뒤집기', () => {
     expect(layout.rotated).toBe(true);
   });
 
-  it('회전 배치에서 앞뒤 타공이 종이 좌우로 갈라진다(실제로 인쇄해 발견한 버그)', () => {
-    // 칸을 90도 눕히면 속지의 가로축(구멍이 있는 축)이 종이의 세로축이
-    // 된다(core/place의 placeSlot) — 그래서 holeCenterX의 mirror(속지의
-    // 가로축만 뒤집는다)만으로는 종이 좌우가 전혀 안 갈라진다. mirrorLayout이
-    // 칸 자체를 좌우로도 뒤집어야 한다(위 "x·y 둘 다 뒤집는다" 시험 참고).
-    //
-    // 2026-08-22 실제 인쇄를 빛에 비춰 확인한 버그 — 그때는 앞뒤 구멍이
-    // 종이 같은 쪽에 있었다.
-    const front = computeLayout({
-      paperWidth: 210,
-      paperHeight: 297,
-      insertWidth: 62,
-      insertHeight: 105,
-      gap: 0,
-      printMargin: 0,
-      allowRotate: true,
-      align: 'center',
-    });
-    const back = mirrorLayout(front, 210, 297);
+  /**
+   * 앞뒤 구멍이 종이를 사이에 두고 **같은 자리**에 오는지 본다. 이게 타공의
+   * 전부다 — 한 장에 구멍을 한 번 뚫으면 두 면이 그 구멍을 함께 쓰므로,
+   * 어긋나면 반드시 한쪽 면이 틀어진다(2026-08-23, 실제로 뚫어 확인).
+   *
+   * 긴 변으로 넘기는 프린터에서 뒷면 종이 좌표 (x, y)는 앞면의 (W−x, y)
+   * 뒤에 온다. 그래서 W − 뒷면x == 앞면x, 뒷면y == 앞면y여야 한다.
+   * 짧은 변으로 넘기면 (x, H−y)이므로 y 쪽이 뒤집힌다.
+   *
+   * i번 칸끼리 비교하는 것도 시험의 일부다 — 앞면 i번 뒤에 뒷면 i번이
+   * 와야 내용 짝이 맞는다.
+   */
+  function holeOnPaper(layout: ReturnType<typeof computeLayout>, i: number, mirror: boolean) {
     const p = punch(5, null, 4); // M5 규격 — edgeToHole 3, markSize 4 → 5mm
+    const slot = layout.slots[i];
+    const insert = insertSizeOf(slot, layout.rotated);
+    return placeSlot(slot, layout.rotated, layout.turn180).map(
+      holeCenterX(p, insert.width, mirror),
+      holeCentersY(insert.height, p)[0],
+    );
+  }
 
-    const frontSlot = front.slots[0];
-    const backSlot = back.slots[0];
-    const frontHoleX = holeCenterX(p, 62, false);
-    const backHoleX = holeCenterX(p, 62, true);
+  const duplexCases = [
+    { name: '회전 배치(M5 62×105)', insertWidth: 62, insertHeight: 105, rotated: true },
+    { name: '눕지 않는 배치(M6 80×125)', insertWidth: 80, insertHeight: 125, rotated: false },
+  ] as const;
 
-    // 구멍 하나(첫 번째)의 종이 위 실제 좌표. placeSlot이 회전 배치의
-    // 좌표 변환을 맡는다 — 화면·PDF가 함께 쓰는 바로 그 함수다.
-    const frontOnPaper = placeSlot(frontSlot, true).map(frontHoleX, holeCentersY(62, p)[0]);
-    const backOnPaper = placeSlot(backSlot, true).map(backHoleX, holeCentersY(62, p)[0]);
-
-    // 종이 좌우(x)로 확실히 갈라져야 한다 — 같은 x면 버그가 되살아난 것이다.
-    expect(Math.abs(frontOnPaper.x - backOnPaper.x)).toBeGreaterThan(1);
-  });
-
-  it('회전 배치에서도 뒷면 타공은 앞면과 슬롯 안 반대쪽(위/아래)에 있다 — EditorTab과 같은 계산이다', () => {
-    // EditorTab(속지양식 편집 화면)은 회전 배치인지 모르고 "뒷면이면 항상
-    // 뒤집는다"로 안전영역·타공을 그린다. 인쇄하기 탭·PDF가 이와 다른 값을
-    // 쓰면(예: 한때 있던 localAxisMirror처럼 회전 배치일 때 뒤집기를 꺼버리면)
-    // 같은 뒷면 카드의 타공 안내가 화면마다 다른 자리에 그려진다 — 2026-08-22,
-    // 편집 화면에서 타공 옆에 붙여 그린 상자가 인쇄하기 탭에서는 반대쪽에
-    // 떨어져 보이는 것으로 발견됐다. 그러니 여기서도 holeCenterX(p, w, true/false)를
-    // 그대로 써야 한다 — 회전 배치라고 값을 바꾸지 않는다.
+  for (const c of duplexCases) {
     const front = computeLayout({
       paperWidth: 210,
       paperHeight: 297,
-      insertWidth: 62,
-      insertHeight: 105,
+      insertWidth: c.insertWidth,
+      insertHeight: c.insertHeight,
       gap: 0,
       printMargin: 0,
       allowRotate: true,
       align: 'center',
     });
-    const back = mirrorLayout(front, 210, 297);
-    const p = punch(5, null, 4);
 
-    const frontSlot = front.slots[0];
-    const backSlot = back.slots[0];
-    const frontHoleX = holeCenterX(p, 62, false);
-    const backHoleX = holeCenterX(p, 62, true);
-    const v = holeCentersY(62, p)[0];
+    it(`${c.name} — 긴 변으로 넘기면 앞뒤 구멍이 겹친다`, () => {
+      expect(front.rotated).toBe(c.rotated);
+      const back = mirrorLayout(front, 210, 297);
 
-    const frontOnPaper = placeSlot(frontSlot, true).map(frontHoleX, v);
-    const backOnPaper = placeSlot(backSlot, true).map(backHoleX, v);
+      front.slots.forEach((_, i) => {
+        const f = holeOnPaper(front, i, false);
+        const b = holeOnPaper(back, i, true);
+        expect(210 - b.x).toBeCloseTo(f.x, 6);
+        expect(b.y).toBeCloseTo(f.y, 6);
+      });
+    });
 
-    // 슬롯 안에서 위에서부터의 상대 위치(0~1) — front·back 슬롯 높이가 같으므로
-    // 그대로 비교할 수 있다. holeCenterX의 mirror가 반대쪽 끝을 잰 값이므로,
-    // 둘을 더하면 정확히 1이어야 한다(슬롯 안에서 서로 반대쪽).
-    const frontRel = (frontOnPaper.y - frontSlot.y) / frontSlot.height;
-    const backRel = (backOnPaper.y - backSlot.y) / backSlot.height;
-    expect(frontRel + backRel).toBeCloseTo(1, 6);
-  });
+    it(`${c.name} — 짧은 변으로 넘기면 반 바퀴 돌려야 겹친다`, () => {
+      const back = turnLayout180(mirrorLayout(front, 210, 297), 210, 297);
+
+      front.slots.forEach((_, i) => {
+        const f = holeOnPaper(front, i, false);
+        const b = holeOnPaper(back, i, true);
+        expect(b.x).toBeCloseTo(f.x, 6);
+        expect(297 - b.y).toBeCloseTo(f.y, 6);
+      });
+    });
+  }
 });
 
 describe('구멍 가로 좌표 — 뒷면 뒤집기', () => {

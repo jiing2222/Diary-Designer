@@ -180,6 +180,17 @@ interface Settings {
    */
   duplex: boolean;
   /**
+   * 뒷면을 반 바퀴 돌려 찍는다. 양면 인쇄에서만 의미가 있다.
+   *
+   * 프린터가 종이를 **짧은 변으로 넘기면** 뒷면이 반 바퀴 어긋나 나온다
+   * (core/layout의 `turnLayout180` 주석). 그러면 앞뒤 구멍자리가 속지 서로
+   * 반대쪽 끝에 생겨서 한 장에 구멍을 뚫을 수가 없다. 이걸 켜서 맞춘다.
+   *
+   * 프린터마다 다르고 설정으로 바뀌기도 해서 자동으로 알아낼 방법이 없다 —
+   * 한 장 뽑아 빛에 비춰 앞뒤 구멍자리가 겹치는 쪽으로 고르면 된다.
+   */
+  backTurn180: boolean;
+  /**
    * 뒷면이 없는 칸도 완전히 비우지 않고 도트·그리드는 찍는다.
    *
    * 양면 인쇄에서만 의미가 있다. 기본은 꺼져 있어 지금까지처럼 백지로 나간다.
@@ -478,6 +489,7 @@ interface Store extends Settings {
         | 'cropMark'
         | 'showRuler'
         | 'duplex'
+        | 'backTurn180'
         | 'fillEmptyBack'
         | 'comboSheets'
         | 'cutStack'
@@ -767,6 +779,9 @@ export const useStore = create<Store>((set) => ({
   // 잴 필요는 없으니 기본은 꺼둔다. 필요하면 배치 설정에서 언제든 켤 수 있다.
   showRuler: false,
   duplex: false,
+  // 긴 변으로 넘기는 프린터가 기본값이다(대부분의 세로 양면 인쇄). 회전 배치의
+  // 뒷면이 반 바퀴 도는 것은 이걸 켜서가 아니라 mirrorLayout이 이미 한다.
+  backTurn180: false,
   fillEmptyBack: false,
   comboSheets: 1,
   cutStack: false,

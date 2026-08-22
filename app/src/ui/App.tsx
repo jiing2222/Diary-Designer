@@ -8,7 +8,7 @@ import {
   printModeOf,
   sheetsNeeded,
 } from '../core/template';
-import { mirrorLayout } from '../core/layout';
+import { mirrorLayout, turnLayout180 } from '../core/layout';
 import { datasetPages } from '../core/dataset';
 import { resolvePageObjects } from '../core/format';
 import {
@@ -635,6 +635,7 @@ export function App() {
         cropMark: s.cropMark,
         showRuler: s.showRuler,
         duplex: s.duplex,
+        backTurn180: s.backTurn180,
         defaultBack,
         backSlotOverrides: printMode === 'combo' && pdfBackOverrides.size > 0 ? pdfBackOverrides : undefined,
       });
@@ -738,6 +739,21 @@ export function App() {
                 </label>
               )}
 
+              {s.duplex && (
+                <label className="preview-toggle">
+                  <input
+                    type="checkbox"
+                    checked={s.backTurn180}
+                    onChange={(e) => s.patch({ backTurn180: e.target.checked })}
+                  />
+                  뒷면 반 바퀴 돌리기
+                  <span className="preview-toggle-hint">
+                    짧은 변으로 넘기는 프린터용. 한 장 뽑아 빛에 비춰 앞뒤
+                    구멍자리가 겹치는 쪽으로 고르세요
+                  </span>
+                </label>
+              )}
+
               {lastReverted && (
                 <button
                   className="ghost"
@@ -802,7 +818,12 @@ export function App() {
                 Array.from({ length: Math.max(1, sheets) }, (_, sheet) => {
                   const { previewOverrides: front, previewBackOverrides: back } = overridesForSheet(sheet);
                   const pageStyle = { width: width * scale, height: height * scale };
-                  const backLayout = mirrorLayout(layout, width, height);
+                  // 뒷면 배치. 짧은 변으로 넘기는 프린터면 반 바퀴 더 돌린다 —
+                  // PDF도 같은 두 줄을 쓴다(pdf/export의 backLayout).
+                  const mirrored = mirrorLayout(layout, width, height);
+                  const backLayout = s.backTurn180
+                    ? turnLayout180(mirrored, width, height)
+                    : mirrored;
 
                   // 낱장 조합·세트형에서만 칸을 손볼 수 있다 — 반복 인쇄(만년형)는
                   // 모든 칸이 완전히 같은 내용이라(같은 양식 반복) "이 칸만" 손본다는
@@ -890,6 +911,7 @@ export function App() {
                         <PrintSlotEditor
                           slot={backLayout.slots[editingSession.index]}
                           rotated={backLayout.rotated}
+                          turn180={backLayout.turn180}
                           scale={scale}
                           onFinish={finishEdit}
                           hasOverride={editingSession.hadOverride}

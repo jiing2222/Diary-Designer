@@ -110,6 +110,7 @@ const NUDGE_STEP_SHIFT: Mm = 5;
 export function PrintSlotEditor({
   slot,
   rotated,
+  turn180 = false,
   scale,
   onFinish,
   hasOverride,
@@ -119,6 +120,12 @@ export function PrintSlotEditor({
   /** 이 칸의 용지 위 자리(mm). App.tsx가 layout.slots에서 그대로 넘긴다. */
   slot: Slot;
   rotated: boolean;
+  /**
+   * 반 바퀴 돌린 면(뒷면)의 칸이면 켠다. 미리보기가 그 칸을 돌려 그리므로
+   * 편집판도 같이 돌아야 한다 — 안 그러면 손보기를 시작하는 순간 내용이
+   * 제자리에서 반 바퀴 튄다.
+   */
+  turn180?: boolean;
   /** 인쇄하기 탭의 지금 확대 배율(px/mm). */
   scale: number;
   /** "완료" — 진행 중인 글자 입력을 먼저 확정한 뒤 부른다. */
@@ -665,7 +672,7 @@ export function PrintSlotEditor({
 
   // 이 칸의 용지 위 자리 — 회전은 여기서(바깥 wrapper의 CSS matrix) 한 번만
   // 반영하고, svg 안쪽(canvasContent)은 항상 회전 없는 속지 좌표를 쓴다.
-  const [a, b, c, d, e, f] = placeSlot(slot, rotated)
+  const [a, b, c, d, e, f] = placeSlot(slot, rotated, turn180)
     .svg.slice('matrix('.length, -1)
     .split(' ')
     .map(Number);

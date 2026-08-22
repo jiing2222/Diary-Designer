@@ -29,7 +29,7 @@ import {
   splitLines,
   valignOf,
 } from '../core/text';
-import { mirrorLayout, type Layout } from '../core/layout';
+import { mirrorLayout, turnLayout180, type Layout } from '../core/layout';
 import { cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import {
@@ -165,6 +165,11 @@ interface ExportInput {
    * `frontBackFilled`).
    */
   duplex?: boolean;
+  /**
+   * 뒷면을 반 바퀴 돌려 넣는다. 짧은 변으로 넘기는 프린터에서 앞뒤 타공을
+   * 겹치게 하는 설정이다 — core/layout의 `turnLayout180` 주석 참고.
+   */
+  backTurn180?: boolean;
   /**
    * 뒷면의 기본 내용 — 지금 양식의 뒷면. 양식에 뒷면이 없으면 `undefined`고,
    * 그 칸은 완전히 빈 채로 찍힌다.
@@ -341,7 +346,16 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   // 칸 위치를 뒤집은 배치(회전 배치가 아니면 좌우만, 회전 배치면 좌우·상하
   // 둘 다 — core/layout의 mirrorLayout 주석 참고). 재단선도 여기서 다시
   // 계산해야 앞뒤가 같은 자리에서 잘린다.
-  const backLayout = duplex ? mirrorLayout(input.layout, input.paperWidth, input.paperHeight) : null;
+  //
+  // 짧은 변으로 넘기는 프린터면 거기서 반 바퀴 더 돌린다(turnLayout180). 칸
+  // 안의 내용까지 함께 도는 일은 배치에 실린 turn180을 보고 placeSlot이 한다 —
+  // 그래서 그리는 쪽(drawSide 아래의 draw*)은 아무것도 달라지지 않는다.
+  const backLayout = duplex
+    ? (() => {
+        const m = mirrorLayout(input.layout, input.paperWidth, input.paperHeight);
+        return input.backTurn180 ? turnLayout180(m, input.paperWidth, input.paperHeight) : m;
+      })()
+    : null;
 
   /**
    * 한 면(앞 또는 뒤)을 그린다. 페이지·배치·칸 내용 판단 함수만 갈아끼운다.
@@ -472,7 +486,7 @@ function drawDotGrid(
     if (!grid.print) return;
 
     const insert = insertSizeOf(slot, layout.rotated);
-    const place = placeSlot(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated, layout.turn180);
 
     const area = gridArea(insert, grid, safeZoneWidth, mirror);
     const lattice = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
@@ -555,7 +569,7 @@ function drawTexts(
     if (texts.length === 0) return;
 
     const insert = insertSizeOf(slot, layout.rotated);
-    const place = placeSlot(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated, layout.turn180);
 
     const corners = [
       place.map(0, 0),
@@ -641,7 +655,7 @@ function drawCalendars(
     if (datasetPage === null) return;
 
     const insert = insertSizeOf(slot, layout.rotated);
-    const place = placeSlot(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated, layout.turn180);
 
     const corners = [
       place.map(0, 0),
@@ -735,7 +749,7 @@ function drawObjects(
     const objects = resolveSlot(i).objects.filter(isLine);
     if (objects.length === 0) return;
 
-    const place = placeSlot(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated, layout.turn180);
     for (const o of objects) {
       const a = place.map(o.x1, o.y1);
       const b = place.map(o.x2, o.y2);
@@ -779,7 +793,7 @@ function drawImages(
     if (objects.length === 0) return;
 
     const insert = insertSizeOf(slot, layout.rotated);
-    const place = placeSlot(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated, layout.turn180);
 
     const corners = [
       place.map(0, 0),
@@ -847,7 +861,7 @@ function drawShapes(
     if (objects.length === 0) return;
 
     const insert = insertSizeOf(slot, layout.rotated);
-    const place = placeSlot(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated, layout.turn180);
 
     const corners = [
       place.map(0, 0),
@@ -914,7 +928,7 @@ function drawCheckboxes(
     if (objects.length === 0) return;
 
     const insert = insertSizeOf(slot, layout.rotated);
-    const place = placeSlot(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated, layout.turn180);
 
     const corners = [
       place.map(0, 0),
