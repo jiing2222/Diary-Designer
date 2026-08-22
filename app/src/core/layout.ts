@@ -129,3 +129,25 @@ export function mirrorLayout(layout: Layout, paperWidth: Mm, paperHeight: Mm): L
       }
     : { ...layout, slots: layout.slots.map((s) => ({ ...s, x: paperWidth - s.x - s.width })) };
 }
+
+/**
+ * 속지 자신의 가로축(구멍이 있는 축)을 뒤집어야 하는가 — `core/grid`의
+ * `gridArea`, `core/punch`의 `holeCenterX`에 넘길 `mirror` 값.
+ *
+ * **회전 배치면 언제나 `false`다.** 뒷면(`wantMirror`)이라도 마찬가지다.
+ *
+ * 이 속지의 가로축은 회전 배치가 아니면 종이의 가로축과 겹치지만, 회전
+ * 배치면 종이의 **세로축**과 겹친다(core/place의 placeSlot). `gridArea`·
+ * `holeCenterX`의 `mirror`는 언제나 **속지 자신의 가로축**만 뒤집으므로,
+ * 회전 배치에서 그대로 걸면 종이 좌우가 아니라 종이 **위아래**로 앞뒤가
+ * 갈라진다 — 앞뒤가 종이 좌우로 갈라지는 것은 이미 `mirrorLayout`이 칸
+ * 자체를 옮기는 몫이라, 여기서 또 걸면 원치 않는 효과가 겹친다.
+ *
+ * 이 판단을 부르는 자리마다(`pdf/export.ts`·`ui/PaperPreview.tsx`·
+ * `ui/PrintSlotEditor.tsx`) 각자 `mirror && !rotated`를 적지 않고 한
+ * 곳에 모은 이유는, 새 자리가 하나 더 생겼을 때 이 조건을 빠뜨리면
+ * 2026-08-22에 실제 인쇄로 찾은 바로 그 버그가 되살아나기 때문이다.
+ */
+export function localAxisMirror(wantMirror: boolean, rotated: boolean): boolean {
+  return wantMirror && !rotated;
+}

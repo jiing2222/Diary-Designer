@@ -5,7 +5,7 @@ import { CROP_COLOR, CROP_WIDTH, RULER_COLOR, RULER_WIDTH } from '../core/style'
 import { InsertView, type ViewMode } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import type { DiaryObject } from '../core/objects';
-import type { Layout } from '../core/layout';
+import { localAxisMirror, type Layout } from '../core/layout';
 import type { InsertSetting, PaperState, UnprintableSetting } from '../store';
 import type { Mm } from '../core/units';
 
@@ -91,6 +91,8 @@ export function PaperPreview({
 
   // 회전 배치면 속지 안의 타공도 함께 돌아야 한다.
   const rotated = layout.rotated;
+  // 회전 배치면 mirror를 걸지 않는다 — core/layout의 localAxisMirror 주석 참고.
+  const effectiveMirror = localAxisMirror(mirror, rotated);
 
   return (
     <svg className="preview" viewBox={`0 0 ${pw} ${ph}`} role="img" aria-label="용지 배치 미리보기">
@@ -146,7 +148,7 @@ export function PaperPreview({
                 objects={content.objects}
                 safeZoneWidth={punch.safeZoneWidth}
                 mode={mode}
-                mirror={mirror}
+                mirror={effectiveMirror}
                 calendarContext={
                   content.calendarPage !== undefined && calendarYear !== undefined
                     ? { year: calendarYear, page: content.calendarPage }
@@ -159,7 +161,7 @@ export function PaperPreview({
                   width={content.insert.width}
                   height={content.insert.height}
                   punch={punch}
-                  mirror={mirror}
+                  mirror={effectiveMirror}
                 />
               )}
             </g>
