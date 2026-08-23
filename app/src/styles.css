@@ -807,62 +807,64 @@ main {
   min-height: 0;
 }
 
-/* ─────────────────────────── 도구 막대 ─────────────────────────── */
+/* ─────────────────────────── 왼쪽 아코디언 ─────────────────────────── */
 
-.rail-wrap {
-  position: relative;
+.accordion-rail {
   flex-shrink: 0;
-  z-index: 20;
-}
-
-.rail {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 52px;
+  width: 220px;
   height: 100%;
-  padding: 8px 0;
+  overflow-y: auto;
   background: var(--panel);
   border-right: 1px solid var(--line);
 }
 
-.rail-btn {
+.accordion-item {
+  border-bottom: 1px solid var(--line);
+}
+
+.accordion-head {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  margin: 0 auto;
-  padding: 0;
-  border-radius: 8px;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 0;
   background: transparent;
-  color: var(--muted);
-}
-
-.rail-btn:hover {
-  background: #f0f1ee;
   color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.rail-btn.on {
-  background: var(--accent);
-  color: #fff;
+.accordion-head:hover {
+  background: #f0f1ee;
+}
+
+.accordion-head.on {
+  background: #eceee9;
+}
+
+.accordion-label {
+  flex: 1;
+  text-align: left;
+}
+
+.accordion-chevron {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.accordion-body {
+  padding: 4px 14px 14px;
 }
 
 /* 그 안내가 지금 화면에 보이는 중이라는 표시 */
 .rail-mark {
-  position: absolute;
-  top: 5px;
-  right: 5px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: var(--accent);
-}
-
-.rail-btn.on .rail-mark {
-  background: #fff;
+  flex-shrink: 0;
 }
 
 /* ─────────────────────────── 말풍선 ─────────────────────────── */
@@ -879,18 +881,6 @@ main {
   border-radius: 9px;
   background: var(--panel);
   box-shadow: 0 6px 26px rgb(0 0 0 / 0.13);
-}
-
-.popover-arrow {
-  position: absolute;
-  top: 13px;
-  left: -5px;
-  width: 9px;
-  height: 9px;
-  transform: rotate(45deg);
-  border-left: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
 }
 
 .popover h2 {
@@ -1213,6 +1203,41 @@ select,
   min-width: 0;
   overflow: auto;
   padding: 20px;
+}
+
+/* stage-area + 우측 패널을 가로로 붙인다 */
+.print-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/*
+ * 반복 · 배치·절취선 — 임시 자리. 인쇄 단계에서만 뜻이 있는 설정이라
+ * 우측에 뒀다. 어디에 어떤 모양으로 자리 잡을지는 아직 정해지지 않았다.
+ */
+.print-side-panel {
+  flex-shrink: 0;
+  width: 260px;
+  overflow-y: auto;
+  padding: 14px;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+}
+
+.print-side-panel section + section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.print-side-panel h2 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: uppercase;
 }
 
 /* 장 하나 — 양면이면 앞뒤 두 장을 나란히 담는다(뒷면을 왼쪽에 토글로 순서를 바꾼다). */

@@ -21,7 +21,7 @@ import {
   paddedPageCount,
 } from '../core/notebook';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
-import { SettingsPanel, InsertGroup } from './SettingsPanel';
+import { SettingsPanel, InsertGroup, RepeatGroup, LayoutGroup } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
 import { PrintSlotEditor } from './PrintSlotEditor';
 import { EditorTab, ZoomStepper } from './EditorTab';
@@ -138,6 +138,29 @@ function TemplateInfo({ template }: { template: Template }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 인쇄하기 우측 패널 — 반복 · 배치 · 절취선.
+ *
+ * "몇 장을 어떻게 뽑는가"는 속지 제작 화면(왼쪽 아코디언)에서 뺐다 —
+ * 인쇄 단계에서만 뜻이 있는 질문이라 여기로 옮겼다. **임시 자리다** —
+ * 어디에 어떤 모양으로 둘지는 아직 정해지지 않았고, 지금은 기능이
+ * 잘리지 않는 것만 우선한다.
+ */
+function PrintSidePanel() {
+  return (
+    <div className="print-side-panel">
+      <section>
+        <h2>반복</h2>
+        <RepeatGroup />
+      </section>
+      <section>
+        <h2>배치 · 절취선</h2>
+        <LayoutGroup />
+      </section>
     </div>
   );
 }
@@ -865,6 +888,7 @@ export function App() {
 
             <div className="editor-bar-slot" ref={setEditBarSlot} />
 
+            <div className="print-body">
             <div className="stage-area" ref={stageRef} onDoubleClick={onStageDoubleClick}>
               {layout.count === 0 ? (
                 <div className="empty">속지가 용지보다 큽니다. 용지를 키우거나 속지를 줄이세요.</div>
@@ -985,6 +1009,8 @@ export function App() {
                   );
                 })
               )}
+            </div>
+            <PrintSidePanel />
             </div>
           </div>
         )}

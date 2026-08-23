@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   INSERT_PRESETS,
   PAPER_PRESETS,
@@ -15,91 +15,61 @@ import { capacityPerSheet, sheetsNeeded } from '../core/template';
 import { datasetPages, type CalendarDataset, type DateDataset } from '../core/dataset';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
-import { GridIcon, LayoutIcon, PaperIcon, PunchIcon, RepeatIcon } from './icons';
+import { GridIcon, PaperIcon, PunchIcon } from './icons';
 
 /**
- * 설정 도구.
+ * 설정 아코디언 — 용지 · 도트 격자 · 타공 안내.
  *
- * 항목이 계속 늘어나므로 한 줄로 다 펼쳐두지 않는다. 왼쪽에 아이콘만 세우고,
- * 누른 것의 설정만 옆에 말풍선으로 띄운다.
+ * 이 셋은 "이 칸이 어떻게 생겼는가"를 정하는, 속지 제작·인쇄하기가
+ * 함께 보는 설정이다. 반복·배치·절취선은 "몇 장을 어떻게 뽑는가"라는
+ * 다른 질문이라 여기 없다 — 인쇄하기 화면에서 `RepeatGroup`·`LayoutGroup`을
+ * 따로 가져다 쓴다(App.tsx의 인쇄 우측 패널).
  *
- * 아이콘 오른쪽 위의 점은 **그 안내가 지금 화면에 보이는 중**이라는 표시다.
- * 켜고 끄는 것은 말풍선 안에서 한다.
+ * 누른 것만 아래로 펼쳐진다(한 번에 하나). 점은 **그 안내가 지금 화면에
+ * 보이는 중**이라는 표시다 — 켜고 끄는 것은 펼친 안 내용에서 한다.
  */
 
-type GroupId = 'paper' | 'repeat' | 'grid' | 'punch' | 'layout';
+type GroupId = 'paper' | 'grid' | 'punch';
 
 export function SettingsPanel() {
   const s = useStore();
   const insert = useInsert();
   const grid = useDotGrid();
-  const repeat = useRepeat();
   const [open, setOpen] = useState<GroupId | null>(null);
-  const [top, setTop] = useState(0);
-  const railRef = useRef<HTMLDivElement>(null);
-
-  // 바깥을 누르거나 Esc를 누르면 닫는다.
-  useEffect(() => {
-    if (!open) return;
-
-    function onDown(e: PointerEvent) {
-      if (!railRef.current?.contains(e.target as Node)) setOpen(null);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(null);
-    }
-    document.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
 
   const groups = [
     { id: 'paper', label: '용지', icon: <PaperIcon />, on: s.unprintable.show },
-    { id: 'repeat', label: '반복', icon: <RepeatIcon />, on: repeat.mode !== 'single' },
     { id: 'grid', label: '도트 격자', icon: <GridIcon />, on: grid.showOnScreen },
     { id: 'punch', label: '타공 안내', icon: <PunchIcon />, on: insert.punch.show },
-    { id: 'layout', label: '배치 · 절취선', icon: <LayoutIcon />, on: s.showRuler },
   ] as const;
 
-  function toggle(id: GroupId, e: React.MouseEvent<HTMLButtonElement>) {
-    setTop(e.currentTarget.offsetTop);
+  function toggle(id: GroupId) {
     setOpen((cur) => (cur === id ? null : id));
   }
 
   return (
-    <div className="rail-wrap" ref={railRef}>
-      <div className="rail">
-        {groups.map((g) => (
+    <div className="accordion-rail">
+      {groups.map((g) => (
+        <div className="accordion-item" key={g.id}>
           <button
-            key={g.id}
-            className={`rail-btn ${open === g.id ? 'on' : ''}`}
-            onClick={(e) => toggle(g.id, e)}
-            title={g.label}
-            aria-label={g.label}
-            aria-pressed={open === g.id}
+            className={`accordion-head ${open === g.id ? 'on' : ''}`}
+            onClick={() => toggle(g.id)}
+            aria-expanded={open === g.id}
           >
             {g.icon}
+            <span className="accordion-label">{g.label}</span>
             {g.on && <span className="rail-mark" />}
+            <span className="accordion-chevron">{open === g.id ? '▾' : '▸'}</span>
           </button>
-        ))}
-      </div>
-
-      {open && (
-        <div className="popover" style={{ top }}>
-          <div className="popover-arrow" />
-          <h2>{groups.find((g) => g.id === open)!.label}</h2>
-          <div className="popover-body">
-            {open === 'paper' && <PaperGroup />}
-            {open === 'repeat' && <RepeatGroup />}
-            {open === 'grid' && <GridGroup />}
-            {open === 'punch' && <PunchGroup />}
-            {open === 'layout' && <LayoutGroup />}
-          </div>
+          {open === g.id && (
+            <div className="accordion-body">
+              {g.id === 'paper' && <PaperGroup />}
+              {g.id === 'grid' && <GridGroup />}
+              {g.id === 'punch' && <PunchGroup />}
+            </div>
+          )}
         </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -201,7 +171,8 @@ function defaultCalendarDataset(): CalendarDataset {
   return { kind: 'calendar', year };
 }
 
-function RepeatGroup() {
+/** 인쇄하기 화면(App.tsx)의 우측 패널이 그대로 가져다 쓴다 — "몇 장 뽑을지"는 거기 있다. */
+export function RepeatGroup() {
   const s = useStore();
   const repeat = useRepeat();
   const layout = selectLayout(s);
@@ -574,7 +545,8 @@ function PunchGroup() {
   );
 }
 
-function LayoutGroup() {
+/** 인쇄하기 화면(App.tsx)의 우측 패널이 그대로 가져다 쓴다 — "어떻게 배치할지"는 거기 있다. */
+export function LayoutGroup() {
   const s = useStore();
   return (
     <>
