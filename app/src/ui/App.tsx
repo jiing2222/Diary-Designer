@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   activeTemplate,
   paperSize,
+  projectOf,
   resolveSlotTemplates,
   selectLayout,
   useObjects,
@@ -9,6 +10,7 @@ import {
   type Side,
 } from '../store';
 import { canRedo, canUndo } from '../core/history';
+import { loadSnapshot, saveNow, scheduleSave } from '../storage/autosave';
 import {
   capacityPerSheet,
   cutStackPage,
@@ -209,6 +211,75 @@ export function App() {
     restoreCachedFonts().then((fonts) => fonts.forEach((f) => useStore.getState().addUserFont(f)));
     restoreCachedImages().then((images) => images.forEach((i) => useStore.getState().addUserImage(i)));
   }, []);
+
+  /**
+   * 자동 저장 — 되살리기.
+   *
+   * 새로고침하거나 실수로 탭을 닫아도 하던 자리로 돌아온다. 이 프로그램은
+   * 서버가 없어서 이게 없으면 작업이 통째로 사라진다(storage/autosave).
+   *
+   * **되살리기가 끝나기 전에는 저장하지 않는다.** 켜자마자 store는 빈
+   * 상태인데, 그걸 먼저 써버리면 되살릴 것을 스스로 지운다. 그래서 아래
+   * 저장 쪽 effect가 이 상태(`restored`)를 기다린다.
+   *
+   * 이미 양식이 있으면 건드리지 않는다 — 되살리기가 늦게 끝나는 사이
+   * 사용자가 벌써 새 양식을 만들었을 수 있고, 그 경우 방금 만든 것을
+   * 덮어쓰는 쪽이 훨씬 나쁘다.
+   */
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    loadSnapshot()
+      .then((snapshot) => {
+        if (!alive) return;
+        if (snapshot && snapshot.templates.length > 0 && useStore.getState().templates.length === 0) {
+          useStore.getState().loadProject(snapshot);
+        }
+      })
+      .finally(() => {
+        if (alive) setRestored(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /**
+   * 자동 저장 — 쓰기.
+   *
+   * store가 바뀔 때마다 시계를 다시 맞추고, 손을 멈추면 그때 한 번 쓴다.
+   * 탭을 숨기거나 닫을 때는 미루지 않고 바로 쓴다 — 그 순간이 사용자가
+   * 작업을 잃는 가장 흔한 자리다.
+   *
+   * `pagehide`를 쓰는 이유는 `beforeunload`가 모바일 사파리에서 안 불리기
+   * 때문이고, `visibilitychange`를 함께 보는 이유는 탭을 옮기거나 앱을
+   * 내려두는 것만으로도(그 뒤 브라우저가 탭을 접을 수 있다) 저장할 값어치가
+   * 있어서다.
+   */
+  useEffect(() => {
+    if (!restored) return;
+
+    const build = () => {
+      const state = useStore.getState();
+      return state.templates.length > 0 ? projectOf(state, state.templates) : null;
+    };
+    const flush = () => saveNow(build);
+    const onVisibility = () => {
+      if (document.hidden) flush();
+    };
+
+    const unsubscribe = useStore.subscribe(() => scheduleSave(build));
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+      // 화면을 떠나기 전에 마지막 모습을 남긴다.
+      flush();
+    };
+  }, [restored]);
 
   // 처음 열면 양식이 하나도 없다. 갤러리에서 시작해 첫 양식을 만들게 한다.
   const [tab, setTab] = useState<Tab>('gallery');
