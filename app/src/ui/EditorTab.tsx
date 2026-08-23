@@ -89,6 +89,16 @@ const NUDGE_STEP: Mm = 0.5;
 const NUDGE_STEP_SHIFT: Mm = 5;
 
 /**
+ * 이미지 손잡이가 도트로 붙는 문턱값.
+ *
+ * core/snap.ts의 나머지 스냅(이동 등)은 문턱값이 없다 — 늘 가장 가까운
+ * 점으로 간다. 이미지 크기조정만 예외다(사용자 요청) — 도트에 이 거리
+ * 안쪽이면 붙고, 벗어나면 도트와 무관하게 자유롭다. NotebookHalfEditor·
+ * PrintSlotEditor도 같은 몸짓 코드를 저마다 가지고 있어 이 값을 가져다 쓴다.
+ */
+export const IMAGE_RESIZE_SNAP_DIST: Mm = 2;
+
+/**
  * 양식 만들기 화면.
  *
  * 속지 한 장을 크게 띄우고 그 위에 그린다. 용지도 배치도 여기서는 모른다 —
@@ -605,13 +615,25 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
     const raw = rawMm(e);
     if (!d || !raw) return;
 
-    if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox' || d.kind === 'boxHandle') {
+    if (d.kind === 'boxHandle') {
+      const target = objects.find((o) => o.id === d.id);
+      // 이미지만 예외 — 도트 근처면 붙고, 멀면 자유롭게 크기가 바뀐다.
+      if (target && isImage(target)) {
+        const snap = snapped(e);
+        const near = snap && Math.hypot(raw.x - snap.x, raw.y - snap.y) <= IMAGE_RESIZE_SNAP_DIST;
+        const chosen = near ? snap! : raw;
+        // 모서리를 끄는 대상이 돌아가 있으면 회전 전 자리로 되돌려서 저장한다.
+        setDragBoth({ ...d, to: toLocal(target, chosen) });
+        return;
+      }
       const snap = snapped(e);
       if (!snap) return;
-      // 모서리를 끄는 대상이 돌아가 있으면(이미지) 회전 전 자리로 되돌려서 저장한다.
-      const target = d.kind === 'boxHandle' ? objects.find((o) => o.id === d.id) : null;
       const to = target ? toLocal(target, snap) : snap;
       setDragBoth({ ...d, to });
+    } else if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox') {
+      const snap = snapped(e);
+      if (!snap) return;
+      setDragBoth({ ...d, to: snap });
     } else if (d.kind === 'marquee') {
       setDragBoth({ ...d, to: raw });
     } else {

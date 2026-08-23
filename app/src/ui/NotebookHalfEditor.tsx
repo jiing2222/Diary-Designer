@@ -30,7 +30,7 @@ import { defaultInsert } from '../core/template';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
 import { InsertView } from './InsertView';
 import { StyleBar } from './StyleBar';
-import { TextInput } from './EditorTab';
+import { IMAGE_RESIZE_SNAP_DIST, TextInput } from './EditorTab';
 import {
   anyLineHandleAt,
   boxHandleAt,
@@ -404,12 +404,24 @@ export function NotebookHalfEditor({
     const raw = rawMm(e);
     if (!d || !raw) return;
 
-    if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox' || d.kind === 'boxHandle') {
+    if (d.kind === 'boxHandle') {
+      const target = objects.find((o) => o.id === d.id);
+      // 이미지만 예외 — 도트 근처면 붙고, 멀면 자유롭게 크기가 바뀐다(EditorTab.tsx와 같은 규칙).
+      if (target && isImage(target)) {
+        const snap = snapped(e);
+        const near = snap && Math.hypot(raw.x - snap.x, raw.y - snap.y) <= IMAGE_RESIZE_SNAP_DIST;
+        const chosen = near ? snap! : raw;
+        setDragBoth({ ...d, to: toLocal(target, chosen) });
+        return;
+      }
       const snap = snapped(e);
       if (!snap) return;
-      const target = d.kind === 'boxHandle' ? objects.find((o) => o.id === d.id) : null;
       const to = target ? toLocal(target, snap) : snap;
       setDragBoth({ ...d, to });
+    } else if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox') {
+      const snap = snapped(e);
+      if (!snap) return;
+      setDragBoth({ ...d, to: snap });
     } else if (d.kind === 'marquee') {
       setDragBoth({ ...d, to: raw });
     } else {
