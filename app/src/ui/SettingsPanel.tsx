@@ -10,7 +10,14 @@ import {
   useStore,
 } from '../store';
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
-import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
+import {
+  DEFAULT_DOT_GRID,
+  gridArea,
+  gridLattice,
+  spacingForCells,
+  type DotGrid,
+  type GridStyle,
+} from '../core/grid';
 import { capacityPerSheet, sheetsNeeded } from '../core/template';
 import { datasetPages, type CalendarDataset, type DateDataset } from '../core/dataset';
 import type { Dash } from '../core/objects';
@@ -432,69 +439,6 @@ function GridGroup() {
         <Num value={grid.spacing} min={0.5} onChange={(spacing) => s.patchDotGrid({ spacing })} />
       </Row>
       <CellCountRow />
-      {grid.style !== 'dot' && (
-        <Row label="선 모양">
-          <select
-            value={grid.dash}
-            onChange={(e) => s.patchDotGrid({ dash: e.target.value as Dash })}
-          >
-            <option value="solid">실선</option>
-            <option value="dashed">파선</option>
-            <option value="dotted">점선</option>
-          </select>
-        </Row>
-      )}
-      <Row label="채우기" hint="모서리에서 시작해 끝까지 나아간다. 마지막 칸은 잘린다">
-        <Check
-          checked={grid.toEdge}
-          onChange={(toEdge) => s.patchDotGrid({ toEdge })}
-          label="여백 없이 끝까지"
-        />
-      </Row>
-      {!grid.toEdge && (
-        <Row
-          label="최소 여백"
-          hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다"
-        >
-          <Num
-            value={grid.minMargin}
-            min={0}
-            max={20}
-            onChange={(minMargin) => s.patchDotGrid({ minMargin })}
-          />
-        </Row>
-      )}
-      <Row label="타공" hint="구멍 쪽 안전영역을 비우고 그 안에서 다시 가운데 맞춘다">
-        <Check
-          checked={grid.avoidSafeZone}
-          onChange={(avoidSafeZone) => s.patchDotGrid({ avoidSafeZone })}
-          label="안전영역 비우기"
-        />
-      </Row>
-      <Row
-        label="가로 등분 안내"
-        hint="속지를 가로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
-      >
-        <Num
-          value={grid.divisionsX}
-          step={1}
-          min={0}
-          unit="등분"
-          onChange={(n) => s.patchDotGrid({ divisionsX: Math.max(0, Math.round(n)) })}
-        />
-      </Row>
-      <Row
-        label="세로 등분 안내"
-        hint="속지를 세로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
-      >
-        <Num
-          value={grid.divisionsY}
-          step={1}
-          min={0}
-          unit="등분"
-          onChange={(n) => s.patchDotGrid({ divisionsY: Math.max(0, Math.round(n)) })}
-        />
-      </Row>
       <Row label="화면">
         <Check
           checked={grid.showOnScreen}
@@ -509,16 +453,109 @@ function GridGroup() {
           label="인쇄물에 남기기"
         />
       </Row>
-      <Row label="뒷면 없으면" hint="양면 인쇄에서만 의미가 있습니다. 뒷면을 안 만든 칸도 백지 대신 앞면과 같은 도트·그리드로 찍습니다">
-        <Check
-          checked={s.fillEmptyBack}
-          onChange={(fillEmptyBack) => s.patch({ fillEmptyBack })}
-          label="도트만 찍기"
-        />
-      </Row>
+
       <GridReadout />
+
+      {/*
+        여기부터는 한 번 정하고 잘 건드리지 않는 것들이다. 위의 다섯 개로
+        대부분의 속지가 나온다 — 무엇부터 봐야 할지 알 수 있게 순서를 매긴다.
+        접힌 안에 기본값 아닌 것이 있으면 Advanced가 개수를 띄운다.
+      */}
+      <Advanced id="grid" changed={changedGridCount(grid, s.fillEmptyBack)}>
+        {grid.style !== 'dot' && (
+          <Row label="선 모양">
+            <select
+              value={grid.dash}
+              onChange={(e) => s.patchDotGrid({ dash: e.target.value as Dash })}
+            >
+              <option value="solid">실선</option>
+              <option value="dashed">파선</option>
+              <option value="dotted">점선</option>
+            </select>
+          </Row>
+        )}
+        <Row label="채우기" hint="모서리에서 시작해 끝까지 나아간다. 마지막 칸은 잘린다">
+          <Check
+            checked={grid.toEdge}
+            onChange={(toEdge) => s.patchDotGrid({ toEdge })}
+            label="여백 없이 끝까지"
+          />
+        </Row>
+        {!grid.toEdge && (
+          <Row
+            label="최소 여백"
+            hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다"
+          >
+            <Num
+              value={grid.minMargin}
+              min={0}
+              max={20}
+              onChange={(minMargin) => s.patchDotGrid({ minMargin })}
+            />
+          </Row>
+        )}
+        <Row label="타공" hint="구멍 쪽 안전영역을 비우고 그 안에서 다시 가운데 맞춘다">
+          <Check
+            checked={grid.avoidSafeZone}
+            onChange={(avoidSafeZone) => s.patchDotGrid({ avoidSafeZone })}
+            label="안전영역 비우기"
+          />
+        </Row>
+        <Row
+          label="가로 등분 안내"
+          hint="속지를 가로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
+        >
+          <Num
+            value={grid.divisionsX}
+            step={1}
+            min={0}
+            unit="등분"
+            onChange={(n) => s.patchDotGrid({ divisionsX: Math.max(0, Math.round(n)) })}
+          />
+        </Row>
+        <Row
+          label="세로 등분 안내"
+          hint="속지를 세로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
+        >
+          <Num
+            value={grid.divisionsY}
+            step={1}
+            min={0}
+            unit="등분"
+            onChange={(n) => s.patchDotGrid({ divisionsY: Math.max(0, Math.round(n)) })}
+          />
+        </Row>
+        <Row label="뒷면 없으면" hint="양면 인쇄에서만 의미가 있습니다. 뒷면을 안 만든 칸도 백지 대신 앞면과 같은 도트·그리드로 찍습니다">
+          <Check
+            checked={s.fillEmptyBack}
+            onChange={(fillEmptyBack) => s.patch({ fillEmptyBack })}
+            label="도트만 찍기"
+          />
+        </Row>
+      </Advanced>
     </>
   );
+}
+
+/**
+ * 도트 격자의 "고급" 중 기본값에서 벗어난 개수.
+ *
+ * 접어둔 설정이 조용히 결과를 바꾸는 일이 없게 하려고 센다(Advanced 주석).
+ * **여기서 세는 항목은 접어둔 것과 정확히 같아야 한다** — 위 GridGroup에서
+ * 고급으로 옮기거나 빼면 여기도 함께 고친다.
+ */
+function changedGridCount(grid: DotGrid, fillEmptyBack: boolean): number {
+  const d = DEFAULT_DOT_GRID;
+  return [
+    grid.style !== 'dot' && grid.dash !== d.dash,
+    grid.toEdge !== d.toEdge,
+    // 여백은 채우기를 켜면 쓰이지 않는다 — 그때는 달라도 결과에 영향이 없다.
+    !grid.toEdge && grid.minMargin !== d.minMargin,
+    grid.avoidSafeZone !== d.avoidSafeZone,
+    grid.divisionsX !== d.divisionsX,
+    grid.divisionsY !== d.divisionsY,
+    fillEmptyBack,
+  ].filter(Boolean).length;
 }
 
 function PunchGroup() {
@@ -763,6 +800,66 @@ function PunchReadout() {
 }
 
 /* ─────────────────────────── 작은 조각들 ─────────────────────────── */
+
+/**
+ * 어느 묶음의 "고급"이 펼쳐져 있는지. 팝오버는 닫으면 사라지므로(unmount)
+ * 컴포넌트 안에 두면 다시 열 때마다 접힌 채로 돌아온다. 한 번 펼친 사람은
+ * 대개 계속 쓰고 싶어 하므로 이번 세션 동안은 기억한다.
+ *
+ * store에 넣지 않는 이유는 인쇄물에도 저장 파일에도 영향이 없는, 순전히
+ * "지금 이 화면을 어떻게 보고 있는지"에 대한 값이기 때문이다.
+ */
+const openAdvanced = new Set<string>();
+
+/**
+ * 자주 쓰지 않는 설정을 접어둔다.
+ *
+ * **기능을 없애는 것이 아니라 순서를 매기는 것이다.** 설정이 늘어날수록 자주
+ * 쓰는 것과 한 번 정하고 마는 것이 같은 무게로 나란히 놓여서, 처음 온 사람은
+ * 무엇부터 봐야 할지 알 수 없게 된다. 위에 몇 개만 남기고 나머지를 여기 넣는다.
+ *
+ * **`changed`가 이 방식을 안전하게 만든다.** 접어둔 안에 기본값이 아닌 것이
+ * 있으면 그 개수를 제목에 띄운다 — 안 보이는 설정이 조용히 결과를 바꾸는 일이
+ * 없어야 한다. 이게 없으면 "왜 이렇게 나오지"의 답이 접힌 곳에 숨는다.
+ */
+function Advanced({
+  id,
+  changed,
+  children,
+}: {
+  id: string;
+  /** 접어둔 것 중 기본값에서 벗어난 개수. 0이면 표시하지 않는다. */
+  changed: number;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(() => openAdvanced.has(id));
+
+  function toggle(next: boolean) {
+    setOpen(next);
+    if (next) openAdvanced.add(id);
+    else openAdvanced.delete(id);
+  }
+
+  return (
+    <div className="advanced">
+      <button
+        type="button"
+        className="advanced-head"
+        onClick={() => toggle(!open)}
+        aria-expanded={open}
+      >
+        <span className={`advanced-caret ${open ? 'on' : ''}`} aria-hidden="true" />
+        고급
+        {changed > 0 && (
+          <span className="advanced-count" title="기본값에서 바꾼 설정이 있습니다">
+            {changed}
+          </span>
+        )}
+      </button>
+      {open && <div className="advanced-body">{children}</div>}
+    </div>
+  );
+}
 
 function Divider() {
   return <div className="divider" />;

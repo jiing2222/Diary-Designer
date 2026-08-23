@@ -822,6 +822,76 @@ main {
   background: var(--line);
 }
 
+/*
+  고급 설정 접기. 자주 쓰지 않는 것을 접어 무엇부터 볼지 알 수 있게 한다
+  (ui/SettingsPanel의 Advanced 참고). 위 내용과 확실히 갈라 보이도록
+  선 하나를 두고, 제목 자체가 버튼이다.
+*/
+.advanced {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.advanced-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 0 6px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.advanced-head:hover {
+  color: var(--ink);
+}
+
+.advanced-head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 접힘 ▶ / 펼침 ▼ — 글자 대신 삼각형이라 어느 언어에서도 같게 읽힌다. */
+.advanced-caret {
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid currentColor;
+  transition: transform 0.12s ease;
+}
+
+.advanced-caret.on {
+  transform: rotate(90deg);
+}
+
+/* 접어둔 안에 기본값 아닌 것이 몇 개 있는지. 이게 있어야 접어두는 것이 안전하다. */
+.advanced-count {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--line);
+  color: var(--ink);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  text-align: center;
+}
+
+.advanced-body {
+  padding-bottom: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .advanced-caret {
+    transition: none;
+  }
+}
+
 .row {
   display: flex;
   align-items: center;
