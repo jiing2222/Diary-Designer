@@ -25,7 +25,7 @@ import {
   type Template,
   type TemplateKind,
 } from './core/template';
-import { toTemplates, type SavedProject } from './core/project';
+import { toProject, toTemplates, type SavedProject } from './core/project';
 import { persistFontLabel, reserveIds } from './fonts/registry';
 import { persistImageMeta, removeImage, reserveImageIds } from './images/registry';
 import {
@@ -532,6 +532,41 @@ function prune(ids: string[], objects: DiaryObject[]): string[] {
  */
 export function activeTemplate(s: Pick<Settings, 'templates' | 'activeId'>): Template | null {
   return s.templates.find((t) => t.id === s.activeId) ?? s.templates[0] ?? null;
+}
+
+/**
+ * 지금 상태를 저장 파일 모양으로 만든다.
+ *
+ * **파일로 저장하기(ui/ProjectFile)와 자동 저장(storage/autosave)이 이 하나를
+ * 함께 쓴다.** 담을 값을 각자 적어두면 한쪽에만 항목을 더하는 일이 반드시
+ * 생긴다 — 실제로 그런 적이 있다(칸 배정 `slotAssignment`가 한동안 파일에
+ * 안 담겼다). 담을 양식만 인자로 받는 이유는 둘이 다르기 때문이다: 파일은
+ * 지금 보는 양식 하나만, 자동 저장은 프로젝트 전체를 담는다.
+ */
+export function projectOf(s: Store, templates: Template[]): SavedProject {
+  return toProject({
+    templates,
+    print: {
+      paper: s.paper,
+      gap: s.gap,
+      allowRotate: s.allowRotate,
+      align: s.align,
+      cropMark: s.cropMark,
+      showRuler: s.showRuler,
+      duplex: s.duplex,
+      backTurn180: s.backTurn180,
+      fillEmptyBack: s.fillEmptyBack,
+      comboSheets: s.comboSheets,
+      cutStack: s.cutStack,
+      cutStackGroup: s.cutStackGroup,
+      unprintable: s.unprintable,
+      slotAssignment: s.slotAssignment,
+      comboSlotOverrides: s.comboSlotOverrides,
+      comboSlotBackOverrides: s.comboSlotBackOverrides,
+    },
+    fonts: s.userFonts.map((f) => ({ id: f.id, name: f.name })),
+    images: s.userImages.map((i) => ({ id: i.id, name: i.name })),
+  });
 }
 
 /*

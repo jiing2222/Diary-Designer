@@ -12,17 +12,21 @@
  */
 
 const DB_NAME = 'diary-designer';
-const DB_VERSION = 1;
+/** 2 — 자동 저장(`project`) store를 더하면서 올렸다. */
+const DB_VERSION = 2;
 
-export type Store = 'fonts' | 'images';
+export type Store = 'fonts' | 'images' | 'project';
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
+      // 있는 것만 건너뛰고 없는 것을 만든다 — 판을 올려도 예전에 캐싱해둔
+      // 글꼴·이미지는 그대로 남는다.
       if (!db.objectStoreNames.contains('fonts')) db.createObjectStore('fonts');
       if (!db.objectStoreNames.contains('images')) db.createObjectStore('images');
+      if (!db.objectStoreNames.contains('project')) db.createObjectStore('project');
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -41,6 +45,26 @@ export async function idbPut(store: Store, key: string, value: unknown): Promise
     });
   } catch {
     // 캐싱 실패는 무시한다.
+  }
+}
+
+/**
+ * 값 하나를 가져온다. 없거나 실패하면 `null`이다.
+ *
+ * `idbEntries`와 달리 실패와 "없음"을 구분하지 않는다 — 부르는 쪽(자동 저장
+ * 복구)이 둘 다 "복구할 것이 없다"로 똑같이 다루기 때문이다.
+ */
+export async function idbGet<T>(store: Store, key: string): Promise<T | null> {
+  try {
+    const db = await openDB();
+    return await new Promise<T | null>((resolve, reject) => {
+      const tx = db.transaction(store, 'readonly');
+      const req = tx.objectStore(store).get(key);
+      tx.oncomplete = () => resolve((req.result as T | undefined) ?? null);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    return null;
   }
 }
 

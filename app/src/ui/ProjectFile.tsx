@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
-import { missingFonts, missingImages, readProject, toProject, toTemplates } from '../core/project';
+import { missingFonts, missingImages, readProject, toTemplates } from '../core/project';
 import { hasFont } from '../fonts/registry';
 import { hasImage } from '../images/registry';
-import { activeTemplate, useStore } from '../store';
+import { activeTemplate, projectOf, useStore } from '../store';
 
 /** File System Access API — 크롬 계열만 있다. 없으면 기존 다운로드 방식으로 대신한다. */
 interface SaveFilePickerOptions {
@@ -43,33 +43,11 @@ export function ProjectFile() {
     const active = activeTemplate(store);
     if (!active) return;
 
-    const project = toProject({
-      templates: [active],
-      print: {
-        paper: store.paper,
-        gap: store.gap,
-        allowRotate: store.allowRotate,
-        align: store.align,
-        cropMark: store.cropMark,
-        showRuler: store.showRuler,
-        duplex: store.duplex,
-        fillEmptyBack: store.fillEmptyBack,
-        comboSheets: store.comboSheets,
-        cutStack: store.cutStack,
-        cutStackGroup: store.cutStackGroup,
-        unprintable: store.unprintable,
-        // 낱장 조합 칸 배정과, "인쇄하기"에서 그 칸을 직접 손본 내용. loadProject가
-        // 이미 이걸 받을 준비가 돼 있었는데(pruneSlotAssignment) 여기서 실제로
-        // 담는 걸 빠뜨리고 있었다 — 지금 저장해도 이 파일엔 양식 하나만 들어가서
-        // (위 templates: [active]) 다른 칸에 배정된 양식까지는 못 담지만, 배정 자체와
-        // 그 칸의 override는 다음에 열 때도 그대로 보인다.
-        slotAssignment: store.slotAssignment,
-        comboSlotOverrides: store.comboSlotOverrides,
-        comboSlotBackOverrides: store.comboSlotBackOverrides,
-      },
-      fonts: store.userFonts.map((f) => ({ id: f.id, name: f.name })),
-      images: store.userImages.map((i) => ({ id: i.id, name: i.name })),
-    });
+    // 담을 값 목록은 store의 projectOf 하나가 들고 있다 — 자동 저장과 같은
+    // 자리다. 예전엔 여기서 따로 적어뒀는데, 그러다 칸 배정(slotAssignment)이
+    // 한동안 파일에 안 담긴 적이 있다. 여기서 넘기는 것은 "무엇을 담을지"가
+    // 아니라 "어느 양식을 담을지"뿐이다.
+    const project = projectOf(store, [active]);
 
     const json = JSON.stringify(project, null, 2);
     // 날짜를 붙인다. 같은 이름으로 덮어써서 어느 것이 최신인지 잃는 일이 잦다.
