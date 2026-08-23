@@ -2098,6 +2098,26 @@ footer b {
   overflow-y: auto;
 }
 
+/* ToolRail의 "이미지" 탭 — 288px 폭 패널이라 모달보다 한 칸 줄인다 */
+.tool-panel .image-picker-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.tool-panel-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.tool-panel-add-file {
+  width: 100%;
+  margin-top: 10px;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
 .image-picker-item {
   position: relative;
 }

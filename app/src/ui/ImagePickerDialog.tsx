@@ -8,7 +8,7 @@ import { Modal } from './GalleryTab';
  * 빨리 고르는 자리라 원본 비율까지 살릴 필요는 없다(원본 비율로 크게
  * 보려면 DesignLibraryDialog의 "디자인 관리"를 연다).
  */
-function ImageThumbGrid({ images, onPick }: { images: UserImage[]; onPick?: (id: string) => void }) {
+export function ImageThumbGrid({ images, onPick }: { images: UserImage[]; onPick?: (id: string) => void }) {
   const removeUserImage = useStore((s) => s.removeUserImage);
 
   return (

@@ -30,6 +30,7 @@ import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style
 import { roundMm, type Mm } from '../core/units';
 import { fieldPlaceholder, newTextStyle, parseFieldText, rotateOf } from '../core/text';
 import {
+  useActiveInsertSize,
   useDotGrid,
   useHasBack,
   useInsert,
@@ -40,7 +41,9 @@ import {
   type Side,
   type Tool,
 } from '../store';
+import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
 import { InsertView } from './InsertView';
+import { ImageThumbGrid } from './ImagePickerDialog';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
 import {
@@ -1695,6 +1698,7 @@ export function ToolRail({
               ))}
             </div>
           )}
+          {open === 'image' && <ImageCategoryBody />}
           {/*
             지금 화면(속지 제작·노트 제작·인쇄하기 칸 손보기)이 자기 StyleBar를
             여기로 portal한다 — "쓰는 중인 글자" 같은 화면별 상태를 이 컴포넌트가
@@ -1704,6 +1708,72 @@ export function ToolRail({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * "이미지" 탭 안 — 자주 쓰는 이미지 썸네일 그리드. 클릭하면 그 자리에서
+ * 바로 속지 가운데에 적당한 크기로 놓는다(`commitImage`+`styleImage`를
+ * 이어 부른다 — 둘 다 지금 편집 중인 쪽을 그림자 유무로 알아서 찾는다,
+ * store.ts의 `activeObjects` 참고). 드래그로 빈 상자를 그려 나중에 고르는
+ * 기존 방식(ObjectControls의 ImageControls)도 그대로 남아 있다 — 도구
+ * 자체는 여전히 'image'라 캔버스에 바로 끌 수 있다.
+ */
+function ImageCategoryBody() {
+  const userImages = useStore((s) => s.userImages);
+  const addUserImage = useStore((s) => s.addUserImage);
+  const commitImage = useStore((s) => s.commitImage);
+  const styleImage = useStore((s) => s.styleImage);
+  const insert = useActiveInsertSize();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const usable = userImages.filter((i) => i.url);
+
+  function placeCentered(imageId: string) {
+    // 원본 비율은 안 지킨다 — 속지 크기에 맞춘 적당한 사각형으로 우선
+    // 놓고, 정확한 크기는 놓은 뒤 손잡이로 조절한다(요청 그대로).
+    const width = insert.width * 0.6;
+    const height = insert.height * 0.6;
+    commitImage({ x: (insert.width - width) / 2, y: (insert.height - height) / 2, width, height });
+    styleImage(imageId);
+  }
+
+  async function take(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    try {
+      const name = file.name.replace(/\.[^.]+$/, '');
+      const orphan = userImages.find((i) => i.name === name && !hasImage(i.id));
+      const image = await registerImage(file, orphan?.id);
+      addUserImage(image);
+      placeCentered(image.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '이미지를 읽지 못했습니다');
+    }
+  }
+
+  return (
+    <>
+      {usable.length === 0 ? (
+        <p className="tool-panel-note">아직 자주 쓰는 이미지가 없습니다. 파일을 불러오면 다음부터 여기 뜹니다.</p>
+      ) : (
+        <ImageThumbGrid images={usable} onPick={placeCentered} />
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept={IMAGE_ACCEPT}
+        hidden
+        onChange={(e) => {
+          void take(e.target.files?.[0]);
+          e.target.value = '';
+        }}
+      />
+      <button className="ghost tool-panel-add-file" onClick={() => fileRef.current?.click()} title={error ?? undefined}>
+        파일 불러오기…
+      </button>
+    </>
   );
 }
 

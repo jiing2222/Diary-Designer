@@ -1652,6 +1652,18 @@ export function selectLayout(s: Settings): Layout {
 export const useActive = () => useStore(activeTemplate);
 export const useInsert = () => useStore((s) => activeTemplate(s)?.insert ?? NO_INSERT);
 /**
+ * 지금 실제로 그리는 중인 속지 크기 — `useInsert`와 달리 그림자(노트 반쪽·
+ * 인쇄하기 칸 손보기)도 본다.
+ *
+ * `useInsert`가 일부러 그림자를 안 보는 이유(SettingsPanel이 인쇄하기 탭에도
+ * 함께 떠 있어 그림자를 보면 "지금 고르는 양식"과 "그림자 칸"이 뒤섞여
+ * 보인다)는 여기 해당하지 않는다 — 이건 화면에 규격을 보여주는 게 아니라,
+ * 지금 실제로 그림을 그려 넣을 그 칸의 크기(가운데 배치 계산 등)가
+ * 필요할 때 쓴다.
+ */
+export const useActiveInsertSize = () =>
+  useStore((s) => s.shadowTemplate?.insert ?? activeTemplate(s)?.insert ?? NO_INSERT);
+/**
  * 격자는 앞뒤가 공유하는 값이라 side를 받지 않는다 — 어느 쪽에서 읽어도 같다.
  *
  * **노트(`kind === 'notebook'`)는 예외다.** 반쪽마다 격자를 따로 갖는다
