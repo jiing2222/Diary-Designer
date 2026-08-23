@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   INSERT_PRESETS,
   PAPER_PRESETS,
@@ -18,15 +18,19 @@ import { roundMm } from '../core/units';
 import { GridIcon, PaperIcon, PunchIcon } from './icons';
 
 /**
- * 설정 아코디언 — 용지 · 도트 격자 · 타공 안내.
+ * 설정 도구 — 용지 · 도트 격자 · 타공 안내.
  *
  * 이 셋은 "이 칸이 어떻게 생겼는가"를 정하는, 속지 제작·인쇄하기가
  * 함께 보는 설정이다. 반복·배치·절취선은 "몇 장을 어떻게 뽑는가"라는
  * 다른 질문이라 여기 없다 — 인쇄하기 화면에서 `RepeatGroup`·`LayoutGroup`을
  * 따로 가져다 쓴다(App.tsx의 인쇄 우측 패널).
  *
- * 누른 것만 아래로 펼쳐진다(한 번에 하나). 점은 **그 안내가 지금 화면에
- * 보이는 중**이라는 표시다 — 켜고 끄는 것은 펼친 안 내용에서 한다.
+ * 아이콘을 누르면 그 설정이 옆으로 말풍선으로 뜬다(누른 것만, 한 번에
+ * 하나). 아이콘 줄 자체는 맨 아래 화살표로 통째로 접었다 펼 수 있다 —
+ * 3단계에서 그 위에 도구 카테고리가 얹히면, 자주 안 건드리는 이 설정들을
+ * 접어서 캔버스 자리를 넓힐 수 있게 하려는 것이다.
+ *
+ * 아이콘 오른쪽 위의 점은 **그 안내가 지금 화면에 보이는 중**이라는 표시다.
  */
 
 type GroupId = 'paper' | 'grid' | 'punch';
@@ -36,6 +40,27 @@ export function SettingsPanel() {
   const insert = useInsert();
   const grid = useDotGrid();
   const [open, setOpen] = useState<GroupId | null>(null);
+  const [visible, setVisible] = useState(true);
+  const [top, setTop] = useState(0);
+  const railRef = useRef<HTMLDivElement>(null);
+
+  // 바깥을 누르거나 Esc를 누르면 닫는다.
+  useEffect(() => {
+    if (!open) return;
+
+    function onDown(e: PointerEvent) {
+      if (!railRef.current?.contains(e.target as Node)) setOpen(null);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(null);
+    }
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
 
   const groups = [
     { id: 'paper', label: '용지', icon: <PaperIcon />, on: s.unprintable.show },
@@ -43,33 +68,53 @@ export function SettingsPanel() {
     { id: 'punch', label: '타공 안내', icon: <PunchIcon />, on: insert.punch.show },
   ] as const;
 
-  function toggle(id: GroupId) {
+  function toggleOpen(id: GroupId, e: React.MouseEvent<HTMLButtonElement>) {
+    setTop(e.currentTarget.offsetTop);
     setOpen((cur) => (cur === id ? null : id));
   }
 
   return (
-    <div className="accordion-rail">
-      {groups.map((g) => (
-        <div className="accordion-item" key={g.id}>
-          <button
-            className={`accordion-head ${open === g.id ? 'on' : ''}`}
-            onClick={() => toggle(g.id)}
-            aria-expanded={open === g.id}
-          >
-            {g.icon}
-            <span className="accordion-label">{g.label}</span>
-            {g.on && <span className="rail-mark" />}
-            <span className="accordion-chevron">{open === g.id ? '▾' : '▸'}</span>
-          </button>
-          {open === g.id && (
-            <div className="accordion-body">
-              {g.id === 'paper' && <PaperGroup />}
-              {g.id === 'grid' && <GridGroup />}
-              {g.id === 'punch' && <PunchGroup />}
-            </div>
-          )}
+    <div className="rail-wrap" ref={railRef}>
+      {visible && (
+        <div className="rail">
+          {groups.map((g) => (
+            <button
+              key={g.id}
+              className={`rail-btn ${open === g.id ? 'on' : ''}`}
+              onClick={(e) => toggleOpen(g.id, e)}
+              title={g.label}
+              aria-label={g.label}
+              aria-pressed={open === g.id}
+            >
+              {g.icon}
+              {g.on && <span className="rail-mark" />}
+            </button>
+          ))}
         </div>
-      ))}
+      )}
+
+      <button
+        className="rail-collapse"
+        onClick={() => {
+          setVisible((v) => !v);
+          setOpen(null);
+        }}
+        title={visible ? '용지·도트 격자·타공 안내 숨기기' : '용지·도트 격자·타공 안내 보이기'}
+      >
+        {visible ? '▴' : '▾'}
+      </button>
+
+      {open && visible && (
+        <div className="popover" style={{ top }}>
+          <div className="popover-arrow" />
+          <h2>{groups.find((g) => g.id === open)!.label}</h2>
+          <div className="popover-body">
+            {open === 'paper' && <PaperGroup />}
+            {open === 'grid' && <GridGroup />}
+            {open === 'punch' && <PunchGroup />}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

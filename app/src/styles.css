@@ -807,67 +807,95 @@ main {
   min-height: 0;
 }
 
-/* ─────────────────────────── 왼쪽 아코디언 ─────────────────────────── */
+/* ─────────────────────────── 도구 막대 ─────────────────────────── */
 
-.accordion-rail {
+.rail-wrap {
+  position: relative;
   flex-shrink: 0;
-  width: 220px;
-  height: 100%;
-  overflow-y: auto;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
   background: var(--panel);
   border-right: 1px solid var(--line);
 }
 
-.accordion-item {
-  border-bottom: 1px solid var(--line);
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 52px;
+  padding: 8px 0;
 }
 
-.accordion-head {
+.rail-btn {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 0;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin: 0 auto;
+  padding: 0;
+  border-radius: 8px;
   background: transparent;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.accordion-head:hover {
-  background: #f0f1ee;
-}
-
-.accordion-head.on {
-  background: #eceee9;
-}
-
-.accordion-label {
-  flex: 1;
-  text-align: left;
-}
-
-.accordion-chevron {
   color: var(--muted);
-  font-size: 11px;
 }
 
-.accordion-body {
-  padding: 4px 14px 14px;
+.rail-btn:hover {
+  background: #f0f1ee;
+  color: var(--ink);
+}
+
+.rail-btn.on {
+  background: var(--accent);
+  color: #fff;
 }
 
 /* 그 안내가 지금 화면에 보이는 중이라는 표시 */
 .rail-mark {
+  position: absolute;
+  top: 5px;
+  right: 5px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: var(--accent);
-  flex-shrink: 0;
+}
+
+.rail-btn.on .rail-mark {
+  background: #fff;
+}
+
+/* 용지·도트 격자·타공 안내 줄을 통째로 접었다 펴는 화살표 — 늘 맨 아래에 있다 */
+.rail-collapse {
+  width: 38px;
+  height: 22px;
+  margin: 0 auto 8px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.rail-collapse:hover {
+  background: #f0f1ee;
+  color: var(--ink);
 }
 
 /* ─────────────────────────── 말풍선 ─────────────────────────── */
+
+.popover-arrow {
+  position: absolute;
+  top: 13px;
+  left: -5px;
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg);
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
 
 .popover {
   position: absolute;
