@@ -30,17 +30,7 @@ import { defaultInsert } from '../core/template';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
 import { InsertView } from './InsertView';
 import { StyleBar } from './StyleBar';
-import { TextInput, ToolBtn } from './EditorTab';
-import {
-  CalendarIcon,
-  CheckboxIcon,
-  CursorIcon,
-  FieldIcon,
-  ImageIcon,
-  LineIcon,
-  TableIcon,
-  TextIcon,
-} from './icons';
+import { TextInput } from './EditorTab';
 import {
   anyLineHandleAt,
   boxHandleAt,
@@ -631,32 +621,6 @@ export function NotebookHalfEditor({
   const toolbar = (
     <div className="editor-bar">
         <div className="editor-bar-tools">
-          <div className="tools">
-            <ToolBtn on={tool === 'select'} onClick={() => setTool('select')} title="고르기 (V)">
-              <CursorIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'draw'} onClick={() => setTool('draw')} title="그리기 (D)">
-              <LineIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'table'} onClick={() => setTool('table')} title="표 (G)">
-              <TableIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'text'} onClick={() => setTool('text')} title="글자 (T)">
-              <TextIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'calendar'} onClick={() => setTool('calendar')} title="달력 (C)">
-              <CalendarIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'image'} onClick={() => setTool('image')} title="이미지 (I)">
-              <ImageIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'checkbox'} onClick={() => setTool('checkbox')} title="체크박스 (X)">
-              <CheckboxIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'field'} onClick={() => setTool('field')} title="자동 필드 (F)">
-              <FieldIcon />
-            </ToolBtn>
-          </div>
           <button
             className="ghost"
             onClick={deleteSelected}

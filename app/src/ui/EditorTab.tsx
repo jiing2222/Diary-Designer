@@ -35,6 +35,7 @@ import {
   useStore,
   useViewRotation,
   type Side,
+  type Tool,
 } from '../store';
 import { InsertView } from './InsertView';
 import { PunchGuide } from './PunchGuide';
@@ -1031,33 +1032,6 @@ export function EditorTab() {
       />
       <div className="editor-bar">
         <div className="editor-bar-tools">
-          <div className="tools">
-            <ToolBtn on={tool === 'select'} onClick={() => setTool('select')} title="고르기 (V)">
-              <CursorIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'draw'} onClick={() => setTool('draw')} title="그리기 (D)">
-              <LineIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'table'} onClick={() => setTool('table')} title="표 (G)">
-              <TableIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'text'} onClick={() => setTool('text')} title="글자 (T)">
-              <TextIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'calendar'} onClick={() => setTool('calendar')} title="달력 (C)">
-              <CalendarIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'image'} onClick={() => setTool('image')} title="이미지 (I)">
-              <ImageIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'checkbox'} onClick={() => setTool('checkbox')} title="체크박스 (X)">
-              <CheckboxIcon />
-            </ToolBtn>
-            <ToolBtn on={tool === 'field'} onClick={() => setTool('field')} title="자동 필드 (F)">
-              <FieldIcon />
-            </ToolBtn>
-          </div>
-
           <button
             className="ghost"
             onClick={deleteSelected}
@@ -1558,11 +1532,131 @@ export function TextInput({
   return textarea;
 }
 
+/** 요소·텍스트 카테고리 안에 들어가는 도구 하나. */
+type SubTool = { tool: Tool; label: string; shortcut: string; icon: React.ReactNode };
+
+const ELEMENT_TOOLS: SubTool[] = [
+  { tool: 'draw', label: '그리기', shortcut: 'D', icon: <LineIcon /> },
+  { tool: 'table', label: '표', shortcut: 'G', icon: <TableIcon /> },
+  { tool: 'checkbox', label: '체크박스', shortcut: 'X', icon: <CheckboxIcon /> },
+];
+
+const TEXT_TOOLS: SubTool[] = [
+  { tool: 'text', label: '글자', shortcut: 'T', icon: <TextIcon /> },
+  { tool: 'calendar', label: '달력', shortcut: 'C', icon: <CalendarIcon /> },
+  { tool: 'field', label: '자동 필드', shortcut: 'F', icon: <FieldIcon /> },
+];
+
 /**
- * 지금 어느 쪽이 활성인지 + 뒷면 관련 버튼.
+ * 그리기 도구 왼쪽 세로줄 — 속지 제작·노트 제작·인쇄하기(칸 직접 손보기)가
+ * 모두 이걸 쓴다. `tool`은 store에 있는 전역값이라(store.ts의 `Tool`) 이
+ * 컴포넌트는 화면이 셋 중 뭔지 몰라도 된다 — 그리기 자체는 각 화면이 자기
+ * 몸짓(pointer 핸들러)에서 그 값을 본다.
  *
- * 탭으로 전환하지 않는다 — 뒷면·앞면 캔버스가 나란히 있어서 그 캔버스를
- * 클릭하는 것 자체가 전환이다(EditorTab의 onInactivePointerDown).
+ * **고르기는 카테고리 밖의 독립 버튼이다.** 다른 도구를 쓰는 중이 아니면
+ * 늘 이게 기본이라는 뜻으로, 요소·텍스트 묶음 안에 넣지 않는다.
+ */
+export function ToolRail() {
+  const tool = useStore((s) => s.tool);
+  const setTool = useStore((s) => s.setTool);
+  const [open, setOpen] = useState<'elements' | 'text' | null>(null);
+  const [top, setTop] = useState(0);
+  const railRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: PointerEvent) {
+      if (!railRef.current?.contains(e.target as Node)) setOpen(null);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(null);
+    }
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  function openCategory(id: 'elements' | 'text', e: React.MouseEvent<HTMLButtonElement>) {
+    setTop(e.currentTarget.offsetTop);
+    setOpen((cur) => (cur === id ? null : id));
+  }
+
+  function pick(t: Tool) {
+    setTool(t);
+    setOpen(null);
+  }
+
+  const items = open === 'elements' ? ELEMENT_TOOLS : open === 'text' ? TEXT_TOOLS : null;
+  const inElements = ELEMENT_TOOLS.some((t) => t.tool === tool);
+  const inText = TEXT_TOOLS.some((t) => t.tool === tool);
+
+  return (
+    <div className="rail-wrap" ref={railRef}>
+      <div className="rail">
+        <button
+          className={`rail-btn ${tool === 'select' ? 'on' : ''}`}
+          onClick={() => setTool('select')}
+          title="고르기 (V)"
+        >
+          <CursorIcon />
+        </button>
+
+        <button
+          className={`rail-btn ${open === 'elements' || inElements ? 'on' : ''}`}
+          onClick={(e) => openCategory('elements', e)}
+          title="요소 — 선·표·체크박스"
+        >
+          <LineIcon />
+        </button>
+
+        <button
+          className={`rail-btn ${open === 'text' || inText ? 'on' : ''}`}
+          onClick={(e) => openCategory('text', e)}
+          title="텍스트 — 글자·달력·자동 필드"
+        >
+          <TextIcon />
+        </button>
+
+        <button
+          className={`rail-btn ${tool === 'image' ? 'on' : ''}`}
+          onClick={() => setTool('image')}
+          title="이미지 (I)"
+        >
+          <ImageIcon />
+        </button>
+      </div>
+
+      {items && (
+        <div className="popover" style={{ top }}>
+          <div className="popover-arrow" />
+          <h2>{open === 'elements' ? '요소' : '텍스트'}</h2>
+          <div className="popover-body tool-subgrid">
+            {items.map((it) => (
+              <button
+                key={it.tool}
+                className={`tool-sub-btn ${tool === it.tool ? 'on' : ''}`}
+                onClick={() => pick(it.tool)}
+                title={`${it.label} (${it.shortcut})`}
+              >
+                {it.icon}
+                <span>{it.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 앞면/뒷면 탭 + 뒷면 관련 버튼.
+ *
+ * 탭을 눌러도 전환되고, 비활성 쪽 캔버스를 직접 눌러도 전환된다(EditorTab의
+ * onInactivePointerDown) — 둘 다 같은 switchSide로 모인다.
  */
 function SideBar({
   activeSide,

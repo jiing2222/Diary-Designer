@@ -24,7 +24,7 @@ import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
 import { SettingsPanel, InsertGroup, RepeatGroup, LayoutGroup } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
 import { PrintSlotEditor } from './PrintSlotEditor';
-import { EditorTab, ZoomStepper } from './EditorTab';
+import { EditorTab, ToolRail, ZoomStepper } from './EditorTab';
 import { NotebookEditorTab } from './NotebookEditorTab';
 import { GalleryTab } from './GalleryTab';
 import { ProjectFile } from './ProjectFile';
@@ -784,7 +784,17 @@ export function App() {
 
       <main>
         {/* 갤러리는 양식 하나를 고치는 화면이 아니라서 설정 패널이 필요 없다. */}
-        {tab !== 'gallery' && active && <SettingsPanel />}
+        {tab !== 'gallery' && active && (
+          <div className="left-column">
+            {/*
+              그리기 도구는 실제로 그릴 캔버스가 떠 있을 때만 보여준다 —
+              속지·노트 제작 화면은 늘 그렇지만, 인쇄하기는 칸을 직접
+              손보는 중(editingSession)일 때만 그릴 자리가 있다.
+            */}
+            {(tab === 'edit' || editingSession) && <ToolRail />}
+            <SettingsPanel />
+          </div>
+        )}
 
         {tab === 'gallery' || !active ? (
           <GalleryTab onEdit={() => setTab('edit')} />

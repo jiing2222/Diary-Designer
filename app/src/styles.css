@@ -809,14 +809,29 @@ main {
 
 /* ─────────────────────────── 도구 막대 ─────────────────────────── */
 
+/*
+ * 그리기 도구(ToolRail)와 용지·도트 격자·타공 안내(SettingsPanel)를 세로로
+ * 쌓는 바깥 기둥. 배경·오른쪽 테두리는 여기 하나에서만 그린다 — 안쪽
+ * .rail-wrap 둘이 각자 그리면 이어지는 자리에 테두리가 겹친다.
+ */
+.left-column {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+.left-column .rail-wrap + .rail-wrap {
+  border-top: 1px solid var(--line);
+}
+
 .rail-wrap {
   position: relative;
   flex-shrink: 0;
   z-index: 20;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
-  border-right: 1px solid var(--line);
 }
 
 .rail {
@@ -925,6 +940,35 @@ main {
   font-size: 11px;
   line-height: 1.5;
   color: var(--muted);
+}
+
+/* 요소·텍스트 말풍선 안의 하위 도구 — 아이콘 위에 이름을 적은 정사각형 버튼 */
+.tool-subgrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.tool-sub-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 4px;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.tool-sub-btn:hover {
+  background: #eceee9;
+}
+
+.tool-sub-btn.on {
+  background: var(--accent);
+  color: #fff;
 }
 
 .divider {
