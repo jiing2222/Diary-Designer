@@ -556,6 +556,17 @@ function fontFor(t: TextObject, fonts: Fonts): PDFFont {
   return boldOf(t) && fonts.bold ? fonts.bold : fonts.regular;
 }
 
+/**
+ * 칸 배치 때문에 글자·그림 자체를 pdf-lib의 `rotate:`로 얼마나 돌려 그려야
+ * 하는지. `place.map`이 옮기는 자리와 반드시 같은 조건(`rotated`·`turn180`)을
+ * 봐야 한다 — 자리만 옮기고 이 각도를 안 맞추면 넓은 글자일수록 앵커점 기준
+ * 반대 방향으로 삐져나가 페이지 밖으로 나가버린다(2026-08-23, 뒷면 달력이
+ * 통째로 사라지는 것으로 발견).
+ */
+function layoutRotateDeg(layout: Layout): number {
+  return (layout.rotated ? 90 : 0) + (layout.turn180 ? 180 : 0);
+}
+
 function drawTexts(
   page: PDFPage,
   layout: Layout,
@@ -619,7 +630,7 @@ function drawTexts(
           // 차이가 화면에서는 안 보이다가 인쇄물에서만 드러났다. 두 회전(글자
           // 자신 + 회전 배치)의 각도를 더한다 — 방향(부호)이 같은 각도끼리는
           // 그냥 더하면 합쳐진 회전이 나온다.
-          rotate: degrees((layout.rotated ? 90 : 0) + pdfRotateOf(rotate)),
+          rotate: degrees(layoutRotateDeg(layout) + pdfRotateOf(rotate)),
         });
       });
     }
@@ -701,7 +712,7 @@ function drawCalendars(
             font,
             color: textColor,
             opacity,
-            rotate: degrees(layout.rotated ? 90 : 0),
+            rotate: degrees(layoutRotateDeg(layout)),
           });
           return;
         }
@@ -719,7 +730,7 @@ function drawCalendars(
             font,
             color: textColor,
             opacity,
-            rotate: degrees(layout.rotated ? 90 : 0),
+            rotate: degrees(layoutRotateDeg(layout)),
           });
           cursor += widths[ci] + spacing;
         });
@@ -827,7 +838,7 @@ function drawImages(
         y: mmToPt(flipY(p.y)),
         width: mmToPt(o.width),
         height: mmToPt(o.height),
-        rotate: degrees((layout.rotated ? 90 : 0) + pdfRotateOf(rotate)),
+        rotate: degrees(layoutRotateDeg(layout) + pdfRotateOf(rotate)),
       });
     }
 
@@ -891,7 +902,7 @@ function drawShapes(
         x: mmToPt(p.x),
         y: mmToPt(flipY(p.y)),
         scale: PT_PER_MM,
-        rotate: degrees(layout.rotated ? 90 : 0),
+        rotate: degrees(layoutRotateDeg(layout)),
         color: fill ? color(fill) : undefined,
         opacity: fill ? fillOpacityOf(o) : undefined,
         borderColor: color(strokeColorOf(o)),
@@ -956,7 +967,7 @@ function drawCheckboxes(
         x: mmToPt(p.x),
         y: mmToPt(flipY(p.y)),
         scale: PT_PER_MM,
-        rotate: degrees(layout.rotated ? 90 : 0),
+        rotate: degrees(layoutRotateDeg(layout)),
         borderColor: color(strokeColorOf(o)),
         // drawShapes와 같은 이유 — scale 안에서 잰다. mm 그대로 넘긴다.
         borderWidth: strokeW,
