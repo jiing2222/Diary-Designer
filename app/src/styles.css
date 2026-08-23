@@ -81,6 +81,53 @@ header h1 {
   margin-right: auto;
 }
 
+/* 헤더 가운데 — 양식 이름 · 속지 크기 */
+.template-info {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+}
+
+.template-name,
+.size-trigger {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.size-trigger {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.template-name:hover,
+.size-trigger:hover {
+  background: #eceee9;
+}
+
+.template-name-input {
+  padding: 3px 7px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  width: 160px;
+}
+
+/* 위쪽 트리거 아래로 펼치는 말풍선 — .popover의 위치만 뒤집는다 */
+.popover-below {
+  left: 0;
+  top: 100%;
+  margin-left: 0;
+  margin-top: 8px;
+}
+
 button {
   padding: 7px 14px;
   border: none;
@@ -128,6 +175,28 @@ button.ghost:disabled {
   color: #c2c2bd;
 }
 
+.zoom-stepper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.zoom-stepper button.ghost {
+  width: 22px;
+  padding: 4px 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.zoom-readout {
+  min-width: 42px;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
 /* ─────────────────────────── 편집 화면 ─────────────────────────── */
 
 .editor {
@@ -164,6 +233,30 @@ button.ghost:disabled {
   font-size: 14px;
   font-weight: 600;
   color: var(--ink);
+}
+
+/* 앞면/뒷면 탭 — 눌러서 전환, 뒷면이 아직 없으면 눌렀을 때 만든다 */
+.side-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg);
+  border-radius: 7px;
+  padding: 2px;
+}
+
+.side-tab {
+  padding: 3px 12px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.side-tab.on {
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
 }
 
 /*

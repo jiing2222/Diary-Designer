@@ -15,7 +15,7 @@ import { capacityPerSheet, sheetsNeeded } from '../core/template';
 import { datasetPages, type CalendarDataset, type DateDataset } from '../core/dataset';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
-import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon, RepeatIcon } from './icons';
+import { GridIcon, LayoutIcon, PaperIcon, PunchIcon, RepeatIcon } from './icons';
 
 /**
  * 설정 도구.
@@ -27,7 +27,7 @@ import { GridIcon, InsertIcon, LayoutIcon, PaperIcon, PunchIcon, RepeatIcon } fr
  * 켜고 끄는 것은 말풍선 안에서 한다.
  */
 
-type GroupId = 'paper' | 'insert' | 'repeat' | 'grid' | 'punch' | 'layout';
+type GroupId = 'paper' | 'repeat' | 'grid' | 'punch' | 'layout';
 
 export function SettingsPanel() {
   const s = useStore();
@@ -58,7 +58,6 @@ export function SettingsPanel() {
 
   const groups = [
     { id: 'paper', label: '용지', icon: <PaperIcon />, on: s.unprintable.show },
-    { id: 'insert', label: '속지', icon: <InsertIcon />, on: false },
     { id: 'repeat', label: '반복', icon: <RepeatIcon />, on: repeat.mode !== 'single' },
     { id: 'grid', label: '도트 격자', icon: <GridIcon />, on: grid.showOnScreen },
     { id: 'punch', label: '타공 안내', icon: <PunchIcon />, on: insert.punch.show },
@@ -94,7 +93,6 @@ export function SettingsPanel() {
           <h2>{groups.find((g) => g.id === open)!.label}</h2>
           <div className="popover-body">
             {open === 'paper' && <PaperGroup />}
-            {open === 'insert' && <InsertGroup />}
             {open === 'repeat' && <RepeatGroup />}
             {open === 'grid' && <GridGroup />}
             {open === 'punch' && <PunchGroup />}
@@ -155,7 +153,8 @@ function PaperGroup() {
   );
 }
 
-function InsertGroup() {
+/** 상단바의 속지 크기 말풍선(App.tsx)이 그대로 가져다 쓴다 — 규격을 정하는 곳은 하나뿐이어야 한다. */
+export function InsertGroup() {
   const s = useStore();
   const insert = useInsert();
   return (

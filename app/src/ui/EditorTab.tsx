@@ -1024,8 +1024,10 @@ export function EditorTab() {
       <SideBar
         activeSide={activeSide}
         hasBack={hasBack}
+        addBack={addBack}
         removeBack={removeBack}
         copyFrontToBack={copyFrontToBack}
+        switchSide={switchSide}
       />
       <div className="editor-bar">
         <div className="editor-bar-tools">
@@ -1056,11 +1058,6 @@ export function EditorTab() {
             </ToolBtn>
           </div>
 
-          {!hasBack && (
-            <button className="ghost" onClick={addBack} title="지금 양식에 뒷면을 만듭니다">
-              뒷면 만들기
-            </button>
-          )}
           <button
             className="ghost"
             onClick={deleteSelected}
@@ -1096,13 +1093,7 @@ export function EditorTab() {
             ↻
           </button>
 
-          <select value={zoom} onChange={(e) => setZoom(Number(e.target.value))}>
-            {ZOOMS.map((z) => (
-              <option key={z} value={z}>
-                {z}%
-              </option>
-            ))}
-          </select>
+          <ZoomStepper zoom={zoom} onChange={setZoom} />
         </div>
 
         <div className="editor-bar-style">
@@ -1576,17 +1567,38 @@ export function TextInput({
 function SideBar({
   activeSide,
   hasBack,
+  addBack,
   removeBack,
   copyFrontToBack,
+  switchSide,
 }: {
   activeSide: Side;
   hasBack: boolean;
+  addBack: () => void;
   removeBack: () => void;
   copyFrontToBack: () => void;
+  switchSide: (side: Side) => void;
 }) {
   return (
     <div className="side-bar">
-      <span className="active-side-label">지금 · {activeSide === 'back' ? '뒷면' : '앞면'}</span>
+      <div className="side-tabs">
+        <button
+          className={`side-tab ${activeSide === 'front' ? 'on' : ''}`}
+          onClick={() => switchSide('front')}
+        >
+          앞면
+        </button>
+        <button
+          className={`side-tab ${activeSide === 'back' ? 'on' : ''}`}
+          onClick={() => {
+            if (!hasBack) addBack();
+            switchSide('back');
+          }}
+          title={hasBack ? undefined : '눌러서 뒷면을 만듭니다'}
+        >
+          뒷면
+        </button>
+      </div>
       {activeSide === 'back' && (
         <button
           className="ghost"
@@ -1601,6 +1613,39 @@ function SideBar({
           뒷면 지우기
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * 확대 배율 −/+ 버튼. ZOOMS 목록을 한 칸씩 오간다 — 편집 화면·인쇄하기가 함께 쓴다.
+ *
+ * 인쇄하기 탭은 "화면에 맞춤"(fit)도 고를 수 있다 — 그 상태에서는 100%를 기준으로
+ * 한 칸 움직인 값을 준다(다음 클릭부터는 그 구체적인 배율로 이어간다).
+ */
+export function ZoomStepper({
+  zoom,
+  onChange,
+}: {
+  zoom: number | 'fit';
+  onChange: (z: number) => void;
+}) {
+  const idx = zoom === 'fit' ? -1 : ZOOMS.indexOf(zoom);
+  const i = idx === -1 ? ZOOMS.indexOf(100) : idx;
+  return (
+    <div className="zoom-stepper">
+      <button className="ghost" onClick={() => onChange(ZOOMS[Math.max(0, i - 1)])} disabled={i <= 0} title="축소">
+        −
+      </button>
+      <span className="zoom-readout">{zoom === 'fit' ? '맞춤' : `${ZOOMS[i]}%`}</span>
+      <button
+        className="ghost"
+        onClick={() => onChange(ZOOMS[Math.min(ZOOMS.length - 1, i + 1)])}
+        disabled={i >= ZOOMS.length - 1}
+        title="확대"
+      >
+        +
+      </button>
     </div>
   );
 }

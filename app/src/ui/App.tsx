@@ -7,6 +7,7 @@ import {
   frontBackFilled,
   printModeOf,
   sheetsNeeded,
+  type Template,
 } from '../core/template';
 import { mirrorLayout, turnLayout180 } from '../core/layout';
 import { datasetPages } from '../core/dataset';
@@ -20,16 +21,16 @@ import {
   paddedPageCount,
 } from '../core/notebook';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
-import { SettingsPanel } from './SettingsPanel';
+import { SettingsPanel, InsertGroup } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
 import { PrintSlotEditor } from './PrintSlotEditor';
-import { EditorTab } from './EditorTab';
+import { EditorTab, ZoomStepper } from './EditorTab';
 import { NotebookEditorTab } from './NotebookEditorTab';
 import { GalleryTab } from './GalleryTab';
 import { ProjectFile } from './ProjectFile';
 import { SlotAssign } from './SlotAssign';
 import { RepeatPrint } from './RepeatPrint';
-import { PX_PER_MM_AT_100, ZOOMS } from './pixels';
+import { PX_PER_MM_AT_100 } from './pixels';
 import { buildPdf, downloadPdf, type SlotContent } from '../pdf/export';
 import { loadBodyFont, loadBoldFont } from '../fonts/load';
 import { fontBytes as fontBytes_, restoreCachedFonts } from '../fonts/registry';
@@ -73,6 +74,73 @@ type LastReverted = {
  * pdf/export.ts의 `BLANK_SLOT`과 같은 생각이다 — 인쇄물과 미리보기가 같아야 한다.
  */
 const BLANK_PREVIEW_GRID: DotGrid = { ...DEFAULT_DOT_GRID, showOnScreen: false, print: false };
+
+/**
+ * 헤더 가운데 — 양식 이름(클릭해서 바로 고치기)과 속지 크기.
+ *
+ * 규격을 정하는 곳은 하나뿐이어야 하므로, 크기 말풍선은 SettingsPanel의
+ * `InsertGroup`을 그대로 가져다 쓴다(더 이상 왼쪽 도구바에는 없다).
+ */
+function TemplateInfo({ template }: { template: Template }) {
+  const renameTemplate = useStore((s) => s.renameTemplate);
+  const [renaming, setRenaming] = useState(false);
+  const [sizeOpen, setSizeOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sizeOpen) return;
+    function onDown(e: PointerEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setSizeOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSizeOpen(false);
+    }
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [sizeOpen]);
+
+  return (
+    <div className="template-info" ref={wrapRef}>
+      {renaming ? (
+        <input
+          className="template-name-input"
+          defaultValue={template.name}
+          autoFocus
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={(e) => {
+            renameTemplate(template.id, e.target.value);
+            setRenaming(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+            if (e.key === 'Escape') setRenaming(false);
+          }}
+        />
+      ) : (
+        <button className="template-name" onClick={() => setRenaming(true)} title="클릭해서 이름 바꾸기">
+          {template.name}
+        </button>
+      )}
+
+      <button className="size-trigger" onClick={() => setSizeOpen((v) => !v)} title="속지 크기">
+        {template.insert.width} × {template.insert.height}mm ▾
+      </button>
+
+      {sizeOpen && (
+        <div className="popover popover-below">
+          <h2>속지</h2>
+          <div className="popover-body">
+            <InsertGroup />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function App() {
   const s = useStore();
@@ -684,10 +752,7 @@ export function App() {
           </button>
         </nav>
 
-        <span className="stage">
-          {/* 지금 무엇을 고치고 있는지. 양식이 여럿이 되면서 필요해졌다. */}
-          {active ? `${active.name} · ${active.insert.width} × ${active.insert.height}mm` : ''}
-        </span>
+        {active ? <TemplateInfo template={active} /> : <span className="stage" />}
         <ProjectFile />
         <button onClick={exportPdf} disabled={busy || !active || layout.count === 0}>
           {busy ? '만드는 중…' : 'PDF 내보내기'}
@@ -764,19 +829,10 @@ export function App() {
                 </button>
               )}
 
-              <select
-                className="print-zoom"
-                value={zoom}
-                onChange={(e) => setZoom(e.target.value === 'fit' ? 'fit' : Number(e.target.value))}
-                title="확대"
-              >
-                <option value="fit">화면에 맞춤</option>
-                {ZOOMS.map((z) => (
-                  <option key={z} value={z}>
-                    {z}%
-                  </option>
-                ))}
-              </select>
+              <button className="ghost" onClick={() => setZoom('fit')} disabled={zoom === 'fit'} title="화면에 맞춤">
+                맞춤
+              </button>
+              <ZoomStepper zoom={zoom} onChange={setZoom} />
             </div>
 
             {printMode === 'repeat' ? (
