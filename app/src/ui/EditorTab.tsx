@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { checkboxIconBox } from '../core/checkbox';
 import { holeCenterX } from '../core/punch';
@@ -9,6 +10,8 @@ import {
   boxOf,
   cleanStyle,
   isBoxResizable,
+  isCalendar,
+  isCheckbox,
   isImage,
   isLine,
   isLocked,
@@ -93,7 +96,7 @@ const NUDGE_STEP_SHIFT: Mm = 5;
  *   점에서 끌기          면 (선 네 개)
  * 둘 다 같은 자리에 이미 있으면 지워진다.
  */
-export function EditorTab() {
+export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement | null }) {
   // 속지·격자·그린 것은 지금 고르고 있는 양식의, 지금 보는 쪽(앞/뒤)의 것이다.
   const insert = useInsert();
   const side = useSide();
@@ -1070,29 +1073,22 @@ export function EditorTab() {
           <ZoomStepper zoom={zoom} onChange={setZoom} />
         </div>
 
-        <div className="editor-bar-style">
-          {selectedIds.length > 0 ||
-          tool === 'draw' ||
-          tool === 'table' ||
-          tool === 'text' ||
-          tool === 'field' ||
-          tool === 'calendar' ||
-          tool === 'image' ||
-          tool === 'checkbox' ? (
+        {/*
+          속성 칸(StyleBar)은 더 이상 여기서 직접 그리지 않는다 — 왼쪽 ToolRail의
+          탭 안(stylePanelSlot)으로 portal한다. 탭이 닫혀 있으면(고를 것도 쓰는
+          중인 도구도 없으면) slot이 null이라 아무것도 안 그려진다 — 예전에
+          여기 있던 "selectedIds.length > 0 || tool === ..." 조건과 같은 뜻이다.
+        */}
+        {stylePanelSlot &&
+          createPortal(
             <StyleBar
               editing={editing}
               setEditingStyle={setEditingStyle}
               draftStyle={draftStyle}
               refocusText={refocusText}
-            />
-          ) : (
-            <span className="editor-hint">
-              {noGrid
-                ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
-                : '선택 | 클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
-            </span>
+            />,
+            stylePanelSlot,
           )}
-        </div>
       </div>
 
       <div
@@ -1547,6 +1543,34 @@ const TEXT_TOOLS: SubTool[] = [
   { tool: 'field', label: '자동 필드', shortcut: 'F', icon: <FieldIcon /> },
 ];
 
+export type ToolCategory = 'select' | 'elements' | 'text' | 'image';
+
+/**
+ * 지금 도구·고른 것으로 봤을 때 왼쪽 탭이 저절로 어디에 열려야 하는가.
+ *
+ * `ui/StyleBar.tsx`가 "무엇을 보여줄지" 고르는 우선순위와 **정확히 같은
+ * 순서**다 — StyleBar는 그 판단을 종류별 조작칸으로 연결하고, 이건 같은
+ * 판단을 카테고리(탭)로 연결한다. 하나만 바뀌고 다른 하나를 안 고치면
+ * 언젠가 어긋난다.
+ */
+export function categoryFor(tool: Tool, picked: DiaryObject[]): ToolCategory | null {
+  const pickedLines = picked.filter(isLine);
+  const pickedTexts = picked.filter(isText);
+  const pickedCalendars = picked.filter(isCalendar);
+  const pickedImages = picked.filter(isImage);
+  const pickedShapes = picked.filter(isShape);
+  const pickedCheckboxes = picked.filter(isCheckbox);
+
+  if (tool === 'calendar' || pickedCalendars.length > 0) return 'text';
+  if (tool === 'image' || pickedImages.length > 0) return 'image';
+  if (pickedTexts.length > 0 && (pickedLines.length > 0 || pickedShapes.length > 0)) return 'select';
+  if (pickedShapes.length > 0) return 'elements'; // 표(선+도형)든 도형 단독이든
+  if (tool === 'checkbox' || pickedCheckboxes.length > 0) return 'elements';
+  if (tool === 'text' || tool === 'field' || (pickedTexts.length > 0 && pickedLines.length === 0)) return 'text';
+  if (tool === 'draw' || tool === 'table' || picked.length > 0) return 'elements';
+  return null;
+}
+
 /**
  * 그리기 도구 왼쪽 세로줄 — 속지 제작·노트 제작·인쇄하기(칸 직접 손보기)가
  * 모두 이걸 쓴다. `tool`은 store에 있는 전역값이라(store.ts의 `Tool`) 이
@@ -1554,44 +1578,65 @@ const TEXT_TOOLS: SubTool[] = [
  * 몸짓(pointer 핸들러)에서 그 값을 본다.
  *
  * **고르기는 카테고리 밖의 독립 버튼이다.** 다른 도구를 쓰는 중이 아니면
- * 늘 이게 기본이라는 뜻으로, 요소·텍스트 묶음 안에 넣지 않는다.
+ * 늘 이게 기본이라는 뜻으로, 요소·텍스트 묶음 안에 넣지 않는다 — 다만 서로
+ * 다른 종류를 함께 골랐을 때(색만 함께 조절 가능)는 고르기 자리에 그 결과가
+ * 뜬다(`categoryFor`의 'select' 갈래).
+ *
+ * 탭 안의 속성 칸(StyleBar)은 이 컴포넌트가 모른다 — 화면마다 "지금 쓰는
+ * 중인 글자" 같은 자기만의 상태가 있어서, 그 화면이 `onStylePanelSlot`으로
+ * 받은 자리에 `createPortal`로 직접 그린다(PrintSlotEditor의 `editBarSlot`과
+ * 같은 방식). 여기서는 그 자리(빈 div)만 마련해준다.
  */
-export function ToolRail() {
+export function ToolRail({
+  onStylePanelSlot,
+}: {
+  onStylePanelSlot: (el: HTMLDivElement | null) => void;
+}) {
   const tool = useStore((s) => s.tool);
   const setTool = useStore((s) => s.setTool);
-  const [open, setOpen] = useState<'elements' | 'text' | null>(null);
-  const [top, setTop] = useState(0);
+  const selectedIds = useStore((s) => s.selectedIds);
+  const objects = useObjects().present;
+  const [open, setOpen] = useState<ToolCategory | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
+
+  const picked = objects.filter((o) => selectedIds.includes(o.id));
+  const selectedKey = selectedIds.join(',');
+
+  // 도구나 고른 것이 바뀔 때마다 저절로 맞는 탭으로 — 수동으로 닫아둔 것도
+  // 여기서 다시 계산된다(선택이 그대로면 이 효과가 다시 안 돌아 그대로 있다).
+  useEffect(() => {
+    setOpen(categoryFor(tool, picked));
+    // picked는 objects·selectedIds에서 매 렌더 새로 계산되므로 selectedKey로 충분하다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, selectedKey]);
 
   useEffect(() => {
     if (!open) return;
-    function onDown(e: PointerEvent) {
-      if (!railRef.current?.contains(e.target as Node)) setOpen(null);
-    }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(null);
     }
-    document.addEventListener('pointerdown', onDown);
     window.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
-  function openCategory(id: 'elements' | 'text', e: React.MouseEvent<HTMLButtonElement>) {
-    setTop(e.currentTarget.offsetTop);
-    setOpen((cur) => (cur === id ? null : id));
+  function toggle(cat: ToolCategory) {
+    setOpen((cur) => (cur === cat ? null : cat));
   }
 
   function pick(t: Tool) {
     setTool(t);
-    setOpen(null);
   }
 
   const items = open === 'elements' ? ELEMENT_TOOLS : open === 'text' ? TEXT_TOOLS : null;
   const inElements = ELEMENT_TOOLS.some((t) => t.tool === tool);
   const inText = TEXT_TOOLS.some((t) => t.tool === tool);
+
+  const TITLE: Record<ToolCategory, string> = {
+    select: '고른 것',
+    elements: '요소',
+    text: '텍스트',
+    image: '이미지',
+  };
 
   return (
     <div className="rail-wrap" ref={railRef}>
@@ -1606,7 +1651,7 @@ export function ToolRail() {
 
         <button
           className={`rail-btn ${open === 'elements' || inElements ? 'on' : ''}`}
-          onClick={(e) => openCategory('elements', e)}
+          onClick={() => toggle('elements')}
           title="요소 — 선·표·체크박스"
         >
           <LineIcon />
@@ -1614,7 +1659,7 @@ export function ToolRail() {
 
         <button
           className={`rail-btn ${open === 'text' || inText ? 'on' : ''}`}
-          onClick={(e) => openCategory('text', e)}
+          onClick={() => toggle('text')}
           title="텍스트 — 글자·달력·자동 필드"
         >
           <TextIcon />
@@ -1622,30 +1667,40 @@ export function ToolRail() {
 
         <button
           className={`rail-btn ${tool === 'image' ? 'on' : ''}`}
-          onClick={() => setTool('image')}
+          onClick={() => {
+            setTool('image');
+            toggle('image');
+          }}
           title="이미지 (I)"
         >
           <ImageIcon />
         </button>
       </div>
 
-      {items && (
-        <div className="popover" style={{ top }}>
-          <div className="popover-arrow" />
-          <h2>{open === 'elements' ? '요소' : '텍스트'}</h2>
-          <div className="popover-body tool-subgrid">
-            {items.map((it) => (
-              <button
-                key={it.tool}
-                className={`tool-sub-btn ${tool === it.tool ? 'on' : ''}`}
-                onClick={() => pick(it.tool)}
-                title={`${it.label} (${it.shortcut})`}
-              >
-                {it.icon}
-                <span>{it.label}</span>
-              </button>
-            ))}
-          </div>
+      {open && (
+        <div className="tool-panel">
+          <h2>{TITLE[open]}</h2>
+          {items && (
+            <div className="tool-subgrid">
+              {items.map((it) => (
+                <button
+                  key={it.tool}
+                  className={`tool-sub-btn ${tool === it.tool ? 'on' : ''}`}
+                  onClick={() => pick(it.tool)}
+                  title={`${it.label} (${it.shortcut})`}
+                >
+                  {it.icon}
+                  <span>{it.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {/*
+            지금 화면(속지 제작·노트 제작·인쇄하기 칸 손보기)이 자기 StyleBar를
+            여기로 portal한다 — "쓰는 중인 글자" 같은 화면별 상태를 이 컴포넌트가
+            몰라도 되게 하려는 것이다.
+          */}
+          <div className="style-panel-slot" ref={onStylePanelSlot} />
         </div>
       )}
     </div>

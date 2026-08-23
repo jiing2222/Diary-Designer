@@ -42,7 +42,7 @@ function sameSlot(a: NotebookSlotRef, b: NotebookSlotRef): boolean {
  * (`store.ts`의 `shadowTemplate`을 그대로 재사용 — `beginShadowEdit`
  * 으로 반쪽 하나를 그림자에 채워 넣고, `NotebookHalfEditor`가 그린다).
  */
-export function NotebookEditorTab() {
+export function NotebookEditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement | null }) {
   const active = useActive();
   const setNotebookHalf = useStore((s) => s.setNotebookHalf);
   const setNotebookPageCount = useStore((s) => s.setNotebookPageCount);
@@ -117,7 +117,12 @@ export function NotebookEditorTab() {
       <div className={`notebook-half-slot ${edge}`}>
         <span className="notebook-half-label">{label}</span>
         {isEditing ? (
-          <NotebookHalfEditor scale={SCALE} onFinish={finishEditing} toolbarSlot={toolbarSlot} />
+          <NotebookHalfEditor
+            scale={SCALE}
+            onFinish={finishEditing}
+            toolbarSlot={toolbarSlot}
+            stylePanelSlot={stylePanelSlot}
+          />
         ) : (
           <button
             type="button"

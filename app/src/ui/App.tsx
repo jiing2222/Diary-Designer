@@ -209,6 +209,12 @@ export function App() {
    * 때문 — 콜백 ref로 실제 DOM 노드가 생기면 그때 다시 그려지게 한다.
    */
   const [editBarSlot, setEditBarSlot] = useState<HTMLDivElement | null>(null);
+  /**
+   * 속성 칸(StyleBar)을 실제로 그릴 자리 — ToolRail의 탭 안(콜백 ref로
+   * 받는 이유는 editBarSlot과 같다). 속지 제작·노트 제작·인쇄하기 칸
+   * 손보기 셋 다 이 자리 하나로 portal한다.
+   */
+  const [stylePanelSlot, setStylePanelSlot] = useState<HTMLDivElement | null>(null);
   /** `zoom === 'fit'`일 때 배율 계산의 기준이 되는, 지금 미리보기 영역의 실제 폭(px). */
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageWidth, setStageWidth] = useState(0);
@@ -791,7 +797,7 @@ export function App() {
               속지·노트 제작 화면은 늘 그렇지만, 인쇄하기는 칸을 직접
               손보는 중(editingSession)일 때만 그릴 자리가 있다.
             */}
-            {(tab === 'edit' || editingSession) && <ToolRail />}
+            {(tab === 'edit' || editingSession) && <ToolRail onStylePanelSlot={setStylePanelSlot} />}
             <SettingsPanel />
           </div>
         )}
@@ -799,7 +805,11 @@ export function App() {
         {tab === 'gallery' || !active ? (
           <GalleryTab onEdit={() => setTab('edit')} />
         ) : tab === 'edit' ? (
-          active.kind === 'notebook' ? <NotebookEditorTab /> : <EditorTab />
+          active.kind === 'notebook' ? (
+            <NotebookEditorTab stylePanelSlot={stylePanelSlot} />
+          ) : (
+            <EditorTab stylePanelSlot={stylePanelSlot} />
+          )
         ) : (
           <div className="print-tab">
             {/* 양식 만들기 화면의 상단 도구줄과 같은 자리 — 같은 위치에 있어야 찾기 쉽다. */}
@@ -969,6 +979,7 @@ export function App() {
                           hasOverride={editingSession.hadOverride}
                           onRevert={revertEdit}
                           editBarSlot={editBarSlot}
+                          stylePanelSlot={stylePanelSlot}
                         />
                       )}
                     </div>
@@ -1007,6 +1018,7 @@ export function App() {
                           hasOverride={editingSession.hadOverride}
                           onRevert={revertEdit}
                           editBarSlot={editBarSlot}
+                          stylePanelSlot={stylePanelSlot}
                         />
                       )}
                     </div>

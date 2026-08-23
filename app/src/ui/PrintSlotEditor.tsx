@@ -106,6 +106,7 @@ export function PrintSlotEditor({
   hasOverride,
   onRevert,
   editBarSlot,
+  stylePanelSlot,
 }: {
   /** 이 칸의 용지 위 자리(mm). App.tsx가 layout.slots에서 그대로 넘긴다. */
   slot: Slot;
@@ -126,6 +127,8 @@ export function PrintSlotEditor({
   onRevert: () => void;
   /** 도구막대를 실제로 그릴 DOM 자리. 아직 안 붙었으면(첫 렌더) null. */
   editBarSlot: HTMLDivElement | null;
+  /** 속성 칸(StyleBar)을 그릴 DOM 자리 — ToolRail의 탭 안. */
+  stylePanelSlot: HTMLDivElement | null;
 }) {
   // useInsert·useDotGrid 대신 그림자 양식을 직접 읽는다 — 그 두 훅은 일부러
   // 그림자를 안 본다(store.ts의 doc 참고, SettingsPanel이 인쇄하기 탭에서도
@@ -709,33 +712,23 @@ export function PrintSlotEditor({
           )}
           <button onClick={finish}>완료</button>
         </div>
-        <div className="editor-bar-style">
-          {selectedIds.length > 0 ||
-          tool === 'draw' ||
-          tool === 'table' ||
-          tool === 'text' ||
-          tool === 'field' ||
-          tool === 'calendar' ||
-          tool === 'image' ||
-          tool === 'checkbox' ? (
-            <StyleBar
-              editing={editing}
-              setEditingStyle={setEditingStyle}
-              draftStyle={draftStyle}
-              refocusText={refocusText}
-            />
-          ) : (
-            <span className="editor-hint">
-              {noGrid ? '격자가 없어 그릴 수 없습니다.' : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
-            </span>
-          )}
-        </div>
     </div>
   );
 
   return (
     <>
       {editBarSlot && createPortal(toolbar, editBarSlot)}
+      {/* 속성 칸은 왼쪽 ToolRail의 탭 안(stylePanelSlot)으로 portal한다 — EditorTab.tsx와 같은 이유. */}
+      {stylePanelSlot &&
+        createPortal(
+          <StyleBar
+            editing={editing}
+            setEditingStyle={setEditingStyle}
+            draftStyle={draftStyle}
+            refocusText={refocusText}
+          />,
+          stylePanelSlot,
+        )}
 
       <div
         className="print-slot-editor-canvas"

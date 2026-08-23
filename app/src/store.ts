@@ -758,7 +758,7 @@ export const useStore = create<Store>((set) => ({
   templates: [],
   activeId: '',
   side: 'front',
-  tool: 'draw',
+  tool: 'select',
   selectedIds: [],
   clipboard: [],
   clipboardOrigin: null,
