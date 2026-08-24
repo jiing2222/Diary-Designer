@@ -4,7 +4,6 @@ import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSpl
 import { checkboxIconBox } from '../core/checkbox';
 import { holeCenterX } from '../core/punch';
 import { moveDelta, snapToLattice } from '../core/snap';
-import { canRedo, canUndo } from '../core/history';
 import {
   boundsOfObjects,
   boxOf,
@@ -30,6 +29,7 @@ import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style
 import { roundMm, type Mm } from '../core/units';
 import { fieldPlaceholder, newTextStyle, parseFieldText, rotateOf } from '../core/text';
 import {
+  activeTemplate,
   useActiveInsertSize,
   useDotGrid,
   useHasBack,
@@ -1081,12 +1081,6 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
               잠긴 것 {lockedCount}개 · 전부 해제
             </button>
           )}
-          <button className="ghost" onClick={undo} disabled={!canUndo(history)} title="실행취소 (⌘Z)">
-            ↶
-          </button>
-          <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
-            ↷
-          </button>
           <button
             className="ghost"
             onClick={() => rotateView()}
@@ -1094,8 +1088,6 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
           >
             ↻
           </button>
-
-          <ZoomStepper zoom={zoom} onChange={setZoom} />
         </div>
 
         {/*
@@ -1413,6 +1405,20 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
             </span>
           )
         )}
+        {/*
+          도구도 안 쓰고 고른 것도 없을 때(왼쪽 탭이 저절로 닫혀 있는 상태)
+          안내가 아예 없으면 뭘 해야 할지 알 수 없다 — 예전엔 위쪽 도구줄에
+          늘 떠 있던 문구였는데, 그 자리가 지금은 탭이 열렸을 때만 보이는
+          속성 칸으로 바뀌면서 조용히 사라졌었다.
+        */}
+        {tool === 'select' && selectedIds.length === 0 && (
+          <span>
+            {noGrid
+              ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
+              : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
+          </span>
+        )}
+        <ZoomStepper zoom={zoom} onChange={setZoom} />
       </div>
     </div>
   );
@@ -1526,6 +1532,9 @@ export function TextInput({
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           e.preventDefault();
+          // 확정 직후 이 키가 window까지 거품처럼 올라가 ToolRail의 Escape
+          // 처리(방금 골라진 것에 맞춰 막 열린 탭)까지 함께 닫아버리지 않게 막는다.
+          e.stopPropagation();
           onDone();
           return;
         }
@@ -1638,6 +1647,10 @@ export function ToolRail({
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
+      // 입력칸·드롭다운에 포커스가 있으면 그 안의 값을 취소하려는
+      // Escape다 — 탭 전체를 닫아 안에 입력 중이던 값을 날리면 안 된다.
+      const t = e.target as HTMLElement;
+      if (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
       if (e.key === 'Escape') setOpen(null);
     }
     window.addEventListener('keydown', onKey);
@@ -1664,7 +1677,7 @@ export function ToolRail({
   };
 
   return (
-    <div className="rail-wrap" ref={railRef}>
+    <div className="rail-wrap rail-wrap-tool" ref={railRef}>
       <div className="rail">
         <button
           className={`rail-btn ${tool === 'select' ? 'on' : ''}`}
@@ -1693,8 +1706,13 @@ export function ToolRail({
         <button
           className={`rail-btn ${tool === 'image' ? 'on' : ''}`}
           onClick={() => {
-            setTool('image');
-            toggle('image');
+            // 이미 이미지 도구인 채로 다시 누르면 그건 닫으려는 뜻이다.
+            // 다른 도구에서 넘어오는 클릭은 setTool만으로 충분하다 —
+            // 도구가 'image'로 바뀌면 아래 useEffect가 저절로 열어준다.
+            // 두 곳에서 한꺼번에 열려고 하면(toggle이 먼저 닫고 useEffect가
+            // 다시 열며) 잠깐 닫혔다 열리는 게 보였다.
+            if (tool === 'image') toggle('image');
+            else setTool('image');
           }}
           title="이미지 (I)"
         >
@@ -1747,6 +1765,11 @@ function ImageCategoryBody() {
   const commitImage = useStore((s) => s.commitImage);
   const styleImage = useStore((s) => s.styleImage);
   const insert = useActiveInsertSize();
+  // 노트는 반쪽마다 따로 objects를 갖고(cover/pages), 양식 자체의 objects는
+  // 아무도 그리지 않는 죽은 자리다. 그림자(반쪽을 실제로 펴서 손보는 중)
+  // 없이 노트에서 이 자리에 놓으면 화면엔 아무 변화도 없이 그 죽은 자리에만
+  // 계속 쌓인다 — 반쪽을 먼저 열어야 한다.
+  const canPlace = useStore((s) => activeTemplate(s)?.kind !== 'notebook' || s.shadowTemplate !== null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -1773,6 +1796,10 @@ function ImageCategoryBody() {
     } catch (e) {
       setError(e instanceof Error ? e.message : '이미지를 읽지 못했습니다');
     }
+  }
+
+  if (!canPlace) {
+    return <p className="tool-panel-note">먼저 손볼 반쪽을 열어야 이미지를 놓을 수 있습니다.</p>;
   }
 
   return (

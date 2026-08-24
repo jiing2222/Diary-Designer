@@ -81,13 +81,25 @@ header h1 {
   margin-right: auto;
 }
 
-/* 헤더 가운데 — 양식 이름 · 속지 크기 */
+/* 헤더 가운데 — 양식 이름 · 속지 크기 · 실행취소/다시실행 */
+.template-info-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: auto;
+}
+
 .template-info {
   position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-right: auto;
+}
+
+.undo-redo {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .template-name,
@@ -215,6 +227,7 @@ button.ghost:disabled {
 .side-bar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   padding: 7px 14px;
   min-height: 28px;
@@ -288,6 +301,7 @@ button.ghost:disabled {
 .editor-bar-tools {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: 6px;
 }
@@ -787,12 +801,18 @@ button.ghost:disabled {
 
 .editor-foot {
   display: flex;
+  align-items: center;
   gap: 18px;
   padding: 6px 14px;
   border-top: 1px solid var(--line);
   background: var(--panel);
   font-size: 11.5px;
   color: var(--muted);
+}
+
+/* 화면 크기조절은 이 줄의 맨 오른쪽 — 상태 글자들과 한데 붙지 않게 뗀다 */
+.editor-foot .zoom-stepper {
+  margin-left: auto;
 }
 
 /* 격자를 푼 채 옮기는 중. 평소와 다른 상태라 눈에 띄어야 한다. */
@@ -834,6 +854,18 @@ main {
   z-index: 20;
   display: flex;
   flex-direction: column;
+}
+
+/*
+ * ToolRail(그리기 도구)만 준다 — SettingsPanel의 .rail-wrap은 그대로 내용
+ * 높이만큼만 차지해 늘 맨 아래에 붙어야 한다(.rail-collapse 주석 참고).
+ * 이 값이 없으면 .rail-wrap이 아이콘 줄 높이(약 180px)로만 잡혀서, 그 안의
+ * .tool-panel(옆으로 펼치는 탭)도 같은 높이로 잘렸다 — top:0·bottom:0이
+ * .rail-wrap 자신의 낮은 높이를 기준으로 계산되기 때문이다. .left-column의
+ * 남는 세로 공간을 이쪽이 전부 가져가면 .tool-panel도 그만큼 늘어난다.
+ */
+.rail-wrap-tool {
+  flex: 1 1 auto;
 }
 
 .rail {
@@ -1318,6 +1350,34 @@ select,
   flex: 1;
   min-height: 0;
   display: flex;
+}
+
+/* .stage-area(스크롤)와 .zoom-float(안 스크롤하고 늘 같은 자리)을 겹쳐 둘 기준 상자 */
+.stage-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+/*
+ * 화면 크기조절 — 위쪽 도구줄에서 화면 맨 아래로. .stage-area 안에 그냥
+ * 두면 스크롤을 따라 함께 흘러가버려서, 스크롤과 무관한 .stage-wrap을
+ * 기준으로 오른쪽 아래에 띄운다.
+ */
+.zoom-float {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.1);
 }
 
 /*

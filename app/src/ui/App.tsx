@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { activeTemplate, paperSize, resolveSlotTemplates, selectLayout, useStore, type Side } from '../store';
+import {
+  activeTemplate,
+  paperSize,
+  resolveSlotTemplates,
+  selectLayout,
+  useObjects,
+  useStore,
+  type Side,
+} from '../store';
+import { canRedo, canUndo } from '../core/history';
 import {
   capacityPerSheet,
   cutStackPage,
@@ -138,6 +147,29 @@ function TemplateInfo({ template }: { template: Template }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 실행취소 / 다시실행 — 속지 제작·노트 제작·인쇄하기(칸 손보기) 셋이 저마다
+ * 들고 있던 버튼을 여기 하나로 모았다. `s.undo`·`s.redo`는 이미 그림자
+ * (반쪽·칸을 직접 손보는 중)가 있으면 그쪽만, 없으면 활성 양식의 지금 쪽만
+ * 되돌린다 — `useObjects()`도 같은 우선순위라(store.ts) 버튼을 켜고 끄는
+ * 기준이 실제로 눌렀을 때 되돌아가는 대상과 늘 같다.
+ */
+function UndoRedo() {
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
+  const history = useObjects();
+  return (
+    <div className="undo-redo">
+      <button className="ghost" onClick={undo} disabled={!canUndo(history)} title="실행취소 (⌘Z)">
+        ↶
+      </button>
+      <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
+        ↷
+      </button>
     </div>
   );
 }
@@ -781,7 +813,14 @@ export function App() {
           </button>
         </nav>
 
-        {active ? <TemplateInfo template={active} /> : <span className="stage" />}
+        {active ? (
+          <div className="template-info-group">
+            <TemplateInfo template={active} />
+            <UndoRedo />
+          </div>
+        ) : (
+          <span className="stage" />
+        )}
         <ProjectFile />
         <button onClick={exportPdf} disabled={busy || !active || layout.count === 0}>
           {busy ? '만드는 중…' : 'PDF 내보내기'}
@@ -871,11 +910,6 @@ export function App() {
                   되돌리기 취소
                 </button>
               )}
-
-              <button className="ghost" onClick={() => setZoom('fit')} disabled={zoom === 'fit'} title="화면에 맞춤">
-                맞춤
-              </button>
-              <ZoomStepper zoom={zoom} onChange={setZoom} />
             </div>
 
             {printMode === 'repeat' ? (
@@ -909,6 +943,7 @@ export function App() {
             <div className="editor-bar-slot" ref={setEditBarSlot} />
 
             <div className="print-body">
+            <div className="stage-wrap">
             <div className="stage-area" ref={stageRef} onDoubleClick={onStageDoubleClick}>
               {layout.count === 0 ? (
                 <div className="empty">속지가 용지보다 큽니다. 용지를 키우거나 속지를 줄이세요.</div>
@@ -1031,6 +1066,13 @@ export function App() {
                   );
                 })
               )}
+            </div>
+            <div className="zoom-float">
+              <button className="ghost" onClick={() => setZoom('fit')} disabled={zoom === 'fit'} title="화면에 맞춤">
+                맞춤
+              </button>
+              <ZoomStepper zoom={zoom} onChange={setZoom} />
+            </div>
             </div>
             <PrintSidePanel />
             </div>

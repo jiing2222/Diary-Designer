@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { checkboxIconBox } from '../core/checkbox';
 import { moveDelta, snapToLattice } from '../core/snap';
-import { canRedo, canUndo } from '../core/history';
 import {
   boundsOfObjects,
   boxOf,
@@ -657,12 +656,6 @@ export function NotebookHalfEditor({
               잠긴 것 {lockedCount}개 · 전부 해제
             </button>
           )}
-          <button className="ghost" onClick={undo} disabled={!canUndo(history)} title="실행취소 (⌘Z)">
-            ↶
-          </button>
-          <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
-            ↷
-          </button>
           <button onClick={finish}>완료</button>
         </div>
     </div>
