@@ -1692,8 +1692,29 @@ export function ToolRail({
     return () => document.removeEventListener('pointerdown', onDown);
   }, [open]);
 
+  const inElements = ELEMENT_TOOLS.some((t) => t.tool === tool);
+  const inText = TEXT_TOOLS.some((t) => t.tool === tool);
+
   function toggle(cat: ToolCategory) {
-    setOpen((cur) => (cur === cat ? null : cat));
+    const opening = open !== cat;
+    // 요소·텍스트 탭을 여는데 그 전에 다른 카테고리 도구(예: 이미지)를
+    // 쓰던 중이었다면, open만 바꾸고 tool을 안 건드릴 경우 StyleBar가
+    // (open이 아니라 tool을 보고 뭘 보여줄지 정하므로) 지금 안 보이는
+    // 탭의 안내를 계속 보여주는 채로 남는다("요소" 탭인데 "이미지"라고
+    // 뜨던 버그가 이거였다). 그 카테고리의 대표 도구로 직접 바꿔서
+    // tool·open이 늘 같은 카테고리를 가리키게 한다 — setOpen을 따로
+    // 부르지 않는 이유는 이미지 도구 버튼과 같다: setTool이 바뀌면 위
+    // useEffect가 스스로 열어주므로, 여기서 먼저 열면 그 효과가 뒤늦게
+    // 다시 계산하며 잠깐 닫혔다 열리는 게 보인다.
+    if (opening && cat === 'elements' && !inElements) {
+      setTool('draw');
+      return;
+    }
+    if (opening && cat === 'text' && !inText) {
+      setTool('text');
+      return;
+    }
+    setOpen(opening ? cat : null);
   }
 
   function pick(t: Tool) {
@@ -1701,8 +1722,6 @@ export function ToolRail({
   }
 
   const items = open === 'elements' ? ELEMENT_TOOLS : open === 'text' ? TEXT_TOOLS : null;
-  const inElements = ELEMENT_TOOLS.some((t) => t.tool === tool);
-  const inText = TEXT_TOOLS.some((t) => t.tool === tool);
 
   const TITLE: Record<ToolCategory, string> = {
     select: '고른 것',

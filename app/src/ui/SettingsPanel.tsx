@@ -459,36 +459,6 @@ export function GridGroup() {
           </select>
         </Row>
       )}
-      <Row label="채우기" hint="모서리에서 시작해 끝까지 나아간다. 마지막 칸은 잘린다">
-        <Check
-          checked={grid.toEdge}
-          onChange={(toEdge) => s.patchDotGrid({ toEdge })}
-          label="여백 없이 끝까지"
-        />
-      </Row>
-      {!grid.toEdge && (
-        <>
-          <Row
-            label="최소 여백"
-            hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다"
-          >
-            <Num
-              value={grid.minMargin}
-              min={0}
-              max={20}
-              onChange={(minMargin) => s.patchDotGrid({ minMargin })}
-            />
-          </Row>
-          <MarginReadout />
-        </>
-      )}
-      <Row label="타공" hint="구멍 쪽 안전영역을 비우고 그 안에서 다시 가운데 맞춘다">
-        <Check
-          checked={grid.avoidSafeZone}
-          onChange={(avoidSafeZone) => s.patchDotGrid({ avoidSafeZone })}
-          label="안전영역 비우기"
-        />
-      </Row>
       <Row
         label="등분 안내"
         hint="속지를 가로·세로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
@@ -510,6 +480,20 @@ export function GridGroup() {
           />
         </div>
       </Row>
+      <Row label="타공" hint="구멍 쪽 안전영역을 비우고 그 안에서 다시 가운데 맞춘다">
+        <Check
+          checked={grid.avoidSafeZone}
+          onChange={(avoidSafeZone) => s.patchDotGrid({ avoidSafeZone })}
+          label="안전영역 비우기"
+        />
+      </Row>
+      <Row label="채우기" hint="모서리에서 시작해 끝까지 나아간다. 마지막 칸은 잘린다">
+        <Check
+          checked={grid.toEdge}
+          onChange={(toEdge) => s.patchDotGrid({ toEdge })}
+          label="여백 없이 끝까지"
+        />
+      </Row>
       <Row label="인쇄">
         <Check
           checked={grid.print}
@@ -524,6 +508,22 @@ export function GridGroup() {
           label="도트만 찍기"
         />
       </Row>
+      {!grid.toEdge && (
+        <>
+          <Row
+            label="최소 여백"
+            hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다"
+          >
+            <Num
+              value={grid.minMargin}
+              min={0}
+              max={20}
+              onChange={(minMargin) => s.patchDotGrid({ minMargin })}
+            />
+          </Row>
+          <MarginReadout />
+        </>
+      )}
       <GridReadout />
     </>
   );
@@ -705,6 +705,8 @@ function MarginReadout() {
 }
 
 /** 격자가 아예 안 들어가는지, 화면·인쇄 표시가 서로 다른지 알린다. */
+/** 격자가 아예 안 들어가는지만 알린다 — 사용자 요청으로 화면·인쇄 표시가
+ * 다르다는 알림은 없앴다. */
 function GridReadout() {
   const insert = useInsert();
   const grid = useDotGrid();
@@ -726,15 +728,7 @@ function GridReadout() {
     );
   }
 
-  if (grid.showOnScreen === grid.print) return null;
-
-  return (
-    <div className="readout">
-      <span>
-        <b>{grid.print ? '화면에는 없지만 인쇄됩니다.' : '화면에만 보이고 인쇄되지 않습니다.'}</b>
-      </span>
-    </div>
-  );
+  return null;
 }
 
 /** 자동 계산된 타공 위치를 보여준다. 사용자가 입력하는 값이 아니다. */
