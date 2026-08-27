@@ -154,6 +154,8 @@ interface Settings {
   drawStyle: DrawStyle;
   /** 앞으로 찍을 체크박스의 모양. drawStyle의 체크박스 판이다. */
   checkboxDraftStyle: CheckboxStyle;
+  /** 앞으로 놓을 달력의 모양. drawStyle의 달력 판이다. */
+  calendarDraftStyle: CalendarStyle;
   /** 앞으로 쓸 글자의 모양. drawStyle의 글자 판이다. */
   textDraftStyle: TextStyle;
   /** 자동 필드 도구로 다음에 찍을 서식. drawStyle의 자동 필드 판이다. */
@@ -469,6 +471,8 @@ interface Store extends Settings {
   styleShape: (patch: ShapeStyle) => void;
   /** 앞으로 찍을 체크박스의 모양. */
   setCheckboxDraftStyle: (patch: CheckboxStyle) => void;
+  /** 앞으로 놓을 달력의 모양. */
+  setCalendarDraftStyle: (patch: CalendarStyle) => void;
   /** 걸친 칸마다 하나씩 새 체크박스 오브젝트를 만든다(표처럼 범위 드래그). */
   commitCheckboxes: (boxes: Box[]) => void;
   /** 고른 체크박스들의 아이콘·테두리 굵기·색. */
@@ -765,6 +769,7 @@ export const useStore = create<Store>((set) => ({
   crossBoundaryPairs: [],
   drawStyle: {},
   checkboxDraftStyle: {},
+  calendarDraftStyle: {},
   textDraftStyle: {},
   fieldDraftFormat: DEFAULT_FIELD_FORMAT,
   userFonts: [],
@@ -1140,7 +1145,7 @@ export const useStore = create<Store>((set) => ({
 
   commitCalendar: (box) =>
     set((s) => {
-      const next: CalendarObject = { id: newId('c'), type: 'calendar', ...box };
+      const next: CalendarObject = { id: newId('c'), type: 'calendar', ...box, ...s.calendarDraftStyle };
       // 곧바로 고른 상태로 둔다. 놓자마자 크기부터 다듬는 일이 흔해서,
       // 손잡이가 바로 보여야 한 번 더 클릭하지 않고 이어서 끌 수 있다.
       return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
@@ -1334,6 +1339,9 @@ export const useStore = create<Store>((set) => ({
 
   setCheckboxDraftStyle: (patch) =>
     set((s) => ({ checkboxDraftStyle: { ...s.checkboxDraftStyle, ...patch } })),
+
+  setCalendarDraftStyle: (patch) =>
+    set((s) => ({ calendarDraftStyle: { ...s.calendarDraftStyle, ...patch } })),
 
   commitCheckboxes: (boxes) =>
     set((s) => {

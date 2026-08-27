@@ -649,6 +649,10 @@ button.ghost:disabled {
 .picked-count.muted-label {
   color: var(--muted);
   font-weight: 500;
+  /* 위 nowrap은 "1개"·"쓰는 중"처럼 늘 짧은 값을 위한 것이다. 이 문구는
+     도구마다 길이가 달라 앞으로 길어질 수 있으니 좁은 패널에서 가로로
+     넘치지 않게 줄바꿈을 도로 허용한다. */
+  white-space: normal;
 }
 
 .size-readout {
@@ -1061,6 +1065,24 @@ main {
 .row-field {
   flex: 1;
   min-width: 0;
+}
+
+/*
+ * ToolRail 탭(폭 150px) 안의 용지·도트 격자·타공 안내는 좌우로 나누면
+ * 라벨과 붙어 입력칸이 너무 좁아진다(숫자+단위가 안 보일 만큼) —
+ * 말풍선(.popover, 264px)보다 훨씬 좁아서 라벨을 위로 올리고 칸에
+ * 가로 폭을 전부 준다.
+ */
+.tool-panel .row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  min-height: 0;
+  margin-bottom: 10px;
+}
+
+.tool-panel .row-label {
+  width: auto;
 }
 
 select,

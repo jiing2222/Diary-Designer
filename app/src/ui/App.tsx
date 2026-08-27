@@ -835,9 +835,16 @@ export function App() {
               그리기 도구는 실제로 그릴 캔버스가 떠 있을 때만 보여준다 —
               속지·노트 제작 화면은 늘 그렇지만, 인쇄하기는 칸을 직접
               손보는 중(editingSession)일 때만 그릴 자리가 있다.
+              그 상태에서는 용지·도트 격자·타공 안내도 ToolRail 안으로
+              합쳐져 있으므로(같은 탭으로), SettingsPanel은 ToolRail이
+              없을 때만 따로 보여준다 — 인쇄하기에서 칸을 직접 손보고
+              있지 않을 때는 도구줄 자체가 없어 합칠 자리가 없기 때문이다.
             */}
-            {(tab === 'edit' || editingSession) && <ToolRail onStylePanelSlot={setStylePanelSlot} />}
-            <SettingsPanel />
+            {tab === 'edit' || editingSession ? (
+              <ToolRail onStylePanelSlot={setStylePanelSlot} />
+            ) : (
+              <SettingsPanel />
+            )}
           </div>
         )}
 

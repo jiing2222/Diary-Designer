@@ -90,17 +90,17 @@ export function calendarLayout(
 }
 
 /** 그리드 맨 왼쪽 줄의 요일. 정하지 않았으면 일요일. */
-export function weekStartOf(o: CalendarObject): 'sun' | 'mon' {
+export function weekStartOf(o: { weekStart?: CalendarObject['weekStart'] }): 'sun' | 'mon' {
   return o.weekStart ?? CALENDAR_WEEK_START;
 }
 
 /** 이번 달이 아닌 칸에도 날짜를 보여줄지. 정하지 않았으면 보여준다. */
-export function showAdjacentOf(o: CalendarObject): boolean {
+export function showAdjacentOf(o: { showAdjacent?: boolean }): boolean {
   return o.showAdjacent ?? CALENDAR_SHOW_ADJACENT;
 }
 
 /** 요일 이름 언어. 정하지 않았으면 한글. */
-export function weekdayLangOf(o: CalendarObject): WeekdayLang {
+export function weekdayLangOf(o: { weekdayLang?: WeekdayLang }): WeekdayLang {
   return o.weekdayLang ?? CALENDAR_WEEKDAY_LANG;
 }
 

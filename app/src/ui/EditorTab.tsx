@@ -46,13 +46,17 @@ import { InsertView } from './InsertView';
 import { ImageThumbGrid } from './ImagePickerDialog';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
+import { PaperGroup, GridGroup, PunchGroup } from './SettingsPanel';
 import {
   CalendarIcon,
   CheckboxIcon,
   CursorIcon,
   FieldIcon,
+  GridIcon,
   ImageIcon,
   LineIcon,
+  PaperIcon,
+  PunchIcon,
   TableIcon,
   TextIcon,
 } from './icons';
@@ -1577,7 +1581,12 @@ const TEXT_TOOLS: SubTool[] = [
   { tool: 'field', label: '자동 필드', shortcut: 'F', icon: <FieldIcon /> },
 ];
 
-export type ToolCategory = 'select' | 'elements' | 'text' | 'image';
+export type ToolCategory = 'select' | 'elements' | 'text' | 'image' | 'paper' | 'grid' | 'punch';
+
+/** 도구 카테고리(select·elements·text·image)인지, 용지·도트격자·타공 안내인지. */
+function isSettingsCategory(cat: ToolCategory): boolean {
+  return cat === 'paper' || cat === 'grid' || cat === 'punch';
+}
 
 /**
  * 지금 도구·고른 것으로 봤을 때 왼쪽 탭이 저절로 어디에 열려야 하는가.
@@ -1635,11 +1644,18 @@ export function ToolRail({
 
   const picked = objects.filter((o) => selectedIds.includes(o.id));
   const selectedKey = selectedIds.join(',');
+  const insert = useInsert();
+  const grid = useDotGrid();
+  const unprintableShow = useStore((s) => s.unprintable.show);
 
   // 도구나 고른 것이 바뀔 때마다 저절로 맞는 탭으로 — 수동으로 닫아둔 것도
   // 여기서 다시 계산된다(선택이 그대로면 이 효과가 다시 안 돌아 그대로 있다).
+  // categoryFor는 용지·도트격자·타공(paper·grid·punch)을 절대 돌려주지 않는다
+  // — 그 셋은 도구·선택과 무관하게 손으로만 여닫으므로, 아무것도 고를 게
+  // 없어(cat이 null) 지금 열린 탭을 접으려는 참이어도 그 셋이 열려 있으면 그대로 둔다.
   useEffect(() => {
-    setOpen(categoryFor(tool, picked));
+    const cat = categoryFor(tool, picked);
+    setOpen((cur) => (cat ? cat : cur && isSettingsCategory(cur) ? cur : null));
     // picked는 objects·selectedIds에서 매 렌더 새로 계산되므로 selectedKey로 충분하다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, selectedKey]);
@@ -1655,6 +1671,18 @@ export function ToolRail({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  // 용지·도트격자·타공은 예전 SettingsPanel의 말풍선처럼 바깥을 눌러도
+  // 닫힌다 — 도구 카테고리(요소·텍스트·이미지)는 도구·선택이 바뀔 때
+  // 저절로 여닫히므로 안 건드린다.
+  useEffect(() => {
+    if (!open || !isSettingsCategory(open)) return;
+    function onDown(e: PointerEvent) {
+      if (!railRef.current?.contains(e.target as Node)) setOpen(null);
+    }
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
   }, [open]);
 
   function toggle(cat: ToolCategory) {
@@ -1674,6 +1702,9 @@ export function ToolRail({
     elements: '요소',
     text: '텍스트',
     image: '이미지',
+    paper: '용지',
+    grid: '도트 격자',
+    punch: '타공 안내',
   };
 
   return (
@@ -1718,6 +1749,39 @@ export function ToolRail({
         >
           <ImageIcon />
         </button>
+
+        {/*
+          용지·도트 격자·타공 안내 — 예전엔 이 아래(SettingsPanel)에 따로
+          말풍선으로 떴었다. "이 칸이 어떻게 생겼는가"를 정하는 같은 종류의
+          설정이라 도구 카테고리와 같은 줄, 같은 탭 방식으로 합쳤다. 오른쪽
+          위 점은 그 설정이 지금 화면에 실제로 보이는 중이라는 표시다.
+        */}
+        <button
+          className={`rail-btn ${open === 'paper' ? 'on' : ''}`}
+          onClick={() => toggle('paper')}
+          title="용지"
+        >
+          <PaperIcon />
+          {unprintableShow && <span className="rail-mark" />}
+        </button>
+
+        <button
+          className={`rail-btn ${open === 'grid' ? 'on' : ''}`}
+          onClick={() => toggle('grid')}
+          title="도트 격자"
+        >
+          <GridIcon />
+          {grid.showOnScreen && <span className="rail-mark" />}
+        </button>
+
+        <button
+          className={`rail-btn ${open === 'punch' ? 'on' : ''}`}
+          onClick={() => toggle('punch')}
+          title="타공 안내"
+        >
+          <PunchIcon />
+          {insert.punch.show && <span className="rail-mark" />}
+        </button>
       </div>
 
       {open && (
@@ -1739,12 +1803,16 @@ export function ToolRail({
             </div>
           )}
           {open === 'image' && <ImageCategoryBody />}
+          {open === 'paper' && <PaperGroup />}
+          {open === 'grid' && <GridGroup />}
+          {open === 'punch' && <PunchGroup />}
           {/*
             지금 화면(속지 제작·노트 제작·인쇄하기 칸 손보기)이 자기 StyleBar를
             여기로 portal한다 — "쓰는 중인 글자" 같은 화면별 상태를 이 컴포넌트가
-            몰라도 되게 하려는 것이다.
+            몰라도 되게 하려는 것이다. 용지·도트격자·타공 탭에는 고른 것의
+            속성과 무관하므로 자리를 만들지 않는다.
           */}
-          <div className="style-panel-slot" ref={onStylePanelSlot} />
+          {!isSettingsCategory(open) && <div className="style-panel-slot" ref={onStylePanelSlot} />}
         </div>
       )}
     </div>

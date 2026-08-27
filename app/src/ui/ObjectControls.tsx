@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   imageRotateOf,
   MIN_BOX_SIZE,
-  type CalendarObject,
   type CalendarStyle,
   type CheckboxStyle,
   type ImageObject,
@@ -119,37 +118,42 @@ const ROW_SCALES = [0.7, 0.8, 0.9, 1, 1.2, 1.4, 1.6, 1.8, 2];
 const MIN_LETTER_SPACING_MM: Mm = 0;
 const MAX_LETTER_SPACING_MM: Mm = 5;
 
-export function CalendarControls({ calendars }: { calendars: CalendarObject[] }) {
-  const styleCalendar = useStore((s) => s.styleCalendar);
+/**
+ * 달력의 시작 요일·요일 언어·글꼴·색·크기 등.
+ *
+ * 체크박스처럼 그리기 전에도 만지는 값이라(찍자마자 바로 적용되게)
+ * `items`·`apply`로 일반화했다 — 실제로 그려진 달력들일 수도, 아직 하나도
+ * 없어 대기 중인 draft 스타일 하나일 수도 있다(StyleBar의 호출부 참고).
+ */
+export function CalendarControls({
+  items,
+  apply,
+}: {
+  items: CalendarStyle[];
+  apply: (patch: CalendarStyle) => void;
+}) {
   const adjacentRef = useRef<HTMLInputElement>(null);
+  const first = items[0];
 
-  const editing = calendars.length > 0;
-  const first = calendars[0];
-  const weekStartMixed = editing && !calendars.every((o) => weekStartOf(o) === weekStartOf(first));
-  const langMixed = editing && !calendars.every((o) => weekdayLangOf(o) === weekdayLangOf(first));
-  const adjacentMixed = editing && !calendars.every((o) => showAdjacentOf(o) === showAdjacentOf(first));
-  const colorMixed = editing && !calendars.every((o) => (o.color ?? TEXT_COLOR) === (first.color ?? TEXT_COLOR));
-  const sizeMixed = editing && !calendars.every((o) => sizeScaleOf(o) === sizeScaleOf(first));
-  const rowMixed = editing && !calendars.every((o) => rowScaleOf(o) === rowScaleOf(first));
-  const spacingMixed = editing && !calendars.every((o) => letterSpacingOf(o) === letterSpacingOf(first));
-  const fontMixed = editing && !calendars.every((o) => (o.font ?? '') === (first.font ?? ''));
-  const titleMixed = editing && !calendars.every((o) => o.title === first.title);
+  const weekStartMixed = items.length > 1 && !items.every((o) => weekStartOf(o) === weekStartOf(first));
+  const langMixed = items.length > 1 && !items.every((o) => weekdayLangOf(o) === weekdayLangOf(first));
+  const adjacentMixed = items.length > 1 && !items.every((o) => showAdjacentOf(o) === showAdjacentOf(first));
+  const colorMixed = items.length > 1 && !items.every((o) => (o.color ?? TEXT_COLOR) === (first.color ?? TEXT_COLOR));
+  const sizeMixed = items.length > 1 && !items.every((o) => sizeScaleOf(o) === sizeScaleOf(first));
+  const rowMixed = items.length > 1 && !items.every((o) => rowScaleOf(o) === rowScaleOf(first));
+  const spacingMixed = items.length > 1 && !items.every((o) => letterSpacingOf(o) === letterSpacingOf(first));
+  const fontMixed = items.length > 1 && !items.every((o) => (o.font ?? '') === (first.font ?? ''));
+  const titleMixed = items.length > 1 && !items.every((o) => o.title === first.title);
 
   useEffect(() => {
     if (adjacentRef.current) adjacentRef.current.indeterminate = adjacentMixed;
   }, [adjacentMixed]);
 
-  if (!editing) {
-    return null;
-  }
-
   return (
     <>
       <select
         value={weekStartMixed ? 'mixed' : weekStartOf(first)}
-        onChange={(e) =>
-          styleCalendar({ weekStart: e.target.value as CalendarStyle['weekStart'] })
-        }
+        onChange={(e) => apply({ weekStart: e.target.value as CalendarStyle['weekStart'] })}
         title="시작 요일"
       >
         {weekStartMixed && <option value="mixed">—</option>}
@@ -159,9 +163,7 @@ export function CalendarControls({ calendars }: { calendars: CalendarObject[] })
 
       <select
         value={langMixed ? 'mixed' : weekdayLangOf(first)}
-        onChange={(e) =>
-          styleCalendar({ weekdayLang: e.target.value as CalendarStyle['weekdayLang'] })
-        }
+        onChange={(e) => apply({ weekdayLang: e.target.value as CalendarStyle['weekdayLang'] })}
         title="요일 언어"
       >
         {langMixed && <option value="mixed">—</option>}
@@ -173,19 +175,19 @@ export function CalendarControls({ calendars }: { calendars: CalendarObject[] })
 
       <FontPicker
         value={fontMixed ? null : (first.font ?? '')}
-        onPick={(font) => styleCalendar({ font })}
+        onPick={(font) => apply({ font })}
       />
 
       <ColorField
         value={first.color ?? TEXT_COLOR}
         mixed={colorMixed}
-        onChange={(color) => styleCalendar({ color: color === TEXT_COLOR ? undefined : color })}
+        onChange={(color) => apply({ color: color === TEXT_COLOR ? undefined : color })}
         title="글자 색"
       />
 
       <select
         value={sizeMixed ? 'mixed' : sizeScaleOf(first) === 1 ? '' : String(sizeScaleOf(first))}
-        onChange={(e) => styleCalendar({ sizeScale: e.target.value ? Number(e.target.value) : undefined })}
+        onChange={(e) => apply({ sizeScale: e.target.value ? Number(e.target.value) : undefined })}
         title="글자 크기 — 상자 크기에서 자동으로 정해지는 값에 곱해지는 배율입니다"
       >
         {sizeMixed && <option value="mixed">—</option>}
@@ -198,7 +200,7 @@ export function CalendarControls({ calendars }: { calendars: CalendarObject[] })
 
       <select
         value={rowMixed ? 'mixed' : rowScaleOf(first) === 1 ? '' : String(rowScaleOf(first))}
-        onChange={(e) => styleCalendar({ rowScale: e.target.value ? Number(e.target.value) : undefined })}
+        onChange={(e) => apply({ rowScale: e.target.value ? Number(e.target.value) : undefined })}
         title="줄(주) 간격 — 글자 크기는 그대로 두고 제목·요일·날짜 행 사이 간격만 조절합니다"
       >
         {rowMixed && <option value="mixed">—</option>}
@@ -216,7 +218,7 @@ export function CalendarControls({ calendars }: { calendars: CalendarObject[] })
         min={MIN_LETTER_SPACING_MM}
         max={MAX_LETTER_SPACING_MM}
         step={0.1}
-        onChange={(mm) => styleCalendar({ letterSpacing: mm === 0 ? undefined : mm })}
+        onChange={(mm) => apply({ letterSpacing: mm === 0 ? undefined : mm })}
       />
 
       <label className="check" title="이번 달이 아닌 칸에도 그 달 날짜를 보여줄지">
@@ -224,7 +226,7 @@ export function CalendarControls({ calendars }: { calendars: CalendarObject[] })
           ref={adjacentRef}
           type="checkbox"
           checked={!adjacentMixed && showAdjacentOf(first)}
-          onChange={(e) => styleCalendar({ showAdjacent: e.target.checked })}
+          onChange={(e) => apply({ showAdjacent: e.target.checked })}
         />
         이전·다음 달 표시
       </label>
@@ -234,10 +236,10 @@ export function CalendarControls({ calendars }: { calendars: CalendarObject[] })
           type="text"
           value={titleMixed ? '' : (first.title ?? '')}
           placeholder={titleMixed ? '여러 값' : '자동(예: 2026년 8월)'}
-          onChange={(e) => styleCalendar({ title: e.target.value })}
+          onChange={(e) => apply({ title: e.target.value })}
         />
         {!titleMixed && first.title !== undefined && (
-          <button type="button" className="ghost" onClick={() => styleCalendar({ title: undefined })} title="자동으로 되돌리기">
+          <button type="button" className="ghost" onClick={() => apply({ title: undefined })} title="자동으로 되돌리기">
             자동
           </button>
         )}

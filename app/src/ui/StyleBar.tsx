@@ -60,6 +60,9 @@ export function StyleBar({
   const checkboxDraftStyle = useStore((s) => s.checkboxDraftStyle);
   const setCheckboxDraftStyle = useStore((s) => s.setCheckboxDraftStyle);
   const styleCheckbox = useStore((s) => s.styleCheckbox);
+  const calendarDraftStyle = useStore((s) => s.calendarDraftStyle);
+  const setCalendarDraftStyle = useStore((s) => s.setCalendarDraftStyle);
+  const styleCalendar = useStore((s) => s.styleCalendar);
   const tool = useStore((s) => s.tool);
 
   // 입력 중인 상자가 있으면 그것부터 — 지금 쓰고 있는 글자를 고치는 게 우선이다.
@@ -140,7 +143,7 @@ export function StyleBar({
               : tool === 'field'
                 ? '자동 필드'
                 : tool === 'calendar'
-                  ? '달력 | 끌어서 놓으면 이번 달이 자동으로 채워집니다'
+                  ? '달력'
                   : tool === 'image'
                     ? '이미지'
                     : tool === 'checkbox'
@@ -152,7 +155,10 @@ export function StyleBar({
       )}
 
       {showCalendar ? (
-        <CalendarControls calendars={pickedCalendars} />
+        <CalendarControls
+          items={pickedCalendars.length > 0 ? pickedCalendars : [calendarDraftStyle]}
+          apply={pickedCalendars.length > 0 ? styleCalendar : setCalendarDraftStyle}
+        />
       ) : showImage ? (
         <ImageControls images={pickedImages} />
       ) : showMixedColor ? (

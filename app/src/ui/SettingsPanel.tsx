@@ -121,7 +121,7 @@ export function SettingsPanel() {
 
 /* ─────────────────────────── 각 묶음 ─────────────────────────── */
 
-function PaperGroup() {
+export function PaperGroup() {
   const s = useStore();
   return (
     <>
@@ -427,7 +427,7 @@ function CutStackRows() {
   );
 }
 
-function GridGroup() {
+export function GridGroup() {
   const s = useStore();
   const grid = useDotGrid();
   return (
@@ -536,7 +536,7 @@ function GridGroup() {
   );
 }
 
-function PunchGroup() {
+export function PunchGroup() {
   const s = useStore();
   const insert = useInsert();
   const punch = insert.punch;
