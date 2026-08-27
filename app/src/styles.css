@@ -990,13 +990,43 @@ main {
   box-shadow: 6px 0 20px rgb(0 0 0 / 0.06);
 }
 
-.tool-panel h2 {
+.tool-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin: 0 0 10px;
+}
+
+.tool-panel h2 {
+  margin: 0;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--muted);
   text-transform: uppercase;
+}
+
+/* 도트 격자·타공 안내 제목 우측의 눈알 — 화면 표시를 켜고 끈다(포토샵과 같은 뜻) */
+.eye-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.eye-toggle:hover {
+  background: #eceee9;
+  color: var(--ink);
+}
+
+.eye-toggle svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* StyleBar가 portal로 그려지는 자리 — 하위 도구 그리드가 있으면 그 아래로 */

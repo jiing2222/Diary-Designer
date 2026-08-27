@@ -157,6 +157,27 @@ export function CheckboxIcon() {
   );
 }
 
+/** 보임 — 뜬 눈. 포토샵 등에서 화면 표시를 켜고 끄는 눈알 표시와 같은 뜻이다. */
+export function EyeIcon() {
+  return (
+    <svg {...box}>
+      <path d="M2.5 10 C5 5.5, 15 5.5, 17.5 10 C15 14.5, 5 14.5, 2.5 10 Z" />
+      <circle cx={10} cy={10} r={2.2} />
+    </svg>
+  );
+}
+
+/** 숨김 — 감은 눈(빗금 친 눈). EyeIcon과 짝이다. */
+export function EyeOffIcon() {
+  return (
+    <svg {...box}>
+      <path d="M2.5 10 C5 5.5, 15 5.5, 17.5 10 C15 14.5, 5 14.5, 2.5 10 Z" />
+      <circle cx={10} cy={10} r={2.2} />
+      <line x1={3.5} y1={4} x2={16.5} y2={16} />
+    </svg>
+  );
+}
+
 /** 반복 — 겹쳐 쌓인 종이 두 장. 여러 장 찍는다는 뜻이다. 다른 아이콘처럼 선으로만 그린다. */
 export function RepeatIcon() {
   return (

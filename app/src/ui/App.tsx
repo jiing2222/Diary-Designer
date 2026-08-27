@@ -841,7 +841,7 @@ export function App() {
               있지 않을 때는 도구줄 자체가 없어 합칠 자리가 없기 때문이다.
             */}
             {tab === 'edit' || editingSession ? (
-              <ToolRail onStylePanelSlot={setStylePanelSlot} />
+              <ToolRail onStylePanelSlot={setStylePanelSlot} showPaper={tab === 'print'} />
             ) : (
               <SettingsPanel />
             )}

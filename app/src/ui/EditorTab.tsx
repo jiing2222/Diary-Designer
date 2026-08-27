@@ -51,6 +51,8 @@ import {
   CalendarIcon,
   CheckboxIcon,
   CursorIcon,
+  EyeIcon,
+  EyeOffIcon,
   FieldIcon,
   GridIcon,
   ImageIcon,
@@ -1632,8 +1634,11 @@ export function categoryFor(tool: Tool, picked: DiaryObject[]): ToolCategory | n
  */
 export function ToolRail({
   onStylePanelSlot,
+  showPaper,
 }: {
   onStylePanelSlot: (el: HTMLDivElement | null) => void;
+  /** 용지 크기는 인쇄에서만 뜻이 있는 값이라, 인쇄하기 화면일 때만 보여준다. */
+  showPaper: boolean;
 }) {
   const tool = useStore((s) => s.tool);
   const setTool = useStore((s) => s.setTool);
@@ -1641,6 +1646,8 @@ export function ToolRail({
   const objects = useObjects().present;
   const [open, setOpen] = useState<ToolCategory | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
+  const patchDotGrid = useStore((s) => s.patchDotGrid);
+  const patchPunch = useStore((s) => s.patchPunch);
 
   const picked = objects.filter((o) => selectedIds.includes(o.id));
   const selectedKey = selectedIds.join(',');
@@ -1756,14 +1763,16 @@ export function ToolRail({
           설정이라 도구 카테고리와 같은 줄, 같은 탭 방식으로 합쳤다. 오른쪽
           위 점은 그 설정이 지금 화면에 실제로 보이는 중이라는 표시다.
         */}
-        <button
-          className={`rail-btn ${open === 'paper' ? 'on' : ''}`}
-          onClick={() => toggle('paper')}
-          title="용지"
-        >
-          <PaperIcon />
-          {unprintableShow && <span className="rail-mark" />}
-        </button>
+        {showPaper && (
+          <button
+            className={`rail-btn ${open === 'paper' ? 'on' : ''}`}
+            onClick={() => toggle('paper')}
+            title="용지"
+          >
+            <PaperIcon />
+            {unprintableShow && <span className="rail-mark" />}
+          </button>
+        )}
 
         <button
           className={`rail-btn ${open === 'grid' ? 'on' : ''}`}
@@ -1786,7 +1795,32 @@ export function ToolRail({
 
       {open && (
         <div className="tool-panel">
-          <h2>{TITLE[open]}</h2>
+          <div className="tool-panel-head">
+            <h2>{TITLE[open]}</h2>
+            {/*
+              도트 격자·타공 안내는 "화면에 보이는 중"이라는 뜻과 "지금 그
+              설정을 만지는 중"이라는 뜻이 같은 켬/끔 하나로 통한다 — 포토샵의
+              눈알처럼, 이 단추 하나가 그 체크박스 줄을 대신한다(사용자 요청).
+            */}
+            {open === 'grid' && (
+              <button
+                className="eye-toggle"
+                onClick={() => patchDotGrid({ showOnScreen: !grid.showOnScreen })}
+                title={grid.showOnScreen ? '화면에서 숨기기' : '화면에 보이기'}
+              >
+                {grid.showOnScreen ? <EyeIcon /> : <EyeOffIcon />}
+              </button>
+            )}
+            {open === 'punch' && (
+              <button
+                className="eye-toggle"
+                onClick={() => patchPunch({ show: !insert.punch.show })}
+                title={insert.punch.show ? '화면에서 숨기기' : '화면에 보이기'}
+              >
+                {insert.punch.show ? <EyeIcon /> : <EyeOffIcon />}
+              </button>
+            )}
+          </div>
           {items && (
             <div className="tool-subgrid">
               {items.map((it) => (

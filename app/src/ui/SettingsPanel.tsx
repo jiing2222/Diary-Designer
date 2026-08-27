@@ -467,17 +467,20 @@ export function GridGroup() {
         />
       </Row>
       {!grid.toEdge && (
-        <Row
-          label="최소 여백"
-          hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다"
-        >
-          <Num
-            value={grid.minMargin}
-            min={0}
-            max={20}
-            onChange={(minMargin) => s.patchDotGrid({ minMargin })}
-          />
-        </Row>
+        <>
+          <Row
+            label="최소 여백"
+            hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다"
+          >
+            <Num
+              value={grid.minMargin}
+              min={0}
+              max={20}
+              onChange={(minMargin) => s.patchDotGrid({ minMargin })}
+            />
+          </Row>
+          <MarginReadout />
+        </>
       )}
       <Row label="타공" hint="구멍 쪽 안전영역을 비우고 그 안에서 다시 가운데 맞춘다">
         <Check
@@ -487,35 +490,25 @@ export function GridGroup() {
         />
       </Row>
       <Row
-        label="가로 등분 안내"
-        hint="속지를 가로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
+        label="등분 안내"
+        hint="속지를 가로·세로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
       >
-        <Num
-          value={grid.divisionsX}
-          step={1}
-          min={0}
-          unit="등분"
-          onChange={(n) => s.patchDotGrid({ divisionsX: Math.max(0, Math.round(n)) })}
-        />
-      </Row>
-      <Row
-        label="세로 등분 안내"
-        hint="속지를 세로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
-      >
-        <Num
-          value={grid.divisionsY}
-          step={1}
-          min={0}
-          unit="등분"
-          onChange={(n) => s.patchDotGrid({ divisionsY: Math.max(0, Math.round(n)) })}
-        />
-      </Row>
-      <Row label="화면">
-        <Check
-          checked={grid.showOnScreen}
-          onChange={(showOnScreen) => s.patchDotGrid({ showOnScreen })}
-          label="작업하면서 보기"
-        />
+        <div className="cells-row">
+          <Num
+            value={grid.divisionsX}
+            step={1}
+            min={0}
+            unit="가로"
+            onChange={(n) => s.patchDotGrid({ divisionsX: Math.max(0, Math.round(n)) })}
+          />
+          <Num
+            value={grid.divisionsY}
+            step={1}
+            min={0}
+            unit="세로"
+            onChange={(n) => s.patchDotGrid({ divisionsY: Math.max(0, Math.round(n)) })}
+          />
+        </div>
       </Row>
       <Row label="인쇄">
         <Check
@@ -542,14 +535,6 @@ export function PunchGroup() {
   const punch = insert.punch;
   return (
     <>
-      <p className="note">화면에만 표시됩니다. 인쇄되지 않습니다.</p>
-      <Row label="표시">
-        <Check
-          checked={punch.show}
-          onChange={(show) => s.patchPunch({ show })}
-          label="타공 위치 보기"
-        />
-      </Row>
       <Row label="구멍 수">
         <Num
           value={punch.holeCount}
@@ -675,35 +660,19 @@ function CellCountRow() {
   );
 }
 
-function GridReadout() {
+/**
+ * 최소 여백 입력칸 바로 아래 — 그 값이 실제로 어떤 여백으로 계산됐는지
+ * 보여준다. 격자 자체가 안 들어가면(아래 `GridReadout`이 그 사실을
+ * 알린다) 조용히 아무것도 보여주지 않는다.
+ */
+function MarginReadout() {
   const insert = useInsert();
   const grid = useDotGrid();
   const side = useSide();
 
   const area = gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back');
-  const { xs, ys, cols, rows } = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
-
-  if (xs.length === 0 || ys.length === 0) {
-    return (
-      <div className="readout readout-warn">
-        <strong>격자가 들어가지 않습니다.</strong>
-        <span>
-          간격 {grid.spacing}mm는 격자 영역 {roundMm(area.width, 2)} × {roundMm(area.height, 2)}mm에
-          비해 너무 넓습니다.
-          {grid.avoidSafeZone && ' 안전영역 비우기를 끄면 넓어집니다.'}
-        </span>
-      </div>
-    );
-  }
-
-  const count =
-    grid.style === 'dot'
-      ? `도트 ${xs.length} × ${ys.length}개`
-      : grid.style === 'horizontal'
-        ? `가로 ${ys.length}줄`
-        : grid.style === 'vertical'
-          ? `세로 ${xs.length}줄`
-          : `${cols} × ${rows}칸`;
+  const { xs, ys } = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
+  if (xs.length === 0 || ys.length === 0) return null;
 
   // 속지 가장자리에서 바깥쪽 도트까지의 실제 거리를 보여준다.
   // 안전영역을 비우면 한쪽만(앞면은 왼쪽, 뒷면은 오른쪽) 그만큼 멀어지므로
@@ -721,24 +690,49 @@ function GridReadout() {
       ? `${r(left)}mm`
       : `좌우 ${r(left)}mm · 상하 ${r(top)}mm`;
 
-  const mismatch = grid.showOnScreen !== grid.print;
+  return (
+    <div className="readout">
+      <span>
+        여백 <b>{margin}</b>
+      </span>
+      {grid.minMargin === 0 && (
+        <span className="muted">
+          최소 여백이 0이라 바깥쪽이 재단선에 붙습니다. 자를 때 반쯤 날아갈 수 있습니다.
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** 격자가 아예 안 들어가는지, 화면·인쇄 표시가 서로 다른지 알린다. */
+function GridReadout() {
+  const insert = useInsert();
+  const grid = useDotGrid();
+  const side = useSide();
+
+  const area = gridArea(insert, grid, insert.punch.safeZoneWidth, side === 'back');
+  const { xs, ys } = gridLattice(area, grid.spacing, grid.minMargin, grid.toEdge);
+
+  if (xs.length === 0 || ys.length === 0) {
+    return (
+      <div className="readout readout-warn">
+        <strong>격자가 들어가지 않습니다.</strong>
+        <span>
+          간격 {grid.spacing}mm는 격자 영역 {roundMm(area.width, 2)} × {roundMm(area.height, 2)}mm에
+          비해 너무 넓습니다.
+          {grid.avoidSafeZone && ' 안전영역 비우기를 끄면 넓어집니다.'}
+        </span>
+      </div>
+    );
+  }
+
+  if (grid.showOnScreen === grid.print) return null;
 
   return (
     <div className="readout">
       <span>
-        {count} · 여백 <b>{margin}</b>
+        <b>{grid.print ? '화면에는 없지만 인쇄됩니다.' : '화면에만 보이고 인쇄되지 않습니다.'}</b>
       </span>
-      {mismatch ? (
-        <span>
-          <b>{grid.print ? '화면에는 없지만 인쇄됩니다.' : '화면에만 보이고 인쇄되지 않습니다.'}</b>
-        </span>
-      ) : (
-        <span className="muted">
-          {grid.minMargin > 0
-            ? `여백은 간격에서 자동 계산됩니다. 최소 ${grid.minMargin}mm를 남겨 재단선에 도트가 걸리지 않게 합니다.`
-            : '최소 여백이 0이라 바깥쪽이 재단선에 붙습니다. 자를 때 반쯤 날아갈 수 있습니다.'}
-        </span>
-      )}
     </div>
   );
 }
