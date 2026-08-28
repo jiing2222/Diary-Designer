@@ -15,7 +15,7 @@ import { capacityPerSheet, sheetsNeeded } from '../core/template';
 import { datasetPages, type CalendarDataset, type DateDataset } from '../core/dataset';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
-import { GridIcon, PaperIcon, PunchIcon } from './icons';
+import { EyeIcon, EyeOffIcon, GridIcon, PaperIcon, PunchIcon } from './icons';
 
 /**
  * 설정 도구 — 용지 · 도트 격자 · 타공 안내.
@@ -107,7 +107,34 @@ export function SettingsPanel() {
       {open && visible && (
         <div className="popover" style={{ top }}>
           <div className="popover-arrow" />
-          <h2>{groups.find((g) => g.id === open)!.label}</h2>
+          <div className="tool-panel-head">
+            <h2>{groups.find((g) => g.id === open)!.label}</h2>
+            {/*
+              도트 격자·타공 안내의 "화면에 보이기"는 ToolRail(속지·노트
+              제작, 인쇄하기의 칸 손보기)에도 같은 자리에 눈알로 있다 —
+              이 말풍선은 인쇄하기에서 칸을 손보지 않을 때 뜨는 쪽이라,
+              여기도 같은 눈알이 없으면 그때는 화면 표시를 켜고 끌 방법이
+              아예 없어진다.
+            */}
+            {open === 'grid' && (
+              <button
+                className="eye-toggle"
+                onClick={() => s.patchDotGrid({ showOnScreen: !grid.showOnScreen })}
+                title={grid.showOnScreen ? '화면에서 숨기기' : '화면에 보이기'}
+              >
+                {grid.showOnScreen ? <EyeIcon /> : <EyeOffIcon />}
+              </button>
+            )}
+            {open === 'punch' && (
+              <button
+                className="eye-toggle"
+                onClick={() => s.patchPunch({ show: !insert.punch.show })}
+                title={insert.punch.show ? '화면에서 숨기기' : '화면에 보이기'}
+              >
+                {insert.punch.show ? <EyeIcon /> : <EyeOffIcon />}
+              </button>
+            )}
+          </div>
           <div className="popover-body">
             {open === 'paper' && <PaperGroup />}
             {open === 'grid' && <GridGroup />}
@@ -704,7 +731,6 @@ function MarginReadout() {
   );
 }
 
-/** 격자가 아예 안 들어가는지, 화면·인쇄 표시가 서로 다른지 알린다. */
 /** 격자가 아예 안 들어가는지만 알린다 — 사용자 요청으로 화면·인쇄 표시가
  * 다르다는 알림은 없앴다. */
 function GridReadout() {

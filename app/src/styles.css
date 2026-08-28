@@ -997,6 +997,12 @@ main {
   margin: 0 0 10px;
 }
 
+/* 이 안에서는 h2 자신의 아래쪽 여백 대신 .tool-panel-head의 여백을 쓴다 —
+   .tool-panel·.popover 어느 쪽 h2 규칙보다 나중에 와서 그 여백을 지운다. */
+.tool-panel-head h2 {
+  margin: 0;
+}
+
 .tool-panel h2 {
   margin: 0;
   font-size: 12px;

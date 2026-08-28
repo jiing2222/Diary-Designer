@@ -1680,6 +1680,13 @@ export function ToolRail({
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
+  // 용지 탭을 열어둔 채로(도구·선택은 안 건드리고) 인쇄하기에서 속지·노트
+  // 제작으로 넘어가면 showPaper만 false가 되고 위 이펙트는 tool·selectedKey가
+  // 안 바뀌어 다시 안 돈다 — 아이콘은 사라졌는데 용지 탭은 열린 채로 남는다.
+  useEffect(() => {
+    if (!showPaper) setOpen((cur) => (cur === 'paper' ? null : cur));
+  }, [showPaper]);
+
   // 용지·도트격자·타공은 예전 SettingsPanel의 말풍선처럼 바깥을 눌러도
   // 닫힌다 — 도구 카테고리(요소·텍스트·이미지)는 도구·선택이 바뀔 때
   // 저절로 여닫히므로 안 건드린다.
