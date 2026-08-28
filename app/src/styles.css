@@ -140,6 +140,132 @@ header h1 {
   margin-top: 8px;
 }
 
+/* ─────────────────────────── 클라우드 ─────────────────────────── */
+
+/*
+  헤더의 로그인·동기화 표시. 서버를 정하지 않은 빌드에서는 아예 그려지지
+  않는다(ui/CloudPanel).
+*/
+.cloud {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cloud-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/*
+  상태를 색 하나로 보여준다. 글자는 옆에 따로 있고, 이건 곁눈으로도
+  "지금 올라갔나"를 알 수 있게 하는 표시다.
+*/
+.cloud-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.cloud-dot.out {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--muted);
+}
+
+.cloud-dot.saved {
+  background: var(--accent);
+}
+
+.cloud-dot.error {
+  background: var(--warn);
+}
+
+.cloud-dot.syncing {
+  background: var(--accent);
+  animation: cloud-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes cloud-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud-dot.syncing {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
+.cloud-status {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.cloud-status.bad {
+  color: var(--warn);
+}
+
+.cloud-pop {
+  width: 288px;
+}
+
+.cloud-signed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.cloud-email {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cloud-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cloud-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cloud-field input {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.cloud-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cloud-error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--warn);
+}
+
 button {
   padding: 7px 14px;
   border: none;

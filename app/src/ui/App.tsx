@@ -11,6 +11,9 @@ import {
 } from '../store';
 import { canRedo, canUndo } from '../core/history';
 import { loadSnapshot, saveNow, scheduleSave } from '../storage/autosave';
+import { cloudErrorText, currentUser, onAuthChange, type CloudUser } from '../cloud/client';
+import { pullProject, pushProject, remoteIsNewer } from '../cloud/projects';
+import { CloudPanel, type SyncState } from './CloudPanel';
 import {
   capacityPerSheet,
   cutStackPage,
@@ -85,6 +88,16 @@ type LastReverted = {
  * pdf/export.ts의 `BLANK_SLOT`과 같은 생각이다 — 인쇄물과 미리보기가 같아야 한다.
  */
 const BLANK_PREVIEW_GRID: DotGrid = { ...DEFAULT_DOT_GRID, showOnScreen: false, print: false };
+
+/**
+ * 서버에 올리기 전에 기다리는 시간.
+ *
+ * 브라우저 저장(storage/autosave의 1.2초)보다 훨씬 느긋하다. 로컬 쓰기는
+ * 거의 공짜지만 서버는 요청마다 네트워크라, 같은 박자로 올리면 느린
+ * 연결에서 요청이 밀린다. 작업을 잃을 걱정은 브라우저 저장이 이미 맡고
+ * 있으므로 여기서는 서두를 이유가 없다.
+ */
+const CLOUD_PUSH_DELAY_MS = 6000;
 
 /**
  * 헤더 가운데 — 양식 이름(클릭해서 바로 고치기)과 속지 크기.
@@ -280,6 +293,79 @@ export function App() {
       flush();
     };
   }, [restored]);
+
+  /**
+   * 클라우드 — 서버에서 내려받기.
+   *
+   * 로그인해 있으면 서버 것을 확인해서, **확실히 새것일 때만** 가져온다
+   * (cloud/projects의 `remoteIsNewer`). 무조건 서버를 따르면 방금 이
+   * 컴퓨터에서 한 작업이 지워지고, 무조건 로컬을 따르면 서버에 올려둔
+   * 의미가 없다.
+   *
+   * 브라우저 되살리기(`restored`)가 끝난 뒤에 본다 — 비교 대상인 "지금
+   * 것"이 아직 안 올라와 있으면 무엇이 새것인지 가릴 수가 없다.
+   */
+  const [cloudUser, setCloudUser] = useState<CloudUser | null>(() => currentUser());
+  const [sync, setSync] = useState<SyncState>({ kind: 'idle' });
+
+  useEffect(() => onAuthChange(setCloudUser), []);
+
+  useEffect(() => {
+    if (!restored || !cloudUser) return;
+    let alive = true;
+
+    pullProject()
+      .then((remote) => {
+        if (!alive || !remote) return;
+        const state = useStore.getState();
+        const local = state.templates.length > 0 ? projectOf(state, state.templates) : null;
+        if (remoteIsNewer(remote.project, local)) {
+          state.loadProject(remote.project);
+          setSync({ kind: 'saved', at: new Date(remote.updated) });
+        }
+      })
+      .catch((err) => {
+        if (alive) setSync({ kind: 'error', text: cloudErrorText(err) });
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [restored, cloudUser]);
+
+  /**
+   * 클라우드 — 서버에 올리기.
+   *
+   * 브라우저 저장(1.2초)보다 느긋하게 미룬다. 로컬은 실패할 일이 거의
+   * 없지만 서버는 요청 하나하나가 네트워크라, 선 하나 그을 때마다 올리면
+   * 느린 연결에서 밀린다. 손을 멈추고 몇 초 지나야 올린다.
+   *
+   * 탭을 닫을 때는 올리지 않는다 — 그 순간의 요청은 끝까지 간다는 보장이
+   * 없고, 무엇보다 **브라우저 저장이 이미 그 자리를 지키고 있다.** 잃는
+   * 것은 마지막 몇 초의 서버 사본뿐이고 다음에 열면 곧 다시 올라간다.
+   */
+  useEffect(() => {
+    if (!restored || !cloudUser) return;
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = useStore.subscribe(() => {
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        const state = useStore.getState();
+        if (state.templates.length === 0) return;
+        setSync({ kind: 'syncing' });
+        pushProject(projectOf(state, state.templates))
+          .then(() => setSync({ kind: 'saved', at: new Date() }))
+          .catch((err) => setSync({ kind: 'error', text: cloudErrorText(err) }));
+      }, CLOUD_PUSH_DELAY_MS);
+    });
+
+    return () => {
+      if (timer !== null) clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [restored, cloudUser]);
 
   // 처음 열면 양식이 하나도 없다. 갤러리에서 시작해 첫 양식을 만들게 한다.
   const [tab, setTab] = useState<Tab>('gallery');
@@ -892,6 +978,7 @@ export function App() {
         ) : (
           <span className="stage" />
         )}
+        <CloudPanel sync={sync} />
         <ProjectFile />
         <button onClick={exportPdf} disabled={busy || !active || layout.count === 0}>
           {busy ? '만드는 중…' : 'PDF 내보내기'}
