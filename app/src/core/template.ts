@@ -1,4 +1,4 @@
-import { boxOf, cloneObject, mirrorObjectX, type DiaryObject } from './objects';
+import { boxOf, cloneObject, type DiaryObject } from './objects';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import { initHistory, type History } from './history';
 import { DEFAULT_PUNCH, type PunchSetting } from './punch';
@@ -241,14 +241,16 @@ export function newBack(): BackPage {
  * `duplicateTemplate`이 뒷면을 물려받을 때와 같은 방식으로, 실행취소 이력은
  * 새로 시작한다(앞면에서 쌓아온 되돌리기까지 뒷면이 물려받으면 이상하다).
  *
- * **자리는 좌우로 뒤집는다.** 타공은 뒷면에서 반대쪽에 있다(core/punch의
- * `holeCenterX`) — 그대로 옮기면 타공 옆 여백에 맞춰 그린 그림이 뒷면에서는
- * 타공에서 먼 쪽에 놓여, 종이를 뒤집었을 때 타공과의 거리가 앞뒤가 서로
- * 달라진다. `mirrorObjectX`로 각 객체의 자리를 뒤집어 거리를 지킨다.
+ * **자리는 그대로 둔다 — 좌우로 뒤집지 않는다.** 한동안 타공과의 거리를
+ * 지키려고 `mirrorObjectX`로 좌우를 뒤집었는데(타공이 뒷면에서는 반대쪽에
+ * 있어서다), 사용자가 실제로 원한 건 데칼코마니가 아니라 "글자 그대로"
+ * 복사였다(2026-08-XX, 사진으로 확인 — 예: 날짜 숫자가 앞뒤 같은 자리에
+ * 같은 순서로 있어야 한다). 타공과의 거리는 이제 안 지켜진다는 뜻이라,
+ * 필요하면 사용자가 직접 뒷면에서 자리를 옮긴다.
  */
 export function backFromFront(t: Template): BackPage {
   return {
-    objects: initHistory(t.objects.present.map((o) => mirrorObjectX(o, t.insert.width))),
+    objects: initHistory(t.objects.present.map((o) => ({ ...o }))),
   };
 }
 

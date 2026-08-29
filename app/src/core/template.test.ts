@@ -484,17 +484,14 @@ describe('뒷면', () => {
 });
 
 describe('앞면을 뒷면으로 복사', () => {
-  it('자리를 좌우로 뒤집어 뒷면에 낸다 — 타공이 반대쪽에 있어서다', () => {
-    // 격자는 앞뒤 공유값이라 backFromFront가 따로 옮기지 않는다. 그림
-    // 자리만 속지 폭(기본 규격 M6, 80mm) 기준으로 뒤집는다.
-    const t = newTemplate('가'); // insert.width === 80
+  it('자리를 그대로(뒤집지 않고) 뒷면에 낸다', () => {
+    // 격자는 앞뒤 공유값이라 backFromFront가 따로 옮기지 않는다. 그림도
+    // 자리를 그대로 옮긴다 — 좌우로 뒤집지 않는다(사용자 요청).
+    const t = newTemplate('가');
     t.objects = commit(t.objects, [line(10, 10, 70, 10), text(5, 5, 20, 8)]);
 
     const back = backFromFront(t);
-    expect(back.objects.present).toEqual([
-      { ...line(10, 10, 70, 10), x1: 70, x2: 10 }, // 80-10, 80-70
-      { ...text(5, 5, 20, 8), x: 55 }, // 80-5-20
-    ]);
+    expect(back.objects.present).toEqual([line(10, 10, 70, 10), text(5, 5, 20, 8)]);
     // 원본은 그대로다.
     expect(t.objects.present).toEqual([line(10, 10, 70, 10), text(5, 5, 20, 8)]);
   });
