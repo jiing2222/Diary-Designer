@@ -1,4 +1,4 @@
-import { boxOf, cloneObject, type DiaryObject } from './objects';
+import { boundsOfObjects, boxOf, cloneObject, moveObject, type DiaryObject } from './objects';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import { initHistory, type History } from './history';
 import { DEFAULT_PUNCH, type PunchSetting } from './punch';
@@ -241,16 +241,24 @@ export function newBack(): BackPage {
  * `duplicateTemplate`이 뒷면을 물려받을 때와 같은 방식으로, 실행취소 이력은
  * 새로 시작한다(앞면에서 쌓아온 되돌리기까지 뒷면이 물려받으면 이상하다).
  *
- * **자리는 그대로 둔다 — 좌우로 뒤집지 않는다.** 한동안 타공과의 거리를
- * 지키려고 `mirrorObjectX`로 좌우를 뒤집었는데(타공이 뒷면에서는 반대쪽에
- * 있어서다), 사용자가 실제로 원한 건 데칼코마니가 아니라 "글자 그대로"
- * 복사였다(2026-08-XX, 사진으로 확인 — 예: 날짜 숫자가 앞뒤 같은 자리에
- * 같은 순서로 있어야 한다). 타공과의 거리는 이제 안 지켜진다는 뜻이라,
- * 필요하면 사용자가 직접 뒷면에서 자리를 옮긴다.
+ * **개별 객체는 안 뒤집는다 — 그린 것 전체를 한 덩어리로 보고 그 덩어리만
+ * 옮긴다.** 두 요구가 부딪혔었다: (1) 데칼코마니처럼 각자 뒤집으면 안
+ * 된다 — 나란히 놓인 것들의 좌우 순서가 뒤바뀐다(예: 월·화·수가 수·화·월
+ * 순으로 보인다). (2) 그렇다고 자리를 그대로 두면, 타공이 뒷면에서는
+ * 반대쪽에 있어서(`holeCenterX`) 앞면에서 타공과 멀게 그린 것이 뒷면에서는
+ * 타공과 바짝 붙는다 — 실제로 사용자가 이걸로 다시 확인해줬다(양면을 나란히
+ * 놓고 보니 한쪽만 타공에 붙어 있었다). 그래서 **낱낱이 뒤집지 않고, 그린
+ * 것 전체의 테두리 상자(bounding box)만 좌우로 뒤집어** 그 이동량(dx)을
+ * 모든 객체에 똑같이 더한다 — 서로의 좌우 순서(순서 안 바뀜)는 그대로
+ * 지키면서, 덩어리 전체가 반대쪽 타공에서도 같은 거리에 놓인다.
  */
 export function backFromFront(t: Template): BackPage {
+  const objects = t.objects.present;
+  const bounds = boundsOfObjects(objects);
+  // 뒤집을 것이 없으면(빈 뒷면) dx는 뜻이 없다 — 0으로 둬도 안전하다.
+  const dx = bounds ? t.insert.width - 2 * bounds.x - bounds.width : 0;
   return {
-    objects: initHistory(t.objects.present.map((o) => ({ ...o }))),
+    objects: initHistory(objects.map((o) => moveObject(o, dx, 0))),
   };
 }
 

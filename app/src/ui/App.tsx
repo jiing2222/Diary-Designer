@@ -840,7 +840,10 @@ export function App() {
         backSlotOverrides: printMode === 'combo' && pdfBackOverrides.size > 0 ? pdfBackOverrides : undefined,
       });
       const filePrefix = printMode === 'notebook' ? '노트' : '속지';
-      downloadPdf(bytes, `${filePrefix}_${active.insert.presetId}_${s.paper.presetId}.pdf`);
+      // 규격만으로는 어느 양식인지 못 알아본다 — 같은 M5로 여러 개를
+      // 만들면 파일 이름이 전부 똑같아진다. 양식 이름을 끝에 붙인다
+      // (ui/ProjectFile의 파일 저장과 같은 방식 — 이름을 따로 다듬지 않는다).
+      downloadPdf(bytes, `${filePrefix}_${active.insert.presetId}_${s.paper.presetId}_${active.name}.pdf`);
     } finally {
       setBusy(false);
     }

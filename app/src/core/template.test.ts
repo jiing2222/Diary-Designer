@@ -484,16 +484,34 @@ describe('뒷면', () => {
 });
 
 describe('앞면을 뒷면으로 복사', () => {
-  it('자리를 그대로(뒤집지 않고) 뒷면에 낸다', () => {
-    // 격자는 앞뒤 공유값이라 backFromFront가 따로 옮기지 않는다. 그림도
-    // 자리를 그대로 옮긴다 — 좌우로 뒤집지 않는다(사용자 요청).
+  it('그린 것 전체를 한 덩어리로 보고, 그 테두리 상자만 좌우로 뒤집어 옮긴다', () => {
+    // 격자는 앞뒤 공유값이라 backFromFront가 따로 옮기지 않는다. 개별
+    // 객체는 안 뒤집는다 — 두 객체를 감싸는 테두리 상자(x=5~70, 폭 65)만
+    // 속지 폭(80) 기준으로 뒤집어(80-5-65=10) 그 이동량(dx=10-5=5)을
+    // 모든 객체에 똑같이 더한다.
     const t = newTemplate('가');
     t.objects = commit(t.objects, [line(10, 10, 70, 10), text(5, 5, 20, 8)]);
 
     const back = backFromFront(t);
-    expect(back.objects.present).toEqual([line(10, 10, 70, 10), text(5, 5, 20, 8)]);
+    expect(back.objects.present).toEqual([
+      { ...line(10, 10, 70, 10), x1: 15, x2: 75 },
+      { ...text(5, 5, 20, 8), x: 10 },
+    ]);
     // 원본은 그대로다.
     expect(t.objects.present).toEqual([line(10, 10, 70, 10), text(5, 5, 20, 8)]);
+  });
+
+  it('나란히 놓인 것들의 좌우 순서는 그대로다 — 데칼코마니처럼 뒤바뀌지 않는다', () => {
+    // "월"이 "화"보다 왼쪽에 있었다면, 뒷면에서도 "월"이 "화"보다 왼쪽이어야
+    // 한다. 낱낱이 뒤집으면 이 순서가 뒤바뀐다 — 그게 문제였다.
+    const t = newTemplate('가');
+    const mon = text(10, 5, 8, 8); // 왼쪽
+    const tue = text(20, 5, 8, 8); // 오른쪽
+    t.objects = commit(t.objects, [mon, tue]);
+
+    const back = backFromFront(t);
+    const [backMon, backTue] = back.objects.present as { x: number }[];
+    expect(backMon.x).toBeLessThan(backTue.x);
   });
 
   it('실행취소 이력은 물려받지 않는다', () => {
