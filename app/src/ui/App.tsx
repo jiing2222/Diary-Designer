@@ -203,17 +203,8 @@ export function App() {
   const s = useStore();
   const [busy, setBusy] = useState(false);
 
-  // 새로고침 뒤 브라우저(IndexedDB)에 남아 있는 글꼴·이미지를 자동으로
-  // 되살린다 — 예전에 등록했던 파일을 다시 고를 필요가 없어진다. 마운트에
-  // 한 번만 하면 되므로 useStore.getState()로 리액트 구독 없이 store에 바로
-  // 넣는다.
-  useEffect(() => {
-    restoreCachedFonts().then((fonts) => fonts.forEach((f) => useStore.getState().addUserFont(f)));
-    restoreCachedImages().then((images) => images.forEach((i) => useStore.getState().addUserImage(i)));
-  }, []);
-
   /**
-   * 자동 저장 — 되살리기.
+   * 자동 저장 — 되살리기, 그리고 그 위에 글꼴·이미지 캐시 되살리기.
    *
    * 새로고침하거나 실수로 탭을 닫아도 하던 자리로 돌아온다. 이 프로그램은
    * 서버가 없어서 이게 없으면 작업이 통째로 사라진다(storage/autosave).
@@ -225,20 +216,37 @@ export function App() {
    * 이미 양식이 있으면 건드리지 않는다 — 되살리기가 늦게 끝나는 사이
    * 사용자가 벌써 새 양식을 만들었을 수 있고, 그 경우 방금 만든 것을
    * 덮어쓰는 쪽이 훨씬 나쁘다.
+   *
+   * **글꼴·이미지 캐시는 반드시 이 되살리기 뒤에 되살린다.** 예전엔 이걸
+   * 따로 도는 effect로 뒀는데, 되살아난 글자·이미지가 들고 있는 예전
+   * id(f1 등) 위로 `loadProject`의 `reserveIds`가 카운터를 이미 밀어놓은
+   * 뒤라, 캐시에서 되살아나는 파일이 새 id(f3 등)를 받아 서로 어긋났다 —
+   * 파일은 멀쩡히 캐시에 있는데도 "파일 없음"으로 보이는 버그가 이래서
+   * 났다(2026-08-29). 그래서 되살린 양식의 userFonts·userImages에서 같은
+   * 이름을 찾아 그 id를 물려받는다 — 수동으로 파일을 다시 등록할 때 쓰는
+   * orphan 매칭(ObjectControls.tsx)과 같은 방식이다.
    */
   const [restored, setRestored] = useState(false);
   useEffect(() => {
     let alive = true;
-    loadSnapshot()
-      .then((snapshot) => {
-        if (!alive) return;
-        if (snapshot && snapshot.templates.length > 0 && useStore.getState().templates.length === 0) {
-          useStore.getState().loadProject(snapshot);
-        }
-      })
-      .finally(() => {
-        if (alive) setRestored(true);
-      });
+    (async () => {
+      const snapshot = await loadSnapshot();
+      if (alive && snapshot && snapshot.templates.length > 0 && useStore.getState().templates.length === 0) {
+        useStore.getState().loadProject(snapshot);
+      }
+      if (!alive) return;
+      setRestored(true);
+
+      const resolveFontId = (name: string) => useStore.getState().userFonts.find((f) => f.name === name)?.id;
+      const resolveImageId = (name: string) => useStore.getState().userImages.find((i) => i.name === name)?.id;
+      const [fonts, images] = await Promise.all([
+        restoreCachedFonts(resolveFontId),
+        restoreCachedImages(resolveImageId),
+      ]);
+      if (!alive) return;
+      fonts.forEach((f) => useStore.getState().addUserFont(f));
+      images.forEach((i) => useStore.getState().addUserImage(i));
+    })();
     return () => {
       alive = false;
     };

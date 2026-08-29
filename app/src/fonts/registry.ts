@@ -110,15 +110,23 @@ const restoredNames = new Set<string>();
  * 조용히 건너뛴다 — 캐싱은 없어도 그만인 기능이다. 이미 이번 세션에
  * 되살린 이름은 다시 하지 않는다 — React가 마운트 이펙트를 두 번
  * 부를 수 있어서다(개발 모드의 StrictMode).
+ *
+ * `resolveId`는 이 이름을 예전에 어떤 id로 쓰고 있었는지 알려준다(자동
+ * 저장을 불러온 뒤 그 안의 글자들이 들고 있는 id). 넘기지 않거나 못
+ * 찾으면 새 id를 받는다 — 아무 글도 그 이름을 기다리고 있지 않다는
+ * 뜻이라 새로 매겨도 상관없다. 이 매칭 없이 새 id를 매기면, 자동 저장이
+ * 되살린 글자들이 들고 있는 예전 id와 어긋나 "파일 없음"으로 보인다.
  */
-export async function restoreCachedFonts(): Promise<UserFont[]> {
+export async function restoreCachedFonts(
+  resolveId?: (name: string) => string | undefined,
+): Promise<UserFont[]> {
   const entries = await idbEntries<{ name: string; buffer: ArrayBuffer; label?: string }>('fonts');
   const restored: UserFont[] = [];
   for (const [name, cached] of entries) {
     if (restoredNames.has(name)) continue;
     restoredNames.add(name);
     try {
-      restored.push(await loadFont(cached.buffer, cached.name, undefined, cached.label));
+      restored.push(await loadFont(cached.buffer, cached.name, resolveId?.(name), cached.label));
     } catch {
       // 깨진 캐시 — 건너뛴다.
     }

@@ -134,9 +134,13 @@ const restoredNames = new Set<string>();
 /**
  * 새로고침 뒤, 예전에 등록했던 이미지들을 다시 물어보지 않고 되살린다.
  *
- * fonts/registry의 `restoreCachedFonts`와 같은 이유·같은 규칙이다.
+ * fonts/registry의 `restoreCachedFonts`와 같은 이유·같은 규칙이다. `resolveId`도
+ * 같은 이유로 있다 — 자동 저장을 불러온 뒤 그 오브젝트가 들고 있는 예전 id를
+ * 물려받지 않으면, 되살린 이미지가 새 id를 받아 "파일 없음"으로 보인다.
  */
-export async function restoreCachedImages(): Promise<UserImage[]> {
+export async function restoreCachedImages(
+  resolveId?: (name: string) => string | undefined,
+): Promise<UserImage[]> {
   const entries = await idbEntries<{ name: string; kind: ImageKind; buffer: ArrayBuffer } & ImageMeta>('images');
   const restored: UserImage[] = [];
   for (const [name, cached] of entries) {
@@ -144,7 +148,7 @@ export async function restoreCachedImages(): Promise<UserImage[]> {
     restoredNames.add(name);
     try {
       restored.push(
-        await loadImage(cached.buffer, cached.name, cached.kind, undefined, {
+        await loadImage(cached.buffer, cached.name, cached.kind, resolveId?.(name), {
           label: cached.label,
           saved: cached.saved,
           usedAt: cached.usedAt,
