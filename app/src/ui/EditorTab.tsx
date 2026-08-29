@@ -704,7 +704,9 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
         const { box } = resizeTextBoxTo(target, d.corner, d.to, userFonts, grid.spacing);
         resizeObject(d.id, box);
       } else if (target) {
-        const minSize = isShape(target) ? MIN_FREE_BOX_SIZE : undefined;
+        // 도형·이미지는 도트 한 칸까지 작아져도 된다 — 달력만 숫자 여러 칸이
+        // 든 표라 그 밑으로 가면 못 알아보게 돼 기본값(MIN_BOX_SIZE)을 지킨다.
+        const minSize = isShape(target) || isImage(target) ? MIN_FREE_BOX_SIZE : undefined;
         resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to, minSize));
       }
       return;
@@ -1026,7 +1028,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
       return withCells(lattice, sizeLabelOf([s]), { x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 });
     }
     if (boxGrip && lone && isBoxResizable(lone)) {
-      const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
+      const b = previewBox(lone, boxGrip);
       return `${roundMm(b.width, 1)} × ${roundMm(b.height, 1)}mm`;
     }
     if (pending && hover) {
@@ -1168,7 +1170,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
                       const s = preview(o, nudge, grip);
                       return <line key={o.id} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />;
                     }
-                    const raw = previewBox({ id: o.id, ...boxOf(o) }, boxGrip);
+                    const raw = previewBox(o, boxGrip);
                     const b = { ...raw, x: raw.x + (nudge?.dx ?? 0), y: raw.y + (nudge?.dy ?? 0) };
                     const rot = rotationDegOf(o);
                     const rect = (
@@ -1222,7 +1224,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
               {lone &&
                 isBoxResizable(lone) &&
                 (() => {
-                  const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
+                  const b = previewBox(lone, boxGrip);
                   const rot = rotationDegOf(lone);
                   const toDisplay = rot === 0 ? null : rotationOf(b, rot);
                   const corners = [
@@ -1879,6 +1881,20 @@ export function ToolRail({
   );
 }
 
+/** 이미지 파일의 원본 가로세로(px). 못 읽으면(깨진 파일 등) null. */
+function naturalSizeOf(url: string | undefined): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    if (!url) {
+      resolve(null);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
 /**
  * "이미지" 탭 안 — 자주 쓰는 이미지 썸네일 그리드. 클릭하면 그 자리에서
  * 바로 속지 가운데에 적당한 크기로 놓는다(`commitImage`+`styleImage`를
@@ -1904,16 +1920,30 @@ function ImageCategoryBody() {
 
   const usable = userImages.filter((i) => i.url);
 
-  function placeCentered(imageId: string) {
-    // 원본 비율은 안 지킨다 — 속지 크기에 맞춘 적당한 사각형으로 우선
-    // 놓고, 정확한 크기는 놓은 뒤 손잡이로 조절한다(요청 그대로).
-    //
-    // **놓인 자리는 도트 위여야 한다.** 그냥 가운데 계산(0.6배·나누기 2)만
+  /**
+   * `url`은 방금 등록해 아직 `userImages`(store) 반영 전인 이미지를 놓을 때
+   * 직접 넘긴다(`take` 참고) — `addUserImage` 직후에는 이 컴포넌트가 든
+   * `userImages`가 아직 그 이미지를 못 봐서, id만으로 찾으면 못 찾는다.
+   */
+  async function placeCentered(imageId: string, url?: string) {
+    // 속지의 60% 안에, 원본 가로세로 비율을 살려 최대한 크게 놓는다.
+    // 정확한 크기는 놓은 뒤 손잡이로 다시 조절해도 된다 — 이건 시작점일
+    // 뿐이다. 비율을 몰라야(불러오기 실패 등) 이 60%×60% 사각형 자체의
+    // 비율로 되돌아간다(예전과 같은 결과).
+    const maxWidth = insert.width * 0.6;
+    const maxHeight = insert.height * 0.6;
+    const natural = await naturalSizeOf(url ?? userImages.find((i) => i.id === imageId)?.url);
+    const ratio = natural ? natural.width / natural.height : maxWidth / maxHeight;
+    const fit =
+      maxWidth / maxHeight > ratio
+        ? { width: maxHeight * ratio, height: maxHeight }
+        : { width: maxWidth, height: maxWidth / ratio };
+
+    // **놓인 자리는 도트 위여야 한다.** 그냥 가운데 계산(나누기 2)만
     // 하면 도트 간격의 배수가 아닌 자리에 떨어진다 — 그러면 그 뒤로
     // 손잡이를 아무리 도트에 맞춰 끌어도, 반대쪽 모서리가 이미 어긋나
-    // 있어서 크기가 늘 어중간해진다(예: 48×75mm 같은 자리). 화면(EditorTab
-    // 본체)이 손잡이를 끌 때 쓰는 것과 같은 격자(gridArea·gridLattice)로
-    // 자리부터 맞춘다.
+    // 있어서 크기가 늘 어중간해진다. 화면(EditorTab 본체)이 손잡이를
+    // 끌 때 쓰는 것과 같은 격자(gridArea·gridLattice)로 자리부터 맞춘다.
     const lattice = gridLattice(
       gridArea(insert, grid, insert.punch.safeZoneWidth, false),
       grid.spacing,
@@ -1922,8 +1952,8 @@ function ImageCategoryBody() {
     );
     const roundToGrid = (v: Mm) =>
       grid.spacing > 0 ? Math.max(grid.spacing, Math.round(v / grid.spacing) * grid.spacing) : v;
-    const width = roundToGrid(insert.width * 0.6);
-    const height = roundToGrid(insert.height * 0.6);
+    const width = roundToGrid(fit.width);
+    const height = roundToGrid(fit.height);
     const centered = { x: (insert.width - width) / 2, y: (insert.height - height) / 2 };
     const { x, y } = snapToLattice(lattice, centered.x, centered.y) ?? centered;
     commitImage({ x, y, width, height });
@@ -1938,7 +1968,7 @@ function ImageCategoryBody() {
       const orphan = userImages.find((i) => i.name === name && !hasImage(i.id));
       const image = await registerImage(file, orphan?.id);
       addUserImage(image);
-      placeCentered(image.id);
+      await placeCentered(image.id, image.url);
     } catch (e) {
       setError(e instanceof Error ? e.message : '이미지를 읽지 못했습니다');
     }

@@ -506,7 +506,9 @@ export function PrintSlotEditor({
         const { box } = resizeTextBoxTo(target, d.corner, d.to, userFonts, grid.spacing);
         resizeObject(d.id, box);
       } else if (target) {
-        const minSize = isShape(target) ? MIN_FREE_BOX_SIZE : undefined;
+        // 도형·이미지는 도트 한 칸까지 작아져도 된다 — 달력만 숫자 여러 칸이
+        // 든 표라 그 밑으로 가면 못 알아보게 돼 기본값(MIN_BOX_SIZE)을 지킨다.
+        const minSize = isShape(target) || isImage(target) ? MIN_FREE_BOX_SIZE : undefined;
         resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to, minSize));
       }
       return;
@@ -660,7 +662,7 @@ export function PrintSlotEditor({
       return withCells(lattice, sizeLabelOf([s]), { x: s.x1, y: s.y1 }, { x: s.x2, y: s.y2 });
     }
     if (boxGrip && lone && isBoxResizable(lone)) {
-      const b = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
+      const b = previewBox(lone, boxGrip);
       return `${roundMm(b.width, 1)} × ${roundMm(b.height, 1)}mm`;
     }
     if (pending && hover) {
@@ -784,7 +786,7 @@ export function PrintSlotEditor({
                   const s = preview(o, nudge, grip);
                   return <line key={o.id} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />;
                 }
-                const raw = previewBox({ id: o.id, ...boxOf(o) }, boxGrip);
+                const raw = previewBox(o, boxGrip);
                 const bb = { ...raw, x: raw.x + (nudge?.dx ?? 0), y: raw.y + (nudge?.dy ?? 0) };
                 const rot = rotationDegOf(o);
                 const rect = (
@@ -821,7 +823,7 @@ export function PrintSlotEditor({
           {lone &&
             isBoxResizable(lone) &&
             (() => {
-              const bb = previewBox({ id: lone.id, ...boxOf(lone) }, boxGrip);
+              const bb = previewBox(lone, boxGrip);
               const rot = rotationDegOf(lone);
               const toDisplay = rot === 0 ? null : rotationOf(bb, rot);
               const corners = [

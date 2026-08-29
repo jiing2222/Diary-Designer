@@ -191,10 +191,18 @@ export function preview(o: LineObject, nudge: { dx: Mm; dy: Mm } | null, grip: G
 
 export type BoxHandleDrag = Extract<Drag, { kind: 'boxHandle' }>;
 
-/** 상자 모서리를 끄는 중이면 놓았을 때의 크기, 아니면 있는 그대로. `preview()`의 상자 버전. */
-export function previewBox(o: { id: string } & Box, boxHandle: BoxHandleDrag | null): Box {
-  if (boxHandle && boxHandle.id === o.id) return resizeBox(o, boxHandle.corner, boxHandle.to);
-  return o;
+/**
+ * 상자 모서리를 끄는 중이면 놓았을 때의 크기, 아니면 있는 그대로. `preview()`의 상자 버전.
+ *
+ * 최소 크기는 실제로 놓을 때(onUp의 resizeBox 호출)와 같은 기준을 여기서도
+ * 써야 한다 — 다르면 끄는 동안 보이는 테두리가 5mm에서 멈췄다가, 손을 떼는
+ * 순간 실제로는 그보다 작게 들어간 크기로 갑자기 튀어 보인다.
+ */
+export function previewBox(o: DiaryObject, boxHandle: BoxHandleDrag | null): Box {
+  const box = boxOf(o);
+  if (!boxHandle || boxHandle.id !== o.id) return box;
+  const minSize = isShape(o) || isImage(o) ? MIN_FREE_BOX_SIZE : undefined;
+  return resizeBox(box, boxHandle.corner, boxHandle.to, minSize);
 }
 
 export type GripDrag = Extract<Drag, { kind: 'handle' }>;
