@@ -701,7 +701,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
     if (d.kind === 'boxHandle') {
       const target = objects.find((o) => o.id === d.id);
       if (target && isText(target)) {
-        const { box } = resizeTextBoxTo(target, d.corner, d.to, userFonts);
+        const { box } = resizeTextBoxTo(target, d.corner, d.to, userFonts, grid.spacing);
         resizeObject(d.id, box);
       } else if (target) {
         const minSize = isShape(target) ? MIN_FREE_BOX_SIZE : undefined;
@@ -1893,6 +1893,7 @@ function ImageCategoryBody() {
   const commitImage = useStore((s) => s.commitImage);
   const styleImage = useStore((s) => s.styleImage);
   const insert = useActiveInsertSize();
+  const grid = useDotGrid();
   // 노트는 반쪽마다 따로 objects를 갖고(cover/pages), 양식 자체의 objects는
   // 아무도 그리지 않는 죽은 자리다. 그림자(반쪽을 실제로 펴서 손보는 중)
   // 없이 노트에서 이 자리에 놓으면 화면엔 아무 변화도 없이 그 죽은 자리에만
@@ -1906,9 +1907,26 @@ function ImageCategoryBody() {
   function placeCentered(imageId: string) {
     // 원본 비율은 안 지킨다 — 속지 크기에 맞춘 적당한 사각형으로 우선
     // 놓고, 정확한 크기는 놓은 뒤 손잡이로 조절한다(요청 그대로).
-    const width = insert.width * 0.6;
-    const height = insert.height * 0.6;
-    commitImage({ x: (insert.width - width) / 2, y: (insert.height - height) / 2, width, height });
+    //
+    // **놓인 자리는 도트 위여야 한다.** 그냥 가운데 계산(0.6배·나누기 2)만
+    // 하면 도트 간격의 배수가 아닌 자리에 떨어진다 — 그러면 그 뒤로
+    // 손잡이를 아무리 도트에 맞춰 끌어도, 반대쪽 모서리가 이미 어긋나
+    // 있어서 크기가 늘 어중간해진다(예: 48×75mm 같은 자리). 화면(EditorTab
+    // 본체)이 손잡이를 끌 때 쓰는 것과 같은 격자(gridArea·gridLattice)로
+    // 자리부터 맞춘다.
+    const lattice = gridLattice(
+      gridArea(insert, grid, insert.punch.safeZoneWidth, false),
+      grid.spacing,
+      grid.minMargin,
+      grid.toEdge,
+    );
+    const roundToGrid = (v: Mm) =>
+      grid.spacing > 0 ? Math.max(grid.spacing, Math.round(v / grid.spacing) * grid.spacing) : v;
+    const width = roundToGrid(insert.width * 0.6);
+    const height = roundToGrid(insert.height * 0.6);
+    const centered = { x: (insert.width - width) / 2, y: (insert.height - height) / 2 };
+    const { x, y } = snapToLattice(lattice, centered.x, centered.y) ?? centered;
+    commitImage({ x, y, width, height });
     styleImage(imageId);
   }
 

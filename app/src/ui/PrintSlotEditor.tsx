@@ -503,7 +503,7 @@ export function PrintSlotEditor({
     if (d.kind === 'boxHandle') {
       const target = objects.find((o) => o.id === d.id);
       if (target && isText(target)) {
-        const { box } = resizeTextBoxTo(target, d.corner, d.to, userFonts);
+        const { box } = resizeTextBoxTo(target, d.corner, d.to, userFonts, grid.spacing);
         resizeObject(d.id, box);
       } else if (target) {
         const minSize = isShape(target) ? MIN_FREE_BOX_SIZE : undefined;
