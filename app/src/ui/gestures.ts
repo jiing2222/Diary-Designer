@@ -381,9 +381,15 @@ export function hitAt(svg: SVGSVGElement | null, objects: DiaryObject[], p: Poin
  * 원하는 만큼 못 줄이면 오히려 불편하다는 설명을 들었다. 도트 위
  * 두 모서리 사이의 거리는 그 자체로 항상 격자 간격의 배수라, 최소값을
  * 따로 도트에 맞출 필요도 없다 — MIN_FREE_BOX_SIZE 하나로 충분하다.
+ *
+ * **결과는 0.01mm로 정리한다.** `resizeBox`가 하는 뺄셈(예: 10.35 -
+ * 32.65)도 moveObject·moveSegment와 똑같은 부동소수점 흔적을 남긴다
+ * (22.299999999999997처럼) — 정리하지 않으면 옮기기에서 58단계에 잡은
+ * 문제가 크기 조절에는 그대로 남는다.
  */
 export function resizeTextBoxTo(t: TextObject, corner: Corner, to: Point): { box: Box } {
-  return { box: resizeBox(boxOf(t), corner, to, MIN_FREE_BOX_SIZE) };
+  const box = resizeBox(boxOf(t), corner, to, MIN_FREE_BOX_SIZE);
+  return { box: { x: roundMm(box.x), y: roundMm(box.y), width: roundMm(box.width), height: roundMm(box.height) } };
 }
 
 /** 치수 글자 뒤에 몇 칸짜리인지도 붙인다. */
