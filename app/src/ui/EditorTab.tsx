@@ -1409,7 +1409,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
         ) : (
           hover && (
             <span>
-              {hover.x} , {hover.y} mm
+              {roundMm(hover.x, 2)} , {roundMm(hover.y, 2)} mm
             </span>
           )
         )}

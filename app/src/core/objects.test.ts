@@ -8,6 +8,7 @@ import {
   dedupe,
   distanceToSegment,
   fitBox,
+  moveObject,
   moveSegment,
   newId,
   objectInRect,
@@ -287,6 +288,28 @@ describe('옮기기', () => {
 
     const len = (s: LineSeg) => Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
     expect(len(after)).toBeCloseTo(len(before), 9);
+  });
+
+  it('여러 번 옮겨도 부동소수점 흔적이 안 남는다 — moveObject', () => {
+    // 30 + 2.65는 그대로 더하면 32.650000000000006처럼 흔적이 남는다.
+    // 여러 번 옮기는 동안 이게 쌓이면 화면에 보이는 값과 실제 좌표가
+    // 어긋난다(도트에 붙여 옮겨도 결과가 도트를 조금씩 벗어난다).
+    const shape: DiaryObject = { id: 'sh1', type: 'shape', x: 30, y: 30, width: 15, height: 15 };
+    const after = moveObject(shape, 2.65, -2.65);
+    expect(after).toEqual({ id: 'sh1', type: 'shape', x: 32.65, y: 27.35, width: 15, height: 15 });
+
+    // 같은 만큼을 다섯 번 나눠 옮긴 결과도 한 번에 옮긴 것과 똑같아야 한다 —
+    // 흔적이 쌓이면 이 등식이 깨진다.
+    let stepped: DiaryObject = { ...shape };
+    for (let i = 0; i < 5; i++) stepped = moveObject(stepped, 0.53, -0.53);
+    expect(stepped).toEqual(after);
+  });
+
+  it('여러 번 옮겨도 부동소수점 흔적이 안 남는다 — moveSegment', () => {
+    const before = seg(10, 10, 40, 50);
+    let stepped = before;
+    for (let i = 0; i < 3; i++) stepped = moveSegment(stepped, 1.1, -1.1);
+    expect(stepped).toEqual(seg(13.3, 6.7, 43.3, 46.7));
   });
 });
 

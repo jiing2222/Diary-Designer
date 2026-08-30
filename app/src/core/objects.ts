@@ -1,4 +1,4 @@
-import type { Mm } from './units';
+import { roundMm, type Mm } from './units';
 
 /**
  * 속지 위에 놓이는 객체들.
@@ -561,9 +561,17 @@ export function fitBox(
   return { ...base, width, height };
 }
 
-/** 객체를 통째로 옮긴다. 크기와 모양은 그대로다. */
+/**
+ * 객체를 통째로 옮긴다. 크기와 모양은 그대로다.
+ *
+ * 옮긴 자리를 0.01mm로 정리한다 — 안 그러면 부동소수점 덧셈이 흔적을
+ * 남기고(예: 30 + 2.65 → 32.650000000000006), 여러 번 옮기는 동안 그
+ * 흔적이 쌓여 눈에 보이는 값과 실제 좌표가 어긋난다. 다음 이동은 이
+ * 정리된 좌표를 기준으로 다시 계산하므로, 정리하지 않으면 격자에 붙여
+ * 옮겨도 결과가 격자를 조금씩 벗어나게 된다.
+ */
 export function moveObject(o: DiaryObject, dx: Mm, dy: Mm): DiaryObject {
-  return isLine(o) ? moveSegment(o, dx, dy) : { ...o, x: o.x + dx, y: o.y + dy };
+  return isLine(o) ? moveSegment(o, dx, dy) : { ...o, x: roundMm(o.x + dx), y: roundMm(o.y + dy) };
 }
 
 /** newId가 쓰는 종류별 접두어. 복사·표 분리처럼 다른 곳에서도 새로 id를 매길 때 쓴다. */
@@ -793,9 +801,15 @@ export function reshape<T extends LineSeg>(s: T, end: 1 | 2, p: { x: Mm; y: Mm }
   return end === 1 ? { ...s, x1: p.x, y1: p.y } : { ...s, x2: p.x, y2: p.y };
 }
 
-/** 선을 통째로 옮긴다. 길이와 각도는 그대로다. */
+/** 선을 통째로 옮긴다. 길이와 각도는 그대로다. 정리하는 이유는 moveObject와 같다. */
 export function moveSegment<T extends LineSeg>(s: T, dx: Mm, dy: Mm): T {
-  return { ...s, x1: s.x1 + dx, y1: s.y1 + dy, x2: s.x2 + dx, y2: s.y2 + dy };
+  return {
+    ...s,
+    x1: roundMm(s.x1 + dx),
+    y1: roundMm(s.y1 + dy),
+    x2: roundMm(s.x2 + dx),
+    y2: roundMm(s.y2 + dy),
+  };
 }
 
 /** 점에서 선까지의 거리. 클릭이 어느 선을 집었는지 고를 때 쓴다. */
