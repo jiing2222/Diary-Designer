@@ -1679,6 +1679,8 @@ export function ToolRail({
   const selectedIds = useStore((s) => s.selectedIds);
   const objects = useObjects().present;
   const [open, setOpen] = useState<ToolCategory | null>(null);
+  /** 화살표로 닫기 직전에 열려 있던 탭 — 같은 화살표로 다시 열면 이걸 돌려준다. */
+  const lastOpenRef = useRef<ToolCategory | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const patchDotGrid = useStore((s) => s.patchDotGrid);
   const patchPunch = useStore((s) => s.patchPunch);
@@ -1869,13 +1871,23 @@ export function ToolRail({
           .rail-panel-toggle). '고르기 도구 + 아무것도 안 고름'일 때
           categoryFor가 이제 null 대신 'select'를 주므로(위 useEffect 참고)
           자동으로는 안 닫히는데, 그래도 사용자가 손으로 접어두고 싶을 수
-          있어 만들었다(사용자 요청). 다시 열면 지금 도구·선택에 맞는
-          탭으로 돌아간다 — 닫아둔 동안 도구나 선택이 바뀌면 위 useEffect가
+          있어 만들었다(사용자 요청). 닫을 때 지금 열려 있던 탭을
+          lastOpenRef에 기억해뒀다가 다시 열 때 그대로 돌려준다 —
+          categoryFor로 새로 계산하면 용지·도트격자·타공처럼 그 함수가
+          절대 안 돌려주는 탭은 닫았다 다시 열었을 때 엉뚱한(고른 것) 탭으로
+          바뀌어버린다. 닫아둔 동안 도구나 선택이 바뀌면 위 useEffect가
           먼저 새 탭을 열어버리므로, 그 전까지만 닫힌 채로 있는다.
         */}
         <button
           className="rail-btn rail-panel-toggle"
-          onClick={() => setOpen((cur) => (cur ? null : categoryFor(tool, picked)))}
+          onClick={() => {
+            if (open) {
+              lastOpenRef.current = open;
+              setOpen(null);
+            } else {
+              setOpen(lastOpenRef.current ?? categoryFor(tool, picked));
+            }
+          }}
           title={open ? '탭 닫기' : '탭 열기'}
         >
           {open ? '<' : '>'}
