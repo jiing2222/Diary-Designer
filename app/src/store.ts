@@ -1128,16 +1128,18 @@ export const useStore = create<Store>((set) => ({
   commitText: (box, id) =>
     set((s) => {
       const cur = activeObjects(s);
-      const text = box.text.trim();
       const rest = id ? cur.filter((o) => o.id !== id) : cur;
 
       // 빈 채로 나가면 남기지 않는다. 고치다 비운 것도 마찬가지로 사라진다.
-      if (text === '') {
+      // **비었는지만 trim으로 본다 — 실제로 저장하는 글자는 손대지 않는다.**
+      // 예전엔 저장할 값도 trim해서, 띄어쓰기로 끝나는 글도 나갈 때 그
+      // 공백이 조용히 잘려나갔다(사용자가 여러 번 띄어써도 나가면 사라짐).
+      if (box.text.trim() === '') {
         if (!id) return {};
         return { ...commitObjects(s, rest), selectedIds: prune(s.selectedIds, rest) };
       }
 
-      const next: TextObject = { id: id ?? newId('t'), type: 'text', ...box, text };
+      const next: TextObject = { id: id ?? newId('t'), type: 'text', ...box };
       // 고치는 중이면 원래 자리를 지킨다. 순서가 바뀌면 겹친 것이 위아래로 튄다.
       return commitObjects(s, id ? cur.map((o) => (o.id === id ? next : o)) : [...cur, next]);
     }),

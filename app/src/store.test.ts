@@ -1083,6 +1083,34 @@ describe('경계를 넘어 이은 선', () => {
   });
 });
 
+describe('글자 커밋 — 비었는지만 trim으로 보고, 저장하는 값은 그대로 둔다', () => {
+  const text = () => {
+    const o = at().objects.present[0];
+    if (!o || o.type !== 'text') throw new Error('글자가 없습니다');
+    return o;
+  };
+
+  it('띄어쓰기로 끝나도(여러 칸이어도) 그대로 저장된다', () => {
+    s().addTemplate();
+    s().commitText({ x: 0, y: 0, width: 20, height: 10, text: '가   나   ' });
+    expect(text().text).toBe('가   나   ');
+  });
+
+  it('공백만 있으면(빈 것과 같으므로) 만들지 않는다', () => {
+    s().addTemplate();
+    s().commitText({ x: 0, y: 0, width: 20, height: 10, text: '   ' });
+    expect(at().objects.present).toHaveLength(0);
+  });
+
+  it('고치던 글자를 공백만 남기고 나가면 지워진다', () => {
+    s().addTemplate();
+    s().commitText({ x: 0, y: 0, width: 20, height: 10, text: '가' });
+    const id = text().id;
+    s().commitText({ x: 0, y: 0, width: 20, height: 10, text: '   ' }, id);
+    expect(at().objects.present).toHaveLength(0);
+  });
+});
+
 describe('자동 필드', () => {
   /** 방금 만든(유일한) 글자. 없거나 글자가 아니면 시험이 잘못 짜인 것이다. */
   const text = () => {
