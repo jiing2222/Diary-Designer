@@ -273,6 +273,11 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
     <g
       fontFamily={DEFAULT_FONT_FAMILY}
       style={{ fontKerning: 'none', fontVariantLigatures: 'none', whiteSpace: 'pre' }}
+      // CSS white-space: pre만으로는 부족하다 — Safari(WebKit)는 SVG 글자에서
+      // 이 CSS 속성을 무시하고 여러 칸 띄어쓰기를 하나로 줄인다(Chrome은
+      // 문제없이 다 보여줘서 늦게 발견했다, 2026-08-30). xml:space="preserve"는
+      // SVG가 원래 갖고 있던, 더 널리 지원되는 표시라 이걸 같이 줘야 한다.
+      xmlSpace="preserve"
     >
       {objects.map((t) => {
         const size = sizeOf(t);
