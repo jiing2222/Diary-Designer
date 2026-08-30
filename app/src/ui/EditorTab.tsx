@@ -1943,6 +1943,19 @@ function ImageCategoryBody() {
   // 없이 노트에서 이 자리에 놓으면 화면엔 아무 변화도 없이 그 죽은 자리에만
   // 계속 쌓인다 — 반쪽을 먼저 열어야 한다.
   const canPlace = useStore((s) => activeTemplate(s)?.kind !== 'notebook' || s.shadowTemplate !== null);
+  const side = useSide();
+  const hasBack = useHasBack();
+  const shadowTemplate = useStore((s) => s.shadowTemplate);
+  const shadowSide = useStore((s) => s.shadowSide);
+  /**
+   * 이 ToolRail은 속지 제작(EditorTab)·노트 제작·인쇄하기 칸 손보기 셋 다
+   * 공유한다 — 그림자가 있으면(노트·칸 손보기) 그림자의 쪽(`shadowSide`)이
+   * 진짜 지금 그리는 쪽이고, 없으면(속지 제작) EditorTab 본체와 같은 규칙
+   * (`hasBack ? side : 'front'`)을 쓴다. 안 그러면 뒷면인데 앞면 기준
+   * 안전영역으로 계산해 놓는 자리가 어긋난다(safeZoneWidth를 피하는
+   * 설정을 켠 양식의 뒷면에서).
+   */
+  const activeSide: Side = shadowTemplate ? shadowSide : hasBack ? side : 'front';
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -1973,7 +1986,7 @@ function ImageCategoryBody() {
     // 있어서 크기가 늘 어중간해진다. 화면(EditorTab 본체)이 손잡이를
     // 끌 때 쓰는 것과 같은 격자(gridArea·gridLattice)로 자리부터 맞춘다.
     const lattice = gridLattice(
-      gridArea(insert, grid, insert.punch.safeZoneWidth, false),
+      gridArea(insert, grid, insert.punch.safeZoneWidth, activeSide === 'back'),
       grid.spacing,
       grid.minMargin,
       grid.toEdge,
