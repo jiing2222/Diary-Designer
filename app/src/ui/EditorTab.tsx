@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { checkboxIconBox } from '../core/checkbox';
@@ -1483,6 +1483,33 @@ export function TextInput({
     el.setSelectionRange(el.value.length, el.value.length);
   }, []);
 
+  /**
+   * 잰 크기(`measured`, 아래)로 꼭 맞춰 칸을 키우면 실제로 브라우저가
+   * `<textarea>`를 그릴 때는 그보다 살짝(1px 안팎) 모자랄 수 있다 — 캔버스로
+   * 재는 것과 실제 글자폭 계산이 완전히 같지 않아서다(특히 한글, 굵게, 등록한
+   * 글꼴). 모자라면 `<textarea>`는 `overflow: visible`을 못 받는 태생 때문에
+   * 그 즉시 스크롤이 생긴다(위 설명 참고) — 게다가 한쪽(가로)에서 스크롤바가
+   * 생기면 그만큼 반대쪽(세로) 칸이 줄어 거기에도 스크롤바가 번진다(실제로
+   * 재현: 글자가 늘수록 모자라는 양도 늘어, 고정된 여유 몇 mm로는 어느
+   * 길이에서든 안전할 수 없었다).
+   *
+   * 그래서 미리 얼마나 넉넉히 잡을지 계산하지 않는다 — **매번 그린 뒤
+   * 실제로 스크롤이 생겼는지 재서, 생겼으면 그 모자란 만큼만 더하고
+   * 다시 그린다.** 어떤 글꼴·글자 수·확대 배율에서도 같은 방식으로
+   * 맞는다. 글이나 글꼴이 바뀌면(줄어들 수도 있으니) 처음부터 다시 잰다.
+   */
+  const [extraPx, setExtraPx] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    setExtraPx({ w: 0, h: 0 });
+  }, [editing.text, size, editing.style.lineHeight, editing.style.bold, editing.style.font]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const dw = Math.max(0, el.scrollWidth - el.clientWidth);
+    const dh = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (dw > 0 || dh > 0) setExtraPx((e) => ({ w: e.w + dw, h: e.h + dh }));
+  });
+
   if (!svg) return null;
   const baseLeft = canvasOffsetX;
   const baseTop = 0;
@@ -1514,8 +1541,9 @@ export function TextInput({
    * 반대 방향도 상자가 저절로 안 바뀌어야 한다).
    */
   const measured = measureTextBox(editing.text, size, lineHeight, editing.style.bold, family);
-  const liveWidth = Math.max(box.width, measured.width);
-  const liveHeight = Math.max(box.height, measured.height);
+  // extraPx는 위 useLayoutEffect가 실측으로 채운다 — 처음 그릴 때는 0이다.
+  const liveWidth = Math.max(box.width, measured.width + extraPx.w / scale);
+  const liveHeight = Math.max(box.height, measured.height + extraPx.h / scale);
 
   const textarea = (
     <textarea
