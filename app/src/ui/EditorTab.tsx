@@ -1692,13 +1692,23 @@ export function ToolRail({
   // 도구나 고른 것이 바뀔 때마다 저절로 맞는 탭으로 — 수동으로 닫아둔 것도
   // 여기서 다시 계산된다(선택이 그대로면 이 효과가 다시 안 돌아 그대로 있다).
   // 고르기 도구인데 아무것도 안 골랐으면(idle) categoryFor가 '고른 것'을
-  // 주는데, 그때 용지·도트격자·타공(paper·grid·punch)이 이미 열려 있었다면
-  // 그건 도구·선택과 무관하게 손으로만 여닫는 것들이라 밀어내지 않는다 —
-  // 진짜로 뭔가 골랐을 때(cat이 select여도 섞어 고른 경우)는 그 예외가 없다.
+  // 주지만, 그대로 늘 열어버리진 않는다:
+  //   - 지금 아예 닫혀 있었으면(cur가 null — 화면을 막 열었을 때가 대표적
+  //     경우다) 그냥 닫힌 채로 둔다. 시작 화면부터 빈 '고른 것' 탭이 저절로
+  //     열려 있으면 어색하다(사용자 요청).
+  //   - 용지·도트격자·타공(paper·grid·punch)이 열려 있었으면 그건 도구·
+  //     선택과 무관하게 손으로만 여닫는 것들이라 밀어내지 않는다.
+  //   - 그 밖(요소·텍스트·이미지 탭을 보다가 다 골랐던 걸 풀었을 때)은
+  //     '고른 것'으로 바꿔 그대로 열어둔다 — 탭이 갑자기 사라지면 불편하다는
+  //     피드백이었다.
   useEffect(() => {
     const cat = categoryFor(tool, picked);
     const idle = tool === 'select' && picked.length === 0;
-    setOpen((cur) => (idle && cur && isSettingsCategory(cur) ? cur : cat));
+    setOpen((cur) => {
+      if (!idle) return cat;
+      if (cur === null || isSettingsCategory(cur)) return cur;
+      return cat;
+    });
     // picked는 objects·selectedIds에서 매 렌더 새로 계산되므로 selectedKey로 충분하다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, selectedKey]);
