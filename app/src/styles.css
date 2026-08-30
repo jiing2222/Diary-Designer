@@ -925,6 +925,18 @@ main {
   background: #fff;
 }
 
+/*
+ * ToolRail의 탭을 손으로 열고 닫는 화살표(>, <). margin-top: auto로 밀어
+ * .rail(도구 아이콘이 늘어선 세로줄) 맨 아래에 붙인다 — .rail-wrap-tool이
+ * row 방향이라 .rail 자신이 이미 전체 높이만큼 늘어나 있어서(64단계) 이
+ * 트릭이 통한다.
+ */
+.rail-panel-toggle {
+  margin-top: auto;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 /* 용지·도트 격자·타공 안내 줄을 통째로 접었다 펴는 화살표 — 늘 맨 아래에 있다 */
 .rail-collapse {
   width: 38px;

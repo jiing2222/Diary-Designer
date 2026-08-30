@@ -1626,8 +1626,13 @@ function isSettingsCategory(cat: ToolCategory): boolean {
  * 순서**다 — StyleBar는 그 판단을 종류별 조작칸으로 연결하고, 이건 같은
  * 판단을 카테고리(탭)로 연결한다. 하나만 바뀌고 다른 하나를 안 고치면
  * 언젠가 어긋난다.
+ *
+ * **`null`을 돌려주지 않는다.** 고르기 도구인데 아무것도 안 골랐을 때가
+ * 유일하게 남는 경우인데, 예전엔 이때 null을 줘서 탭이 통째로 닫혔다 —
+ * 고르던 탭이 손 밑에서 갑자기 사라진다는 피드백으로, 그 대신 '고른 것'
+ * 탭을 그대로 보여준다(내용은 아직 비워둔다, StyleBar 참고).
  */
-export function categoryFor(tool: Tool, picked: DiaryObject[]): ToolCategory | null {
+export function categoryFor(tool: Tool, picked: DiaryObject[]): ToolCategory {
   const pickedLines = picked.filter(isLine);
   const pickedTexts = picked.filter(isText);
   const pickedCalendars = picked.filter(isCalendar);
@@ -1642,7 +1647,7 @@ export function categoryFor(tool: Tool, picked: DiaryObject[]): ToolCategory | n
   if (tool === 'checkbox' || pickedCheckboxes.length > 0) return 'elements';
   if (tool === 'text' || tool === 'field' || (pickedTexts.length > 0 && pickedLines.length === 0)) return 'text';
   if (tool === 'draw' || tool === 'table' || picked.length > 0) return 'elements';
-  return null;
+  return 'select';
 }
 
 /**
@@ -1686,12 +1691,14 @@ export function ToolRail({
 
   // 도구나 고른 것이 바뀔 때마다 저절로 맞는 탭으로 — 수동으로 닫아둔 것도
   // 여기서 다시 계산된다(선택이 그대로면 이 효과가 다시 안 돌아 그대로 있다).
-  // categoryFor는 용지·도트격자·타공(paper·grid·punch)을 절대 돌려주지 않는다
-  // — 그 셋은 도구·선택과 무관하게 손으로만 여닫으므로, 아무것도 고를 게
-  // 없어(cat이 null) 지금 열린 탭을 접으려는 참이어도 그 셋이 열려 있으면 그대로 둔다.
+  // 고르기 도구인데 아무것도 안 골랐으면(idle) categoryFor가 '고른 것'을
+  // 주는데, 그때 용지·도트격자·타공(paper·grid·punch)이 이미 열려 있었다면
+  // 그건 도구·선택과 무관하게 손으로만 여닫는 것들이라 밀어내지 않는다 —
+  // 진짜로 뭔가 골랐을 때(cat이 select여도 섞어 고른 경우)는 그 예외가 없다.
   useEffect(() => {
     const cat = categoryFor(tool, picked);
-    setOpen((cur) => (cat ? cat : cur && isSettingsCategory(cur) ? cur : null));
+    const idle = tool === 'select' && picked.length === 0;
+    setOpen((cur) => (idle && cur && isSettingsCategory(cur) ? cur : cat));
     // picked는 objects·selectedIds에서 매 렌더 새로 계산되므로 selectedKey로 충분하다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, selectedKey]);
@@ -1845,6 +1852,23 @@ export function ToolRail({
         >
           <PunchIcon />
           {insert.punch.show && <span className="rail-mark" />}
+        </button>
+
+        {/*
+          탭을 손으로 열고 닫는 화살표 — 맨 아래에 붙는다(margin-top: auto,
+          .rail-panel-toggle). '고르기 도구 + 아무것도 안 고름'일 때
+          categoryFor가 이제 null 대신 'select'를 주므로(위 useEffect 참고)
+          자동으로는 안 닫히는데, 그래도 사용자가 손으로 접어두고 싶을 수
+          있어 만들었다(사용자 요청). 다시 열면 지금 도구·선택에 맞는
+          탭으로 돌아간다 — 닫아둔 동안 도구나 선택이 바뀌면 위 useEffect가
+          먼저 새 탭을 열어버리므로, 그 전까지만 닫힌 채로 있는다.
+        */}
+        <button
+          className="rail-btn rail-panel-toggle"
+          onClick={() => setOpen((cur) => (cur ? null : categoryFor(tool, picked)))}
+          title={open ? '탭 닫기' : '탭 열기'}
+        >
+          {open ? '<' : '>'}
         </button>
       </div>
 

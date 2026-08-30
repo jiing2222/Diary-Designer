@@ -79,6 +79,17 @@ export function StyleBar({
   }
 
   const picked = objects.filter((o) => selectedIds.includes(o.id));
+
+  // 고르기 도구인데 아무것도 안 골랐을 때 — 예전엔 이때 탭 자체가 닫혀서
+  // (EditorTab.tsx의 categoryFor가 null을 줬다) 이 아래로 내려올 일이
+  // 없었다. 이제 탭은 '고른 것'으로 열린 채 남는데(사용자 요청), 안의
+  // 내용은 아직 없다 — 원래 선 그리기 기본값(draw 도구용) 조작칸이 대신
+  // 뜨면 지금 아무 도구도 안 쓰는데 "선" 조작칸이 보여 엉뚱하다. 이 빈
+  // 상태를 어떻게 채울지는 나중에 따로 디자인한다.
+  if (tool === 'select' && picked.length === 0) {
+    return <div className="stylebar" />;
+  }
+
   const pickedLines = picked.filter(isLine);
   const pickedTexts = picked.filter(isText);
   const pickedCalendars = picked.filter(isCalendar);
