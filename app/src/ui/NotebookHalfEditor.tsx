@@ -127,7 +127,6 @@ export function NotebookHalfEditor({
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
   const fieldDraftFormat = useStore((s) => s.fieldDraftFormat);
-  const userFonts = useStore((s) => s.userFonts);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
 
@@ -461,7 +460,7 @@ export function NotebookHalfEditor({
     if (d.kind === 'boxHandle') {
       const target = objects.find((o) => o.id === d.id);
       if (target && isText(target)) {
-        const { box } = resizeTextBoxTo(target, d.corner, d.to, userFonts, grid.spacing);
+        const { box } = resizeTextBoxTo(target, d.corner, d.to);
         resizeObject(d.id, box);
       } else if (target) {
         // 도형·이미지는 도트 한 칸까지 작아져도 된다 — 달력만 숫자 여러 칸이

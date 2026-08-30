@@ -24,11 +24,9 @@ import {
   type TextObject,
   type TextStyle,
 } from '../core/objects';
-import { boldOf, displayText, lineHeightOf, rotateOf, sizeOf } from '../core/text';
+import { displayText, rotateOf } from '../core/text';
 import { roundMm, type Mm } from '../core/units';
 import { tableSize, type Lattice } from '../core/grid';
-import { familyOf, type UserFont } from '../fonts/registry';
-import { measureTextBox } from './measureText';
 
 /**
  * 확정되기 전의 것들.
@@ -365,54 +363,23 @@ export function hitAt(svg: SVGSVGElement | null, objects: DiaryObject[], p: Poin
   return best;
 }
 
-/** 격자 위로 올림한다. 손잡이로 끄는 자리는 늘 격자점이라, 필요한 만큼만 키워도
- * 도트에서 벗어나지 않게 하려면 내림이 아니라 올림이어야 한다(모자라면 다시
- * 글자가 넘친다). 간격이 없으면(격자를 껐으면) 그대로 둔다. */
-function ceilToGrid(v: Mm, spacing: Mm): Mm {
-  return spacing > 0 ? Math.ceil(v / spacing) * spacing : v;
-}
-
 /**
  * 글자 상자를 손잡이로 조절해도 **글자 크기는 그대로 둔다.** 예전엔
  * 세로(높이) 비율만큼 글자 크기도 같이 바뀌었는데, 상자만 조절하려는
  * 건데 글자까지 저절로 커지거나 작아진다는 피드백으로 뺐다.
  *
- * **상자는 지금 글자가 실제로 필요로 하는 크기보다 작아지지 않는다.**
- * 그 밑으로 끌면 글자가 상자를 넘친다 — 이미 있는 원칙이다(25단계,
- * `core/text`의 "글자는 상자를 넘칠 수 있다").
- *
- * **그 최소 크기도 도트에 앉힌다.** `required`(글자가 실제로 필요로 하는
- * 크기)는 글꼴 크기·자간에서 나온 mm값이라 격자 간격의 배수일 이유가
- * 없다 — 그대로 쓰면 손잡이는 도트 위에 있는데 상자만 도트를 벗어난
- * 크기로 굳어버린다(예: 30pt 글자 한 칸을 확 줄이면 10.58mm처럼 어중간한
- * 높이가 된다). 그래서 그 최소 크기를 격자 위로 올림해서 쓴다.
+ * **상자 크기에 글자가 필요로 하는 최소 크기를 걸지 않는다.** 한동안
+ * (54단계) 상자가 글자보다 작아지지 않게 막았었는데 — 도형과 같은
+ * 최소(MIN_FREE_BOX_SIZE, 도트 한 칸보다도 작을 수 있다)까지 그대로
+ * 줄어든다. 상자는 도트 위에 자리를 잡는 용도일 뿐, 글자는 상자를
+ * 벗어나도 된다는 원칙(25단계, `core/text`의 "글자는 상자를 넘칠 수
+ * 있다")이 이미 있고, 위치만 잡으려고 상자를 조절하는데 글자 크기 때문에
+ * 원하는 만큼 못 줄이면 오히려 불편하다는 설명을 들었다. 도트 위
+ * 두 모서리 사이의 거리는 그 자체로 항상 격자 간격의 배수라, 최소값을
+ * 따로 도트에 맞출 필요도 없다 — MIN_FREE_BOX_SIZE 하나로 충분하다.
  */
-export function resizeTextBoxTo(
-  t: TextObject,
-  corner: Corner,
-  to: Point,
-  userFonts: UserFont[],
-  gridSpacing: Mm,
-): { box: Box } {
-  const oldBox = boxOf(t);
-  const rawBox = resizeBox(oldBox, corner, to, MIN_FREE_BOX_SIZE);
-  const required = measureTextBox(
-    displayText(t),
-    sizeOf(t),
-    lineHeightOf(t),
-    boldOf(t),
-    familyOf(userFonts, t.font),
-  );
-  const width = Math.max(rawBox.width, ceilToGrid(required.width, gridSpacing));
-  const height = Math.max(rawBox.height, ceilToGrid(required.height, gridSpacing));
-  // 최소 크기에 걸려 raw보다 커지면, resizeBox와 같은 규칙으로 고정된
-  // 모서리(반대쪽)가 밀리지 않게 x·y도 그만큼 보정한다 — 예를 들어
-  // 오른쪽(east) 손잡이를 끌 때는 왼쪽이 고정이라 x는 그대로여야 하는데,
-  // 폭만 늘리고 x를 안 옮기면 왼쪽 손잡이(west) 쪽 상자가 오른쪽으로
-  // 밀려난 것처럼 보였다.
-  const x = corner.includes('w') ? rawBox.x - (width - rawBox.width) : rawBox.x;
-  const y = corner.includes('n') ? rawBox.y - (height - rawBox.height) : rawBox.y;
-  return { box: { x, y, width, height } };
+export function resizeTextBoxTo(t: TextObject, corner: Corner, to: Point): { box: Box } {
+  return { box: resizeBox(boxOf(t), corner, to, MIN_FREE_BOX_SIZE) };
 }
 
 /** 치수 글자 뒤에 몇 칸짜리인지도 붙인다. */
