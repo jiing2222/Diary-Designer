@@ -95,3 +95,19 @@ export function moveDelta(
     dy: roundMm(toPhase(anchor.y + dy, grid.y0, grid.spacing) - anchor.y),
   };
 }
+
+/**
+ * 방향키로 옮기는 양 — 격자 한 칸의 1/10(Shift면 꼭 한 칸).
+ *
+ * 예전엔 고정값(0.5mm·Shift는 5mm)을 썼는데, 격자 간격이 5mm가 아니면
+ * 물론이고 **5mm 격자에서도** Shift 없이 한 번만 눌러도 5.5mm가 되어
+ * 도트를 벗어났다 — 이 프로그램은 "모든 작업은 도트 위"가 원칙이다(이
+ * 파일 맨 위 주석 참고). 한 칸의 1/10로 옮기면 열 번 눌러야 정확히
+ * 도트로 돌아오지만, 그사이에도 늘 간격의 배수라 어느 지점에서 봐도
+ * 어긋난 소수점이 남지 않는다. 격자를 껐으면(spacing 0) 예전 고정값을
+ * 그대로 쓴다 — 기댈 도트가 없으니 정할 수 있는 게 그것뿐이다.
+ */
+export function nudgeStep(spacing: Mm, shift: boolean): Mm {
+  if (spacing <= 0) return shift ? 5 : 0.5;
+  return shift ? spacing : spacing / 10;
+}

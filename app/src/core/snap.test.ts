@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_DOT_GRID, gridArea, gridLattice } from './grid';
-import { moveDelta, snapToLattice } from './snap';
+import { moveDelta, nudgeStep, snapToLattice } from './snap';
 
 const m6 = { width: 80, height: 125 };
 const lattice = gridLattice(gridArea(m6, DEFAULT_DOT_GRID, 10), 5);
@@ -130,5 +130,29 @@ describe('끌어서 옮긴 거리', () => {
 
   it('격자가 없으면 끈 만큼 간다', () => {
     expect(moveDelta(from, drag(3.4, 0), onGrid, { ...grid, spacing: 0 }).dx).toBe(3.4);
+  });
+});
+
+describe('방향키 옮기는 양(nudgeStep)', () => {
+  it('Shift 없이는 격자 한 칸의 1/10이다', () => {
+    expect(nudgeStep(5, false)).toBe(0.5);
+    expect(nudgeStep(4, false)).toBe(0.4);
+  });
+
+  it('Shift면 정확히 한 칸이다', () => {
+    expect(nudgeStep(5, true)).toBe(5);
+    expect(nudgeStep(4, true)).toBe(4);
+  });
+
+  it('격자를 껐으면(간격 0) 옛 고정값(0.5mm·5mm)을 그대로 쓴다', () => {
+    expect(nudgeStep(0, false)).toBe(0.5);
+    expect(nudgeStep(0, true)).toBe(5);
+  });
+
+  it('열 번 누르면(Shift 없이) 정확히 한 칸만큼 간다 — 그 사이에도 도트로 돌아온다', () => {
+    const spacing = 3;
+    let x = 0;
+    for (let i = 0; i < 10; i++) x += nudgeStep(spacing, false);
+    expect(x).toBeCloseTo(spacing, 9);
   });
 });

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { checkboxIconBox } from '../core/checkbox';
 import { holeCenterX } from '../core/punch';
-import { moveDelta, snapToLattice } from '../core/snap';
+import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
 import {
   boundsOfObjects,
   boxOf,
@@ -90,10 +90,6 @@ import {
   type Editing,
   type Point,
 } from './gestures';
-
-/** 방향키로 미세이동할 때 한 번에 움직이는 양. ⇧를 누르면 이 값의 10배다. */
-const NUDGE_STEP: Mm = 0.5;
-const NUDGE_STEP_SHIFT: Mm = 5;
 
 /**
  * 이미지 손잡이가 도트로 붙는 문턱값.
@@ -329,11 +325,11 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
         e.preventDefault();
         deleteSelected();
       }
-      // 방향키로 미세이동. ⇧를 누르면 큰 걸음(NUDGE_STEP_SHIFT), 아니면
-      // 작은 걸음(NUDGE_STEP)이다. ⌘·Ctrl과 함께면(브라우저 단축키일 수
-      // 있어) 건드리지 않는다.
+      // 방향키로 미세이동. ⇧를 누르면 격자 한 칸, 아니면 그 1/10이다
+      // (core/snap의 nudgeStep — 고정 mm값이면 격자 간격에 따라 도트를
+      // 벗어난다). ⌘·Ctrl과 함께면(브라우저 단축키일 수 있어) 건드리지 않는다.
       if (!e.metaKey && !e.ctrlKey && selectedIds.length > 0) {
-        const step = e.shiftKey ? NUDGE_STEP_SHIFT : NUDGE_STEP;
+        const step = nudgeStep(grid.spacing, e.shiftKey);
         if (e.key === 'ArrowLeft') {
           e.preventDefault();
           moveSelected(-step, 0);

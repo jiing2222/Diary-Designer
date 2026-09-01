@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { checkboxIconBox } from '../core/checkbox';
 import { holeCenterX } from '../core/punch';
-import { moveDelta, snapToLattice } from '../core/snap';
+import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
 import {
   boundsOfObjects,
   boxOf,
@@ -24,7 +24,7 @@ import {
   type TextStyle,
 } from '../core/objects';
 import { SNAP_COLOR, SNAP_DOT_SIZE } from '../core/style';
-import { roundMm, type Mm } from '../core/units';
+import { roundMm } from '../core/units';
 import { fieldPlaceholder, newTextStyle, parseFieldText } from '../core/text';
 import { useObjects, useStore } from '../store';
 import { defaultInsert } from '../core/template';
@@ -63,9 +63,6 @@ import {
 // shadowTemplate이 없을 때만 쓰이는 값(실제로는 안 쓰인다 — 타입만 맞춘다).
 const NO_INSERT = defaultInsert();
 const NO_GRID: DotGrid = { ...DEFAULT_DOT_GRID };
-
-const NUDGE_STEP: Mm = 0.5;
-const NUDGE_STEP_SHIFT: Mm = 5;
 
 /**
  * 인쇄하기에서 칸(낱장 조합)·페이지(세트형)를 직접 손보는 캔버스.
@@ -267,7 +264,7 @@ export function PrintSlotEditor({
         deleteSelected();
       }
       if (!e.metaKey && !e.ctrlKey && selectedIds.length > 0) {
-        const step = e.shiftKey ? NUDGE_STEP_SHIFT : NUDGE_STEP;
+        const step = nudgeStep(grid.spacing, e.shiftKey);
         if (e.key === 'ArrowLeft') {
           e.preventDefault();
           moveSelected(-step, 0);

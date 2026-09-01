@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { checkboxIconBox } from '../core/checkbox';
-import { moveDelta, snapToLattice } from '../core/snap';
+import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
 import {
   boundsOfObjects,
   boxOf,
@@ -23,7 +23,7 @@ import {
   type TextStyle,
 } from '../core/objects';
 import { SNAP_COLOR, SNAP_DOT_SIZE } from '../core/style';
-import { roundMm, type Mm } from '../core/units';
+import { roundMm } from '../core/units';
 import { fieldPlaceholder, newTextStyle, parseFieldText } from '../core/text';
 import { useObjects, useStore } from '../store';
 import { defaultInsert } from '../core/template';
@@ -58,9 +58,6 @@ import {
 // shadowTemplate이 없을 때만 쓰이는 값(실제로는 안 쓰인다 — 타입만 맞춘다).
 const NO_INSERT = defaultInsert();
 const NO_GRID: DotGrid = { ...DEFAULT_DOT_GRID };
-
-const NUDGE_STEP: Mm = 0.5;
-const NUDGE_STEP_SHIFT: Mm = 5;
 
 /**
  * 노트의 표지 앞·뒤, 또는 내지 한 쪽을 그리는 캔버스 — 늘 한 반쪽(완성
@@ -233,7 +230,7 @@ export function NotebookHalfEditor({
         deleteSelected();
       }
       if (!e.metaKey && !e.ctrlKey && selectedIds.length > 0) {
-        const step = e.shiftKey ? NUDGE_STEP_SHIFT : NUDGE_STEP;
+        const step = nudgeStep(grid.spacing, e.shiftKey);
         if (e.key === 'ArrowLeft') {
           e.preventDefault();
           moveSelected(-step, 0);
