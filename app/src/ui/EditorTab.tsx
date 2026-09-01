@@ -1165,7 +1165,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
                 // 고치는 중인 글자는 감춘다. 입력칸이 같은 자리에 겹쳐 있어서, 둘 다
                 // 보이면 어느 게 지금 치는 내용인지 헷갈린다. 목록에서 빼지 않고
                 // 감추기만 하는 이유는 InsertView의 hiddenId 주석에 있다.
-                hiddenId={editing?.id}
+                hiddenId={editing?.id ?? grip?.id}
               />
 
               <PunchGuide

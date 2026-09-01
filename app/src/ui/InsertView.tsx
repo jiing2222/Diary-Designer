@@ -101,11 +101,15 @@ export function InsertView({
   /** 뒷면이면 켠다. 안전영역을 비울 때 오른쪽을 비운다(core/grid의 gridArea 참고). */
   mirror?: boolean;
   /**
-   * 화면에서만 감출 글자 하나. 지금 고치는 중인 글자에 쓴다 — 입력칸이 같은
-   * 자리에 겹쳐 있어서 둘 다 보이면 어느 게 지금 치는 내용인지 헷갈린다.
+   * 화면에서만 감출 객체 하나. **지금 고치는 중인 글자**(입력칸이 같은 자리에
+   * 겹쳐 있어서 둘 다 보이면 어느 게 지금 치는 내용인지 헷갈린다) 또는
+   * **끝점을 끄는 중인 선**(확정된 옛 자리와 끄는 중인 새 자리가 동시에
+   * 보이면 두 선이 네모처럼 보인다)에 쓴다.
    *
-   * **목록에서 빼지 않고 감추기만 한다.** 빼버리면 DOM에서 사라지는데, 클릭
-   * 판정이 DOM의 `<text>`를 훑어 찾으므로 편집 중인 글자를 영영 집을 수 없게 된다.
+   * **목록에서 빼지 않고 감추기만 한다.** 글자는 빼버리면 DOM에서 사라지는데,
+   * 클릭 판정이 DOM의 `<text>`를 훑어 찾으므로 편집 중인 글자를 영영 집을 수
+   * 없게 된다 — 선은 클릭 판정이 DOM이 아니라 데이터를 직접 보므로 상관없지만,
+   * 같은 방식(visibility만 끄기)으로 통일했다.
    */
   hiddenId?: string;
   /**
@@ -134,7 +138,7 @@ export function InsertView({
       {mode === 'edit' && showDots && (grid.divisionsX >= 2 || grid.divisionsY >= 2) && (
         <DivisionGuideLayer insert={insert} grid={grid} safeZoneWidth={safeZoneWidth} mirror={mirror} />
       )}
-      <ObjectLayer objects={objects.filter(isLine)} />
+      <ObjectLayer objects={objects.filter(isLine)} hiddenId={hiddenId} />
 
       {/*
         글자만 속지 영역으로 자른다. 글자는 자기 상자를 넘칠 수 있지만(설계 원칙),
@@ -557,7 +561,7 @@ function DivisionGuideLayer({
  * 굵기·색·모양은 객체에 값이 있을 때만 그것을 쓰고, 없으면 기본값을 따른다.
  * 손대지 않은 선은 값을 갖지 않으므로 나중에 기본값을 바꾸면 다 같이 따라온다.
  */
-function ObjectLayer({ objects }: { objects: LineObject[] }) {
+function ObjectLayer({ objects, hiddenId }: { objects: LineObject[]; hiddenId?: string }) {
   return (
     <g strokeLinecap={OBJECT_LINE_CAP}>
       {objects.map((o) => (
@@ -571,6 +575,11 @@ function ObjectLayer({ objects }: { objects: LineObject[] }) {
           strokeWidth={widthOf(o)}
           // core가 mm로 돌려준다. viewBox가 mm라 그대로 이어 붙이면 된다.
           strokeDasharray={dashPatternOf(o)?.join(' ')}
+          // hiddenId 주석 참고 — 끝점을 끄는 중인 그 선만 감춘다. 감추지 않으면
+          // 확정된(옛) 자리와 끄는 중인(새) 자리가 동시에 보여, 짧은 시간이지만
+          // 두 선이 만드는 네모처럼 보인다(사용자가 "선을 고치면 면이 된다"고
+          // 신고한 것이 이거였다 — 실제로 도형이 된 게 아니라 둘 다 보인 것뿐).
+          visibility={o.id === hiddenId ? 'hidden' : undefined}
         />
       ))}
     </g>

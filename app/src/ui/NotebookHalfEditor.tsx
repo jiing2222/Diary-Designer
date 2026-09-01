@@ -716,7 +716,7 @@ export function NotebookHalfEditor({
             grid={grid}
             objects={objects}
             safeZoneWidth={insert.punch.safeZoneWidth}
-            hiddenId={editing?.id}
+            hiddenId={editing?.id ?? grip?.id}
           />
 
           <g className="picked">

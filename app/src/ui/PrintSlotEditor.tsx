@@ -785,7 +785,7 @@ export function PrintSlotEditor({
             objects={objects}
             safeZoneWidth={insert.punch.safeZoneWidth}
             mirror={side === 'back'}
-            hiddenId={editing?.id}
+            hiddenId={editing?.id ?? grip?.id}
           />
 
           <PunchGuide
