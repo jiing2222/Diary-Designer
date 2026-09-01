@@ -581,6 +581,47 @@ describe('저장 파일 불러오기', () => {
     expect(ids).toContain('l99999');
   });
 
+  it('노트(표지·쪽) 속 id와 그 뒤에 새로 그은 것의 id도 겹치지 않는다', () => {
+    // 속지는 objects·back·pageOverrides만 세면 됐지만, 노트는 표지·쪽
+    // (cover·pages)에 실제로 그린 것이 있다 — 이걸 안 세면 노트만 쓰다
+    // 저장한 파일을 불러온 뒤 다른 쪽에 새로 그은 것이 표지에 이미 있는
+    // id와 겹칠 수 있다(위 테스트와 같은 사고, styles.css의 .picked line
+    // 주석 참고 — 리액트가 두 객체를 같은 것으로 봐서 하나를 옮기면
+    // 겹친 다른 것까지 같이 반응하는 것처럼 보인다).
+    s().loadProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        {
+          id: 't1',
+          name: '불러온 노트',
+          kind: 'notebook',
+          insert: insertFromPreset('M6'),
+          dotGrid: DEFAULT_DOT_GRID,
+          objects: [],
+          cover: {
+            front: {
+              objects: [{ id: 'l99999', type: 'line', x1: 0, y1: 0, x2: 10, y2: 0 }],
+              dotGrid: DEFAULT_DOT_GRID,
+            },
+            back: { objects: [], dotGrid: DEFAULT_DOT_GRID },
+          },
+          pages: [{ objects: [], dotGrid: DEFAULT_DOT_GRID }],
+        },
+      ],
+      print: {},
+      fonts: [],
+    });
+
+    // 표지가 아니라 다른 쪽(내지 1쪽)을 그림자로 열어 새로 긋는다 —
+    // NotebookHalfEditor가 실제로 쪽을 손볼 때와 같은 방식이다.
+    s().beginShadowEdit(insertFromPreset('M6'), DEFAULT_DOT_GRID, [], 'front');
+    s().drawLines([{ x1: 20, y1: 20, x2: 60, y2: 20 }]);
+    const newObjId = s().shadowTemplate!.objects.present[0].id;
+    expect(newObjId).not.toBe('l99999');
+    expect(Number(newObjId.replace(/^l/, ''))).toBeGreaterThan(99999);
+  });
+
   it('용지 설정도 함께 돌아온다', () => {
     s().patchPaper({ landscape: true });
     s().loadProject({

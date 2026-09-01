@@ -4,7 +4,13 @@ import type { PunchSetting } from './core/punch';
 import { computeLayout, type Align, type Layout } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
 import { DEFAULT_PALETTE, type ColorPalette } from './core/palette';
-import { duplicateNotebookHalf, resizePages, type NotebookHalf, type NotebookSlotRef } from './core/notebook';
+import {
+  allNotebookObjects,
+  duplicateNotebookHalf,
+  resizePages,
+  type NotebookHalf,
+  type NotebookSlotRef,
+} from './core/notebook';
 import { DEFAULT_FIELD_FORMAT } from './core/text';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import {
@@ -1477,6 +1483,14 @@ export const useStore = create<Store>((set) => ({
           ...idsOf(t.back?.objects.present ?? []),
           ...Object.values(t.pageOverrides ?? {}).flatMap(idsOf),
           ...Object.values(t.pageBackOverrides ?? {}).flatMap(idsOf),
+          // 노트(표지·쪽)의 객체는 여기 안 넣으면 카운터가 못 따라간다 —
+          // 노트만 쓰다 저장한 파일을 불러온 뒤 새로 뭔가 만들면(붙여넣기
+          // 포함) 이미 표지·쪽 어딘가에 있는 id와 겹칠 수 있다. id가
+          // 겹치면 리액트가 서로 다른 두 객체를 "같은 것"으로 보고, 하나를
+          // 고르거나 옮기면 겹친 다른 객체까지 함께 반응하는 것처럼
+          // 보인다(styles.css의 .picked line 주석에 이미 한 번 겪은
+          // 기록이 있다).
+          ...(t.cover && t.pages ? idsOf(allNotebookObjects(t.cover, t.pages)) : []),
         ]),
       );
       const print = p.print as Partial<Settings>;
