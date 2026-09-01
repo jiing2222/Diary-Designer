@@ -995,6 +995,14 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
       : null;
   const nudge = drag?.kind === 'move' ? drag : null;
   const grip = drag?.kind === 'handle' ? drag : null;
+  // 옮기거나(nudge) 끝점을 끄는(grip) 중인 선의 바탕 그림을 감춘다 —
+  // InsertView의 hiddenLineIds 주석 참고. 옮기기는 고른 선 여럿이 한꺼번에
+  // 움직일 수 있어 grip과 달리 하나로 못 줄인다.
+  const hiddenLineIds = grip
+    ? new Set([grip.id])
+    : nudge
+      ? new Set(objects.filter((o) => isLine(o) && selectedIds.includes(o.id)).map((o) => o.id))
+      : undefined;
   const boxGrip = drag?.kind === 'boxHandle' ? drag : null;
   const textDrag = drag?.kind === 'textbox' ? drag : null;
   // 끄는 중인 상자의 미리보기.
@@ -1165,7 +1173,8 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
                 // 고치는 중인 글자는 감춘다. 입력칸이 같은 자리에 겹쳐 있어서, 둘 다
                 // 보이면 어느 게 지금 치는 내용인지 헷갈린다. 목록에서 빼지 않고
                 // 감추기만 하는 이유는 InsertView의 hiddenId 주석에 있다.
-                hiddenId={editing?.id ?? grip?.id}
+                hiddenId={editing?.id}
+                hiddenLineIds={hiddenLineIds}
               />
 
               <PunchGuide

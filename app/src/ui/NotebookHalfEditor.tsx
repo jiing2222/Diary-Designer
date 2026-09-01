@@ -594,6 +594,14 @@ export function NotebookHalfEditor({
       : null;
   const nudge = drag?.kind === 'move' ? drag : null;
   const grip = drag?.kind === 'handle' ? drag : null;
+  // 옮기거나(nudge) 끝점을 끄는(grip) 중인 선의 바탕 그림을 감춘다 —
+  // InsertView의 hiddenLineIds 주석 참고. 옮기기는 고른 선 여럿이 한꺼번에
+  // 움직일 수 있어 grip과 달리 하나로 못 줄인다.
+  const hiddenLineIds = grip
+    ? new Set([grip.id])
+    : nudge
+      ? new Set(objects.filter((o) => isLine(o) && selectedIds.includes(o.id)).map((o) => o.id))
+      : undefined;
   const boxGrip = drag?.kind === 'boxHandle' ? drag : null;
   const textDrag = drag?.kind === 'textbox' ? drag : null;
   const textDragBox = textDrag && {
@@ -716,7 +724,8 @@ export function NotebookHalfEditor({
             grid={grid}
             objects={objects}
             safeZoneWidth={insert.punch.safeZoneWidth}
-            hiddenId={editing?.id ?? grip?.id}
+            hiddenId={editing?.id}
+            hiddenLineIds={hiddenLineIds}
           />
 
           <g className="picked">
