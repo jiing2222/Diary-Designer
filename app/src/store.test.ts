@@ -337,6 +337,21 @@ describe('객체 복사·붙여넣기', () => {
     expect(at().objects.present).toContainEqual(original);
   });
 
+  it('격자 간격이 5mm의 배수가 아니면, 붙여넣을 때 미는 양도 그 간격의 배수로 올린다', () => {
+    // PASTE_OFFSET(5mm)을 그대로 밀면 간격 4mm에서는 도트를 1mm 벗어난다 —
+    // 5를 4의 배수로 올림한 8mm를 밀어야 원본처럼 도트 위에 남는다.
+    s().addTemplate();
+    s().patchDotGrid({ spacing: 4 });
+    s().drawLines([{ x1: 8, y1: 8, x2: 16, y2: 8 }]);
+    const original = at().objects.present[0];
+    s().select([original.id]);
+    s().copySelected();
+
+    s().pasteClipboard();
+    const pasted = at().objects.present.find((o) => o.id !== original.id);
+    expect(pasted).toMatchObject({ x1: 16, y1: 16, x2: 24, y2: 16 });
+  });
+
   it('붙여넣은 것이 선택된다', () => {
     s().addTemplate();
     s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);

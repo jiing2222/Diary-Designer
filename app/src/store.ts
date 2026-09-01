@@ -691,6 +691,18 @@ function sameContext(a: ClipboardOrigin, b: ClipboardOrigin): boolean {
     : a.kind === 'shadow' && b.kind === 'shadow' && a.token === b.token;
 }
 
+/**
+ * 지금 편집 중인 격자 — `useDotGrid`(훅)와 `pasteClipboard`(붙여넣기 간격
+ * 계산, 도트에 어긋나지 않으려면 지금 격자 간격을 알아야 한다)가 함께 쓴다.
+ * 판단 기준은 `useDotGrid`의 주석 참고 — 노트만 그림자(반쪽 손보기)의
+ * 격자를 따로 본다.
+ */
+function activeDotGrid(s: Pick<Settings, 'templates' | 'activeId' | 'shadowTemplate'>): DotGrid {
+  const active = activeTemplate(s);
+  if (active?.kind === 'notebook' && s.shadowTemplate) return s.shadowTemplate.dotGrid;
+  return active?.dotGrid ?? NO_GRID;
+}
+
 /** "디자인 관리"에서 저장하지 않은 이미지가 이 개수를 넘으면, 안 쓰는 중인 것부터 오래된 순으로 지운다. */
 const RECENT_IMAGE_CAP = 10;
 
@@ -1492,7 +1504,13 @@ export const useStore = create<Store>((set) => ({
       // 겹치지 않게 한다 — 다른 면(앞↔뒤, 노트의 다른 쪽)이면 "이전 면과
       // 같은 위치에" 붙여 넣고 싶다는 피드백대로 자리를 그대로 둔다.
       const samePlace = s.clipboardOrigin !== null && sameContext(s.clipboardOrigin, activeContext(s));
-      const offset = samePlace ? PASTE_OFFSET : 0;
+      // PASTE_OFFSET(5mm) 그대로 밀면 원본이 도트 위에 있어도 간격이
+      // 5mm의 배수가 아닌 격자(예: 4mm·3mm)에서는 그만큼 도트를 벗어난다
+      // — 밀 양을 그 격자 간격의 배수로 올림해서, 붙여넣은 것도 도트에
+      // 그대로 붙게 한다. 격자를 껐으면(spacing 0) 원래 값 그대로 쓴다.
+      const spacing = activeDotGrid(s).spacing;
+      const gridOffset = spacing > 0 ? Math.ceil(PASTE_OFFSET / spacing) * spacing : PASTE_OFFSET;
+      const offset = samePlace ? gridOffset : 0;
       const pasted = s.clipboard.map((o) => cloneObject(o, offset, offset));
       return {
         ...commitObjects(s, [...activeObjects(s), ...pasted]),
@@ -1720,12 +1738,7 @@ export const useActiveInsertSize = () =>
  * 전혀 안 건드린다 — 인쇄하기의 그림자 편집이 여전히 진짜 양식의 격자를
  * 그대로 보여줘야 하기 때문이다(바로 위 주석 참고).
  */
-export const useDotGrid = () =>
-  useStore((s) => {
-    const active = activeTemplate(s);
-    if (active?.kind === 'notebook' && s.shadowTemplate) return s.shadowTemplate.dotGrid;
-    return active?.dotGrid ?? NO_GRID;
-  });
+export const useDotGrid = () => useStore(activeDotGrid);
 export const usePalette = () => useStore((s) => activeTemplate(s)?.palette ?? NO_PALETTE);
 /** 지금 양식의 편집 화면 회전 각도. 대부분 0(안 돌림)이다. */
 export const useViewRotation = () => useStore((s) => activeTemplate(s)?.viewRotation ?? 0);
