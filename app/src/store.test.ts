@@ -412,6 +412,95 @@ describe('객체 복사·붙여넣기', () => {
     s().pasteClipboard();
     expect(s().shadowTemplate!.objects.present[0]).toMatchObject({ x1: 5, y1: 5, x2: 20, y2: 5 });
   });
+
+  it('그룹을 복사·붙여넣으면 사본끼리만 묶인 새 그룹이 된다 — 원본과는 갈라진다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 30, y2: 10 }]);
+    s().drawLines([{ x1: 10, y1: 20, x2: 30, y2: 20 }]);
+    const [a, b] = at().objects.present;
+    s().select([a.id, b.id]);
+    s().groupSelected();
+    s().copySelected();
+
+    s().pasteClipboard();
+    const pasted = at().objects.present.filter((o) => o.id !== a.id && o.id !== b.id);
+    expect(pasted).toHaveLength(2);
+    const originalGroupId = at().objects.present.find((o) => o.id === a.id)!.groupId;
+    expect(pasted[0].groupId).toBeDefined();
+    expect(pasted[0].groupId).not.toBe(originalGroupId);
+    expect(pasted[0].groupId).toBe(pasted[1].groupId);
+
+    // 원본 하나만 다시 고르면 사본은 안 딸려온다 — 그룹이 갈라졌다는 뜻이다.
+    s().select([a.id]);
+    expect(new Set(s().selectedIds)).toEqual(new Set([a.id, b.id]));
+  });
+});
+
+describe('객체 그룹화', () => {
+  it('2개 미만이면 그룹화해도 아무 일도 하지 않는다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 30, y2: 10 }]);
+    s().select([at().objects.present[0].id]);
+    s().groupSelected();
+    expect(at().objects.present[0].groupId).toBeUndefined();
+  });
+
+  it('2개 이상 고르고 그룹화하면 같은 groupId를 받는다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 30, y2: 10 }]);
+    s().drawLines([{ x1: 10, y1: 20, x2: 30, y2: 20 }]);
+    const [a, b] = at().objects.present;
+    s().select([a.id, b.id]);
+    s().groupSelected();
+    const [ga, gb] = at().objects.present;
+    expect(ga.groupId).toBeDefined();
+    expect(ga.groupId).toBe(gb.groupId);
+  });
+
+  it('그룹 멤버 하나만 골라도 select가 전체 그룹을 채운다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 30, y2: 10 }]);
+    s().drawLines([{ x1: 10, y1: 20, x2: 30, y2: 20 }]);
+    const [a, b] = at().objects.present;
+    s().select([a.id, b.id]);
+    s().groupSelected();
+
+    s().select([a.id]);
+    expect(new Set(s().selectedIds)).toEqual(new Set([a.id, b.id]));
+  });
+
+  it('그룹 해제하면 groupId가 사라지고, 이후엔 하나만 골라진다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 30, y2: 10 }]);
+    s().drawLines([{ x1: 10, y1: 20, x2: 30, y2: 20 }]);
+    const [a, b] = at().objects.present;
+    s().select([a.id, b.id]);
+    s().groupSelected();
+
+    s().ungroupSelected();
+    expect(at().objects.present.every((o) => o.groupId === undefined)).toBe(true);
+
+    s().select([a.id]);
+    expect(s().selectedIds).toEqual([a.id]);
+  });
+
+  it('이미 그룹인 것들을 다시 그룹화하면 새 그룹으로 옮겨간다', () => {
+    s().addTemplate();
+    s().drawLines([{ x1: 10, y1: 10, x2: 30, y2: 10 }]);
+    s().drawLines([{ x1: 10, y1: 20, x2: 30, y2: 20 }]);
+    s().drawLines([{ x1: 10, y1: 30, x2: 30, y2: 30 }]);
+    const [a, b, c] = at().objects.present;
+    s().select([a.id, b.id]);
+    s().groupSelected();
+    const firstGroupId = at().objects.present[0].groupId;
+
+    s().select([a.id, b.id, c.id]);
+    s().groupSelected();
+    const [ga, gb, gc] = at().objects.present;
+    expect(ga.groupId).toBe(gb.groupId);
+    expect(ga.groupId).toBe(gc.groupId);
+    expect(ga.groupId).not.toBe(firstGroupId);
+  });
 });
 
 describe('저장 파일 불러오기', () => {

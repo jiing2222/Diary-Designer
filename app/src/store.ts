@@ -32,6 +32,7 @@ import {
   cloneObject,
   dedupe,
   ensureIdCounterAbove,
+  expandGroupSelection,
   isDegenerate,
   isImage,
   isLine,
@@ -349,6 +350,11 @@ interface Store extends Settings {
    * 하지 않는다 — 늘 새로 긋는다.
    */
   commitCrossBoundaryLine: (backSeg: LineSeg, frontSeg: LineSeg, focusSide: Side) => void;
+  /**
+   * 고른다. 넘긴 id 중 그룹에 속한 게 있으면 그 그룹 전체로 채워 넣는다
+   * (core/objects의 `expandGroupSelection`) — 클릭·Shift+클릭·마퀴(감싸기)
+   * 셋 다 결국 이 액션을 부르므로 여기 한 곳만 맞으면 셋 다 그룹째로 고른다.
+   */
   select: (ids: string[]) => void;
   deleteSelected: () => void;
   /** 고른 객체를 클립보드에 담는다. 아무것도 못 골랐으면 아무 일도 하지 않는다. */
@@ -363,6 +369,14 @@ interface Store extends Settings {
   lockSelected: () => void;
   /** 잠긴 것을 전부 푼다. 하나씩 푸는 대신 전부 한 번에 — 목록 UI 없이도 되돌릴 수 있게. */
   unlockAll: () => void;
+  /**
+   * 고른 것 2개 이상을 한 그룹으로 묶는다. 그중 이미 그룹이던 것이
+   * 있어도 새 그룹으로 옮겨간다(그룹 안에 그룹을 두지 않는다). 1개
+   * 이하면 아무 일도 하지 않는다.
+   */
+  groupSelected: () => void;
+  /** 고른 것들에서 그룹 표시를 지운다. */
+  ungroupSelected: () => void;
   moveSelected: (dx: Mm, dy: Mm) => void;
   /** 고른 선 하나의 한쪽 끝을 옮긴다. */
   reshapeSelected: (id: string, end: 1 | 2, p: { x: Mm; y: Mm }) => void;
@@ -1434,12 +1448,17 @@ export const useStore = create<Store>((set) => ({
       // 처음 그리는 것이 파일 속 어떤 객체와 같은 id를 받는다(글꼴·이미지와
       // 같은 사정이라 위와 같은 방식으로 막는다).
       ensureTemplateIdCounterAbove(templates.map((t) => t.id));
+      // groupId도 newId('g')로 같은 카운터를 쓰므로 id와 함께 셈에 넣는다 —
+      // 안 그러면 그룹 지은 뒤 곧바로 다른 걸 안 그려서(id 카운터가 그룹
+      // id의 번호까지 못 올라간 채) 저장한 파일을 불러왔을 때, 다음에 새로
+      // 만드는 그룹이 이미 있는 그룹 id와 겹칠 수 있다.
+      const idsOf = (objs: DiaryObject[]) => objs.flatMap((o) => (o.groupId ? [o.id, o.groupId] : [o.id]));
       ensureIdCounterAbove(
         templates.flatMap((t) => [
-          ...t.objects.present.map((o) => o.id),
-          ...(t.back?.objects.present.map((o) => o.id) ?? []),
-          ...Object.values(t.pageOverrides ?? {}).flatMap((objs) => objs.map((o) => o.id)),
-          ...Object.values(t.pageBackOverrides ?? {}).flatMap((objs) => objs.map((o) => o.id)),
+          ...idsOf(t.objects.present),
+          ...idsOf(t.back?.objects.present ?? []),
+          ...Object.values(t.pageOverrides ?? {}).flatMap(idsOf),
+          ...Object.values(t.pageBackOverrides ?? {}).flatMap(idsOf),
         ]),
       );
       const print = p.print as Partial<Settings>;
@@ -1481,7 +1500,7 @@ export const useStore = create<Store>((set) => ({
       };
     }),
 
-  select: (selectedIds) => set({ selectedIds }),
+  select: (ids) => set((s) => ({ selectedIds: expandGroupSelection(activeObjects(s), ids) })),
 
   deleteSelected: () =>
     set((s) => {
@@ -1511,7 +1530,20 @@ export const useStore = create<Store>((set) => ({
       const spacing = activeDotGrid(s).spacing;
       const gridOffset = spacing > 0 ? Math.ceil(PASTE_OFFSET / spacing) * spacing : PASTE_OFFSET;
       const offset = samePlace ? gridOffset : 0;
-      const pasted = s.clipboard.map((o) => cloneObject(o, offset, offset));
+      // 그룹 지은 것을 복사·붙여넣으면 원본 그룹과 다른, 붙여넣은 것들끼리만
+      // 묶인 새 그룹이어야 한다 — cloneObject는 groupId를 그대로 물려주므로
+      // (id처럼 여기서 새로 받지 않는다) 그대로 두면 원본과 사본이 한 그룹으로
+      // 합쳐져, 나중에 원본 하나만 눌러도 사본까지 전부 함께 골라진다.
+      // 원본 그룹 id → 새 그룹 id로 바꿔서, 복사한 것들끼리는 여전히 묶이되
+      // 원본과는 갈라지게 한다.
+      const groupIdMap = new Map<string, string>();
+      const pasted = s.clipboard.map((o) => {
+        const cloned = cloneObject(o, offset, offset);
+        if (!o.groupId) return cloned;
+        const mapped = groupIdMap.get(o.groupId) ?? newId('g');
+        groupIdMap.set(o.groupId, mapped);
+        return { ...cloned, groupId: mapped };
+      });
       return {
         ...commitObjects(s, [...activeObjects(s), ...pasted]),
         selectedIds: pasted.map((o) => o.id),
@@ -1535,6 +1567,29 @@ export const useStore = create<Store>((set) => ({
         if (!o.locked) return o;
         const rest = { ...o };
         delete rest.locked;
+        return rest;
+      });
+      return commitObjects(s, next);
+    }),
+
+  groupSelected: () =>
+    set((s) => {
+      if (s.selectedIds.length < 2) return {};
+      const groupId = newId('g');
+      const next = activeObjects(s).map((o) =>
+        s.selectedIds.includes(o.id) ? { ...o, groupId } : o,
+      );
+      return commitObjects(s, next);
+    }),
+
+  ungroupSelected: () =>
+    set((s) => {
+      const cur = activeObjects(s);
+      if (!cur.some((o) => s.selectedIds.includes(o.id) && o.groupId)) return {};
+      const next = cur.map((o) => {
+        if (!s.selectedIds.includes(o.id) || !o.groupId) return o;
+        const rest = { ...o };
+        delete rest.groupId;
         return rest;
       });
       return commitObjects(s, next);

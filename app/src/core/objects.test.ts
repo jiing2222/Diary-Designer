@@ -3,6 +3,7 @@ import {
   boundsOf,
   cloneObject,
   ensureIdCounterAbove,
+  expandGroupSelection,
   isLine,
   isLocked,
   dedupe,
@@ -373,6 +374,44 @@ describe('잠금', () => {
   it('locked: false도 잠기지 않은 것이다', () => {
     const line = { id: 'l1', type: 'line' as const, x1: 0, y1: 0, x2: 10, y2: 0, locked: false };
     expect(isLocked(line)).toBe(false);
+  });
+});
+
+describe('그룹 고르기 채우기(expandGroupSelection)', () => {
+  const shape = (id: string, groupId?: string, locked?: boolean): DiaryObject => ({
+    id,
+    type: 'shape',
+    x: 0,
+    y: 0,
+    width: 10,
+    height: 10,
+    ...(groupId ? { groupId } : {}),
+    ...(locked ? { locked } : {}),
+  });
+
+  it('그룹이 없으면 고른 id 그대로다', () => {
+    const objects = [shape('a'), shape('b')];
+    expect(expandGroupSelection(objects, ['a'])).toEqual(['a']);
+  });
+
+  it('그룹 멤버 하나를 고르면 같은 그룹 전체가 채워진다', () => {
+    const objects = [shape('a', 'g1'), shape('b', 'g1'), shape('c')];
+    expect(new Set(expandGroupSelection(objects, ['a']))).toEqual(new Set(['a', 'b']));
+  });
+
+  it('서로 다른 그룹에서 하나씩 고르면 두 그룹 전체가 채워진다', () => {
+    const objects = [shape('a', 'g1'), shape('b', 'g1'), shape('c', 'g2'), shape('d', 'g2')];
+    expect(new Set(expandGroupSelection(objects, ['a', 'c']))).toEqual(new Set(['a', 'b', 'c', 'd']));
+  });
+
+  it('그룹 없는 것과 그룹 있는 것을 함께 고르면 그룹만 채워지고 나머지는 그대로다', () => {
+    const objects = [shape('a', 'g1'), shape('b', 'g1'), shape('c')];
+    expect(new Set(expandGroupSelection(objects, ['a', 'c']))).toEqual(new Set(['a', 'b', 'c']));
+  });
+
+  it('잠긴 멤버는 채워 넣지 않는다 — 잠금은 클릭·감싸기로도 안 골라진다는 약속이다', () => {
+    const objects = [shape('a', 'g1'), shape('b', 'g1', true)];
+    expect(expandGroupSelection(objects, ['a'])).toEqual(['a']);
   });
 });
 

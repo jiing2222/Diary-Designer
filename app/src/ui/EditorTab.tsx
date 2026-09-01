@@ -8,6 +8,7 @@ import {
   boundsOfObjects,
   boxOf,
   cleanStyle,
+  groupIdOf,
   isBoxResizable,
   isCalendar,
   isCheckbox,
@@ -149,6 +150,8 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
   const pasteClipboard = useStore((s) => s.pasteClipboard);
   const lockSelected = useStore((s) => s.lockSelected);
   const unlockAll = useStore((s) => s.unlockAll);
+  const groupSelected = useStore((s) => s.groupSelected);
+  const ungroupSelected = useStore((s) => s.ungroupSelected);
   const moveSelected = useStore((s) => s.moveSelected);
   const reshapeSelected = useStore((s) => s.reshapeSelected);
   const commitText = useStore((s) => s.commitText);
@@ -199,6 +202,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
 
   const objects = history.present;
   const lockedCount = objects.filter(isLocked).length;
+  const canUngroup = objects.some((o) => selectedIds.includes(o.id) && groupIdOf(o));
   const lattice = gridLattice(
     gridArea(insert, grid, insert.punch.safeZoneWidth, activeSide === 'back'),
     grid.spacing,
@@ -1086,6 +1090,23 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
           {lockedCount > 0 && (
             <button className="ghost" onClick={unlockAll} title="잠긴 것을 전부 풉니다">
               잠긴 것 {lockedCount}개 · 전부 해제
+            </button>
+          )}
+          <button
+            className="ghost"
+            onClick={groupSelected}
+            disabled={selectedIds.length < 2}
+            title="여럿을 하나로 묶습니다. 묶은 것 중 하나만 클릭해도 전부 함께 골라집니다"
+          >
+            그룹화
+          </button>
+          {canUngroup && (
+            <button
+              className="ghost"
+              onClick={ungroupSelected}
+              title="고른 것의 그룹 묶음을 풉니다"
+            >
+              그룹 해제
             </button>
           )}
           <button

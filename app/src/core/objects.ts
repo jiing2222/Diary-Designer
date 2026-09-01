@@ -42,6 +42,15 @@ export interface LineObject extends LineSeg {
    * 건드리지 않게 하기 위해서다. 잠금을 풀어야만 다시 손댈 수 있다.
    */
   locked?: boolean;
+  /**
+   * 그룹 id. 정하지 않았으면(대부분) 어떤 그룹에도 안 속한다.
+   *
+   * 같은 groupId를 가진 오브젝트들은 하나를 고르면 전부 함께 고르진다
+   * (store.ts의 `select`) — 그다음 옮기기·지우기·잠그기 등은 이미
+   * `selectedIds` 기준이라 따로 손댈 것이 없다. 그룹 안에 그룹을 두지
+   * 않는다 — 이미 속한 것들을 다시 그룹화하면 새 그룹으로 옮겨간다.
+   */
+  groupId?: string;
 }
 
 export type Align = 'left' | 'center' | 'right';
@@ -118,6 +127,8 @@ export interface TextObject {
   rotate?: 90 | 270;
   /** 잠갔는가. LineObject의 `locked` 참고 — 모든 오브젝트 종류가 같은 규칙을 쓴다. */
   locked?: boolean;
+  /** 그룹 id. LineObject의 `groupId` 참고. */
+  groupId?: string;
 }
 
 export type WeekdayLang = 'kr' | 'en' | 'en-short' | 'hanja';
@@ -186,6 +197,8 @@ export interface CalendarObject {
   title?: string;
   /** 잠갔는가. LineObject의 `locked` 참고. */
   locked?: boolean;
+  /** 그룹 id. LineObject의 `groupId` 참고. */
+  groupId?: string;
 }
 
 /**
@@ -217,6 +230,8 @@ export interface ImageObject {
   rotate?: number;
   /** 잠갔는가. LineObject의 `locked` 참고. */
   locked?: boolean;
+  /** 그룹 id. LineObject의 `groupId` 참고. */
+  groupId?: string;
 }
 
 /** 도형의 모서리 둥글기 단계. 0(각짐)~3(점점 더 둥긂), 4(원·타원). core/shape의 `cornerRadiusOf` 참고. */
@@ -249,6 +264,8 @@ export interface ShapeObject {
   fillOpacity?: number;
   /** 잠갔는가. LineObject의 `locked` 참고. */
   locked?: boolean;
+  /** 그룹 id. LineObject의 `groupId` 참고. */
+  groupId?: string;
 }
 
 /** 체크박스에 찍을 수 있는 아이콘 모양. */
@@ -275,6 +292,8 @@ export interface CheckboxObject {
   color?: string;
   /** 잠갔는가. LineObject의 `locked` 참고. */
   locked?: boolean;
+  /** 그룹 id. LineObject의 `groupId` 참고. */
+  groupId?: string;
 }
 
 export type DiaryObject =
@@ -324,6 +343,34 @@ export function isBoxShaped(o: DiaryObject): o is CalendarObject | ImageObject |
 /** 잠겼는가. 정하지 않았으면(대부분) 잠기지 않은 것이다. */
 export function isLocked(o: DiaryObject): boolean {
   return o.locked ?? false;
+}
+
+/** 그룹 id. 정하지 않았으면(대부분) 어떤 그룹에도 안 속한다 — LineObject의 `groupId` 참고. */
+export function groupIdOf(o: DiaryObject): string | undefined {
+  return o.groupId;
+}
+
+/**
+ * 고른 id 목록에 그룹 멤버를 채워 넣는다 — 그룹 하나가 이미 그 안의
+ * 하나라도 고른 상태면 통째로 고른 것으로 친다.
+ *
+ * store.ts의 `select`가 이걸 거친다. 클릭·Shift+클릭·마퀴(감싸기) 셋 다
+ * 결국 `select`를 부르므로, 여기 한 곳만 맞으면 셋 다 그룹째로 고른다.
+ *
+ * **잠근 멤버는 채워 넣지 않는다.** 잠금은 "클릭으로도 감싸기로도 골라지지
+ * 않는다"는 약속이다(`isLocked`) — 그룹의 나머지가 잠기지 않았다고 해서
+ * 이 약속이 깨지면 안 된다. 그 멤버만 빼고 나머지를 채운다.
+ */
+export function expandGroupSelection(objects: DiaryObject[], ids: string[]): string[] {
+  const groupIds = new Set(
+    objects.filter((o) => o.groupId && ids.includes(o.id)).map((o) => o.groupId!),
+  );
+  if (groupIds.size === 0) return ids;
+  const expanded = new Set(ids);
+  for (const o of objects) {
+    if (o.groupId && groupIds.has(o.groupId) && !isLocked(o)) expanded.add(o.id);
+  }
+  return [...expanded];
 }
 
 /** 이미지의 회전 각도(도, 시계 방향). 정하지 않았으면 0. */
