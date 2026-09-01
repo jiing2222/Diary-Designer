@@ -37,6 +37,7 @@ import { persistImageMeta, removeImage, reserveImageIds } from './images/registr
 import {
   cloneObject,
   dedupe,
+  dedupeIds,
   ensureIdCounterAbove,
   expandGroupSelection,
   isDegenerate,
@@ -739,6 +740,49 @@ function activeDotGrid(s: Pick<Settings, 'templates' | 'activeId' | 'shadowTempl
 function activeObjectsDotGrid(s: Pick<Settings, 'templates' | 'activeId' | 'shadowTemplate'>): DotGrid {
   if (s.shadowTemplate) return s.shadowTemplate.dotGrid;
   return activeTemplate(s)?.dotGrid ?? NO_GRID;
+}
+
+/**
+ * `loadProject`가 불러온 직후에 부른다 — 저장 파일 안에 이미 겹친 id가
+ * 있으면(카운터가 노트의 표지·쪽을 못 세던 예전 버그로 생긴 것, 72단계
+ * 참고) 여기서 새 id를 매겨 갈라놓는다. `ensureIdCounterAbove`로 카운터를
+ * 먼저 올려둔 뒤에 불러야 새로 매기는 id가 또 겹치지 않는다.
+ *
+ * 한 템플릿 하나가 아니라 **파일 전체에 걸쳐** 하나의 `seen`을 쓴다 —
+ * 이번 사고가 정확히 "노트의 표지"와 "다른 쪽"처럼 서로 다른 자리 사이의
+ * 겹침이었다. 겹치는 게 하나도 없으면(대부분) 원래 배열을 그대로 돌려줘
+ * 쓸데없이 다시 그리지 않는다.
+ */
+function dedupeTemplateIds(templates: Template[]): Template[] {
+  const seen = new Set<string>();
+  const dedupeHistory = (h: History<DiaryObject[]>): History<DiaryObject[]> => {
+    const present = dedupeIds(h.present, seen);
+    return present === h.present ? h : { ...h, present };
+  };
+  return templates.map((t) => {
+    const objects = dedupeHistory(t.objects);
+    const back = t.back && { objects: dedupeHistory(t.back.objects) };
+    const pageOverrides = t.pageOverrides
+      ? Object.fromEntries(Object.entries(t.pageOverrides).map(([k, v]) => [k, dedupeIds(v, seen)]))
+      : t.pageOverrides;
+    const pageBackOverrides = t.pageBackOverrides
+      ? Object.fromEntries(Object.entries(t.pageBackOverrides).map(([k, v]) => [k, dedupeIds(v, seen)]))
+      : t.pageBackOverrides;
+    const cover = t.cover && {
+      front: { ...t.cover.front, objects: dedupeHistory(t.cover.front.objects) },
+      back: { ...t.cover.back, objects: dedupeHistory(t.cover.back.objects) },
+    };
+    const pages = t.pages?.map((half) => ({ ...half, objects: dedupeHistory(half.objects) }));
+    return {
+      ...t,
+      objects,
+      back: t.back ? back : t.back,
+      ...(pageOverrides ? { pageOverrides } : {}),
+      ...(pageBackOverrides ? { pageBackOverrides } : {}),
+      ...(cover ? { cover } : {}),
+      ...(pages ? { pages } : {}),
+    };
+  });
 }
 
 /** "디자인 관리"에서 저장하지 않은 이미지가 이 개수를 넘으면, 안 쓰는 중인 것부터 오래된 순으로 지운다. */
@@ -1493,10 +1537,15 @@ export const useStore = create<Store>((set) => ({
           ...(t.cover && t.pages ? idsOf(allNotebookObjects(t.cover, t.pages)) : []),
         ]),
       );
+      // 카운터를 다 올려둔 뒤에 겹친 id를 갈라놓는다 — 예전 버그(72단계, 노트
+      // 표지·쪽을 못 세던 것)로 이미 겹친 채 저장된 파일이 있을 수 있다.
+      // 앞으로 생길 겹침은 위 ensureIdCounterAbove로 막았지만, 이미 파일
+      // 안에 들어 있는 겹침은 그것만으로는 안 풀린다.
+      const deduped = dedupeTemplateIds(templates);
       const print = p.print as Partial<Settings>;
       return {
-        templates,
-        activeId: templates[0]?.id ?? '',
+        templates: deduped,
+        activeId: deduped[0]?.id ?? '',
         selectedIds: [],
         userFonts: fonts.map((f) => ({ ...f, family: `user-font-${f.id}` })),
         userImages: images.map((i) => ({ ...i, url: '' })),
@@ -1505,7 +1554,7 @@ export const useStore = create<Store>((set) => ({
         paper: { ...s.paper, ...((p.print as { paper?: PaperState }).paper ?? {}) },
         // 칸 배정도 저장돼 있으면 함께 돌아온다. id는 양식과 함께 저장되므로
         // 대개 그대로 맞지만, 혹시 어긋난 것이 있으면 걷어낸다.
-        slotAssignment: pruneSlotAssignment(templates, print.slotAssignment ?? {}),
+        slotAssignment: pruneSlotAssignment(deduped, print.slotAssignment ?? {}),
         // side는 저장하지 않는 값이다. print를 펼친 뒤 마지막에 확실히 앞면으로 둔다.
         side: 'front' as const,
       };

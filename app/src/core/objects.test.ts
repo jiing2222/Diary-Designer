@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   boundsOf,
   cloneObject,
+  dedupeIds,
   ensureIdCounterAbove,
   expandGroupSelection,
   isLine,
@@ -587,5 +588,41 @@ describe('저장 파일을 불러온 뒤 id 겹침 막기', () => {
 
   it('숫자가 없는 id는 무시한다(터지지 않는다)', () => {
     expect(() => ensureIdCounterAbove(['abc', ''])).not.toThrow();
+  });
+});
+
+describe('겹친 id 갈라놓기(dedupeIds)', () => {
+  const line = (id: string): DiaryObject => ({ id, type: 'line', x1: 0, y1: 0, x2: 10, y2: 0 });
+
+  it('겹치는 게 없으면 배열을 그대로(참조까지) 돌려준다', () => {
+    const objects = [line('l1'), line('l2')];
+    const result = dedupeIds(objects, new Set());
+    expect(result).toBe(objects);
+  });
+
+  it('같은 id가 또 나오면 먼저 나온 것은 그대로, 나중 것만 새 id를 받는다', () => {
+    const objects = [line('l5'), line('l5')];
+    const result = dedupeIds(objects, new Set());
+    expect(result[0].id).toBe('l5'); // 먼저 나온 쪽은 그대로
+    expect(result[1].id).not.toBe('l5'); // 나중 쪽만 갈렸다
+    expect(result[0]).not.toBe(result[1]);
+  });
+
+  it('서로 다른 배열에 걸친 겹침도 잡는다 — seen을 공유해서 부른다', () => {
+    // 노트의 표지와 다른 쪽처럼, 배열은 갈라져 있어도 id는 같은 문서
+    // 전체에서 하나여야 한다.
+    const seen = new Set<string>();
+    const cover = dedupeIds([line('l7')], seen);
+    const page = dedupeIds([line('l7')], seen); // 표지와 같은 id
+    expect(cover[0].id).toBe('l7');
+    expect(page[0].id).not.toBe('l7');
+  });
+
+  it('겹친 게 없는 배열은 seen만 채우고 그대로 돌려준다', () => {
+    const seen = new Set<string>();
+    const objects = [line('l1')];
+    const result = dedupeIds(objects, seen);
+    expect(result).toBe(objects);
+    expect(seen.has('l1')).toBe(true);
   });
 });

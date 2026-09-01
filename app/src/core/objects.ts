@@ -461,6 +461,33 @@ export function ensureIdCounterAbove(ids: Iterable<string>): void {
   }
 }
 
+/**
+ * 같은 id를 가진 객체가 여럿이면(예전에 카운터가 못 따라가 겹친 id로
+ * 저장된 파일), 먼저 나온 것만 원래 id를 지키고 그 뒤에 또 나오는
+ * 것들은 새 id를 받는다.
+ *
+ * **`ensureIdCounterAbove`로 카운터를 먼저 올려둔 뒤에 불러야 한다** —
+ * 안 그러면 여기서 새로 매기는 id가 또 다른 것과 겹칠 수 있다.
+ *
+ * `seen`은 여러 배열(앞면·뒷면·표지·쪽 등)에 걸쳐 겹침을 잡으려고
+ * 부르는 쪽이 하나를 만들어 계속 넘겨준다 — 배열마다 새로 만들면 서로
+ * 다른 배열 사이의 겹침은 못 잡는다.
+ */
+export function dedupeIds(objects: DiaryObject[], seen: Set<string>): DiaryObject[] {
+  let changed = false;
+  const next = objects.map((o) => {
+    if (!seen.has(o.id)) {
+      seen.add(o.id);
+      return o;
+    }
+    changed = true;
+    const fresh = { ...o, id: newId(ID_PREFIX[o.type]) };
+    seen.add(fresh.id);
+    return fresh;
+  });
+  return changed ? next : objects;
+}
+
 /** 길이가 0인 선은 만들지 않는다. 클릭만 하고 끌지 않았을 때 생긴다. */
 export function isDegenerate(s: LineSeg): boolean {
   return s.x1 === s.x2 && s.y1 === s.y2;

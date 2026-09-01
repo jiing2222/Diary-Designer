@@ -622,6 +622,48 @@ describe('저장 파일 불러오기', () => {
     expect(Number(newObjId.replace(/^l/, ''))).toBeGreaterThan(99999);
   });
 
+  it('72단계 버그로 이미 겹친 채 저장된 파일을 불러오면, 불러오는 즉시 갈라놓는다', () => {
+    // 노트의 표지와 1쪽에 우연히 같은 id('l1')로 저장된 파일 — 72단계
+    // 전에는 카운터가 노트를 안 세서 실제로 생길 수 있던 모양이다.
+    // 앞으로 생기는 겹침은 카운터로 막지만, 이미 파일 안에 있는 겹침은
+    // 불러오는 그 자리에서 직접 갈라놔야 한다.
+    s().loadProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        {
+          id: 't1',
+          name: '겹친 노트',
+          kind: 'notebook',
+          insert: insertFromPreset('M6'),
+          dotGrid: DEFAULT_DOT_GRID,
+          objects: [],
+          cover: {
+            front: {
+              objects: [{ id: 'l1', type: 'line', x1: 0, y1: 0, x2: 10, y2: 0 }],
+              dotGrid: DEFAULT_DOT_GRID,
+            },
+            back: { objects: [], dotGrid: DEFAULT_DOT_GRID },
+          },
+          pages: [
+            { objects: [{ id: 'l1', type: 'line', x1: 5, y1: 5, x2: 15, y2: 5 }], dotGrid: DEFAULT_DOT_GRID },
+          ],
+        },
+      ],
+      print: {},
+      fonts: [],
+    });
+
+    const t = s().templates[0];
+    const coverId = t.cover!.front.objects.present[0].id;
+    const pageId = t.pages![0].objects.present[0].id;
+    // 먼저 나온(표지) 쪽은 원래 id를 지키고, 나중(1쪽) 것만 새 id를 받는다.
+    expect(coverId).toBe('l1');
+    expect(pageId).not.toBe('l1');
+    // 자리(좌표)는 안 바뀐다 — id만 갈랐다.
+    expect(t.pages![0].objects.present[0]).toMatchObject({ x1: 5, y1: 5, x2: 15, y2: 5 });
+  });
+
   it('용지 설정도 함께 돌아온다', () => {
     s().patchPaper({ landscape: true });
     s().loadProject({
