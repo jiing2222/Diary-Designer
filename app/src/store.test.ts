@@ -352,6 +352,25 @@ describe('객체 복사·붙여넣기', () => {
     expect(pasted).toMatchObject({ x1: 16, y1: 16, x2: 24, y2: 16 });
   });
 
+  it('인쇄하기 낱장 조합에서 지금 손보는 칸이 활성 양식과 다른 격자를 쓰면, 붙여넣기는 그 칸(그림자)의 격자를 따른다', () => {
+    // 활성 양식은 5mm 격자, 지금 손보는 칸(그림자)에는 3mm 격자를 배정
+    // 받았다고 흉내낸다 — 낱장 조합에서 칸마다 다른 양식을 배정하면 흔한
+    // 상황이다. 5를 3의 배수로 올림하면 6이어야 한다(활성 양식 기준
+    // 5였다면 어긋난다).
+    s().addTemplate();
+    expect(at().dotGrid.spacing).toBe(5);
+    const shadowGrid = { ...DEFAULT_DOT_GRID, spacing: 3 };
+    s().beginShadowEdit(insertFromPreset('M6'), shadowGrid, [], 'front');
+    s().drawLines([{ x1: 9, y1: 9, x2: 15, y2: 9 }]);
+    const original = s().shadowTemplate!.objects.present[0];
+    s().select([original.id]);
+    s().copySelected();
+
+    s().pasteClipboard();
+    const pasted = s().shadowTemplate!.objects.present.find((o) => o.id !== original.id);
+    expect(pasted).toMatchObject({ x1: 15, y1: 15, x2: 21, y2: 15 });
+  });
+
   it('붙여넣은 것이 선택된다', () => {
     s().addTemplate();
     s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);

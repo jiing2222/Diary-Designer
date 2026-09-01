@@ -717,6 +717,24 @@ function activeDotGrid(s: Pick<Settings, 'templates' | 'activeId' | 'shadowTempl
   return active?.dotGrid ?? NO_GRID;
 }
 
+/**
+ * `activeObjects`가 실제로 읽고 쓰는 그 격자 — `pasteClipboard`가 쓴다.
+ *
+ * **`activeDotGrid`(바로 위)와 다르다.** 그건 `useDotGrid`(화면에 뿌리는
+ * 훅)가 쓰는 판단이라, 인쇄하기 탭에서 `SettingsPanel`이 그림자와 무관하게
+ * 늘 활성 양식의 격자를 보여줘야 하므로(PrintSlotEditor.tsx의 doc 참고)
+ * 노트일 때만 그림자를 본다. 하지만 `PrintSlotEditor` 자신은 그 훅을 안
+ * 쓰고 `shadow.dotGrid`를 직접 읽어 그린다 — 특히 낱장 조합은 지금 손보는
+ * 칸에 배정된 양식이 활성 양식과 아예 다를 수 있어(격자 간격도 다를 수
+ * 있다), 그 둘이 늘 같다고 볼 수 없다. `activeObjects`와 같은 우선순위
+ * (그림자가 있으면 종류 안 가리고 무조건 그림자)를 써야, 붙여넣기가 실제로
+ * 보이는·손대는 격자와 같은 기준으로 밀린다.
+ */
+function activeObjectsDotGrid(s: Pick<Settings, 'templates' | 'activeId' | 'shadowTemplate'>): DotGrid {
+  if (s.shadowTemplate) return s.shadowTemplate.dotGrid;
+  return activeTemplate(s)?.dotGrid ?? NO_GRID;
+}
+
 /** "디자인 관리"에서 저장하지 않은 이미지가 이 개수를 넘으면, 안 쓰는 중인 것부터 오래된 순으로 지운다. */
 const RECENT_IMAGE_CAP = 10;
 
@@ -1527,7 +1545,10 @@ export const useStore = create<Store>((set) => ({
       // 5mm의 배수가 아닌 격자(예: 4mm·3mm)에서는 그만큼 도트를 벗어난다
       // — 밀 양을 그 격자 간격의 배수로 올림해서, 붙여넣은 것도 도트에
       // 그대로 붙게 한다. 격자를 껐으면(spacing 0) 원래 값 그대로 쓴다.
-      const spacing = activeDotGrid(s).spacing;
+      // activeDotGrid가 아니라 activeObjectsDotGrid를 쓴다 — 인쇄하기의
+      // 낱장 조합에서 지금 손보는 칸에 배정된 양식이 활성 양식과 격자가
+      // 다를 수 있다(위 activeObjectsDotGrid 주석 참고).
+      const spacing = activeObjectsDotGrid(s).spacing;
       const gridOffset = spacing > 0 ? Math.ceil(PASTE_OFFSET / spacing) * spacing : PASTE_OFFSET;
       const offset = samePlace ? gridOffset : 0;
       // 그룹 지은 것을 복사·붙여넣으면 원본 그룹과 다른, 붙여넣은 것들끼리만
