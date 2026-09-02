@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { divisionGuide, gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import {
   CALENDAR_ADJACENT_OPACITY,
@@ -35,7 +35,9 @@ import {
   showAdjacentOf,
 } from '../core/calendar';
 import { calendarCellAt, isInMonth } from '../core/dataset';
+import { sanitizeForFont } from '../core/fontCoverage';
 import { familyOf } from '../fonts/registry';
+import { cachedCoverageFont, ensureCoverageFont } from '../fonts/coverage';
 import { useStore } from '../store';
 import {
   alignOf,
@@ -271,6 +273,27 @@ function ImageLayer({ objects }: { objects: ImageObject[] }) {
 function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: string }) {
   // 등록한 글꼴은 이번 세션에만 있다. 목록이 바뀌면 다시 그려야 한다.
   const userFonts = useStore((s) => s.userFonts);
+  // 이 폰트로 못 그리는 글자(주로 색깔 이모지 — core/fontCoverage 주석 참고)는
+  // PDF와 똑같이 X로 그린다. 폰트 파일을 fontkit으로 파싱해야 알 수 있는데
+  // 그건 비동기라(파일을 받아와야 한다), 아직 못 받았으면 일단 원래 글자
+  // 그대로 그리다가 받는 대로(ensureCoverageFont가 끝나면) 다시 그린다.
+  const [, setCoverageVersion] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const fontIds = new Set<string | undefined>([undefined, ...objects.map((t) => t.font)]);
+    for (const id of fontIds) {
+      if (cachedCoverageFont(id)) continue;
+      ensureCoverageFont(id)
+        .then(() => {
+          if (!cancelled) setCoverageVersion((v) => v + 1);
+        })
+        // 못 받아왔어도(네트워크 등) 원래 글자를 그대로 보여줄 뿐이다 — 조용히 넘어간다.
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [objects]);
   return (
     /*
      * 커닝과 합자를 끈다.
@@ -291,7 +314,10 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
       {objects.map((t) => {
         const size = sizeOf(t);
         const align = alignOf(t);
-        const lines = splitLines(displayText(t));
+        const coverage = cachedCoverageFont(t.font);
+        const lines = splitLines(displayText(t)).map((line) =>
+          coverage ? sanitizeForFont(line, coverage) : line,
+        );
         const baselines = lineBaselines(t, size, valignOf(t), lines.length, lineHeightOf(t));
         const x = anchorX(t, align);
         const rotate = rotateOf(t);

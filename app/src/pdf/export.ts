@@ -15,7 +15,8 @@ import {
   type PDFImage,
   type PDFPage,
 } from 'pdf-lib';
-import fontkit from '@pdf-lib/fontkit';
+import fontkit, { type Font as FontkitFont } from '@pdf-lib/fontkit';
+import { sanitizeForFont } from '../core/fontCoverage';
 import { mmToPt, ptToMm, type Mm } from '../core/units';
 import {
   alignOf,
@@ -303,9 +304,14 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   let bodyFont: PDFFont | null = null;
   let boldFont: PDFFont | null = null;
   const userFonts = new Map<string, PDFFont>();
+  // 실제로 그릴 수 있는 글자인지 보는 데 쓴다(core/fontCoverage의 canDraw) —
+  // 굵기가 다르다고 글자 목록이 달라지지 않으므로 Regular 하나로 충분하다.
+  let bodyCoverage: FontkitFont | null = null;
+  const userCoverage = new Map<string, FontkitFont>();
   if ((texts.length > 0 || calendars.length > 0) && input.fontBytes) {
     doc.registerFontkit(fontkit);
     bodyFont = await doc.embedFont(input.fontBytes, { subset: false });
+    bodyCoverage = fontkit.create(new Uint8Array(input.fontBytes));
     // 굵기마다 파일이 따로다. 굵은 글자가 하나도 없으면 심지 않는다.
     if (input.boldFontBytes && texts.some(boldOf)) {
       boldFont = await doc.embedFont(input.boldFontBytes, { subset: false });
@@ -314,6 +320,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     for (const [id, b] of input.userFonts ?? []) {
       if (texts.some((t) => t.font === id) || calendars.some((c) => c.font === id)) {
         userFonts.set(id, await doc.embedFont(b, { subset: false }));
+        userCoverage.set(id, fontkit.create(new Uint8Array(b)));
       }
     }
   }
@@ -385,8 +392,13 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     drawShapes(page, layout, resolveForSheet, flipY);
     drawCheckboxes(page, layout, resolveForSheet, flipY);
     drawImages(page, layout, resolveForSheet, embeddedImages, flipY);
-    if (bodyFont) {
-      const fonts: Fonts = { regular: bodyFont, bold: boldFont, user: userFonts };
+    if (bodyFont && bodyCoverage) {
+      const fonts: Fonts = {
+        regular: bodyFont,
+        bold: boldFont,
+        user: userFonts,
+        coverage: { regular: bodyCoverage, user: userCoverage },
+      };
       drawTexts(page, layout, resolveForSheet, fonts, flipY);
       if (pageFor && input.calendarYear !== undefined) {
         drawCalendars(page, layout, resolveForSheet, pageFor, input.calendarYear, fonts, flipY);
@@ -542,6 +554,8 @@ interface Fonts {
   bold: PDFFont | null;
   /** 등록 글꼴. id로 찾는다. */
   user: Map<string, PDFFont>;
+  /** 실제로 그릴 수 있는 글자인지 보는 데 쓴다 — core/fontCoverage 참고. */
+  coverage: { regular: FontkitFont; user: Map<string, FontkitFont> };
 }
 
 /**
@@ -554,6 +568,11 @@ interface Fonts {
 function fontFor(t: TextObject, fonts: Fonts): PDFFont {
   if (t.font) return fonts.user.get(t.font) ?? fonts.regular;
   return boldOf(t) && fonts.bold ? fonts.bold : fonts.regular;
+}
+
+/** fontFor의 커버리지(fontkit) 버전 — 굵기는 안 본다(위 Fonts.coverage 주석 참고). */
+function coverageFontFor(t: TextObject, fonts: Fonts): FontkitFont {
+  return (t.font && fonts.coverage.user.get(t.font)) || fonts.coverage.regular;
 }
 
 /**
@@ -607,18 +626,23 @@ function drawTexts(
       // 폭을 재는 글꼴과 그리는 글꼴이 반드시 같아야 한다. Bold는 획이 두꺼운
       // 만큼 폭도 넓어서, Regular로 재고 Bold로 그리면 가운데 정렬이 어긋난다.
       const font = fontFor(t, fonts);
+      const coverage = coverageFontFor(t, fonts);
 
       const rotate = rotateOf(t);
       const localRotation = rotationOf(t, rotate);
 
       lines.forEach((line, i) => {
         if (line === '') return;
-        const width = ptToMm(font.widthOfTextAtSize(line, mmToPt(size)));
+        // 이 글꼴로 못 그리는 글자(주로 색깔 이모지 — core/fontCoverage 주석
+        // 참고)는 X로 바꿔서 잰다·그린다. 안 바꾸면 컬러 이모지 폰트조차
+        // 실제로는 빈 칸을 그리면서 폭만 차지해 뒤 글자와 자리가 어긋난다.
+        const drawn = sanitizeForFont(line, coverage);
+        const width = ptToMm(font.widthOfTextAtSize(drawn, mmToPt(size)));
         // 먼저 글자 자신의 회전(90/270)을 상자 가운데 축으로 적용하고, 그 다음
         // place.map으로 칸 배치(회전 배치 포함)를 반영한다 — 순서가 바뀌면 안 된다.
         const local = localRotation.map({ x: leftOf(t, alignOf(t), width), y: baselines[i] });
         const p = place.map(local.x, local.y);
-        page.drawText(line, {
+        page.drawText(drawn, {
           x: mmToPt(p.x),
           y: mmToPt(flipY(p.y)),
           size: mmToPt(size),

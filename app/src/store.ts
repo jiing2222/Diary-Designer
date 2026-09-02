@@ -33,6 +33,8 @@ import {
 } from './core/template';
 import { toProject, toTemplates, type SavedProject } from './core/project';
 import { persistFontLabel, reserveIds } from './fonts/registry';
+import { ensureCoverageFont } from './fonts/coverage';
+import { hasUndrawableChar } from './core/fontCoverage';
 import { persistImageMeta, removeImage, reserveImageIds } from './images/registry';
 import {
   cloneObject,
@@ -138,6 +140,13 @@ interface Settings {
    * 넣고 싶다는 사용자 피드백. `null`이면 아직 아무것도 안 복사했다.
    */
   clipboardOrigin: ClipboardOrigin | null;
+  /**
+   * 화면 오른쪽 아래에 잠깐 보여줄 안내. 이모지처럼 지금 글꼴로는 안 그려지는
+   * 글자를 썼을 때(`commitText`) 띄운다. `key`는 새 토스트마다 바뀌는 값 —
+   * 먼저 뜬 토스트의 10초 타이머가 나중에 새로 뜬 토스트를 잘못 지우는 일을
+   * 막는 데 쓴다(`ui/Toast.tsx` 참고).
+   */
+  toast: { message: string; key: number } | null;
   /**
    * 뒷면·앞면 경계를 넘어 이어 그은 선의 반쪽 쌍들. `commitCrossBoundaryLine`이
    * 쌓고, `undo`·`redo`가 이 목록을 보고 반쪽 하나를 되돌릴 때 반대쪽도
@@ -398,6 +407,10 @@ interface Store extends Settings {
    * 이미 있는 글자를 고쳐 비우면 그 글자가 사라진다.
    */
   commitText: (box: Omit<TextObject, 'id' | 'type'>, id?: string) => void;
+  /** 오른쪽 아래 안내를 띄운다. 이미 뜬 것이 있으면 갈아 끼운다(타이머도 새로). */
+  showToast: (message: string) => void;
+  /** 안내를 지운다. `key`가 지금 떠 있는 것과 다르면(그새 새 안내로 갈렸으면) 아무 일도 안 한다. */
+  dismissToast: (key: number) => void;
   /** 고른 글자들의 크기·정렬·색. */
   styleText: (patch: TextStyle) => void;
   /**
@@ -895,6 +908,7 @@ export const useStore = create<Store>((set) => ({
   selectedIds: [],
   clipboard: [],
   clipboardOrigin: null,
+  toast: null,
   crossBoundaryPairs: [],
   drawStyle: {},
   checkboxDraftStyle: {},
@@ -1234,9 +1248,24 @@ export const useStore = create<Store>((set) => ({
       }
 
       const next: TextObject = { id: id ?? newId('t'), type: 'text', ...box };
+      // 이 글꼴로는 안 그려지는 글자(주로 색깔 이모지 — core/fontCoverage 주석
+      // 참고)가 있으면 안내한다. 폰트 파싱이 비동기라 커밋 자체는 막지 않고,
+      // 끝난 뒤 따로 확인한다 — set() 안에서 await를 쓸 수 없어 여기서 부른다.
+      ensureCoverageFont(box.font)
+        .then((font) => {
+          if (font && hasUndrawableChar(box.text, font)) {
+            useStore.getState().showToast('지금 글꼴로는 안 보이는 글자가 있어요 — 인쇄물에는 X로 나와요.');
+          }
+        })
+        // 폰트 파일을 못 받아왔어도(네트워크 등) 안내 하나 못 띄우는 것뿐이다 —
+        // 조용히 넘어간다. fonts/registry.ts의 restoreCachedFonts와 같은 방침.
+        .catch(() => {});
       // 고치는 중이면 원래 자리를 지킨다. 순서가 바뀌면 겹친 것이 위아래로 튄다.
       return commitObjects(s, id ? cur.map((o) => (o.id === id ? next : o)) : [...cur, next]);
     }),
+
+  showToast: (message) => set({ toast: { message, key: Date.now() } }),
+  dismissToast: (key) => set((s) => (s.toast?.key === key ? { toast: null } : {})),
 
   styleText: (patch) =>
     set((s) => {

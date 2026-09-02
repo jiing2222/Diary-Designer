@@ -2458,3 +2458,24 @@ footer b {
 .cells-row .num input {
   min-width: 0;
 }
+
+/*
+ * 오른쪽 아래 잠깐 안내(ui/Toast.tsx). 이 글꼴로는 안 그려지는 글자(이모지
+ * 등)를 썼을 때만 뜬다 — 경고 색(--warn)의 왼쪽 띠로 "주의해서 볼 안내"임을
+ * 표시한다. 10초 뒤 스스로 사라지므로 닫기 버튼은 두지 않는다.
+ */
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 30;
+  max-width: 320px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border-left: 3px solid var(--warn);
+  background: var(--panel);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+}

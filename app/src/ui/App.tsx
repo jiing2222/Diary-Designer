@@ -39,6 +39,7 @@ import { EditorTab, ToolRail, ZoomStepper } from './EditorTab';
 import { NotebookEditorTab } from './NotebookEditorTab';
 import { GalleryTab } from './GalleryTab';
 import { ProjectFile } from './ProjectFile';
+import { Toast } from './Toast';
 import { SlotAssign } from './SlotAssign';
 import { RepeatPrint } from './RepeatPrint';
 import { PX_PER_MM_AT_100 } from './pixels';
@@ -1196,6 +1197,7 @@ export function App() {
           </span>
         )}
       </footer>
+      <Toast />
     </div>
   );
 }
