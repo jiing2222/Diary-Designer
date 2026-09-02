@@ -41,6 +41,7 @@ import {
   centerOnLogoLine,
   editingFor,
   handleAt,
+  hiddenLineIdsFor,
   hitAt,
   merge,
   preview,
@@ -299,7 +300,19 @@ export function PrintSlotEditor({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [undo, redo, deleteSelected, copySelected, pasteClipboard, select, setTool, moveSelected, selectedIds, pending]);
+  }, [
+    undo,
+    redo,
+    deleteSelected,
+    copySelected,
+    pasteClipboard,
+    select,
+    setTool,
+    moveSelected,
+    selectedIds,
+    pending,
+    grid.spacing,
+  ]);
 
   /** 마우스 자리를 이 칸의 속지 mm로. viewBox가 이미 그 좌표계다. */
   function rawMm(e: React.PointerEvent): Point | null {
@@ -636,14 +649,7 @@ export function PrintSlotEditor({
       : null;
   const nudge = drag?.kind === 'move' ? drag : null;
   const grip = drag?.kind === 'handle' ? drag : null;
-  // 옮기거나(nudge) 끝점을 끄는(grip) 중인 선의 바탕 그림을 감춘다 —
-  // InsertView의 hiddenLineIds 주석 참고. 옮기기는 고른 선 여럿이 한꺼번에
-  // 움직일 수 있어 grip과 달리 하나로 못 줄인다.
-  const hiddenLineIds = grip
-    ? new Set([grip.id])
-    : nudge
-      ? new Set(objects.filter((o) => isLine(o) && selectedIds.includes(o.id)).map((o) => o.id))
-      : undefined;
+  const hiddenLineIds = hiddenLineIdsFor(objects, selectedIds, grip, nudge);
   const boxGrip = drag?.kind === 'boxHandle' ? drag : null;
   const textDrag = drag?.kind === 'textbox' ? drag : null;
   const textDragBox = textDrag && {

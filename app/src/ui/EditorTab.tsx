@@ -72,6 +72,7 @@ import {
   centerOnLogoLine,
   editingFor,
   handleAt,
+  hiddenLineIdsFor,
   hitAt,
   merge,
   preview,
@@ -385,6 +386,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
     setTool,
     moveSelected,
     selectedIds,
+    grid.spacing,
   ]);
 
   /**
@@ -995,14 +997,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
       : null;
   const nudge = drag?.kind === 'move' ? drag : null;
   const grip = drag?.kind === 'handle' ? drag : null;
-  // 옮기거나(nudge) 끝점을 끄는(grip) 중인 선의 바탕 그림을 감춘다 —
-  // InsertView의 hiddenLineIds 주석 참고. 옮기기는 고른 선 여럿이 한꺼번에
-  // 움직일 수 있어 grip과 달리 하나로 못 줄인다.
-  const hiddenLineIds = grip
-    ? new Set([grip.id])
-    : nudge
-      ? new Set(objects.filter((o) => isLine(o) && selectedIds.includes(o.id)).map((o) => o.id))
-      : undefined;
+  const hiddenLineIds = hiddenLineIdsFor(objects, selectedIds, grip, nudge);
   const boxGrip = drag?.kind === 'boxHandle' ? drag : null;
   const textDrag = drag?.kind === 'textbox' ? drag : null;
   // 끄는 중인 상자의 미리보기.

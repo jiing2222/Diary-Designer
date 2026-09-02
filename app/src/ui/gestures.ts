@@ -209,6 +209,25 @@ export function previewBox(o: DiaryObject, boxHandle: BoxHandleDrag | null): Box
 
 export type GripDrag = Extract<Drag, { kind: 'handle' }>;
 
+/**
+ * 옮기거나(nudge) 끝점을 끄는(grip) 중인 선의 id들.
+ *
+ * InsertView의 hiddenLineIds에 넘겨 그 선들의 바탕 그림(확정된 옛 자리)을
+ * 감춘다 — 감추지 않으면 옛 자리와 `preview()`가 그리는 새 자리가 동시에
+ * 보여, 두 선이 네모처럼 보인다. 옮기기는 고른 선 여럿이 한꺼번에 움직일
+ * 수 있어 grip(하나뿐)과 달리 집합으로 돌려준다.
+ */
+export function hiddenLineIdsFor(
+  objects: DiaryObject[],
+  selectedIds: string[],
+  grip: GripDrag | null,
+  nudge: { dx: Mm; dy: Mm } | null,
+): ReadonlySet<string> | undefined {
+  if (grip) return new Set([grip.id]);
+  if (nudge) return new Set(objects.filter((o) => isLine(o) && selectedIds.includes(o.id)).map((o) => o.id));
+  return undefined;
+}
+
 export function segProps(l: LineSeg) {
   return { x1: l.x1, y1: l.y1, x2: l.x2, y2: l.y2 };
 }
