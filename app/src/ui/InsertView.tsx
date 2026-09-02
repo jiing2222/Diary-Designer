@@ -311,6 +311,13 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
             textAnchor={align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start'}
             // 감추되 좌표는 남긴다 — visibility는 getBBox를 그대로 두므로 클릭 판정이 산다.
             visibility={t.id === hiddenId ? 'hidden' : undefined}
+            // white-space: pre는 원래 상속되는 CSS 속성인데, SVG text에서는
+            // 위 <g>에 줘도 이 <text>까지 안 내려간다(getComputedStyle로 확인,
+            // 2026-09-02) — xml:space="preserve"도 대신하지 못한다. 그래서
+            // 여러 칸 띄어쓰기가 글자 수는 그대로인데 그려지는 폭만 한 칸으로
+            // 줄어 보였다(사용자가 "외부에 노출되는 건 띄어쓰기 한 번"이라고
+            // 신고한 것). text 자신에 직접 줘야 실제로 적용된다.
+            style={{ whiteSpace: 'pre' }}
           >
             {lines.map((line, i) => (
               <tspan key={i} x={x} y={baselines[i]}>
