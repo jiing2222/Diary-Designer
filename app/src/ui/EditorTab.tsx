@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { cellAt, dotsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
+import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { checkboxIconBox } from '../core/checkbox';
 import { holeCenterX } from '../core/punch';
 import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
@@ -707,7 +707,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
       } else if (target) {
         // 도형·이미지는 도트 한 칸까지 작아져도 된다 — 달력만 숫자 여러 칸이
         // 든 표라 그 밑으로 가면 못 알아보게 돼 기본값(MIN_BOX_SIZE)을 지킨다.
-        const minSize = isShape(target) || isImage(target) || isCheckbox(target) ? MIN_FREE_BOX_SIZE : undefined;
+        const minSize = isShape(target) || isImage(target) ? MIN_FREE_BOX_SIZE : undefined;
         resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to, minSize));
       }
       return;
@@ -795,7 +795,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
      */
     if (tool === 'checkbox') {
       if (d.from.x !== d.to.x || d.from.y !== d.to.y) {
-        commitCheckboxes(dotsIn(lattice, d.from, d.to).map((dot) => checkboxIconBox(dot, grid.spacing)));
+        commitCheckboxes(cellsIn(lattice, d.from, d.to).map(checkboxIconBox));
       }
       return;
     }
@@ -1027,15 +1027,10 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
   // 지금 그리는 것의 치수. 면이면 가로 × 세로, 선이면 길이(+몇 칸인지).
   const sizeLabel = (() => {
     if (drag?.kind === 'draw') {
-      // 표·체크박스는 mm가 아니라 몇 칸(체크박스는 몇 개)인지가 더 궁금하다.
-      // 그리기(선·면)는 지금처럼 mm. 체크박스는 칸이 아니라 도트마다 하나씩
-      // 찍히므로 dotsIn으로 직접 센다 — tableSize의 칸 수(cols×rows)와는 다르다.
-      if (tool === 'table') {
+      // 표·체크박스는 mm가 아니라 몇 칸인지가 더 궁금하다. 그리기(선·면)는 지금처럼 mm.
+      if (tool === 'table' || tool === 'checkbox') {
         const { cols, rows } = tableSize(lattice, drag.from, drag.to);
-        return `${cols} × ${rows}칸`;
-      }
-      if (tool === 'checkbox') {
-        return `${dotsIn(lattice, drag.from, drag.to).length}개`;
+        return tool === 'checkbox' ? `${cols * rows}개` : `${cols} × ${rows}칸`;
       }
       return sizeLabelOf(rectLines(drag.from, drag.to));
     }

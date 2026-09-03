@@ -1,4 +1,3 @@
-import type { Dot } from './grid';
 import type { Box } from './objects';
 import type { CheckboxIcon, CheckboxObject } from './objects';
 import { roundedRectPath } from './shape';
@@ -11,22 +10,18 @@ import type { Mm } from './units';
  * PDF(pdf-lib의 `drawSvgPath`)가 정확히 같은 경로 문자열을 그린다.
  */
 
-/** 아이콘 한 칸의 짧은 변(=격자 간격)에 대해 남기는 여백 비율. "칸보다 조금 작게". */
+/** 칸을 아이콘 자리로 줄일 때 짧은 변에 대해 남기는 여백 비율. "칸보다 조금 작게". */
 const MARGIN_RATIO = 0.15;
 
-/**
- * 도트 하나를 가운데 두는 아이콘 상자.
- *
- * **도트가 상자의 모서리가 아니라 한가운데 오도록 만든다** — 표처럼 칸
- * 범위를 드래그하면 그 범위 안 도트마다 하나씩 찍힌다(core/grid의
- * `dotsIn`). 예전엔 칸(격자점 네 개로 둘러싸인 자리) 가운데 찍어서, 도트
- * 자체는 상자의 꼭짓점에 걸려 있었다 — 가로세로 도트에 안 맞는다는
- * 신고로 이어졌다.
- */
-export function checkboxIconBox(dot: Dot, spacing: Mm): Box {
-  const margin = spacing * MARGIN_RATIO;
-  const size = spacing - margin * 2;
-  return { x: dot.x - size / 2, y: dot.y - size / 2, width: size, height: size };
+/** 표처럼 드래그해 걸친 칸 하나를, 그 칸보다 살짝 작은 아이콘 상자로 줄인다. */
+export function checkboxIconBox(cell: Box): Box {
+  const margin = Math.min(cell.width, cell.height) * MARGIN_RATIO;
+  return {
+    x: cell.x + margin,
+    y: cell.y + margin,
+    width: cell.width - margin * 2,
+    height: cell.height - margin * 2,
+  };
 }
 
 /** 아이콘 모양. 정하지 않았으면 네모. */

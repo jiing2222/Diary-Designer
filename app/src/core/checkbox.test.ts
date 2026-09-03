@@ -22,26 +22,21 @@ describe('체크박스에 새겨둔 값', () => {
   });
 });
 
-describe('도트를 가운데 두는 아이콘 상자 — "칸보다 조금 작게"', () => {
-  it('간격보다 작다 — 사방으로 여백이 있다', () => {
-    const dot = { x: 10, y: 10 };
-    const box = checkboxIconBox(dot, 5);
-    expect(box.width).toBeLessThan(5);
-    expect(box.height).toBeLessThan(5);
+describe('칸을 아이콘 상자로 줄이기 — "칸보다 조금 작게"', () => {
+  it('칸보다 작다 — 네 방향 다 안쪽으로 들어간다', () => {
+    const cell = { x: 5, y: 5, width: 10, height: 10 };
+    const box = checkboxIconBox(cell);
+    expect(box.x).toBeGreaterThan(cell.x);
+    expect(box.y).toBeGreaterThan(cell.y);
+    expect(box.x + box.width).toBeLessThan(cell.x + cell.width);
+    expect(box.y + box.height).toBeLessThan(cell.y + cell.height);
   });
 
-  it('도트가 상자의 한가운데 온다 — 모서리가 아니라', () => {
-    const dot = { x: 10, y: 15 };
-    const box = checkboxIconBox(dot, 5);
-    expect(box.x + box.width / 2).toBeCloseTo(dot.x, 9);
-    expect(box.y + box.height / 2).toBeCloseTo(dot.y, 9);
-  });
-
-  it('격자 간격이 클수록 상자도 커진다', () => {
-    const dot = { x: 0, y: 0 };
-    const small = checkboxIconBox(dot, 5);
-    const big = checkboxIconBox(dot, 10);
-    expect(big.width).toBeGreaterThan(small.width);
+  it('칸 가운데는 그대로 유지된다 — 좌우·상하로 똑같이 줄어든다', () => {
+    const cell = { x: 5, y: 5, width: 10, height: 6 };
+    const box = checkboxIconBox(cell);
+    expect(box.x + box.width / 2).toBeCloseTo(cell.x + cell.width / 2, 9);
+    expect(box.y + box.height / 2).toBeCloseTo(cell.y + cell.height / 2, 9);
   });
 });
 
