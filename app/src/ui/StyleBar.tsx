@@ -142,18 +142,24 @@ export function StyleBar({
       {picked.length > 0 ? (
         <>
           <span className="picked-count">{picked.length}개</span>
-          {/* 체크박스 하나만 골랐을 때는 크기 읽기전용 표시 대신 직접 칠 수
+          {/* 고른 것이 전부 체크박스면 크기 읽기전용 표시 대신 직접 칠 수
               있는 칸을 준다 — 가로세로가 늘 같아서 한 번만 입력하면 된다.
-              저장된 상자(칸, 도트 네 개가 모서리)는 옮기기 기준이라 손대지
-              않고, 실제로 그려지는 아이콘 크기(iconSize)만 바꾼다 —
-              core/checkbox의 checkboxIconBox 주석 참고. */}
-          {picked.length === 1 && isCheckbox(picked[0]) ? (
+              여럿을 함께 골랐어도 마찬가지다(styleCheckbox가 고른 것
+              전부에 적용한다) — 서로 크기가 다르면 빈 칸(placeholder
+              "—")으로 보여준다. 저장된 상자(칸, 도트 네 개가 모서리)는
+              옮기기 기준이라 손대지 않고, 실제로 그려지는 아이콘 크기
+              (iconSize)만 바꾼다 — core/checkbox의 checkboxIconBox 주석 참고. */}
+          {picked.length === pickedCheckboxes.length && pickedCheckboxes.length > 0 ? (
             <NumField
-              value={roundMm(iconSizeOf(picked[0]), 1)}
+              value={
+                pickedCheckboxes.every((o) => iconSizeOf(o) === iconSizeOf(pickedCheckboxes[0]))
+                  ? roundMm(iconSizeOf(pickedCheckboxes[0]), 1)
+                  : null
+              }
               unit="mm"
               title="아이콘 크기"
               min={MIN_FREE_BOX_SIZE}
-              max={roundMm(Math.min(picked[0].width, picked[0].height), 1)}
+              max={roundMm(Math.min(...pickedCheckboxes.map((o) => Math.min(o.width, o.height))), 1)}
               step={0.1}
               onChange={(mm) => styleCheckbox({ iconSize: mm })}
             />
