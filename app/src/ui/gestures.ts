@@ -6,6 +6,7 @@ import {
   imageRotateOf,
   isBoxResizable,
   isBoxShaped,
+  isCheckbox,
   isImage,
   isLine,
   isLocked,
@@ -203,7 +204,7 @@ export function previewBox(o: DiaryObject, boxHandle: BoxHandleDrag | null): Box
   // 보이는 테두리)를 안 맞춰서 텍스트만 미리보기가 5mm에서 막혀 있었다 —
   // 실제로 놓이는 값은 이미 더 작아질 수 있는데 눈에 보이는 테두리가 그
   // 전에 멈추니, 한쪽 축만 먼저 막히면 비율까지 이상해 보였다.
-  const minSize = isShape(o) || isImage(o) || isText(o) ? MIN_FREE_BOX_SIZE : undefined;
+  const minSize = isShape(o) || isImage(o) || isText(o) || isCheckbox(o) ? MIN_FREE_BOX_SIZE : undefined;
   return resizeBox(box, boxHandle.corner, boxHandle.to, minSize);
 }
 

@@ -478,24 +478,21 @@ export function tableLines(lattice: Lattice, a: Dot, b: Dot): Segment[] {
 }
 
 /**
- * 두 점 사이에 걸친 칸 하나하나의 자리. 위 줄, 왼쪽부터 순서대로.
+ * 두 점 사이에 걸친 격자점 하나하나. 위 줄, 왼쪽부터 순서대로.
  *
- * `tableSize`·`tableLines`와 같은 격자점(`between`)을 본다 — 몇 칸인지와
- * 실제 칸의 자리가 서로 다른 계산에서 나오면 언젠가 어긋난다. 체크박스
- * 도장처럼 범위 안 칸마다 하나씩 무언가를 놓을 때 쓴다.
+ * `tableSize`·`tableLines`와 같은 격자점(`between`)을 본다 — 몇 개인지와
+ * 실제 자리가 서로 다른 계산에서 나오면 언젠가 어긋난다. 체크박스 도장처럼
+ * 범위 안 도트마다 하나씩(도트가 가운데 오도록) 무언가를 놓을 때 쓴다.
  */
-export function cellsIn(lattice: Lattice, a: Dot, b: Dot): Area[] {
+export function dotsIn(lattice: Lattice, a: Dot, b: Dot): Dot[] {
   const xs = between(lattice.xs, a.x, b.x);
   const ys = between(lattice.ys, a.y, b.y);
-  if (xs.length < 2 || ys.length < 2) return [];
 
-  const areas: Area[] = [];
-  for (let ri = 0; ri < ys.length - 1; ri++) {
-    for (let ci = 0; ci < xs.length - 1; ci++) {
-      areas.push({ x: xs[ci], y: ys[ri], width: xs[ci + 1] - xs[ci], height: ys[ri + 1] - ys[ri] });
-    }
+  const dots: Dot[] = [];
+  for (const y of ys) {
+    for (const x of xs) dots.push({ x, y });
   }
-  return areas;
+  return dots;
 }
 
 /** 표를 테두리(둥글기가 있는 도형)와 안쪽 칸 선으로 나눈 것. */

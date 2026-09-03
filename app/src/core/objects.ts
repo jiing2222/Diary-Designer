@@ -328,14 +328,14 @@ export function isCheckbox(o: DiaryObject): o is CheckboxObject {
   return o.type === 'checkbox';
 }
 
-/** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 체크박스는 아직 아니다(찍을 때만 크기가 정해진다). */
+/** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. */
 export function isBoxResizable(
   o: DiaryObject,
-): o is CalendarObject | ImageObject | ShapeObject | TextObject {
-  return isCalendar(o) || isImage(o) || isShape(o) || isText(o);
+): o is CalendarObject | ImageObject | ShapeObject | TextObject | CheckboxObject {
+  return isCalendar(o) || isImage(o) || isShape(o) || isText(o) || isCheckbox(o);
 }
 
-/** 자기 상자(x·y·width·height)로 클릭 판정을 하는 오브젝트인가. 크기조정 가능 여부와는 다르다 — 체크박스는 상자로 골라지지만 손잡이는 없다. */
+/** 자기 상자(x·y·width·height)로 클릭 판정을 하는 오브젝트인가. isBoxResizable과 지금은 같지만, 뜻이 달라(크기조정 가능 여부가 아니라 클릭 판정 방식) 따로 남겨둔다. */
 export function isBoxShaped(o: DiaryObject): o is CalendarObject | ImageObject | ShapeObject | CheckboxObject {
   return isBoxResizable(o) || isCheckbox(o);
 }

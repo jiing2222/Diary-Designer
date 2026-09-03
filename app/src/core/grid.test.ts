@@ -3,8 +3,8 @@ import {
   DEFAULT_DOT_GRID,
   DEFAULT_MIN_MARGIN,
   cellAt,
-  cellsIn,
   divisionGuide,
+  dotsIn,
   gridArea,
   gridLattice,
   gridShapes,
@@ -549,51 +549,59 @@ describe('표 크기 — 몇 칸인지', () => {
   });
 });
 
-describe('칸 하나하나의 자리 — 체크박스 도장', () => {
+describe('격자점 하나하나 — 체크박스 도장', () => {
   const lattice = gridLattice(m6, 5);
 
-  it('한 칸이면 그 칸 하나다', () => {
-    const cells = cellsIn(lattice, { x: 5, y: 5 }, { x: 10, y: 10 });
-    expect(cells).toEqual([{ x: 5, y: 5, width: 5, height: 5 }]);
+  it('한 칸(격자점 네 개)이면 도트 네 개다 — 양 끝 다 포함', () => {
+    const dots = dotsIn(lattice, { x: 5, y: 5 }, { x: 10, y: 10 });
+    expect(dots).toEqual([
+      { x: 5, y: 5 },
+      { x: 10, y: 5 },
+      { x: 5, y: 10 },
+      { x: 10, y: 10 },
+    ]);
   });
 
-  it('여러 칸이면 tableSize가 세는 것과 같은 수다 — 왼쪽 위부터 순서대로', () => {
+  it('여러 칸이면 tableSize의 칸 수보다 한 줄·한 칸 더 많다 — 왼쪽 위부터 순서대로', () => {
     const a = { x: 5, y: 5 };
     const b = { x: 20, y: 15 };
     const { cols, rows } = tableSize(lattice, a, b);
-    const cells = cellsIn(lattice, a, b);
-    expect(cells).toHaveLength(cols * rows);
-    // 첫 칸은 왼쪽 위, 마지막 칸은 오른쪽 아래.
-    expect(cells[0]).toEqual({ x: 5, y: 5, width: 5, height: 5 });
-    expect(cells[cells.length - 1]).toEqual({ x: 15, y: 10, width: 5, height: 5 });
+    const dots = dotsIn(lattice, a, b);
+    expect(dots).toHaveLength((cols + 1) * (rows + 1));
+    expect(dots[0]).toEqual({ x: 5, y: 5 });
+    expect(dots[dots.length - 1]).toEqual({ x: 20, y: 15 });
   });
 
-  it('칸들을 다 합치면 tableLines의 바깥 테두리와 같은 자리를 덮는다', () => {
+  it('도트들을 다 합치면 tableLines의 바깥 테두리와 같은 자리를 덮는다', () => {
     const a = { x: 5, y: 5 };
     const b = { x: 20, y: 15 };
-    const cells = cellsIn(lattice, a, b);
-    const left = Math.min(...cells.map((c) => c.x));
-    const top = Math.min(...cells.map((c) => c.y));
-    const right = Math.max(...cells.map((c) => c.x + c.width));
-    const bottom = Math.max(...cells.map((c) => c.y + c.height));
+    const dots = dotsIn(lattice, a, b);
+    const left = Math.min(...dots.map((d) => d.x));
+    const top = Math.min(...dots.map((d) => d.y));
+    const right = Math.max(...dots.map((d) => d.x));
+    const bottom = Math.max(...dots.map((d) => d.y));
     expect({ left, top, right, bottom }).toEqual({ left: 5, top: 5, right: 20, bottom: 15 });
   });
 
-  it('시작점과 끝점 순서가 바뀌어도 같은 칸들이 나온다', () => {
-    const forward = cellsIn(lattice, { x: 5, y: 5 }, { x: 20, y: 15 });
-    const backward = cellsIn(lattice, { x: 20, y: 15 }, { x: 5, y: 5 });
-    expect(new Set(forward.map((c) => JSON.stringify(c)))).toEqual(
-      new Set(backward.map((c) => JSON.stringify(c))),
+  it('시작점과 끝점 순서가 바뀌어도 같은 도트들이 나온다', () => {
+    const forward = dotsIn(lattice, { x: 5, y: 5 }, { x: 20, y: 15 });
+    const backward = dotsIn(lattice, { x: 20, y: 15 }, { x: 5, y: 5 });
+    expect(new Set(forward.map((d) => JSON.stringify(d)))).toEqual(
+      new Set(backward.map((d) => JSON.stringify(d))),
     );
   });
 
-  it('한 줄로만 끌면(가로나 세로 폭이 없으면) 칸이 없다', () => {
-    expect(cellsIn(lattice, { x: 5, y: 5 }, { x: 20, y: 5 })).toEqual([]);
-    expect(cellsIn(lattice, { x: 5, y: 5 }, { x: 5, y: 20 })).toEqual([]);
+  it('한 줄로만 끌면(가로나 세로 폭이 없으면) 그 줄의 도트들이 나온다 — 칸과 달리 한 줄짜리도 뜻이 있다', () => {
+    expect(dotsIn(lattice, { x: 5, y: 5 }, { x: 20, y: 5 })).toEqual([
+      { x: 5, y: 5 },
+      { x: 10, y: 5 },
+      { x: 15, y: 5 },
+      { x: 20, y: 5 },
+    ]);
   });
 
-  it('한 점이면 칸이 없다', () => {
-    expect(cellsIn(lattice, { x: 5, y: 5 }, { x: 5, y: 5 })).toEqual([]);
+  it('한 점이면 그 도트 하나다', () => {
+    expect(dotsIn(lattice, { x: 5, y: 5 }, { x: 5, y: 5 })).toEqual([{ x: 5, y: 5 }]);
   });
 });
 
