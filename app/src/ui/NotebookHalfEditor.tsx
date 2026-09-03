@@ -549,6 +549,15 @@ export function NotebookHalfEditor({
 
     const moved = d.from.x !== d.to.x || d.from.y !== d.to.y;
     if (moved) {
+      // 한 축으로만 끌었으면(가로나 세로로 일직선) 폭 또는 높이가 0인
+      // 도형이 아니라 선이어야 한다 — 안 그러면 화면엔 선처럼 보이는데
+      // 실제로는 높이(또는 폭) 0인 도형이라, 나중에 손잡이를 끌면 진짜
+      // 네모로 자란다("선이 면이 된다"는 신고가 이 경로였다).
+      if (d.from.x === d.to.x || d.from.y === d.to.y) {
+        drawLines([{ x1: d.from.x, y1: d.from.y, x2: d.to.x, y2: d.to.y }]);
+        setPending(null);
+        return;
+      }
       commitShape({
         x: Math.min(d.from.x, d.to.x),
         y: Math.min(d.from.y, d.to.y),
