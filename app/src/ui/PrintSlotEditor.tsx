@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
-import { checkboxIconBox } from '../core/checkbox';
 import { holeCenterX } from '../core/punch';
 import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
 import {
@@ -584,7 +583,9 @@ export function PrintSlotEditor({
 
     if (tool === 'checkbox') {
       if (d.from.x !== d.to.x || d.from.y !== d.to.y) {
-        commitCheckboxes(cellsIn(lattice, d.from, d.to).map(checkboxIconBox));
+        // 칸 그대로 저장한다 — 그리는 쪽(core/checkbox의 checkboxIconBox)만
+        // 아이콘 자리로 줄인다. EditorTab.tsx의 같은 줄 주석 참고.
+        commitCheckboxes(cellsIn(lattice, d.from, d.to));
       }
       return;
     }

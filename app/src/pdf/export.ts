@@ -52,7 +52,7 @@ import {
   strokeDashOf,
   strokeWidthOf,
 } from '../core/shape';
-import { checkboxPath, iconOf } from '../core/checkbox';
+import { checkboxIconBox, checkboxPath, iconOf } from '../core/checkbox';
 import {
   CALENDAR_ADJACENT_OPACITY,
   CONTENT_COLOR,
@@ -984,7 +984,10 @@ function drawCheckboxes(
     );
 
     for (const o of objects) {
-      const path = checkboxPath(iconOf(o), { x: 0, y: 0, width: o.width, height: o.height });
+      // o(칸) 기준 자리로 그린 뒤 place.map(o.x, o.y)로 옮긴다 — 그 옮기는
+      // 기준이 o.x·o.y(칸의 왼쪽 위)이므로, 칸 가운데로 줄인 아이콘 상자도
+      // 그 기준(0,0)에 상대적인 자리로 구해야 한다(core/checkbox 참고).
+      const path = checkboxPath(iconOf(o), checkboxIconBox({ ...o, x: 0, y: 0 }));
       const strokeW = strokeWidthOf(o);
       const p = place.map(o.x, o.y);
       page.drawSvgPath(path, {

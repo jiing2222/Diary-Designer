@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkboxIconBox, checkboxPath, iconOf } from './checkbox';
+import { checkboxIconBox, checkboxPath, iconOf, iconSizeOf } from './checkbox';
 import type { CheckboxObject } from './objects';
 
 const at = (extra: Partial<CheckboxObject> = {}): CheckboxObject => ({
@@ -22,21 +22,50 @@ describe('체크박스에 새겨둔 값', () => {
   });
 });
 
+describe('아이콘 크기(iconSizeOf) — 정하지 않았으면 칸보다 15% 작게', () => {
+  it('정한 값이 없으면 칸(짧은 변 기준)의 70%다', () => {
+    expect(iconSizeOf(at({ width: 10, height: 10 }))).toBeCloseTo(7, 9);
+  });
+
+  it('직사각형 칸이면 짧은 변을 기준으로 줄인다', () => {
+    expect(iconSizeOf(at({ width: 10, height: 6 }))).toBeCloseTo(6 * 0.7, 9);
+  });
+
+  it('정한 값(iconSize)이 있으면 칸 크기와 무관하게 그것을 그대로 쓴다', () => {
+    expect(iconSizeOf(at({ width: 10, height: 10, iconSize: 3 }))).toBe(3);
+  });
+});
+
 describe('칸을 아이콘 상자로 줄이기 — "칸보다 조금 작게"', () => {
-  it('칸보다 작다 — 네 방향 다 안쪽으로 들어간다', () => {
-    const cell = { x: 5, y: 5, width: 10, height: 10 };
-    const box = checkboxIconBox(cell);
-    expect(box.x).toBeGreaterThan(cell.x);
-    expect(box.y).toBeGreaterThan(cell.y);
-    expect(box.x + box.width).toBeLessThan(cell.x + cell.width);
-    expect(box.y + box.height).toBeLessThan(cell.y + cell.height);
+  it('칸(저장된 상자)은 손대지 않는다 — 줄어든 건 그리는 상자뿐이다', () => {
+    const o = at({ x: 5, y: 5, width: 10, height: 10 });
+    checkboxIconBox(o);
+    expect(o).toMatchObject({ x: 5, y: 5, width: 10, height: 10 });
+  });
+
+  it('그려지는 상자는 칸보다 작다 — 네 방향 다 안쪽으로 들어간다', () => {
+    const o = at({ x: 5, y: 5, width: 10, height: 10 });
+    const box = checkboxIconBox(o);
+    expect(box.x).toBeGreaterThan(o.x);
+    expect(box.y).toBeGreaterThan(o.y);
+    expect(box.x + box.width).toBeLessThan(o.x + o.width);
+    expect(box.y + box.height).toBeLessThan(o.y + o.height);
   });
 
   it('칸 가운데는 그대로 유지된다 — 좌우·상하로 똑같이 줄어든다', () => {
-    const cell = { x: 5, y: 5, width: 10, height: 6 };
-    const box = checkboxIconBox(cell);
-    expect(box.x + box.width / 2).toBeCloseTo(cell.x + cell.width / 2, 9);
-    expect(box.y + box.height / 2).toBeCloseTo(cell.y + cell.height / 2, 9);
+    const o = at({ x: 5, y: 5, width: 10, height: 6 });
+    const box = checkboxIconBox(o);
+    expect(box.x + box.width / 2).toBeCloseTo(o.x + o.width / 2, 9);
+    expect(box.y + box.height / 2).toBeCloseTo(o.y + o.height / 2, 9);
+  });
+
+  it('iconSize를 정하면 그 크기로, 여전히 칸 가운데에 그린다', () => {
+    const o = at({ x: 5, y: 5, width: 10, height: 10, iconSize: 4 });
+    const box = checkboxIconBox(o);
+    expect(box.width).toBe(4);
+    expect(box.height).toBe(4);
+    expect(box.x + box.width / 2).toBeCloseTo(o.x + o.width / 2, 9);
+    expect(box.y + box.height / 2).toBeCloseTo(o.y + o.height / 2, 9);
   });
 });
 

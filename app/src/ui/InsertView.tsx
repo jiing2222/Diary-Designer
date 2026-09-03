@@ -24,7 +24,7 @@ import {
   strokeDashOf,
   strokeWidthOf,
 } from '../core/shape';
-import { checkboxPath, iconOf } from '../core/checkbox';
+import { checkboxIconBox, checkboxPath, iconOf } from '../core/checkbox';
 import {
   calendarLayout,
   letterSpacingOf,
@@ -194,14 +194,20 @@ function ShapeLayer({ objects }: { objects: ShapeObject[] }) {
   );
 }
 
-/** 체크박스 도장 — core/checkbox의 `checkboxPath`가 아이콘 모양에 맞는 경로를 만든다. */
+/**
+ * 체크박스 도장.
+ *
+ * 저장된 상자(o)는 칸(도트 네 개가 모서리) 그대로다 — 실제로 그리는
+ * 아이콘은 `checkboxIconBox`로 그 칸 가운데에 줄여 앉힌다(core/checkbox
+ * 참고). PDF(pdf/export.ts)도 같은 함수를 쓴다.
+ */
 function CheckboxLayer({ objects }: { objects: CheckboxObject[] }) {
   return (
     <g strokeLinecap={OBJECT_LINE_CAP}>
       {objects.map((o) => (
         <path
           key={o.id}
-          d={checkboxPath(iconOf(o), o)}
+          d={checkboxPath(iconOf(o), checkboxIconBox(o))}
           fill="none"
           stroke={strokeColorOf(o)}
           strokeWidth={strokeWidthOf(o)}

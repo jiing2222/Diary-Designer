@@ -274,9 +274,12 @@ export type CheckboxIcon = 'square' | 'circle' | 'triangle' | 'diamond' | 'star'
 /**
  * 체크박스 — 표처럼 칸 범위를 드래그하면 그 칸마다 하나씩 찍히는 도장.
  *
- * 인쇄물이라 켜고 끄는 상태(토글)가 없다 — 나중에 손으로 표시한다. 상자는
- * 도장 찍힌 칸 자체가 아니라 그 칸보다 살짝 작게 줄인 자리다(core/checkbox의
- * `checkboxIconBox`가 찍을 때 미리 계산해 넣는다).
+ * 인쇄물이라 켜고 끄는 상태(토글)가 없다 — 나중에 손으로 표시한다.
+ *
+ * **상자(x·y·width·height)는 도장 찍힌 칸 그대로다** — 도트 네 개가
+ * 모서리인 자리, 다른 오브젝트와 똑같이 도트에 자연스럽게 붙는다. 옮기면
+ * 이 칸째로 옮겨가므로 늘 도트 네 개 한가운데를 지킨다. 실제로 그려지는
+ * 아이콘은 이 칸보다 작다 — `iconSize`(아래) 참고.
  */
 export interface CheckboxObject {
   id: string;
@@ -285,6 +288,12 @@ export interface CheckboxObject {
   y: Mm;
   width: Mm;
   height: Mm;
+  /**
+   * 실제로 그려지는 아이콘 한 변의 길이. 정하지 않았으면 칸(width·height)의
+   * 15% 여백을 뺀 크기가 기본값이다(core/checkbox의 `iconSizeOf`). 칸
+   * 가운데 그대로 그려지므로 이 값을 바꿔도 도트에 붙는 자리는 그대로다.
+   */
+  iconSize?: Mm;
   /** 아이콘 모양. 정하지 않았으면 네모. */
   icon?: CheckboxIcon;
   /** 테두리 굵기·색. ShapeObject와 같은 규칙 — 값이 없으면 core/shape의 기본값. */
@@ -412,7 +421,7 @@ export type ShapeStyle = Partial<
   Pick<ShapeObject, 'roundness' | 'strokeWidth' | 'color' | 'dash' | 'fillColor' | 'fillOpacity'>
 >;
 /** 체크박스마다 따로 정할 수 있는 것들. */
-export type CheckboxStyle = Partial<Pick<CheckboxObject, 'icon' | 'strokeWidth' | 'color'>>;
+export type CheckboxStyle = Partial<Pick<CheckboxObject, 'icon' | 'strokeWidth' | 'color' | 'iconSize'>>;
 
 /**
  * undefined인 키를 걷어낸다. 객체에 값이 없어야 기본값을 따라간다.

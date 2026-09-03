@@ -1020,7 +1020,7 @@ const ADD_FONT = '__add__';
  * `value`가 `null`이면 여러 개를 골랐는데 값이 서로 다르다는 뜻이다. 빈 칸에
  * `—`만 띄우고, 무언가 치면 그때 전부에 적용된다.
  */
-function NumField({
+export function NumField({
   value,
   unit,
   title,

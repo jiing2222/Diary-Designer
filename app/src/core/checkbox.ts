@@ -10,17 +10,36 @@ import type { Mm } from './units';
  * PDF(pdf-lib의 `drawSvgPath`)가 정확히 같은 경로 문자열을 그린다.
  */
 
-/** 칸을 아이콘 자리로 줄일 때 짧은 변에 대해 남기는 여백 비율. "칸보다 조금 작게". */
+/** 칸을 아이콘 자리로 줄일 때 짧은 변에 대해 남기는 여백 비율(기본값). "칸보다 조금 작게". */
 const MARGIN_RATIO = 0.15;
 
-/** 표처럼 드래그해 걸친 칸 하나를, 그 칸보다 살짝 작은 아이콘 상자로 줄인다. */
-export function checkboxIconBox(cell: Box): Box {
-  const margin = Math.min(cell.width, cell.height) * MARGIN_RATIO;
+/**
+ * 실제로 그려지는 아이콘 한 변의 길이.
+ *
+ * 정해둔 값(`iconSize`)이 있으면 그것을, 없으면 저장된 상자(칸 — 도트
+ * 네 개가 모서리인 자리)에서 15% 여백을 뺀 크기를 기본값으로 쓴다.
+ */
+export function iconSizeOf(o: CheckboxObject): Mm {
+  if (o.iconSize !== undefined) return o.iconSize;
+  return Math.min(o.width, o.height) * (1 - 2 * MARGIN_RATIO);
+}
+
+/**
+ * 실제로 그려지는 아이콘 상자 — 저장된 상자(칸) 가운데, `iconSizeOf` 크기로.
+ *
+ * **저장된 상자(x·y·width·height)는 칸 그대로 둔다.** 옮기기·클릭 판정은
+ * 전부 이 칸 기준이라 다른 오브젝트와 똑같이 도트에 자연스럽게 붙는다 —
+ * 옮겨도 늘 도트 네 개 한가운데를 지킨다. 실제로 그리는 아이콘만 이
+ * 함수로 칸 가운데에 작게(또는 `iconSize`로 정한 크기로) 앉힌다. 화면과
+ * PDF가 함께 부른다.
+ */
+export function checkboxIconBox(o: CheckboxObject): Box {
+  const size = iconSizeOf(o);
   return {
-    x: cell.x + margin,
-    y: cell.y + margin,
-    width: cell.width - margin * 2,
-    height: cell.height - margin * 2,
+    x: o.x + o.width / 2 - size / 2,
+    y: o.y + o.height / 2 - size / 2,
+    width: size,
+    height: size,
   };
 }
 

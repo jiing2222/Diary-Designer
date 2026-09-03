@@ -6,9 +6,11 @@ import {
   isLine,
   isShape,
   isText,
+  MIN_FREE_BOX_SIZE,
   type CornerRoundness,
   type TextStyle,
 } from '../core/objects';
+import { iconSizeOf } from '../core/checkbox';
 import { FIELD_FORMATS } from '../core/text';
 import { roundMm } from '../core/units';
 import { useObjects, useStore } from '../store';
@@ -20,6 +22,7 @@ import {
   FieldControls,
   ImageControls,
   LineControls,
+  NumField,
   ShapeControls,
   TableControls,
   TextControls,
@@ -139,10 +142,27 @@ export function StyleBar({
       {picked.length > 0 ? (
         <>
           <span className="picked-count">{picked.length}개</span>
-          {size && (
-            <span className="size-readout">
-              {roundMm(size.width, 1)} × {roundMm(size.height, 1)}mm
-            </span>
+          {/* 체크박스 하나만 골랐을 때는 크기 읽기전용 표시 대신 직접 칠 수
+              있는 칸을 준다 — 가로세로가 늘 같아서 한 번만 입력하면 된다.
+              저장된 상자(칸, 도트 네 개가 모서리)는 옮기기 기준이라 손대지
+              않고, 실제로 그려지는 아이콘 크기(iconSize)만 바꾼다 —
+              core/checkbox의 checkboxIconBox 주석 참고. */}
+          {picked.length === 1 && isCheckbox(picked[0]) ? (
+            <NumField
+              value={roundMm(iconSizeOf(picked[0]), 1)}
+              unit="mm"
+              title="아이콘 크기"
+              min={MIN_FREE_BOX_SIZE}
+              max={roundMm(Math.min(picked[0].width, picked[0].height), 1)}
+              step={0.1}
+              onChange={(mm) => styleCheckbox({ iconSize: mm })}
+            />
+          ) : (
+            size && (
+              <span className="size-readout">
+                {roundMm(size.width, 1)} × {roundMm(size.height, 1)}mm
+              </span>
+            )
           )}
         </>
       ) : (

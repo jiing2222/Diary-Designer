@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
-import { checkboxIconBox } from '../core/checkbox';
 import { holeCenterX } from '../core/punch';
 import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
 import {
@@ -795,7 +794,12 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
      */
     if (tool === 'checkbox') {
       if (d.from.x !== d.to.x || d.from.y !== d.to.y) {
-        commitCheckboxes(cellsIn(lattice, d.from, d.to).map(checkboxIconBox));
+        // 칸 그대로 저장한다 — 아이콘 자리로 줄이지 않는다. 줄인 상자를
+        // 그대로 저장하면 나중에 옮길 때 격자 스냅이 그 줄어든 모서리를
+        // 도트에 붙여버려서, 칸 가운데 있어 보이게 하던 여백이 사라지고
+        // 아이콘이 도트에 달라붙어 보인다. 실제 아이콘은 그릴 때만
+        // core/checkbox의 checkboxIconBox로 줄인다(InsertView·PDF 공통).
+        commitCheckboxes(cellsIn(lattice, d.from, d.to));
       }
       return;
     }
