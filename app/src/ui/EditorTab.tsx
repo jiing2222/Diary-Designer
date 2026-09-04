@@ -67,6 +67,7 @@ import { familyOf } from '../fonts/registry';
 import { PX_PER_MM_AT_100, ZOOMS } from './pixels';
 import {
   anyLineHandleAt,
+  boxHandleAnchor,
   boxHandleAt,
   centerOnLogoLine,
   editingFor,
@@ -82,7 +83,6 @@ import {
   segProps,
   sizeLabelOf,
   toggleId,
-  toLocal,
   withCells,
   DRAG_START,
   HANDLE_SIZE,
@@ -569,12 +569,14 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
       // 도구를 select로 바꾸지 않고도 이어서 바로 크기를 다듬을 수 있다.
       const boxGripHit = boxHandleAt(lone, raw);
       if (boxGripHit) {
-        // 크기조정은 회전 전 자리 기준으로 계산한다(resizeBox와 짝이 맞아야 한다).
         // 격자에 앉힌 점(snap)을 쓴다 — raw 그대로 쓰면 손을 대는 순간(아직
         // 움직이기 전)만 격자에서 살짝 벗어난 값으로 시작해, 짧게 끌고 놓을
-        // 때 도트에 잘 안 붙는 것처럼 느껴졌다.
-        const to = lone ? toLocal(lone, snap ?? raw) : (snap ?? raw);
-        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to });
+        // 때 도트에 잘 안 붙는 것처럼 느껴졌다. anchor(반대쪽 모서리의 화면
+        // 자리)는 지금 한 번만 재고 드래그 내내 안 바꾼다 — gestures의
+        // boxHandleAnchor·core/objects의 resizeBox 주석 참고.
+        const to = snap ?? raw;
+        const anchor = lone ? boxHandleAnchor(lone, boxGripHit.corner) : to;
+        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, anchor, to });
         return;
       }
       // 이미 있는 것을 클릭하면 고르고, 끌면 옮길 수 있게 한다.
@@ -591,9 +593,10 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
     // 늘이려다 매번 통째로 옮겨진다 — 끝점 손잡이와 같은 이유다.
     const boxGripHit = boxHandleAt(lone, raw);
     if (boxGripHit) {
-      // snap을 쓰는 이유는 위 이미지·달력 분기와 같다.
-      const to = lone ? toLocal(lone, snap ?? raw) : (snap ?? raw);
-      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to });
+      // snap을 쓰는 이유·anchor를 여기서 재는 이유는 위 이미지·달력 분기와 같다.
+      const to = snap ?? raw;
+      const anchor = lone ? boxHandleAnchor(lone, boxGripHit.corner) : to;
+      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, anchor, to });
       return;
     }
 
@@ -624,18 +627,17 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
     if (d.kind === 'boxHandle') {
       const target = objects.find((o) => o.id === d.id);
       // 이미지만 예외 — 도트 근처면 붙고, 멀면 자유롭게 크기가 바뀐다.
+      // to는 화면 자리 그대로 둔다 — anchor와 함께 core/objects의
+      // resizeBox가 회전을 감안해 회전 전 크기를 계산한다.
       if (target && isImage(target)) {
         const snap = snapped(e);
         const near = snap && Math.hypot(raw.x - snap.x, raw.y - snap.y) <= IMAGE_RESIZE_SNAP_DIST;
-        const chosen = near ? snap! : raw;
-        // 모서리를 끄는 대상이 돌아가 있으면 회전 전 자리로 되돌려서 저장한다.
-        setDragBoth({ ...d, to: toLocal(target, chosen) });
+        setDragBoth({ ...d, to: near ? snap! : raw });
         return;
       }
       const snap = snapped(e);
       if (!snap) return;
-      const to = target ? toLocal(target, snap) : snap;
-      setDragBoth({ ...d, to });
+      setDragBoth({ ...d, to: snap });
     } else if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox') {
       const snap = snapped(e);
       if (!snap) return;
@@ -701,13 +703,13 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
     if (d.kind === 'boxHandle') {
       const target = objects.find((o) => o.id === d.id);
       if (target && isText(target)) {
-        const { box } = resizeTextBoxTo(target, d.corner, d.to);
+        const { box } = resizeTextBoxTo(target, d.anchor, d.to);
         resizeObject(d.id, box);
       } else if (target) {
         // 도형·이미지는 도트 한 칸까지 작아져도 된다 — 달력만 숫자 여러 칸이
         // 든 표라 그 밑으로 가면 못 알아보게 돼 기본값(MIN_BOX_SIZE)을 지킨다.
         const minSize = isShape(target) || isImage(target) ? MIN_FREE_BOX_SIZE : undefined;
-        resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to, minSize));
+        resizeObject(d.id, resizeBox(rotationDegOf(target), d.anchor, d.to, minSize));
       }
       return;
     }

@@ -12,6 +12,7 @@ import {
   isShape,
   isText,
   MIN_FREE_BOX_SIZE,
+  oppositeCornerOf,
   rectLines,
   resizeBox,
   rotationOf,
@@ -141,8 +142,14 @@ export type Drag =
       moved: boolean;
     }
   | { kind: 'handle'; id: string; end: 1 | 2; to: Point }
-  /** 상자(달력 등)의 모서리 손잡이를 끄는 중. `preview()`의 상자 버전은 `previewBox`. */
-  | { kind: 'boxHandle'; id: string; corner: Corner; to: Point };
+  /**
+   * 상자(달력 등)의 모서리 손잡이를 끄는 중. `preview()`의 상자 버전은 `previewBox`.
+   *
+   * `anchor` — 끄는 반대쪽 모서리의 **화면** 자리. 드래그를 시작할 때
+   * 한 번만 재고 그 뒤로는 안 바뀐다 — core/objects의 `resizeBox` 주석
+   * 참고(회전한 상자는 이 화면 자리를 고정해야 도트에서 안 벗어난다).
+   */
+  | { kind: 'boxHandle'; id: string; corner: Corner; anchor: Point; to: Point };
 
 export function rectOf(a: Point, b: Point) {
   return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
@@ -204,7 +211,7 @@ export function previewBox(o: DiaryObject, boxHandle: BoxHandleDrag | null): Box
   // 실제로 놓이는 값은 이미 더 작아질 수 있는데 눈에 보이는 테두리가 그
   // 전에 멈추니, 한쪽 축만 먼저 막히면 비율까지 이상해 보였다.
   const minSize = isShape(o) || isImage(o) || isText(o) ? MIN_FREE_BOX_SIZE : undefined;
-  return resizeBox(box, boxHandle.corner, boxHandle.to, minSize);
+  return resizeBox(rotationDegOf(o), boxHandle.anchor, boxHandle.to, minSize);
 }
 
 export type GripDrag = Extract<Drag, { kind: 'handle' }>;
@@ -331,6 +338,17 @@ export function boxHandleAt(lone: DiaryObject | null, p: Point): { id: string; c
 }
 
 /**
+ * 크기조정 손잡이를 잡은 순간, 끄는 반대쪽 모서리의 **화면** 자리.
+ *
+ * 드래그를 시작할 때 한 번만 불러서 `Drag`의 `anchor`에 담아둔다 — 그
+ * 뒤로는 다시 재면 안 된다. core/objects의 `resizeBox` 주석 참고.
+ */
+export function boxHandleAnchor(o: DiaryObject, corner: Corner): Point {
+  const box = boxOf(o);
+  return rotationOf(box, rotationDegOf(o)).map(oppositeCornerOf(box, corner));
+}
+
+/**
  * 그 자리에서 집히는 것. 가장 가까운 것 하나만 고른다.
  *
  * 글자는 **실제로 그려진 크기**로 판정한다. 그 크기는 글꼴이 정하므로 core가 알 수
@@ -406,8 +424,8 @@ export function hitAt(svg: SVGSVGElement | null, objects: DiaryObject[], p: Poin
  * (22.299999999999997처럼) — 정리하지 않으면 옮기기에서 58단계에 잡은
  * 문제가 크기 조절에는 그대로 남는다.
  */
-export function resizeTextBoxTo(t: TextObject, corner: Corner, to: Point): { box: Box } {
-  const box = resizeBox(boxOf(t), corner, to, MIN_FREE_BOX_SIZE);
+export function resizeTextBoxTo(t: TextObject, anchor: Point, to: Point): { box: Box } {
+  const box = resizeBox(rotationDegOf(t), anchor, to, MIN_FREE_BOX_SIZE);
   return { box: { x: roundMm(box.x), y: roundMm(box.y), width: roundMm(box.width), height: roundMm(box.height) } };
 }
 

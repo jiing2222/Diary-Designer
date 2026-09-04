@@ -333,20 +333,22 @@ describe('선까지의 거리', () => {
 });
 
 describe('상자 모서리로 크기 바꾸기', () => {
-  const box = { x: 10, y: 10, width: 20, height: 30 }; // 10~30, 10~40
+  // 안 돌아간(0도) 상자는 anchor(반대쪽 모서리의 화면 자리)가 곧 회전 전
+  // 자리와 같다 — corner 이름 대신 그 모서리의 점을 직접 넘긴다.
+  // (원래 상자는 x:10,y:10,width:20,height:30 — 10~30, 10~40이었다.)
 
   it('맞은편 모서리는 그대로 두고 끈 모서리만 움직인다', () => {
     // 오른쪽 아래(se)를 (50, 60)으로 끌면 왼쪽 위(10,10)는 그대로다.
-    expect(resizeBox(box, 'se', { x: 50, y: 60 })).toEqual({ x: 10, y: 10, width: 40, height: 50 });
+    expect(resizeBox(0, { x: 10, y: 10 }, { x: 50, y: 60 })).toEqual({ x: 10, y: 10, width: 40, height: 50 });
   });
 
   it('왼쪽 위(nw)를 끌면 오른쪽 아래(30,40)가 고정된다', () => {
-    expect(resizeBox(box, 'nw', { x: 0, y: 0 })).toEqual({ x: 0, y: 0, width: 30, height: 40 });
+    expect(resizeBox(0, { x: 30, y: 40 }, { x: 0, y: 0 })).toEqual({ x: 0, y: 0, width: 30, height: 40 });
   });
 
   it('맞은편을 넘어 반대쪽으로 끌어도 뒤집히지 않고 최소 크기로 멈춘다', () => {
     // se를 왼쪽 위 모서리(10,10) 너머로 끌어도 폭·높이가 음수가 되지 않는다.
-    const r = resizeBox(box, 'se', { x: 5, y: 5 });
+    const r = resizeBox(0, { x: 10, y: 10 }, { x: 5, y: 5 });
     expect(r.width).toBe(MIN_BOX_SIZE);
     expect(r.height).toBe(MIN_BOX_SIZE);
     expect(r.x).toBeLessThanOrEqual(10);
@@ -355,9 +357,68 @@ describe('상자 모서리로 크기 바꾸기', () => {
 
   it('ne·sw도 같은 규칙이다', () => {
     // 오른쪽 위(ne)를 끌면 왼쪽 아래(10,40)가 고정된다.
-    expect(resizeBox(box, 'ne', { x: 50, y: 0 })).toEqual({ x: 10, y: 0, width: 40, height: 40 });
+    expect(resizeBox(0, { x: 10, y: 40 }, { x: 50, y: 0 })).toEqual({ x: 10, y: 0, width: 40, height: 40 });
     // 왼쪽 아래(sw)를 끌면 오른쪽 위(30,10)가 고정된다.
-    expect(resizeBox(box, 'sw', { x: 0, y: 60 })).toEqual({ x: 0, y: 10, width: 30, height: 50 });
+    expect(resizeBox(0, { x: 30, y: 10 }, { x: 0, y: 60 })).toEqual({ x: 0, y: 10, width: 30, height: 50 });
+  });
+});
+
+describe('회전한 상자 크기 바꾸기 — 끄는 반대쪽 모서리가 화면에서 안 벗어난다', () => {
+  // 79단계(그리기)와는 다른 회귀 — 여기서는 90·270도로 돌린 글자·이미지를
+  // 손잡이로 늘이면, 반대쪽(안 끄는) 모서리가 로컬 좌표로는 안 움직였어도
+  // 화면에서는 회전 중심(가운데)이 옮겨간 만큼 도트를 벗어났다. anchor를
+  // 화면 좌표로 고정해 풀었다 — 아래는 그 자체를 확인한다.
+  //
+  // **새 상자에서 그 자리가 꼭 "nw"라는 이름을 유지한다는 보장은 없다** —
+  // 90·270도는 화면의 가로 방향 움직임이 회전 전(로컬) 세로 방향으로
+  // 넘어가므로, 끄는 방향에 따라 모서리 이름이 자리와 함께 돌아갈 수
+  // 있다(예: 원래 anchor였던 자리가 새 상자에서는 "sw"가 될 수 있다).
+  // 이름이 아니라 **네 모서리 중 하나가 정확히 그 화면 자리에 있는지**를
+  // 본다 — 사용자가 보는 것도 이름이 아니라 화면이다.
+  function screenCornersOf(box: { x: number; y: number; width: number; height: number }, rotDeg: number) {
+    const r = rotationOf(box, rotDeg);
+    return [
+      { x: box.x, y: box.y },
+      { x: box.x + box.width, y: box.y },
+      { x: box.x, y: box.y + box.height },
+      { x: box.x + box.width, y: box.y + box.height },
+    ].map((p) => r.map(p));
+  }
+
+  function hasCornerAt(corners: { x: number; y: number }[], p: { x: number; y: number }) {
+    return corners.some((c) => Math.abs(c.x - p.x) < 1e-9 && Math.abs(c.y - p.y) < 1e-9);
+  }
+
+  it('90도 회전한 상자를 늘여도, 안 끈 반대쪽 모서리가 화면에서 그대로다', () => {
+    // 10×10 상자(10,10)-(20,20), 90도. nw의 화면 자리를 anchor로 고정하고
+    // 다른 모서리를 화면의 (25,20)으로 끈다 — anchor·to 둘 다 격자에 맞는 값이다.
+    const oldBox = { x: 10, y: 10, width: 10, height: 10 };
+    const anchorScreen = rotationOf(oldBox, 90).map({ x: oldBox.x, y: oldBox.y });
+    const to = { x: 25, y: 20 };
+
+    const newBox = resizeBox(90, anchorScreen, to);
+    const corners = screenCornersOf(newBox, 90);
+    // 안 끈 모서리(이름은 바뀔 수 있다)가 화면에서 그대로다.
+    expect(hasCornerAt(corners, anchorScreen)).toBe(true);
+    // 끈 모서리는 실제로 to 지점에 정확히 온다.
+    expect(hasCornerAt(corners, to)).toBe(true);
+  });
+
+  it('270도에서도 마찬가지다', () => {
+    const oldBox = { x: 10, y: 10, width: 10, height: 10 };
+    const anchorScreen = rotationOf(oldBox, 270).map({ x: oldBox.x + oldBox.width, y: oldBox.y });
+    const to = { x: 5, y: 25 };
+
+    const newBox = resizeBox(270, anchorScreen, to);
+    const corners = screenCornersOf(newBox, 270);
+    expect(hasCornerAt(corners, anchorScreen)).toBe(true);
+    expect(hasCornerAt(corners, to)).toBe(true);
+  });
+
+  it('0도(안 돌아간 것)는 예전 계산과 똑같은 결과를 낸다', () => {
+    // anchor·to가 곧 회전 전 좌표와 같으므로 위 "상자 모서리로 크기
+    // 바꾸기" 묶음과 똑같이 나와야 한다 — 이 함수가 예전 것의 일반화임을 확인한다.
+    expect(resizeBox(0, { x: 10, y: 10 }, { x: 50, y: 60 })).toEqual({ x: 10, y: 10, width: 40, height: 50 });
   });
 });
 

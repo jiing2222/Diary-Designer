@@ -36,6 +36,7 @@ import { StyleBar } from './StyleBar';
 import { IMAGE_RESIZE_SNAP_DIST, TextInput } from './EditorTab';
 import {
   anyLineHandleAt,
+  boxHandleAnchor,
   boxHandleAt,
   centerOnLogoLine,
   editingFor,
@@ -51,7 +52,6 @@ import {
   segProps,
   sizeLabelOf,
   toggleId,
-  toLocal,
   withCells,
   DRAG_START,
   HANDLE_SIZE,
@@ -410,8 +410,9 @@ export function PrintSlotEditor({
     if (tool === 'calendar' || tool === 'image') {
       const boxGripHit = boxHandleAt(lone, raw);
       if (boxGripHit) {
-        const to = lone ? toLocal(lone, snap ?? raw) : (snap ?? raw);
-        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to });
+        const to = snap ?? raw;
+        const anchor = lone ? boxHandleAnchor(lone, boxGripHit.corner) : to;
+        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, anchor, to });
         return;
       }
       const hit = hitAt(svgRef.current, objects, raw);
@@ -425,8 +426,9 @@ export function PrintSlotEditor({
 
     const boxGripHit = boxHandleAt(lone, raw);
     if (boxGripHit) {
-      const to = lone ? toLocal(lone, snap ?? raw) : (snap ?? raw);
-      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, to });
+      const to = snap ?? raw;
+      const anchor = lone ? boxHandleAnchor(lone, boxGripHit.corner) : to;
+      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, anchor, to });
       return;
     }
 
@@ -457,14 +459,12 @@ export function PrintSlotEditor({
       if (target && isImage(target)) {
         const snap = snapped(e);
         const near = snap && Math.hypot(raw.x - snap.x, raw.y - snap.y) <= IMAGE_RESIZE_SNAP_DIST;
-        const chosen = near ? snap! : raw;
-        setDragBoth({ ...d, to: toLocal(target, chosen) });
+        setDragBoth({ ...d, to: near ? snap! : raw });
         return;
       }
       const snap = snapped(e);
       if (!snap) return;
-      const to = target ? toLocal(target, snap) : snap;
-      setDragBoth({ ...d, to });
+      setDragBoth({ ...d, to: snap });
     } else if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox') {
       const snap = snapped(e);
       if (!snap) return;
@@ -515,13 +515,13 @@ export function PrintSlotEditor({
     if (d.kind === 'boxHandle') {
       const target = objects.find((o) => o.id === d.id);
       if (target && isText(target)) {
-        const { box } = resizeTextBoxTo(target, d.corner, d.to);
+        const { box } = resizeTextBoxTo(target, d.anchor, d.to);
         resizeObject(d.id, box);
       } else if (target) {
         // 도형·이미지는 도트 한 칸까지 작아져도 된다 — 달력만 숫자 여러 칸이
         // 든 표라 그 밑으로 가면 못 알아보게 돼 기본값(MIN_BOX_SIZE)을 지킨다.
         const minSize = isShape(target) || isImage(target) ? MIN_FREE_BOX_SIZE : undefined;
-        resizeObject(d.id, resizeBox(boxOf(target), d.corner, d.to, minSize));
+        resizeObject(d.id, resizeBox(rotationDegOf(target), d.anchor, d.to, minSize));
       }
       return;
     }

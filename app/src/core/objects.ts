@@ -685,29 +685,49 @@ export const MIN_BOX_SIZE: Mm = 5;
 /** 글자 상자·도형처럼 도트 한 칸 크기까지 작아져도 되는 것들의 최소 크기. */
 export const MIN_FREE_BOX_SIZE: Mm = 1;
 
+/** 상자에서 `corner`의 대각선 맞은편 점(회전 전 좌표) — 크기조정 때 안 움직이는 기준점. */
+export function oppositeCornerOf(box: Box, corner: Corner): { x: Mm; y: Mm } {
+  return {
+    x: corner.includes('e') ? box.x : box.x + box.width,
+    y: corner.includes('s') ? box.y : box.y + box.height,
+  };
+}
+
+/** 자리(중심 이동) 없이 방향·거리만 돌린다 — 벡터를 돌릴 때 쓴다(resizeBox 참고). */
+function rotateVector(v: { x: Mm; y: Mm }, degrees: number): { x: Mm; y: Mm } {
+  return rotationOf({ x: 0, y: 0, width: 0, height: 0 }, degrees).map(v);
+}
+
 /**
- * 상자의 한 모서리(`corner`)를 `to`로 끌었을 때의 새 상자.
+ * 한 모서리를 화면의 `to`로 끌었을 때의 새 상자(회전 전 좌표로 돌려준다).
  *
- * **맞은편 모서리는 움직이지 않는다.** 왼쪽 위를 끌면 오른쪽 아래가 고정된
- * 채로 자라거나 줄어든다 — 이미지 편집 프로그램에서 흔히 보는 동작이다.
+ * **끄는 반대쪽 모서리는 화면 자리 그대로 고정한다.** `anchor`가 그
+ * 모서리의 화면 좌표다(호출하는 쪽이 드래그를 시작할 때 한 번만 재서
+ * 넘긴다 — 드래그 내내 안 바뀌어야 한다).
+ *
+ * 안 돌아간(0도) 상자는 회전 전=화면이라 반대쪽 모서리를 그대로 두면
+ * 끝이었다. 하지만 회전은 상자 **가운데**를 축으로 돌기 때문에, 크기가
+ * 바뀌면(가운데도 옮겨간다) 회전 전 좌표에서는 안 움직인 모서리가
+ * 화면에서는 도트를 벗어나 버렸다 — 90·270도는 가로세로 축을 서로
+ * 섞어서 어긋남이 대각선으로 나와 특히 심했다.
+ *
+ * `anchor`·`to` 두 화면 점의 가운데가 곧 상자의 새 가운데다(회전은
+ * 가운데를 옮기지 않으므로 회전 전 가운데와 같다) — 이 성질 덕에 두 점을
+ * 잇는 대각선을 반대로 돌리기만 하면 회전 전 가로·세로가 그대로 나온다.
  * 너무 작아지면(`minSize` 아래) 그 이상은 줄지 않는다 — 정하지 않으면
  * `MIN_BOX_SIZE`(달력·이미지 기준)를 쓴다.
  */
 export function resizeBox(
-  box: Box,
-  corner: Corner,
+  rotationDeg: number,
+  anchor: { x: Mm; y: Mm },
   to: { x: Mm; y: Mm },
   minSize: Mm = MIN_BOX_SIZE,
 ): Box {
-  const opposite = {
-    x: corner.includes('e') ? box.x : box.x + box.width,
-    y: corner.includes('s') ? box.y : box.y + box.height,
-  };
-  const width = Math.max(minSize, Math.abs(to.x - opposite.x));
-  const height = Math.max(minSize, Math.abs(to.y - opposite.y));
-  const x = to.x >= opposite.x ? opposite.x : opposite.x - width;
-  const y = to.y >= opposite.y ? opposite.y : opposite.y - height;
-  return { x, y, width, height };
+  const mid = { x: (anchor.x + to.x) / 2, y: (anchor.y + to.y) / 2 };
+  const halfDiagonal = rotateVector({ x: (to.x - anchor.x) / 2, y: (to.y - anchor.y) / 2 }, -rotationDeg);
+  const width = Math.max(minSize, Math.abs(halfDiagonal.x) * 2);
+  const height = Math.max(minSize, Math.abs(halfDiagonal.y) * 2);
+  return { x: mid.x - width / 2, y: mid.y - height / 2, width, height };
 }
 
 /** 화면(SVG 행렬)·PDF(좌표 변환)가 함께 쓰는 회전 변환. core/place의 `Placement`와 같은 모양이다. */
