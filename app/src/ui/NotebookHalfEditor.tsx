@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
 import {
-  boundsOfObjects,
   cleanStyle,
   groupIdOf,
   isBoxResizable,
@@ -43,6 +42,7 @@ import {
   rectOf,
   resizeTextBoxTo,
   rotationDegOf,
+  screenBoundsOfObjects,
   segProps,
   sizeLabelOf,
   toggleId,
@@ -306,7 +306,7 @@ export function NotebookHalfEditor({
     }
     if (!selectedIds.includes(hit.id)) select([hit.id]);
     const ids = selectedIds.includes(hit.id) ? selectedIds : [hit.id];
-    const box = boundsOfObjects(objects.filter((o) => ids.includes(o.id)));
+    const box = screenBoundsOfObjects(objects.filter((o) => ids.includes(o.id)));
     setDragBoth({
       kind: 'move',
       origin: raw,

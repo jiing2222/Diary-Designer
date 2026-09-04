@@ -16,6 +16,7 @@ import {
   rectLines,
   resizeBox,
   rotationOf,
+  screenBoundsOf,
   segmentLength,
   type Box,
   type Corner,
@@ -346,6 +347,26 @@ export function boxHandleAt(lone: DiaryObject | null, p: Point): { id: string; c
 export function boxHandleAnchor(o: DiaryObject, corner: Corner): Point {
   const box = boxOf(o);
   return rotationOf(box, rotationDegOf(o)).map(oppositeCornerOf(box, corner));
+}
+
+/**
+ * 여러 오브젝트를 함께 옮길 때 격자에 앉히는 기준점 — 화면에서 실제로
+ * 차지하는 자리(회전 반영)를 감싸는 네모의 왼쪽 위.
+ *
+ * `boundsOfObjects`(core/objects)는 저장된 상자를 그대로 감싼다 —
+ * 회전한 글자·이미지는 그 왼쪽 위가 화면 자리와 다르다. 옮기는 동안은
+ * 이 어긋난 기준점을 그대로 옮긴 만큼(dx·dy) 화면에도 똑같이
+ * 더해지므로(회전은 옮기는 방향·거리를 안 바꾼다), 처음 기준점만
+ * 화면 자리로 잡으면 그 뒤로는 별도 보정 없이 도트에 잘 붙는다.
+ */
+export function screenBoundsOfObjects(objs: DiaryObject[]): Box | null {
+  if (objs.length === 0) return null;
+  const boxes = objs.map((o) => screenBoundsOf(boxOf(o), rotationDegOf(o)));
+  const left = Math.min(...boxes.map((b) => b.x));
+  const top = Math.min(...boxes.map((b) => b.y));
+  const right = Math.max(...boxes.map((b) => b.x + b.width));
+  const bottom = Math.max(...boxes.map((b) => b.y + b.height));
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 /**

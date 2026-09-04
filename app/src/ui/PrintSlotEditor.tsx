@@ -4,7 +4,6 @@ import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSpl
 import { holeCenterX } from '../core/punch';
 import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
 import {
-  boundsOfObjects,
   boxOf,
   cleanStyle,
   groupIdOf,
@@ -49,6 +48,7 @@ import {
   rectOf,
   resizeTextBoxTo,
   rotationDegOf,
+  screenBoundsOfObjects,
   segProps,
   sizeLabelOf,
   toggleId,
@@ -343,7 +343,7 @@ export function PrintSlotEditor({
     }
     if (!selectedIds.includes(hit.id)) select([hit.id]);
     const ids = selectedIds.includes(hit.id) ? selectedIds : [hit.id];
-    const box = boundsOfObjects(objects.filter((o) => ids.includes(o.id)));
+    const box = screenBoundsOfObjects(objects.filter((o) => ids.includes(o.id)));
     setDragBoth({
       kind: 'move',
       origin: raw,

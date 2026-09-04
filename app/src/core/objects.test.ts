@@ -19,6 +19,7 @@ import {
   reshape,
   resizeBox,
   rotationOf,
+  screenBoundsOf,
   segmentLength,
   sameSegment,
   segmentInRect,
@@ -419,6 +420,34 @@ describe('회전한 상자 크기 바꾸기 — 끄는 반대쪽 모서리가 �
     // anchor·to가 곧 회전 전 좌표와 같으므로 위 "상자 모서리로 크기
     // 바꾸기" 묶음과 똑같이 나와야 한다 — 이 함수가 예전 것의 일반화임을 확인한다.
     expect(resizeBox(0, { x: 10, y: 10 }, { x: 50, y: 60 })).toEqual({ x: 10, y: 10, width: 40, height: 50 });
+  });
+});
+
+describe('회전을 반영한 화면 자리(screenBoundsOf) — 옮기기 스냅의 기준', () => {
+  it('안 돌아갔으면(0도) 상자 그대로다', () => {
+    const box = { x: 10, y: 10, width: 13.64, height: 4.23 };
+    expect(screenBoundsOf(box, 0)).toEqual(box);
+  });
+
+  it('90도로 돌리면 격자 배수가 아닌 상자도 화면 자리는 가로·세로가 맞바뀐 크기다', () => {
+    // 82단계(크기조정)와 같은 계산을 화면 전체 감싸는 네모에 적용한 것 —
+    // 90도는 가로세로를 서로 맞바꾸므로 화면에서 보이는 폭·높이도 바뀐다.
+    const box = { x: 10, y: 10, width: 13.64, height: 4.23 };
+    const screen = screenBoundsOf(box, 90);
+    expect(screen.width).toBeCloseTo(box.height, 9);
+    expect(screen.height).toBeCloseTo(box.width, 9);
+  });
+
+  it('실제 신고된 사례 — 옮기기 전 화면 자리는 격자 배수가 아닐 수 있다', () => {
+    // 로컬 상자(글꼴로 잰 크기라 격자 배수가 아니다)의 왼쪽 위(10,10)는
+    // 격자에 맞지만, 90도로 돌리면 화면에서 실제로 차지하는 자리의
+    // 왼쪽 위는 격자 배수가 아니다 — 옮기기 스냅은 이 화면 자리를
+    // 기준으로 삼아야 한다(로컬 (10,10)을 기준으로 삼으면, 옮긴 만큼을
+    // 더해도 화면에서는 계속 어긋난 채로 움직인다).
+    const box = { x: 10, y: 10, width: 13.64, height: 4.23 };
+    const screen = screenBoundsOf(box, 90);
+    const isGridMultiple = (v: number) => Math.abs(v - Math.round(v / 5) * 5) < 1e-9;
+    expect(isGridMultiple(screen.x) && isGridMultiple(screen.y)).toBe(false);
   });
 });
 

@@ -4,7 +4,6 @@ import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSpl
 import { holeCenterX } from '../core/punch';
 import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
 import {
-  boundsOfObjects,
   boxOf,
   cleanStyle,
   groupIdOf,
@@ -80,6 +79,7 @@ import {
   rectOf,
   resizeTextBoxTo,
   rotationDegOf,
+  screenBoundsOfObjects,
   segProps,
   sizeLabelOf,
   toggleId,
@@ -486,10 +486,11 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
     }
     // 이미 고른 것 중 하나면 선택을 그대로 두고 함께 끈다.
     if (!selectedIds.includes(hit.id)) select([hit.id]);
-    // 격자에 앉힐 기준점 — 함께 옮길 것들을 감싸는 네모의 왼쪽 위.
-    // select()는 다음 렌더에나 반영되므로 지금 고른 것을 여기서 직접 센다.
+    // 격자에 앉힐 기준점 — 함께 옮길 것들이 화면에서 차지하는 자리(회전
+    // 반영)를 감싸는 네모의 왼쪽 위. select()는 다음 렌더에나 반영되므로
+    // 지금 고른 것을 여기서 직접 센다.
     const ids = selectedIds.includes(hit.id) ? selectedIds : [hit.id];
-    const box = boundsOfObjects(objects.filter((o) => ids.includes(o.id)));
+    const box = screenBoundsOfObjects(objects.filter((o) => ids.includes(o.id)));
     setDragBoth({
       kind: 'move',
       origin: raw,

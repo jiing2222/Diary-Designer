@@ -795,6 +795,32 @@ export function rotationOf(box: Box, degrees: number): RotationTransform {
 }
 
 /**
+ * 회전을 반영해서 화면에 실제로 차지하는 자리를 감싸는 네모(회전 전
+ * 좌표계에서 잰다). 안 돌아갔으면(`rotationDeg` 0) `box` 그대로다.
+ *
+ * 옮기기(드래그) 스냅의 기준점을 잡을 때 쓴다 — 저장된 상자(`boxOf`)의
+ * 모서리를 그대로 격자에 맞추면, 회전한 글자·이미지는 그 모서리가
+ * 화면에서는 도트를 벗어난 채로 붙어버린다(옮긴 만큼은 화면에도 그대로
+ * 더해지지만, 애초에 격자에 맞춘 기준점 자체가 화면 자리가 아니었기
+ * 때문이다 — resizeBox가 겪은 것과 같은 어긋남이다).
+ */
+export function screenBoundsOf(box: Box, rotationDeg: number): Box {
+  if (rotationDeg === 0) return box;
+  const r = rotationOf(box, rotationDeg);
+  const corners = [
+    { x: box.x, y: box.y },
+    { x: box.x + box.width, y: box.y },
+    { x: box.x, y: box.y + box.height },
+    { x: box.x + box.width, y: box.y + box.height },
+  ].map((p) => r.map(p));
+  const left = Math.min(...corners.map((c) => c.x));
+  const top = Math.min(...corners.map((c) => c.y));
+  const right = Math.max(...corners.map((c) => c.x));
+  const bottom = Math.max(...corners.map((c) => c.y));
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/**
  * PDF에서 이 회전과 함께 써야 하는 기울임 각도(pdf-lib의 `rotate`).
  *
  * `rotationOf`가 자리(좌표)를 옮기지만, pdf-lib은 글자·그림 자체를 그
