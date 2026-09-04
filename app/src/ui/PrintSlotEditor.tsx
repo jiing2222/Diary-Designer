@@ -412,7 +412,7 @@ export function PrintSlotEditor({
       if (boxGripHit) {
         const to = snap ?? raw;
         const anchor = lone ? boxHandleAnchor(lone, boxGripHit.corner) : to;
-        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, anchor, to });
+        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, anchor, to });
         return;
       }
       const hit = hitAt(svgRef.current, objects, raw);
@@ -428,7 +428,7 @@ export function PrintSlotEditor({
     if (boxGripHit) {
       const to = snap ?? raw;
       const anchor = lone ? boxHandleAnchor(lone, boxGripHit.corner) : to;
-      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, anchor, to });
+      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, anchor, to });
       return;
     }
 

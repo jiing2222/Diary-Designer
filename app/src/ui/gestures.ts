@@ -150,7 +150,7 @@ export type Drag =
    * 한 번만 재고 그 뒤로는 안 바뀐다 — core/objects의 `resizeBox` 주석
    * 참고(회전한 상자는 이 화면 자리를 고정해야 도트에서 안 벗어난다).
    */
-  | { kind: 'boxHandle'; id: string; corner: Corner; anchor: Point; to: Point };
+  | { kind: 'boxHandle'; id: string; anchor: Point; to: Point };
 
 export function rectOf(a: Point, b: Point) {
   return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };

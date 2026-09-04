@@ -356,6 +356,14 @@ describe('상자 모서리로 크기 바꾸기', () => {
     expect(r.y).toBeLessThanOrEqual(10);
   });
 
+  it('최소 크기에 걸려도 anchor는 정확히 상자 모서리에 남는다', () => {
+    // anchor(10,10)에서 1mm만 끌면(최소 5mm보다 훨씬 작게) 최소 크기로
+    // 잘린다 — 리뷰에서 잡은 회귀: (anchor+to)/2를 그대로 가운데로 쓰면
+    // 잘렸을 때 anchor 자신이 상자 안쪽으로 밀려 들어갔다.
+    const r = resizeBox(0, { x: 10, y: 10 }, { x: 9, y: 9 });
+    expect(r).toEqual({ x: 5, y: 5, width: MIN_BOX_SIZE, height: MIN_BOX_SIZE });
+  });
+
   it('ne·sw도 같은 규칙이다', () => {
     // 오른쪽 위(ne)를 끌면 왼쪽 아래(10,40)가 고정된다.
     expect(resizeBox(0, { x: 10, y: 40 }, { x: 50, y: 0 })).toEqual({ x: 10, y: 0, width: 40, height: 40 });
@@ -420,6 +428,21 @@ describe('회전한 상자 크기 바꾸기 — 끄는 반대쪽 모서리가 �
     // anchor·to가 곧 회전 전 좌표와 같으므로 위 "상자 모서리로 크기
     // 바꾸기" 묶음과 똑같이 나와야 한다 — 이 함수가 예전 것의 일반화임을 확인한다.
     expect(resizeBox(0, { x: 10, y: 10 }, { x: 50, y: 60 })).toEqual({ x: 10, y: 10, width: 40, height: 50 });
+  });
+
+  it('90도에서 최소 크기에 걸려도 anchor가 화면에서 정확히 그대로다', () => {
+    // 리뷰에서 잡은 회귀 — anchor 바로 옆(1mm)까지만 끌면 최소 크기(5mm)로
+    // 잘린다. (anchor+to)/2를 그대로 가운데로 쓰면 이때 가운데가 틀려서
+    // anchor 자신이 화면에서도 밀려났다(회전 없을 때와 같은 문제의 회전판).
+    const oldBox = { x: 10, y: 10, width: 10, height: 10 };
+    const anchorScreen = rotationOf(oldBox, 90).map({ x: oldBox.x, y: oldBox.y });
+    const to = { x: anchorScreen.x + 1, y: anchorScreen.y + 1 };
+
+    const newBox = resizeBox(90, anchorScreen, to, MIN_BOX_SIZE);
+    expect(newBox.width).toBe(MIN_BOX_SIZE);
+    expect(newBox.height).toBe(MIN_BOX_SIZE);
+    const corners = screenCornersOf(newBox, 90);
+    expect(hasCornerAt(corners, anchorScreen)).toBe(true);
   });
 });
 

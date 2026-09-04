@@ -711,11 +711,15 @@ function rotateVector(v: { x: Mm; y: Mm }, degrees: number): { x: Mm; y: Mm } {
  * 화면에서는 도트를 벗어나 버렸다 — 90·270도는 가로세로 축을 서로
  * 섞어서 어긋남이 대각선으로 나와 특히 심했다.
  *
- * `anchor`·`to` 두 화면 점의 가운데가 곧 상자의 새 가운데다(회전은
- * 가운데를 옮기지 않으므로 회전 전 가운데와 같다) — 이 성질 덕에 두 점을
- * 잇는 대각선을 반대로 돌리기만 하면 회전 전 가로·세로가 그대로 나온다.
- * 너무 작아지면(`minSize` 아래) 그 이상은 줄지 않는다 — 정하지 않으면
- * `MIN_BOX_SIZE`(달력·이미지 기준)를 쓴다.
+ * **가운데를 `(anchor+to)/2`로 바로 구하면 안 된다** — 이 식은 `to`가
+ * 정말로 반대쪽 모서리의 화면 자리일 때만 맞다. `minSize`에 걸려
+ * 잘리면(너무 작게 끌면) 실제 모서리는 `to`가 아닌 다른 자리에 있으므로,
+ * 이 식으로 구한 가운데도 틀려서 anchor 자체가 도로 어긋난다(리뷰에서
+ * 잡은 회귀 — 0도에서도 재현된다: anchor(10,10)에서 1mm만 끌어도
+ * anchor가 상자 밖으로 밀려났다). **가운데는 anchor에서 반대 방향으로
+ * (자른 뒤의) 반너비·반높이만큼 회전해서 옮긴 자리다** — 방향(부호)만
+ * `to`에서 따오고, 실제로 옮기는 거리는 클램프가 끝난 뒤의 값을 쓴다.
+ * 안 잘렸을 때는 이 계산이 대수적으로 `(anchor+to)/2`와 정확히 같다.
  */
 export function resizeBox(
   rotationDeg: number,
@@ -723,11 +727,16 @@ export function resizeBox(
   to: { x: Mm; y: Mm },
   minSize: Mm = MIN_BOX_SIZE,
 ): Box {
-  const mid = { x: (anchor.x + to.x) / 2, y: (anchor.y + to.y) / 2 };
   const halfDiagonal = rotateVector({ x: (to.x - anchor.x) / 2, y: (to.y - anchor.y) / 2 }, -rotationDeg);
   const width = Math.max(minSize, Math.abs(halfDiagonal.x) * 2);
   const height = Math.max(minSize, Math.abs(halfDiagonal.y) * 2);
-  return { x: mid.x - width / 2, y: mid.y - height / 2, width, height };
+  const halfSize = {
+    x: (halfDiagonal.x >= 0 ? 1 : -1) * (width / 2),
+    y: (halfDiagonal.y >= 0 ? 1 : -1) * (height / 2),
+  };
+  const centerOffset = rotateVector(halfSize, rotationDeg);
+  const center = { x: anchor.x + centerOffset.x, y: anchor.y + centerOffset.y };
+  return { x: center.x - width / 2, y: center.y - height / 2, width, height };
 }
 
 /** 화면(SVG 행렬)·PDF(좌표 변환)가 함께 쓰는 회전 변환. core/place의 `Placement`와 같은 모양이다. */

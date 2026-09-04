@@ -577,7 +577,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
         // boxHandleAnchor·core/objects의 resizeBox 주석 참고.
         const to = snap ?? raw;
         const anchor = lone ? boxHandleAnchor(lone, boxGripHit.corner) : to;
-        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, anchor, to });
+        setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, anchor, to });
         return;
       }
       // 이미 있는 것을 클릭하면 고르고, 끌면 옮길 수 있게 한다.
@@ -597,7 +597,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
       // snap을 쓰는 이유·anchor를 여기서 재는 이유는 위 이미지·달력 분기와 같다.
       const to = snap ?? raw;
       const anchor = lone ? boxHandleAnchor(lone, boxGripHit.corner) : to;
-      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, corner: boxGripHit.corner, anchor, to });
+      setDragBoth({ kind: 'boxHandle', id: boxGripHit.id, anchor, to });
       return;
     }
 
