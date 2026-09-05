@@ -930,6 +930,12 @@ export function App() {
           <h1>Rings</h1>
         </div>
 
+        {/* 고르고 → 그리고 → 인쇄한다. 예전엔 여기 늘 늘어서 있던 탭
+            4개를 햄버거 메뉴 뒤로 옮겼다 — 버튼 자체(순서·disabled
+            조건)는 NavMenu 안에 그대로다. 로고 바로 옆(가장 왼쪽)에
+            둔다 — 사용자 요청. */}
+        <NavMenu tab={tab} setTab={setTab} active={active} />
+
         <div className="header-spacer" />
 
         {active ? (
@@ -942,11 +948,6 @@ export function App() {
         )}
 
         <div className="header-spacer" />
-
-        {/* 고르고 → 그리고 → 인쇄한다. 예전엔 여기 늘 늘어서 있던 탭
-            4개를 햄버거 메뉴 뒤로 옮겼다 — 버튼 자체(순서·disabled
-            조건)는 NavMenu 안에 그대로다. */}
-        <NavMenu tab={tab} setTab={setTab} active={active} />
 
         <button onClick={exportPdf} disabled={busy || !active || layout.count === 0}>
           {busy ? 'Preparing…' : 'Download'}
