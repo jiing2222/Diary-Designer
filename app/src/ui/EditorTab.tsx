@@ -1076,14 +1076,6 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
 
   return (
     <div className="editor">
-      <SideBar
-        activeSide={activeSide}
-        hasBack={hasBack}
-        addBack={addBack}
-        removeBack={removeBack}
-        copyFrontToBack={copyFrontToBack}
-        switchSide={switchSide}
-      />
       <div className="editor-bar">
         <div className="editor-bar-tools">
           <button
@@ -1124,6 +1116,18 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
               그룹 해제
             </button>
           )}
+          {/* 참고 디자인처럼 지우기·잠그기·그룹화와 앞면/뒷면·회전을
+              세로 구분선 하나로 나눠 한 줄에 둔다 — 예전엔 SideBar가
+              따로 한 줄(.side-bar)을 차지했다. */}
+          <div className="divider-v" />
+          <SideBar
+            activeSide={activeSide}
+            hasBack={hasBack}
+            addBack={addBack}
+            removeBack={removeBack}
+            copyFrontToBack={copyFrontToBack}
+            switchSide={switchSide}
+          />
           <button
             className="ghost"
             onClick={() => rotateView()}
@@ -1638,9 +1642,9 @@ export function TextInput({
 type SubTool = { tool: Tool; label: string; shortcut: string; icon: React.ReactNode };
 
 const ELEMENT_TOOLS: SubTool[] = [
-  { tool: 'draw', label: '그리기', shortcut: 'D', icon: <LineIcon /> },
-  { tool: 'table', label: '표', shortcut: 'G', icon: <TableIcon /> },
-  { tool: 'checkbox', label: '체크박스', shortcut: 'X', icon: <CheckboxIcon /> },
+  { tool: 'draw', label: 'Draw', shortcut: 'D', icon: <LineIcon /> },
+  { tool: 'table', label: 'Sheet', shortcut: 'G', icon: <TableIcon /> },
+  { tool: 'checkbox', label: 'Check box', shortcut: 'X', icon: <CheckboxIcon /> },
 ];
 
 const TEXT_TOOLS: SubTool[] = [
@@ -1817,7 +1821,7 @@ export function ToolRail({
 
   const TITLE: Record<ToolCategory, string> = {
     select: 'Select',
-    elements: '요소',
+    elements: 'Elements',
     text: 'Text',
     image: 'Image',
     paper: 'Paper',
@@ -1840,10 +1844,10 @@ export function ToolRail({
         <button
           className={`rail-btn ${open === 'elements' || inElements ? 'on' : ''}`}
           onClick={() => toggle('elements')}
-          title="요소 — 선·표·체크박스"
+          title="Elements — Draw · Sheet · Check box"
         >
           <LineIcon />
-          <span>요소</span>
+          <span>Elements</span>
         </button>
 
         <button
@@ -2126,7 +2130,7 @@ function ImageCategoryBody() {
         }}
       />
       <button className="ghost tool-panel-add-file" onClick={() => fileRef.current?.click()} title={error ?? undefined}>
-        파일 불러오기…
+        Upload
       </button>
     </>
   );
@@ -2154,7 +2158,7 @@ function SideBar({
   switchSide: (side: Side) => void;
 }) {
   return (
-    <div className="side-bar">
+    <>
       <div className="side-tabs">
         <button
           className={`side-tab ${activeSide === 'front' ? 'on' : ''}`}
@@ -2187,7 +2191,7 @@ function SideBar({
           뒷면 지우기
         </button>
       )}
-    </div>
+    </>
   );
 }
 

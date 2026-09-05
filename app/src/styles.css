@@ -200,7 +200,7 @@ button:disabled {
 .menu-dropdown {
   position: absolute;
   top: 40px;
-  left: 0;
+  right: 0;
   width: 180px;
   padding: 6px;
   border-radius: 8px;
@@ -288,21 +288,13 @@ button.ghost:disabled {
   flex-direction: column;
 }
 
-/*
- * .editor-bar-style와 같은 이유로 최소 높이를 둔다 — 라벨 글자 하나만
- * 있을 때(앞면)와 버튼이 함께 늘어설 때(뒷면 — 앞면 그대로 복사·뒷면
- * 지우기)가 높이가 달라서, 뒷면을 만들거나 지울 때마다 이 줄이
- * 두꺼워지고 얇아지며 그 아래 캔버스가 움직였다.
- */
-.side-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 7px 14px;
-  min-height: 28px;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
+/* 세로 구분선 — 참고 디자인처럼 지우기·잠그기·그룹화 묶음과 앞면/뒷면·회전
+   묶음을 한 줄 안에서 나눈다. */
+.divider-v {
+  width: 1px;
+  height: 20px;
+  flex-shrink: 0;
+  background: var(--line);
 }
 
 /*
