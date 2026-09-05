@@ -14,6 +14,16 @@ const box = {
   strokeLinejoin: 'round' as const,
 };
 
+/** 클로드 디자인 handoff(design_handoff_main_and_inserts)의 아이콘과 같은 틀 — 24 기준, 선 굵기 1.7. */
+const box24 = {
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.7,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+};
+
 /** 용지 — 세로로 선 종이 한 장에 안쪽 여백선 */
 export function PaperIcon() {
   return (
@@ -71,88 +81,88 @@ export function LayoutIcon() {
   );
 }
 
-/** 글자 — 대문자 T */
+/** 글자 — 대문자 T. 클로드 디자인 handoff와 같은 모양(box24 참고). */
 export function TextIcon() {
   return (
-    <svg {...box} strokeWidth={1.6}>
-      <line x1={4.5} y1={4.5} x2={15.5} y2={4.5} />
-      <line x1={10} y1={4.5} x2={10} y2={15.5} />
+    <svg {...box24}>
+      <line x1={5} y1={6} x2={19} y2={6} />
+      <line x1={12} y1={6} x2={12} y2={19} />
     </svg>
   );
 }
 
-/** 고르기 — 화살표 커서 */
+/** 고르기 — 화살표 커서. 클로드 디자인 handoff와 같은 모양. */
 export function CursorIcon() {
   return (
-    <svg {...box}>
-      <path d="M5.5 3.5 L14 11 L10 11.4 L12.2 15.6 L10.4 16.5 L8.3 12.3 L5.5 14.6 Z" />
+    <svg {...box24}>
+      <path d="M5 4l14 6-6 1.8L11 18z" />
     </svg>
   );
 }
 
-/** 선 긋기 — 두 점을 잇는 선 */
+/** 선 긋기 — 두 점을 잇는 선. 클로드 디자인 handoff와 같은 모양. */
 export function LineIcon() {
   return (
-    <svg {...box}>
-      <line x1={5} y1={15} x2={15} y2={5} />
-      <circle cx={5} cy={15} r={1.8} fill="currentColor" stroke="none" />
-      <circle cx={15} cy={5} r={1.8} fill="currentColor" stroke="none" />
+    <svg {...box24}>
+      <line x1={6} y1={18} x2={18} y2={6} />
+      <circle cx={6} cy={18} r={1.3} fill="currentColor" stroke="none" />
+      <circle cx={18} cy={6} r={1.3} fill="currentColor" stroke="none" />
     </svg>
   );
 }
 
-/** 표 — 칸이 나뉜 사각형. 도트 격자(점 3×3)와 헷갈리지 않게 선으로 그린다. */
+/** 표 — 칸이 나뉜 사각형. 클로드 디자인 handoff와 같은 모양. */
 export function TableIcon() {
   return (
-    <svg {...box}>
-      <rect x={3.5} y={3.5} width={13} height={13} />
-      <line x1={3.5} y1={9.5} x2={16.5} y2={9.5} />
-      <line x1={9.5} y1={3.5} x2={9.5} y2={16.5} />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7}>
+      <rect x={4} y={4} width={16} height={16} />
+      <line x1={4} y1={10.6} x2={20} y2={10.6} />
+      <line x1={4} y1={17.2} x2={20} y2={17.2} />
+      <line x1={10.6} y1={4} x2={10.6} y2={20} />
     </svg>
   );
 }
 
-/** 자동 필드 — 편집 화면의 자리표시(⟨+0⟩)와 같은 꺾쇠·더하기 모양. */
+/** 자동 필드 — 시계 모양. 클로드 디자인 handoff의 AutoField 아이콘과 같다. */
 export function FieldIcon() {
   return (
-    <svg {...box} strokeWidth={1.5}>
-      <path d="M7.5 5 L3.5 10 L7.5 15" />
-      <path d="M12.5 5 L16.5 10 L12.5 15" />
-      <line x1={10} y1={8.3} x2={10} y2={11.7} />
-      <line x1={8.3} y1={10} x2={11.7} y2={10} />
+    <svg {...box24}>
+      <circle cx={12} cy={12} r={8} />
+      <line x1={12} y1={12} x2={12} y2={7.5} />
+      <line x1={12} y1={12} x2={15.2} y2={14} />
     </svg>
   );
 }
 
-/** 이미지 — 액자 안에 해와 산. */
+/** 이미지 — 액자 안에 해와 산. 클로드 디자인 handoff와 같은 모양. */
 export function ImageIcon() {
   return (
-    <svg {...box}>
-      <rect x={3.5} y={3.5} width={13} height={13} rx={1} />
-      <circle cx={7.5} cy={7.5} r={1.3} fill="currentColor" stroke="none" />
-      <path d="M3.5 13.5 L8 9 L11.5 12.5 L13.5 10.5 L16.5 13.5" />
+    <svg {...box24}>
+      <rect x={4} y={5} width={16} height={14} rx={1.5} />
+      <circle cx={9} cy={10} r={1.4} fill="currentColor" stroke="none" />
+      <path d="M5 17l4.5-5 3 3 3-4 4.5 6" />
     </svg>
   );
 }
 
-/** 달력 — 위에 고리 두 개, 머리글 줄이 나뉜 사각형. */
+/** 달력 — 위에 고리 두 개, 머리글 줄이 나뉜 사각형. 클로드 디자인 handoff와 같은 모양. */
 export function CalendarIcon() {
   return (
-    <svg {...box}>
-      <rect x={3.5} y={4.5} width={13} height={12} rx={1} />
-      <line x1={3.5} y1={8} x2={16.5} y2={8} />
-      <line x1={7} y1={2.5} x2={7} y2={5.5} />
-      <line x1={13} y1={2.5} x2={13} y2={5.5} />
+    <svg {...box24}>
+      <rect x={4} y={5} width={16} height={15} rx={1.5} />
+      <line x1={4} y1={10} x2={20} y2={10} />
+      <line x1={8} y1={3} x2={8} y2={7} />
+      <line x1={16} y1={3} x2={16} y2={7} />
     </svg>
   );
 }
 
-/** 체크박스 — 네모 안에 체크 표시. */
+/** 체크박스 — 네모 안에 체크 표시. 클로드 디자인 handoff와 같은 모양. */
 export function CheckboxIcon() {
   return (
-    <svg {...box}>
-      <rect x={3.5} y={3.5} width={13} height={13} rx={1.5} />
-      <path d="M6.5 10.3 L9 13 L14 7.5" />
+    <svg {...box24}>
+      <rect x={5} y={5} width={14} height={14} rx={1.5} />
+      <path d="M8.5 12.5l2.3 2.3 4.7-5.3" />
     </svg>
   );
 }

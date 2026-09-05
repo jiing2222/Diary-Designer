@@ -1644,9 +1644,9 @@ const ELEMENT_TOOLS: SubTool[] = [
 ];
 
 const TEXT_TOOLS: SubTool[] = [
-  { tool: 'text', label: '글자', shortcut: 'T', icon: <TextIcon /> },
-  { tool: 'calendar', label: '달력', shortcut: 'C', icon: <CalendarIcon /> },
-  { tool: 'field', label: '자동 필드', shortcut: 'F', icon: <FieldIcon /> },
+  { tool: 'text', label: 'Text', shortcut: 'T', icon: <TextIcon /> },
+  { tool: 'calendar', label: 'Calendar', shortcut: 'C', icon: <CalendarIcon /> },
+  { tool: 'field', label: 'Field', shortcut: 'F', icon: <FieldIcon /> },
 ];
 
 export type ToolCategory = 'select' | 'elements' | 'text' | 'image' | 'paper' | 'grid' | 'punch';
@@ -1816,13 +1816,13 @@ export function ToolRail({
   const items = open === 'elements' ? ELEMENT_TOOLS : open === 'text' ? TEXT_TOOLS : null;
 
   const TITLE: Record<ToolCategory, string> = {
-    select: '고른 것',
+    select: 'Select',
     elements: '요소',
-    text: '텍스트',
-    image: '이미지',
-    paper: '용지',
-    grid: '도트 격자',
-    punch: '타공 안내',
+    text: 'Text',
+    image: 'Image',
+    paper: 'Paper',
+    grid: 'Dot Grid',
+    punch: 'Punch Guide',
   };
 
   return (
@@ -1831,10 +1831,10 @@ export function ToolRail({
         <button
           className={`rail-btn ${tool === 'select' ? 'on' : ''}`}
           onClick={() => setTool('select')}
-          title="고르기 (V)"
+          title="Select (V)"
         >
           <CursorIcon />
-          <span>고르기</span>
+          <span>Select</span>
         </button>
 
         <button
@@ -1849,10 +1849,10 @@ export function ToolRail({
         <button
           className={`rail-btn ${open === 'text' || inText ? 'on' : ''}`}
           onClick={() => toggle('text')}
-          title="텍스트 — 글자·달력·자동 필드"
+          title="Text — Calendar · Field"
         >
           <TextIcon />
-          <span>텍스트</span>
+          <span>Text</span>
         </button>
 
         <button
@@ -1866,10 +1866,10 @@ export function ToolRail({
             if (tool === 'image') toggle('image');
             else setTool('image');
           }}
-          title="이미지 (I)"
+          title="Image (I)"
         >
           <ImageIcon />
-          <span>이미지</span>
+          <span>Image</span>
         </button>
 
         {/*
@@ -1882,10 +1882,10 @@ export function ToolRail({
           <button
             className={`rail-btn ${open === 'paper' ? 'on' : ''}`}
             onClick={() => toggle('paper')}
-            title="용지"
+            title="Paper"
           >
             <PaperIcon />
-            <span>용지</span>
+            <span>Paper</span>
             {unprintableShow && <span className="rail-mark" />}
           </button>
         )}
@@ -1893,20 +1893,20 @@ export function ToolRail({
         <button
           className={`rail-btn ${open === 'grid' ? 'on' : ''}`}
           onClick={() => toggle('grid')}
-          title="도트 격자"
+          title="Dot Grid"
         >
           <GridIcon />
-          <span>도트 격자</span>
+          <span>Dot Grid</span>
           {grid.showOnScreen && <span className="rail-mark" />}
         </button>
 
         <button
           className={`rail-btn ${open === 'punch' ? 'on' : ''}`}
           onClick={() => toggle('punch')}
-          title="타공 안내"
+          title="Punch Guide"
         >
           <PunchIcon />
-          <span>타공 안내</span>
+          <span>Punch Guide</span>
           {insert.punch.show && <span className="rail-mark" />}
         </button>
 

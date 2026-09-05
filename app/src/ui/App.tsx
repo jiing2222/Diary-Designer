@@ -38,7 +38,6 @@ import { PrintSlotEditor } from './PrintSlotEditor';
 import { EditorTab, ToolRail, ZoomStepper } from './EditorTab';
 import { NotebookEditorTab } from './NotebookEditorTab';
 import { GalleryTab } from './GalleryTab';
-import { ProjectFile } from './ProjectFile';
 import { Toast } from './Toast';
 import { SlotAssign } from './SlotAssign';
 import { RepeatPrint } from './RepeatPrint';
@@ -233,31 +232,31 @@ function NavMenu({ tab, setTab, active }: { tab: Tab; setTab: (t: Tab) => void; 
 
   return (
     <div className="nav-menu" ref={wrapRef}>
-      <button className="menu-btn" onClick={() => setOpen((v) => !v)} title="메뉴">
+      <button className="menu-btn" onClick={() => setOpen((v) => !v)} title="Menu">
         <MenuIcon />
       </button>
 
       {open && (
         <div className="menu-dropdown">
           <button className={tab === 'gallery' ? 'tab on' : 'tab'} onClick={() => go('gallery')}>
-            양식 관리
+            Template
           </button>
           <button
             className={tab === 'edit' && active?.kind === 'insert' ? 'tab on' : 'tab'}
             onClick={() => go('edit')}
             disabled={!active || active.kind !== 'insert'}
           >
-            속지 제작
+            Inserts
           </button>
           <button
             className={tab === 'edit' && active?.kind === 'notebook' ? 'tab on' : 'tab'}
             onClick={() => go('edit')}
             disabled={!active || active.kind !== 'notebook'}
           >
-            노트 제작
+            Notebooks
           </button>
           <button className={tab === 'print' ? 'tab on' : 'tab'} onClick={() => go('print')} disabled={!active}>
-            인쇄하기
+            Print
           </button>
         </div>
       )}
@@ -931,6 +930,11 @@ export function App() {
           <h1>Rings</h1>
         </div>
 
+        {/* 고르고 → 그리고 → 인쇄한다. 예전엔 여기 늘 늘어서 있던 탭
+            4개를 햄버거 메뉴 뒤로 옮겼다 — 버튼 자체(순서·disabled
+            조건)는 NavMenu 안에 그대로다. */}
+        <NavMenu tab={tab} setTab={setTab} active={active} />
+
         <div className="header-spacer" />
 
         {active ? (
@@ -944,16 +948,9 @@ export function App() {
 
         <div className="header-spacer" />
 
-        <div className="header-actions">
-          <ProjectFile />
-          {/* 고르고 → 그리고 → 인쇄한다. 예전엔 여기 늘 늘어서 있던 탭
-              4개를 햄버거 메뉴 뒤로 옮겼다 — 버튼 자체(순서·disabled
-              조건)는 NavMenu 안에 그대로다. */}
-          <NavMenu tab={tab} setTab={setTab} active={active} />
-          <button onClick={exportPdf} disabled={busy || !active || layout.count === 0}>
-            {busy ? '만드는 중…' : 'PDF 내보내기'}
-          </button>
-        </div>
+        <button onClick={exportPdf} disabled={busy || !active || layout.count === 0}>
+          {busy ? 'Preparing…' : 'Download'}
+        </button>
       </header>
 
       <main>
