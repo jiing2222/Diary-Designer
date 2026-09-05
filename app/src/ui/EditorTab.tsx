@@ -1834,6 +1834,7 @@ export function ToolRail({
           title="고르기 (V)"
         >
           <CursorIcon />
+          <span>고르기</span>
         </button>
 
         <button
@@ -1842,6 +1843,7 @@ export function ToolRail({
           title="요소 — 선·표·체크박스"
         >
           <LineIcon />
+          <span>요소</span>
         </button>
 
         <button
@@ -1850,6 +1852,7 @@ export function ToolRail({
           title="텍스트 — 글자·달력·자동 필드"
         >
           <TextIcon />
+          <span>텍스트</span>
         </button>
 
         <button
@@ -1866,6 +1869,7 @@ export function ToolRail({
           title="이미지 (I)"
         >
           <ImageIcon />
+          <span>이미지</span>
         </button>
 
         {/*
@@ -1881,6 +1885,7 @@ export function ToolRail({
             title="용지"
           >
             <PaperIcon />
+            <span>용지</span>
             {unprintableShow && <span className="rail-mark" />}
           </button>
         )}
@@ -1891,6 +1896,7 @@ export function ToolRail({
           title="도트 격자"
         >
           <GridIcon />
+          <span>도트 격자</span>
           {grid.showOnScreen && <span className="rail-mark" />}
         </button>
 
@@ -1900,6 +1906,7 @@ export function ToolRail({
           title="타공 안내"
         >
           <PunchIcon />
+          <span>타공 안내</span>
           {insert.punch.show && <span className="rail-mark" />}
         </button>
 

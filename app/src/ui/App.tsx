@@ -52,6 +52,7 @@ import {
   restoreCachedImages,
 } from '../images/registry';
 import type { DiaryObject, ImageObject, TextObject } from '../core/objects';
+import { MenuIcon, RingsLogo } from './icons';
 
 type Tab = 'gallery' | 'edit' | 'print';
 
@@ -196,6 +197,70 @@ function PrintSidePanel() {
         <h2>배치 · 절취선</h2>
         <LayoutGroup />
       </section>
+    </div>
+  );
+}
+
+/**
+ * 화면 탭 4개(양식 관리·속지 제작·노트 제작·인쇄하기) — 예전엔 헤더에 늘
+ * 늘어서 있었는데, 햄버거 메뉴 뒤로 옮겨 헤더를 조용하게 뒀다. 버튼
+ * 자체(끄고 켜는 조건·disabled)는 그대로다, 담는 자리만 바뀌었다.
+ */
+function NavMenu({ tab, setTab, active }: { tab: Tab; setTab: (t: Tab) => void; active: Template | null }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: PointerEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  function go(t: Tab) {
+    setTab(t);
+    setOpen(false);
+  }
+
+  return (
+    <div className="nav-menu" ref={wrapRef}>
+      <button className="menu-btn" onClick={() => setOpen((v) => !v)} title="메뉴">
+        <MenuIcon />
+      </button>
+
+      {open && (
+        <div className="menu-dropdown">
+          <button className={tab === 'gallery' ? 'tab on' : 'tab'} onClick={() => go('gallery')}>
+            양식 관리
+          </button>
+          <button
+            className={tab === 'edit' && active?.kind === 'insert' ? 'tab on' : 'tab'}
+            onClick={() => go('edit')}
+            disabled={!active || active.kind !== 'insert'}
+          >
+            속지 제작
+          </button>
+          <button
+            className={tab === 'edit' && active?.kind === 'notebook' ? 'tab on' : 'tab'}
+            onClick={() => go('edit')}
+            disabled={!active || active.kind !== 'notebook'}
+          >
+            노트 제작
+          </button>
+          <button className={tab === 'print' ? 'tab on' : 'tab'} onClick={() => go('print')} disabled={!active}>
+            인쇄하기
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -861,40 +926,12 @@ export function App() {
   return (
     <div className="app">
       <header>
-        <h1>System Diary Designer</h1>
+        <div className="logo">
+          <RingsLogo />
+          <h1>Rings</h1>
+        </div>
 
-        {/* 고르고 → 그리고 → 인쇄한다. 탭 순서가 곧 작업 순서다. */}
-        <nav className="tabs">
-          <button className={tab === 'gallery' ? 'tab on' : 'tab'} onClick={() => setTab('gallery')}>
-            양식 관리
-          </button>
-          {/*
-            고칠 양식이 없으면 갈 수 없는 곳이다. 속지·노트는 같은 편집
-            화면(EditorTab)을 쓰지만, 지금 고른 양식의 종류(kind)에 맞는
-            버튼만 눌린다 — 다른 종류로 잘못 들어가는 일이 없게 한다.
-          */}
-          <button
-            className={tab === 'edit' && active?.kind === 'insert' ? 'tab on' : 'tab'}
-            onClick={() => setTab('edit')}
-            disabled={!active || active.kind !== 'insert'}
-          >
-            속지 제작
-          </button>
-          <button
-            className={tab === 'edit' && active?.kind === 'notebook' ? 'tab on' : 'tab'}
-            onClick={() => setTab('edit')}
-            disabled={!active || active.kind !== 'notebook'}
-          >
-            노트 제작
-          </button>
-          <button
-            className={tab === 'print' ? 'tab on' : 'tab'}
-            onClick={() => setTab('print')}
-            disabled={!active}
-          >
-            인쇄하기
-          </button>
-        </nav>
+        <div className="header-spacer" />
 
         {active ? (
           <div className="template-info-group">
@@ -904,10 +941,19 @@ export function App() {
         ) : (
           <span className="stage" />
         )}
-        <ProjectFile />
-        <button onClick={exportPdf} disabled={busy || !active || layout.count === 0}>
-          {busy ? '만드는 중…' : 'PDF 내보내기'}
-        </button>
+
+        <div className="header-spacer" />
+
+        <div className="header-actions">
+          <ProjectFile />
+          {/* 고르고 → 그리고 → 인쇄한다. 예전엔 여기 늘 늘어서 있던 탭
+              4개를 햄버거 메뉴 뒤로 옮겼다 — 버튼 자체(순서·disabled
+              조건)는 NavMenu 안에 그대로다. */}
+          <NavMenu tab={tab} setTab={setTab} active={active} />
+          <button onClick={exportPdf} disabled={busy || !active || layout.count === 0}>
+            {busy ? '만드는 중…' : 'PDF 내보내기'}
+          </button>
+        </div>
       </header>
 
       <main>

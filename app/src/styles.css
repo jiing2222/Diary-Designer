@@ -33,10 +33,16 @@
   --bg: #f4f4f2;
   --panel: #ffffff;
   --ink: #1c1c1a;
-  --muted: #7a7a74;
+  --muted: #6e6e68;
   --line: #dededa;
+  --line-hover: #c6c6c0;
   --accent: #2f6f4f;
+  --accent-hover: #275d42;
+  --accent-subtle: #e3ede7;
   --warn: #b04a2f;
+  --warn-subtle: #f5e6e0;
+  --placeholder: #b6b6b0;
+  --hover-bg: #eaeae6;
   font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard',
     'Malgun Gothic', sans-serif;
   font-size: 14px;
@@ -63,22 +69,44 @@ body {
 header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
+  gap: 24px;
+  height: 52px;
+  padding: 0 16px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
+}
+
+/* 로고 — 반지 아이콘 + 이름. 늘 왼쪽 끝에 고정된 자리다. */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 header h1 {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+/* 로고와 가운데 묶음, 가운데 묶음과 오른쪽 버튼들 사이 — 양쪽에 하나씩 둬서
+   가운데(양식 이름·크기·실행취소)가 화면 가운데 쪽으로 몰리게 한다. */
+.header-spacer {
+  flex: 1;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .stage {
   font-size: 12px;
   color: var(--muted);
-  margin-right: auto;
 }
 
 /* 헤더 가운데 — 양식 이름 · 속지 크기 · 실행취소/다시실행 */
@@ -86,7 +114,6 @@ header h1 {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-right: auto;
 }
 
 .template-info {
@@ -105,7 +132,7 @@ header h1 {
 .template-name,
 .size-trigger {
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: 4px;
   background: transparent;
   color: var(--ink);
   font-size: 13px;
@@ -119,13 +146,13 @@ header h1 {
 
 .template-name:hover,
 .size-trigger:hover {
-  background: #eceee9;
+  background: var(--hover-bg);
 }
 
 .template-name-input {
   padding: 3px 7px;
   border: 1px solid var(--accent);
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
@@ -143,7 +170,7 @@ header h1 {
 button {
   padding: 7px 14px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--accent);
   color: #fff;
   font-size: 13px;
@@ -156,23 +183,69 @@ button:disabled {
   cursor: default;
 }
 
+/* 햄버거 메뉴 — 예전엔 늘 보이던 탭 4개를 이 안에 넣어 헤더를 조용하게 둔다. */
+.nav-menu {
+  position: relative;
+}
+
+.menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+}
+
+.menu-btn:hover {
+  background: var(--hover-bg);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  width: 180px;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+  z-index: 20;
+}
+
 .tabs {
   display: flex;
+  flex-direction: column;
   gap: 2px;
 }
 
 .tab {
-  padding: 5px 12px;
-  border-radius: 5px;
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 4px;
   background: transparent;
-  color: var(--muted);
+  color: var(--ink);
   font-weight: 500;
+  text-align: left;
+}
+
+.tab:hover:not(:disabled) {
+  background: var(--hover-bg);
 }
 
 .tab.on {
-  background: #eceee9;
-  color: var(--ink);
+  background: var(--accent-subtle);
+  color: var(--accent);
   font-weight: 600;
+}
+
+.tab:disabled {
+  background: transparent;
+  color: var(--placeholder);
 }
 
 button.ghost {
@@ -180,6 +253,10 @@ button.ghost {
   background: transparent;
   color: var(--ink);
   font-size: 14px;
+}
+
+button.ghost:hover:not(:disabled) {
+  background: var(--hover-bg);
 }
 
 button.ghost:disabled {
@@ -926,6 +1003,32 @@ main {
 }
 
 /*
+ * ToolRail(속지·노트 제작)만 아이콘 아래에 이름을 붙인 넓은 버튼으로 —
+ * SettingsPanel(인쇄하기, .rail-wrap만 있고 .rail-wrap-tool은 없다)의
+ * 아이콘 전용 좁은 줄은 그대로 둔다. `.rail-wrap-tool`로 범위를 좁혀서
+ * 다른 화면에 영향이 안 가게 했다.
+ */
+.rail-wrap-tool .rail {
+  width: 68px;
+}
+
+.rail-wrap-tool .rail-btn {
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  height: auto;
+  padding: 8px 2px;
+  border-radius: 4px;
+}
+
+.rail-wrap-tool .rail-btn span {
+  font-size: 9px;
+  font-weight: 500;
+  text-align: center;
+  word-break: keep-all;
+}
+
+/*
  * ToolRail의 탭을 손으로 열고 닫는 화살표(>, <). margin-top: auto로 밀어
  * .rail(도구 아이콘이 늘어선 세로줄) 맨 아래에 붙인다 — .rail-wrap-tool이
  * row 방향이라 .rail 자신이 이미 전체 높이만큼 늘어나 있어서(64단계) 이
@@ -1064,25 +1167,25 @@ main {
   margin-top: 14px;
 }
 
-/* 요소·텍스트 말풍선 안의 하위 도구 — 아이콘 위에 이름을 적은 정사각형 버튼 */
+/* 요소·텍스트 탭 안의 하위 도구 — 아이콘·이름을 한 줄로, 세로로 쌓는다 */
 .tool-subgrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .tool-sub-btn {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 6px 2px;
-  border-radius: 8px;
+  gap: 8px;
+  padding: 8px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
   background: var(--bg);
-  color: var(--ink);
-  font-size: 10px;
-  font-weight: 500;
-  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
   /* "자동 필드"처럼 이름이 길 때 좁은 칸에서 줄바꿈되면, 단어(공백) 자리가
      아니라 글자 한가운데서 잘리지 않게 한다 — 한글은 공백 없이도 아무
      글자 사이에서나 줄바꿈될 수 있어 keep-all로 막아둔다. */
@@ -1090,17 +1193,20 @@ main {
 }
 
 .tool-sub-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .tool-sub-btn:hover {
-  background: #eceee9;
+  background: var(--hover-bg);
 }
 
 .tool-sub-btn.on {
-  background: var(--accent);
-  color: #fff;
+  border: 2px solid var(--accent);
+  padding: 7px 5px;
+  background: #fff;
+  color: var(--accent);
 }
 
 .divider {
@@ -2258,6 +2364,40 @@ footer b {
   text-align: center;
   border: 1px dashed var(--line);
   border-radius: 8px;
+}
+
+/* 체크박스 아이콘 고르기 — 모양을 직접 보고 고른다(글자 목록이던 것을 바꿨다). */
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.icon-swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--muted);
+}
+
+.icon-swatch:hover {
+  background: var(--hover-bg);
+}
+
+.icon-swatch.on {
+  border: 2px solid var(--accent);
+  padding: 7px 0;
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.icon-swatch svg {
+  width: 16px;
+  height: 16px;
 }
 
 .image-picker-item {

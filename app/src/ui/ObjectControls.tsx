@@ -3,6 +3,7 @@ import {
   imageRotateOf,
   MIN_BOX_SIZE,
   type CalendarStyle,
+  type CheckboxIcon,
   type CheckboxStyle,
   type ImageObject,
   type LineObject,
@@ -12,6 +13,7 @@ import {
   type TextObject,
   type TextStyle,
 } from '../core/objects';
+import { checkboxPath } from '../core/checkbox';
 import {
   DEFAULT_FONT_FAMILY,
   OBJECT_LINE_COLOR,
@@ -447,6 +449,16 @@ export function TableControls({ shapes, lines }: { shapes: ShapeObject[]; lines:
   );
 }
 
+/** 체크박스 아이콘 모양 여섯 가지 — 고르기 그리드의 순서·이름. */
+const CHECKBOX_ICONS: { value: CheckboxIcon; label: string }[] = [
+  { value: 'square', label: '네모' },
+  { value: 'circle', label: '동그라미' },
+  { value: 'triangle', label: '세모' },
+  { value: 'diamond', label: '다이아' },
+  { value: 'star', label: '별' },
+  { value: 'heart', label: '하트' },
+];
+
 /**
  * 체크박스 아이콘 모양·테두리 굵기·색.
  *
@@ -454,6 +466,9 @@ export function TableControls({ shapes, lines }: { shapes: ShapeObject[]; lines:
  * 없어도(도구만 고른 상태) **다음에 찍을 모양**을 여기서 미리 고를 수
  * 있다. 매번 네모로 찍고 하나하나 고치는 게 아니라, 별을 찍고 싶으면
  * 찍기 전에 별을 고르는 쪽이 자연스럽다.
+ *
+ * 아이콘은 실제로 찍히는 것과 같은 경로(core/checkbox의 `checkboxPath`)로
+ * 미리 그린다 — 모양을 글자 목록이 아니라 눈으로 보고 고른다.
  */
 export function CheckboxControls({
   items,
@@ -469,21 +484,25 @@ export function CheckboxControls({
     return v === dflt ? '' : String(v);
   };
 
+  const currentIcon = mixed('icon') ? null : (items[0].icon ?? 'square');
+
   return (
     <>
-      <select
-        value={mixed('icon') ? 'mixed' : (items[0].icon ?? 'square')}
-        onChange={(e) => apply({ icon: e.target.value as CheckboxStyle['icon'] })}
-        title="아이콘 모양"
-      >
-        {mixed('icon') && <option value="mixed">—</option>}
-        <option value="square">네모</option>
-        <option value="circle">동그라미</option>
-        <option value="triangle">세모</option>
-        <option value="diamond">다이아</option>
-        <option value="star">별</option>
-        <option value="heart">하트</option>
-      </select>
+      <div className="icon-grid">
+        {CHECKBOX_ICONS.map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            className={`icon-swatch ${currentIcon === value ? 'on' : ''}`}
+            onClick={() => apply({ icon: value })}
+            title={label}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+              <path d={checkboxPath(value, { x: 4, y: 4, width: 16, height: 16 })} />
+            </svg>
+          </button>
+        ))}
+      </div>
 
       <select
         value={val('strokeWidth', OBJECT_LINE_WIDTH)}

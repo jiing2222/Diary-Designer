@@ -187,3 +187,24 @@ export function RepeatIcon() {
     </svg>
   );
 }
+
+/** 메뉴(햄버거) — 가로줄 세 개. 숨겨둔 탭 목록을 연다. */
+export function MenuIcon() {
+  return (
+    <svg {...box}>
+      <line x1={3} y1={6} x2={17} y2={6} />
+      <line x1={3} y1={10} x2={17} y2={10} />
+      <line x1={3} y1={14} x2={17} y2={14} />
+    </svg>
+  );
+}
+
+/** 로고 — 반지 두 개가 겹친 모양. 강조색·잉크색 고리 하나씩, 색은 고정이라 currentColor를 안 쓴다. */
+export function RingsLogo() {
+  return (
+    <svg viewBox="0 0 20 20" width={20} height={20} fill="none">
+      <circle cx={7.3} cy={10} r={4.9} style={{ stroke: 'var(--accent)' }} strokeWidth={1.6} />
+      <circle cx={12.7} cy={10} r={4.9} style={{ stroke: 'var(--ink)' }} strokeWidth={1.6} />
+    </svg>
+  );
+}

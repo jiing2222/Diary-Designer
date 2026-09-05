@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  body { margin: 0; background: #f4f4f2; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #2f6f4f; text-decoration: none; }
+  a:hover { color: #1c1c1a; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#f4f4f2; color:#1c1c1a">
+
+  <header style="position:sticky; top:0; z-index:10; background:#f4f4f2; border-bottom:1px solid #dededa">
+    
+  <div style="max-width:1120px; margin:0 auto; padding:0 24px; height:56px; display:flex; align-items:center; gap:24px">
+      <a href="#" style="display:flex; align-items:center; gap:8px; color:#1c1c1a">
+        <svg width="22" height="22" viewBox="0 0 22 22" style="display:block">
+          <circle cx="8" cy="11" r="5.4" fill="none" stroke="#2f6f4f" stroke-width="1.6"></circle>
+          <circle cx="14" cy="11" r="5.4" fill="none" stroke="#1c1c1a" stroke-width="1.6"></circle>
+        </svg>
+        <span style="font-size:15px; font-weight:600; letter-spacing:-0.2px">Rings</span>
+      </a>
+
+      <nav style="display:flex; align-items:center; gap:2px; margin-left:8px">
+        <button style="display:flex; align-items:baseline; gap:6px; padding:6px 10px; border:none; border-radius:4px; background:transparent; color:#1c1c1a; font:inherit; font-size:13px; font-weight:500; cursor:pointer" style-hover="background:#eaeae6">
+          <span>Template</span>
+          
+        </button>
+        <button style="display:flex; align-items:baseline; gap:6px; padding:6px 10px; border:none; border-radius:4px; background:transparent; color:#1c1c1a; font:inherit; font-size:13px; font-weight:500; cursor:pointer" style-hover="background:#eaeae6">
+          <span>Inserts</span>
+          
+        </button>
+        <button style="display:flex; align-items:baseline; gap:6px; padding:6px 10px; border:none; border-radius:4px; background:transparent; color:#1c1c1a; font:inherit; font-size:13px; font-weight:500; cursor:pointer" style-hover="background:#eaeae6">
+          <span>Notebooks</span>
+          
+        </button>
+        <button style="display:flex; align-items:baseline; gap:6px; padding:6px 10px; border:none; border-radius:4px; background:transparent; color:#1c1c1a; font:inherit; font-size:13px; font-weight:500; cursor:pointer" style-hover="background:#eaeae6">
+          
+          
+        <span>Print</span></button>
+      </nav>
+
+      <div style="margin-left:auto; display:flex; align-items:center; gap:8px">
+        <button style="padding:6px 10px; border:none; border-radius:4px; background:transparent; color:#1c1c1a; font:inherit; font-size:13px; font-weight:500; cursor:pointer" style-hover="background:#eaeae6">로그인</button>
+        <button onClick="{{ start }}" style="padding:7px 14px; border:none; border-radius:4px; background:#2f6f4f; color:#ffffff; font:inherit; font-size:13px; font-weight:600; cursor:pointer" style-hover="background:#275d42">Rings 무료로 사용하기</button>
+      </div>
+    </div></header>
+
+  <main style="max-width:1120px; margin:0 auto; padding:0 24px">
+
+    <section style="display:flex; flex-direction:column; align-items:center; padding:112px 0 0">
+      <h1 style="margin:0; max-width:900px; text-align:center; font-size:clamp(44px, 7.4vw, 92px); font-weight:600; line-height:1.06; letter-spacing:-2.4px; text-wrap:balance">Make your <span style="display:inline-block; padding:0 0.16em; border-radius:999px; background:#e3ede7; color:#2f6f4f">own</span> system</h1>
+
+      <p style="margin:24px 0 0; max-width:520px; text-align:center; font-size:15px; font-weight:500; line-height:1.6; color:#7a7a74; text-wrap:pretty">도트 위에 자유롭게 표현하고, 규격에 맞춰 간편하게 인쇄하세요.</p>
+
+      <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-top:32px">
+        <button onClick="{{ start }}" style="padding:11px 22px; border:none; border-radius:4px; background:#2f6f4f; color:#ffffff; font:inherit; font-size:14px; font-weight:600; cursor:pointer" style-hover="background:#275d42">Rings 무료로 사용하기</button>
+        <button style="padding:11px 22px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:14px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7; border-color:#c6c6c0">규격 먼저 둘러보기</button>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px; margin-top:16px; font-size:11px; font-weight:500; color:#7a7a74">
+        <span>M6 · A5 · A6 · 퍼스널</span>
+        <span style="width:1px; height:10px; background:#dededa"></span>
+        <span>가입 없이 바로 시작</span>
+      </div>
+    </section>
+
+    <section style="margin-top:64px; padding-bottom:96px">
+      <div style="border:1px solid #dededa; border-radius:8px; background:#ffffff; overflow:hidden">
+        <div style="display:flex; align-items:center; gap:12px; height:44px; padding:0 16px; border-bottom:1px solid #dededa">
+          <div style="display:flex; gap:2px">
+            <span style="padding:5px 9px; border-radius:4px; background:#eeeeea; font-size:12px; font-weight:600">Inserts</span>
+            <span style="padding:5px 9px; border-radius:4px; font-size:12px; font-weight:500; color:#7a7a74">Template</span>
+            <span style="padding:5px 9px; border-radius:4px; font-size:12px; font-weight:500; color:#7a7a74">Print</span>
+          </div>
+          <span style="margin-left:auto; font-size:11px; font-weight:500; color:#7a7a74">M6 · 80 × 125mm · 2.5mm 도트</span>
+        </div>
+
+        <div style="display:flex; align-items:stretch; min-height:360px; background:#f4f4f2">
+          <div style="width:180px; flex-shrink:0; padding:16px; border-right:1px solid #dededa; background:#ffffff; display:flex; flex-direction:column; gap:12px">
+            <div style="font-size:11px; font-weight:500; color:#7a7a74">요소</div>
+            <div style="display:flex; flex-direction:column; gap:4px">
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; background:#e3ede7; color:#2f6f4f">글자</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">표</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">체크박스</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">이미지</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">달력</div>
+            </div>
+          </div>
+
+          <div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:center; padding:32px">
+            <svg viewBox="0 0 80 125" preserveAspectRatio="xMidYMid meet" style="display:block; height:296px; width:auto; border:1px solid #dededa; background:#fff">
+              <defs><pattern id="ringsDots" width="2.5" height="2.5" patternUnits="userSpaceOnUse"><circle cx="1.25" cy="1.25" r="0.16" fill="#c2c2bc"></circle></pattern></defs>
+              <rect x="0" y="0" width="80" height="125" fill="#ffffff"></rect>
+              <rect x="6" y="6" width="68" height="113" fill="url(#ringsDots)"></rect>
+              <rect x="8" y="11" width="24" height="3" rx="0.5" fill="#1c1c1a"></rect>
+              <rect x="8" y="18" width="64" height="0.3" fill="#1c1c1a"></rect>
+              <g stroke="#8e8e88" stroke-width="0.22" fill="none">
+                <path d="M8 24 H72 M8 38 H72 M8 52 H72 M8 66 H72"></path>
+                <path d="M8 24 V66 M24 24 V66 M40 24 V66 M56 24 V66 M72 24 V66"></path>
+              </g>
+              <g>
+                <rect x="8" y="74" width="2.6" height="2.6" fill="none" stroke="#8e8e88" stroke-width="0.22"></rect>
+                <rect x="13" y="75" width="40" height="0.3" fill="#c2c2bc"></rect>
+                <rect x="8" y="81" width="2.6" height="2.6" fill="none" stroke="#8e8e88" stroke-width="0.22"></rect>
+                <rect x="13" y="82" width="48" height="0.3" fill="#c2c2bc"></rect>
+                <rect x="8" y="88" width="2.6" height="2.6" fill="none" stroke="#8e8e88" stroke-width="0.22"></rect>
+                <rect x="13" y="89" width="34" height="0.3" fill="#c2c2bc"></rect>
+              </g>
+              <rect x="8" y="98" width="64" height="0.3" fill="#1c1c1a"></rect>
+              <rect x="7.4" y="103" width="30" height="10" fill="none" stroke="#2f6f4f" stroke-width="0.3"></rect>
+              <g fill="#2f6f4f">
+                <rect x="6.6" y="102.2" width="1.6" height="1.6"></rect>
+                <rect x="36.6" y="102.2" width="1.6" height="1.6"></rect>
+                <rect x="6.6" y="112.2" width="1.6" height="1.6"></rect>
+                <rect x="36.6" y="112.2" width="1.6" height="1.6"></rect>
+              </g>
+            </svg>
+          </div>
+
+          <div style="width:200px; flex-shrink:0; padding:16px; border-left:1px solid #dededa; background:#ffffff; display:flex; flex-direction:column; gap:16px">
+            <div style="font-size:11px; font-weight:500; color:#7a7a74">선택한 요소 · 표</div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <span style="font-size:12px; font-weight:500; color:#7a7a74">X</span>
+                <span style="flex:1; max-width:88px; padding:4px 8px; border:1px solid #dededa; border-radius:4px; font-size:12px; font-weight:500; text-align:right">8.0mm</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <span style="font-size:12px; font-weight:500; color:#7a7a74">Y</span>
+                <span style="flex:1; max-width:88px; padding:4px 8px; border:1px solid #dededa; border-radius:4px; font-size:12px; font-weight:500; text-align:right">103.0mm</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <span style="font-size:12px; font-weight:500; color:#7a7a74">너비</span>
+                <span style="flex:1; max-width:88px; padding:4px 8px; border:1px solid #dededa; border-radius:4px; font-size:12px; font-weight:500; text-align:right">30.0mm</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <span style="font-size:12px; font-weight:500; color:#7a7a74">높이</span>
+                <span style="flex:1; max-width:88px; padding:4px 8px; border:1px solid #dededa; border-radius:4px; font-size:12px; font-weight:500; text-align:right">10.0mm</span>
+              </div>
+            </div>
+            <div style="padding-top:12px; border-top:1px solid #dededa; font-size:11px; font-weight:500; color:#7a7a74; line-height:1.6">격자에 맞춰 붙습니다 · 2.5mm</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      start: () => { window.location.href = '양식 관리 갤러리.dc.html'; },
+    };
+  }
+}
+</script>
+</body>
+</html>
