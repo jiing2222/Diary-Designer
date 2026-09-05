@@ -1082,38 +1082,38 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
             className="ghost"
             onClick={deleteSelected}
             disabled={selectedIds.length === 0}
-            title="지우기 (Delete)"
+            title="Erase (Delete)"
           >
-            지우기
+            Erase
           </button>
           <button
             className="ghost"
             onClick={lockSelected}
             disabled={selectedIds.length === 0}
-            title="잠그면 클릭으로도 감싸기로도 골라지지 않습니다. 나중에 다른 작업을 하다 실수로 건드리지 않게 됩니다"
+            title="Locked objects can't be clicked or box-selected — safe from accidental edits later"
           >
-            잠그기
+            Lock
           </button>
           {lockedCount > 0 && (
-            <button className="ghost" onClick={unlockAll} title="잠긴 것을 전부 풉니다">
-              잠긴 것 {lockedCount}개 · 전부 해제
+            <button className="ghost" onClick={unlockAll} title="Unlock everything that's locked">
+              {lockedCount} locked · Unlock all
             </button>
           )}
           <button
             className="ghost"
             onClick={groupSelected}
             disabled={selectedIds.length < 2}
-            title="여럿을 하나로 묶습니다. 묶은 것 중 하나만 클릭해도 전부 함께 골라집니다"
+            title="Group several into one — clicking any of them selects the whole group"
           >
-            그룹화
+            Group
           </button>
           {canUngroup && (
             <button
               className="ghost"
               onClick={ungroupSelected}
-              title="고른 것의 그룹 묶음을 풉니다"
+              title="Ungroup the selection"
             >
-              그룹 해제
+              Ungroup
             </button>
           )}
           {/* 참고 디자인처럼 지우기·잠그기·그룹화와 앞면/뒷면·회전을
@@ -1131,9 +1131,9 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
           <button
             className="ghost"
             onClick={() => rotateView()}
-            title="화면만 시계 방향으로 90도씩 돌려 봅니다. 좌표·인쇄물에는 영향이 없습니다"
+            title="Turn the on-screen view only, 90° clockwise each click — coordinates and the print output aren't affected"
           >
-            ↻
+            Turn ↻
           </button>
         </div>
 
@@ -2164,7 +2164,7 @@ function SideBar({
           className={`side-tab ${activeSide === 'front' ? 'on' : ''}`}
           onClick={() => switchSide('front')}
         >
-          앞면
+          Front
         </button>
         <button
           className={`side-tab ${activeSide === 'back' ? 'on' : ''}`}
@@ -2172,23 +2172,23 @@ function SideBar({
             if (!hasBack) addBack();
             switchSide('back');
           }}
-          title={hasBack ? undefined : '눌러서 뒷면을 만듭니다'}
+          title={hasBack ? undefined : 'Click to create a back side'}
         >
-          뒷면
+          Back
         </button>
       </div>
       {activeSide === 'back' && (
         <button
           className="ghost"
           onClick={copyFrontToBack}
-          title="지금 뒷면에 그린 것을 지우고 앞면과 똑같이 만듭니다"
+          title="Clear the back and make it match the front"
         >
-          앞면 그대로 복사
+          Copy front
         </button>
       )}
       {activeSide === 'back' && hasBack && (
-        <button className="ghost" onClick={removeBack} title="뒷면 지우기">
-          뒷면 지우기
+        <button className="ghost" onClick={removeBack} title="Remove the back side">
+          Remove back
         </button>
       )}
     </>
