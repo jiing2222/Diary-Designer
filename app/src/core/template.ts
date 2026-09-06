@@ -1,5 +1,6 @@
 import { boundsOfObjects, boxOf, cloneObject, moveObject, type DiaryObject } from './objects';
-import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
+import { DEFAULT_DOT_GRID, gridArea, gridLattice, type DotGrid } from './grid';
+import { moveDelta } from './snap';
 import { initHistory, type History } from './history';
 import { DEFAULT_PUNCH, type PunchSetting } from './punch';
 import { findInsertPreset, INSERT_PRESETS } from './presets';
@@ -251,15 +252,47 @@ export function newBack(): BackPage {
  * 것 전체의 테두리 상자(bounding box)만 좌우로 뒤집어** 그 이동량(dx)을
  * 모든 객체에 똑같이 더한다 — 서로의 좌우 순서(순서 안 바뀜)는 그대로
  * 지키면서, 덩어리 전체가 반대쪽 타공에서도 같은 거리에 놓인다.
+ *
+ * **이동량 dx 자체가 격자 배수라는 보장이 없었다 — 그래서 도트를
+ * 벗어났다.** `bounds.width`(그린 것 전체의 가로 폭)는 자동 맞춤
+ * 글자상자나 자유 크기 도형처럼 격자와 무관한 값일 수 있다. 그런
+ * 것이 하나만 섞여 있어도 전체 묶음의 폭이 격자 배수가 아니게 되고,
+ * `dx = width - 2*bounds.x - bounds.width` 공식 자체가 격자와
+ * 무관한 값을 내놓는다 — 그러면 원래 도트에 딱 맞던 객체까지 옮긴
+ * 뒤에는 어긋난다. `moveDelta`(core/snap)로 고친다 — dx를 그대로
+ * 반올림하는 대신, **기준점(묶음의 왼쪽 위)이 도착할 자리**를 격자에
+ * 맞추고 거기서 거꾸로 dx를 구한다(moveDelta 자체의 설계 원칙과 같다
+ * — "이동량이 아니라 도착지를 맞춘다"). 기준점이 이미 격자 위였다면
+ * 결과가 이전 계산과 똑같다.
  */
 export function backFromFront(t: Template): BackPage {
   const objects = t.objects.present;
   const bounds = boundsOfObjects(objects);
-  // 뒤집을 것이 없으면(빈 뒷면) dx는 뜻이 없다 — 0으로 둬도 안전하다.
-  const dx = bounds ? t.insert.width - 2 * bounds.x - bounds.width : 0;
+  const dx = bounds ? mirrorDx(t, bounds) : 0;
   return {
     objects: initHistory(objects.map((o) => moveObject(o, dx, 0))),
   };
+}
+
+/**
+ * `backFromFront`이 쓰는, 격자에 맞춘 좌우 반전 이동량.
+ *
+ * 뒷면(활성화되면 `mirror: true`로 도트를 잰다 — 실제로 이 그린 것을
+ * 옮겨 붙일 곳이 뒷면이라, 그 화면에서 쓰는 격자와 같은 기준으로
+ * 맞춰야 한다)의 격자 위상만 있으면 되고, 목록 전체는 필요 없다.
+ */
+function mirrorDx(t: Template, bounds: { x: Mm; width: Mm }): Mm {
+  const target = t.insert.width - bounds.x - bounds.width;
+  const lattice = gridLattice(
+    gridArea(t.insert, t.dotGrid, t.insert.punch.safeZoneWidth, true),
+    t.dotGrid.spacing,
+    t.dotGrid.minMargin,
+    t.dotGrid.toEdge,
+  );
+  const noGrid = lattice.xs.length === 0 || lattice.ys.length === 0;
+  const gridPhase = noGrid ? null : { x0: lattice.xs[0], y0: lattice.ys[0], spacing: t.dotGrid.spacing };
+  const anchor = { x: bounds.x, y: 0 };
+  return moveDelta(anchor, { x: target, y: 0 }, anchor, gridPhase).dx;
 }
 
 /**

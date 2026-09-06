@@ -501,6 +501,24 @@ describe('앞면을 뒷면으로 복사', () => {
     expect(t.objects.present).toEqual([line(10, 10, 70, 10), text(5, 5, 20, 8)]);
   });
 
+  it('자동 맞춤 글자상자처럼 폭이 격자 배수가 아닌 것이 섞여 있어도, 도트에 맞던 것은 옮긴 뒤에도 도트에 맞는다', () => {
+    // 격자 간격 5mm(기본값). 도트에 정확히 맞춘 상자(x=10~30)와, 자동
+    // 맞춤 글자상자(폭 13.64mm — 격자와 무관한 실측값)를 같이 뒀다.
+    // 전체 묶음의 폭(bounds.width)이 13.64 때문에 격자 배수가 아니게
+    // 되므로, 예전 계산(dx = width - 2*bounds.x - bounds.width)이면
+    // dx 자체가 격자 배수가 아니라 옮긴 뒤 둘 다 도트를 벗어났다.
+    const t = newTemplate('가'); // M6 · 80mm 폭 · 기본 격자 5mm
+    const onGrid = text(10, 10, 20, 5); // 오른쪽 끝 30 — 둘 다 5의 배수
+    const freeWidth = text(40, 10, 13.64, 4.23); // 자동 맞춤, 폭이 격자와 무관
+    t.objects = commit(t.objects, [onGrid, freeWidth]);
+
+    const back = backFromFront(t);
+    const [backOnGrid] = back.objects.present as { x: number; width: number }[];
+    // 원래 도트에 맞았던 상자는 옮긴 뒤에도 왼쪽 끝·오른쪽 끝이 5의 배수여야 한다.
+    expect(backOnGrid.x % 5).toBe(0);
+    expect((backOnGrid.x + backOnGrid.width) % 5).toBe(0);
+  });
+
   it('나란히 놓인 것들의 좌우 순서는 그대로다 — 데칼코마니처럼 뒤바뀌지 않는다', () => {
     // "월"이 "화"보다 왼쪽에 있었다면, 뒷면에서도 "월"이 "화"보다 왼쪽이어야
     // 한다. 낱낱이 뒤집으면 이 순서가 뒤바뀐다 — 그게 문제였다.
