@@ -519,6 +519,23 @@ describe('앞면을 뒷면으로 복사', () => {
     expect((backOnGrid.x + backOnGrid.width) % 5).toBe(0);
   });
 
+  it('묶음에서 가장 왼쪽에 있는 것이 하필 자동 맞춤 글자상자여도, 도트에 맞던 다른 것은 옮긴 뒤에도 도트에 맞는다', () => {
+    // 위 테스트와 달리 이번엔 자동 맞춤 글자상자(자유 폭)가 묶음의 맨
+    // 왼쪽에 있다. bounds.x 자체를 기준점으로 삼으면 그 점 하나만
+    // 우연히 맞아떨어지고, 정작 도트 위에 있던 다른 객체는 계속 어긋난다
+    // — 간단한 시험 양식으로는 못 걸러내고 실제로 쓰던 복잡한 양식에서
+    // 드러났던 문제다.
+    const t = newTemplate('가'); // M6 · 80mm 폭 · 기본 격자 5mm
+    const freeWidth = text(5.3, 10, 13.64, 4.23); // 자동 맞춤, 묶음의 맨 왼쪽
+    const onGrid = text(15, 10, 20, 5); // 도트에 맞춘 상자, 오른쪽 끝 35도 5의 배수
+    t.objects = commit(t.objects, [freeWidth, onGrid]);
+
+    const back = backFromFront(t);
+    const [, backOnGrid] = back.objects.present as { x: number; width: number }[];
+    expect(backOnGrid.x % 5).toBe(0);
+    expect((backOnGrid.x + backOnGrid.width) % 5).toBe(0);
+  });
+
   it('나란히 놓인 것들의 좌우 순서는 그대로다 — 데칼코마니처럼 뒤바뀌지 않는다', () => {
     // "월"이 "화"보다 왼쪽에 있었다면, 뒷면에서도 "월"이 "화"보다 왼쪽이어야
     // 한다. 낱낱이 뒤집으면 이 순서가 뒤바뀐다 — 그게 문제였다.

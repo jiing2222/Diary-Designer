@@ -14,7 +14,7 @@ import {
   type NotebookHalf,
 } from './notebook';
 import type { Dataset } from './dataset';
-import type { Mm } from './units';
+import { roundMm, type Mm } from './units';
 
 /**
  * 양식 — 속지 한 장의 디자인.
@@ -259,11 +259,15 @@ export function newBack(): BackPage {
  * 것이 하나만 섞여 있어도 전체 묶음의 폭이 격자 배수가 아니게 되고,
  * `dx = width - 2*bounds.x - bounds.width` 공식 자체가 격자와
  * 무관한 값을 내놓는다 — 그러면 원래 도트에 딱 맞던 객체까지 옮긴
- * 뒤에는 어긋난다. `moveDelta`(core/snap)로 고친다 — dx를 그대로
- * 반올림하는 대신, **기준점(묶음의 왼쪽 위)이 도착할 자리**를 격자에
- * 맞추고 거기서 거꾸로 dx를 구한다(moveDelta 자체의 설계 원칙과 같다
- * — "이동량이 아니라 도착지를 맞춘다"). 기준점이 이미 격자 위였다면
- * 결과가 이전 계산과 똑같다.
+ * 뒤에는 어긋난다.
+ *
+ * `moveDelta`(core/snap)로 고친다 — 단, **묶음의 왼쪽 위(`bounds.x`)를
+ * 기준점으로 삼으면 안 된다.** 묶음에서 가장 왼쪽에 있는 객체가 하필
+ * 자동 맞춤 글자상자처럼 격자 밖의 것이면, 그 점을 격자에 맞춰봐야
+ * 정작 도트 위에 있던 다른 객체들은 여전히 어긋난다(간단한 시험
+ * 양식에서는 이 경우가 안 걸려서 통과했지만, 실제로 쓰던 복잡한
+ * 양식에서는 가장 왼쪽이 자유 폭 객체인 경우가 있어 다시 어긋났다).
+ * 자세한 계산은 `mirrorDx` 참고.
  */
 export function backFromFront(t: Template): BackPage {
   const objects = t.objects.present;
@@ -277,22 +281,37 @@ export function backFromFront(t: Template): BackPage {
 /**
  * `backFromFront`이 쓰는, 격자에 맞춘 좌우 반전 이동량.
  *
- * 뒷면(활성화되면 `mirror: true`로 도트를 잰다 — 실제로 이 그린 것을
- * 옮겨 붙일 곳이 뒷면이라, 그 화면에서 쓰는 격자와 같은 기준으로
- * 맞춰야 한다)의 격자 위상만 있으면 되고, 목록 전체는 필요 없다.
+ * 안전영역이 앞뒤로 뒤집히면서 격자가 놓일 영역 자체가 `safeZoneWidth`만큼
+ * 옆으로 밀린다 — 그래서 앞면 격자와 뒷면 격자는 같은 간격이라도 위상(격자선이
+ * 정확히 어디서 시작하는가)이 다를 수 있다. 필요한 것은 **그 위상 차이** 하나뿐이라,
+ * 실제 객체 좌표 대신 앞면 격자의 첫 좌표(`front.xs[0]` — 무슨 객체가 거기
+ * 있든 없든, 정의상 항상 격자 위에 있는 값)를 기준점으로 쓴다. 이 기준점이
+ * 옮겨간 뒤 뒷면 격자 위에 놓이도록 하는 이동량은, 원래 옮기려던 양
+ * (`target - bounds.x`)에 가장 가까운 값 하나로 정해진다 — 그렇게 구한 dx는
+ * 앞면 격자 위에 있던 객체라면(묶음의 왼쪽 끝이 아니어도) 무엇이든 뒷면
+ * 격자 위로 옮겨준다.
  */
 function mirrorDx(t: Template, bounds: { x: Mm; width: Mm }): Mm {
   const target = t.insert.width - bounds.x - bounds.width;
-  const lattice = gridLattice(
+  const idealDx = target - bounds.x;
+
+  const front = gridLattice(
+    gridArea(t.insert, t.dotGrid, t.insert.punch.safeZoneWidth, false),
+    t.dotGrid.spacing,
+    t.dotGrid.minMargin,
+    t.dotGrid.toEdge,
+  );
+  const back = gridLattice(
     gridArea(t.insert, t.dotGrid, t.insert.punch.safeZoneWidth, true),
     t.dotGrid.spacing,
     t.dotGrid.minMargin,
     t.dotGrid.toEdge,
   );
-  const noGrid = lattice.xs.length === 0 || lattice.ys.length === 0;
-  const gridPhase = noGrid ? null : { x0: lattice.xs[0], y0: lattice.ys[0], spacing: t.dotGrid.spacing };
-  const anchor = { x: bounds.x, y: 0 };
-  return moveDelta(anchor, { x: target, y: 0 }, anchor, gridPhase).dx;
+  if (front.xs.length === 0 || back.xs.length === 0) return roundMm(idealDx);
+
+  const anchor = { x: front.xs[0], y: 0 };
+  const gridPhase = { x0: back.xs[0], y0: back.ys[0], spacing: t.dotGrid.spacing };
+  return moveDelta(anchor, { x: anchor.x + idealDx, y: 0 }, anchor, gridPhase).dx;
 }
 
 /**
