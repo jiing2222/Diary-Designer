@@ -638,8 +638,96 @@ export function LayoutGroup() {
           label="50mm 검증 눈금"
         />
       </Row>
-      {/* 양면 인쇄는 인쇄하기 탭 상단(print-bar)으로 옮겼다 — 자주 켜고 끄는
-          값이라 여기 팝오버 안쪽보다 눈에 띄는 자리가 낫다. */}
+    </>
+  );
+}
+
+/**
+ * "보기" — 인쇄하기 화면에서 **무엇을 어떻게 볼지**만 모은 묶음.
+ *
+ * 여기 있는 것들은 **인쇄물을 바꾸지 않는다**(양면 세 가지는 예외다 — 그건
+ * 실제로 어떻게 찍히는지를 정한다). 도트·타공 표시는 화면에서만 켜고 끄는
+ * 것이고, "실제 인쇄 모습만 보기"는 그 화면 설정을 잠깐 무시하고 보는 것이다.
+ *
+ * 예전에는 이것들이 인쇄하기 탭 위쪽에 한 줄로 늘어서 있었다. 자주 쓰는
+ * 값이라 눈에 띄는 자리에 뒀던 것인데, 줄이 길어지면서 용지 미리보기를
+ * 위에서 눌러 좁혔다. 왼쪽 탭으로 들어오면 필요할 때만 펴서 본다.
+ */
+export interface PrintViewState {
+  /** 지금 켜둔 도트·타공 화면 설정과 무관하게 인쇄될 모습만 보여줄지. */
+  printPreview: boolean;
+  setPrintPreview: (v: boolean) => void;
+  /** 양면일 때 뒷면을 왼쪽에 둘지. 화면에서 나란히 볼 때의 순서일 뿐이다. */
+  backOnLeft: boolean;
+  setBackOnLeft: (v: boolean) => void;
+}
+
+export function ViewGroup({ view }: { view: PrintViewState }) {
+  const s = useStore();
+  const grid = useDotGrid();
+  const insert = useInsert();
+
+  return (
+    <>
+      <Row label="보기" hint="도트·타공 화면 설정과 무관하게 인쇄되는 것만 보여줍니다">
+        <Check
+          checked={view.printPreview}
+          onChange={view.setPrintPreview}
+          label="실제 인쇄 모습만"
+        />
+      </Row>
+
+      <Divider />
+
+      <Row label="양면">
+        <Check checked={s.duplex} onChange={(duplex) => s.patch({ duplex })} label="양면 인쇄" />
+      </Row>
+      {/* 양면을 껐으면 앞뒤가 나란해질 일이 없으니 순서를 고를 이유가 없다. */}
+      {s.duplex && (
+        <>
+          <Row label="순서">
+            <Check checked={view.backOnLeft} onChange={view.setBackOnLeft} label="뒷면을 왼쪽에" />
+          </Row>
+          <Row
+            label="뒤집기"
+            hint="짧은 변으로 넘기는 프린터용. 한 장 뽑아 빛에 비춰 앞뒤 구멍자리가 겹치는 쪽으로 고르세요"
+          >
+            <Check
+              checked={s.backTurn180}
+              onChange={(backTurn180) => s.patch({ backTurn180 })}
+              label="뒷면 반 바퀴"
+            />
+          </Row>
+        </>
+      )}
+
+      <Divider />
+
+      {/*
+        여기부터는 화면에만 나오는 안내들이다. "실제 인쇄 모습만"을 켜두면
+        어차피 다 감춰지므로, 그때는 꺼둔 것처럼 보이는 게 맞다.
+      */}
+      <Row label="인쇄 불가" hint="프린터가 못 찍는 가장자리. 여기 걸린 내용은 잘려나갑니다">
+        <Check
+          checked={s.unprintable.show}
+          onChange={(show) => s.patchUnprintable({ show })}
+          label="가장자리 표시"
+        />
+      </Row>
+      <Row label="도트 격자">
+        <Check
+          checked={grid.showOnScreen}
+          onChange={(showOnScreen) => s.patchDotGrid({ showOnScreen })}
+          label="화면에 보기"
+        />
+      </Row>
+      <Row label="타공 안내">
+        <Check
+          checked={insert.punch.show}
+          onChange={(show) => s.patchPunch({ show })}
+          label="화면에 보기"
+        />
+      </Row>
     </>
   );
 }

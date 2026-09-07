@@ -45,7 +45,15 @@ import { InsertView } from './InsertView';
 import { ImageThumbGrid } from './ImagePickerDialog';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
-import { PaperGroup, GridGroup, PunchGroup } from './SettingsPanel';
+import {
+  PaperGroup,
+  GridGroup,
+  PunchGroup,
+  RepeatGroup,
+  LayoutGroup,
+  ViewGroup,
+  type PrintViewState,
+} from './SettingsPanel';
 import {
   CalendarIcon,
   CheckboxIcon,
@@ -1653,11 +1661,19 @@ const TEXT_TOOLS: SubTool[] = [
   { tool: 'field', label: 'Field', shortcut: 'F', icon: <FieldIcon /> },
 ];
 
-export type ToolCategory = 'select' | 'elements' | 'text' | 'image' | 'paper' | 'grid' | 'punch';
+export type ToolCategory =
+  | 'select'
+  | 'elements'
+  | 'text'
+  | 'image'
+  | 'view'
+  | 'paper'
+  | 'grid'
+  | 'punch';
 
-/** 도구 카테고리(select·elements·text·image)인지, 용지·도트격자·타공 안내인지. */
+/** 도구 카테고리(select·elements·text·image)인지, 보기·용지·도트격자·타공인지. */
 function isSettingsCategory(cat: ToolCategory): boolean {
-  return cat === 'paper' || cat === 'grid' || cat === 'punch';
+  return cat === 'view' || cat === 'paper' || cat === 'grid' || cat === 'punch';
 }
 
 /**
@@ -1710,10 +1726,18 @@ export function categoryFor(tool: Tool, picked: DiaryObject[]): ToolCategory {
 export function ToolRail({
   onStylePanelSlot,
   showPaper,
+  printView,
 }: {
   onStylePanelSlot: (el: HTMLDivElement | null) => void;
   /** 용지 크기는 인쇄에서만 뜻이 있는 값이라, 인쇄하기 화면일 때만 보여준다. */
   showPaper: boolean;
+  /**
+   * 인쇄하기 화면일 때만 준다. 주면 맨 위에 "보기" 탭이 생긴다 —
+   * 예전에 화면 위쪽 한 줄로 늘어서 있던 토글들이 그 안으로 들어왔다.
+   * store가 아니라 인쇄하기 화면이 들고 있는 값이라(탭을 나가면 잊혀도
+   * 되는 값) 여기로 받아 넘긴다.
+   */
+  printView?: PrintViewState;
 }) {
   const tool = useStore((s) => s.tool);
   const setTool = useStore((s) => s.setTool);
@@ -1820,6 +1844,7 @@ export function ToolRail({
   const items = open === 'elements' ? ELEMENT_TOOLS : open === 'text' ? TEXT_TOOLS : null;
 
   const TITLE: Record<ToolCategory, string> = {
+    view: 'View',
     select: 'Select',
     elements: 'Elements',
     text: 'Text',
@@ -1832,6 +1857,40 @@ export function ToolRail({
   return (
     <div className="rail-wrap rail-wrap-tool" ref={railRef}>
       <div className="rail">
+        {/*
+          보기·용지가 도구들보다 **먼저** 온다(디자인의 차례).
+          "무엇을 어떤 종이에 뽑는가"를 먼저 정하고 그 다음 그리는
+          순서다. 속지 제작 화면에는 둘 다 없으므로 거기서는 예전처럼
+          도구가 맨 위다.
+        */}
+        {/*
+          "보기"는 인쇄하기에서만 있다 — 무엇을 어떻게 볼지 정하는 값들이라
+          속지 제작 화면에는 뜻이 없다. 맨 위에 두는 이유는 인쇄하기에서
+          가장 자주 여닫는 탭이어서다(디자인의 차례도 View · Paper · Insert).
+        */}
+        {printView && (
+          <button
+            className={`rail-btn ${open === 'view' ? 'on' : ''}`}
+            onClick={() => toggle('view')}
+            title="View"
+          >
+            <EyeIcon />
+            <span>View</span>
+          </button>
+        )}
+
+        {showPaper && (
+          <button
+            className={`rail-btn ${open === 'paper' ? 'on' : ''}`}
+            onClick={() => toggle('paper')}
+            title="Paper"
+          >
+            <PaperIcon />
+            <span>Paper</span>
+            {unprintableShow && <span className="rail-mark" />}
+          </button>
+        )}
+
         <button
           className={`rail-btn ${tool === 'select' ? 'on' : ''}`}
           onClick={() => setTool('select')}
@@ -1882,17 +1941,6 @@ export function ToolRail({
           설정이라 도구 카테고리와 같은 줄, 같은 탭 방식으로 합쳤다. 오른쪽
           위 점은 그 설정이 지금 화면에 실제로 보이는 중이라는 표시다.
         */}
-        {showPaper && (
-          <button
-            className={`rail-btn ${open === 'paper' ? 'on' : ''}`}
-            onClick={() => toggle('paper')}
-            title="Paper"
-          >
-            <PaperIcon />
-            <span>Paper</span>
-            {unprintableShow && <span className="rail-mark" />}
-          </button>
-        )}
 
         <button
           className={`rail-btn ${open === 'grid' ? 'on' : ''}`}
@@ -1986,7 +2034,28 @@ export function ToolRail({
             </div>
           )}
           {open === 'image' && <ImageCategoryBody />}
-          {open === 'paper' && <PaperGroup />}
+          {open === 'view' && printView && <ViewGroup view={printView} />}
+
+          {/*
+            용지 탭에는 "몇 장을 어떻게 뽑는가"까지 함께 둔다 — 반복·배치·
+            절취선은 전부 종이 한 장을 어떻게 쓰는지에 대한 답이라 같은
+            자리에 있는 편이 찾기 쉽다. 예전에는 인쇄하기 화면 오른쪽에
+            따로 넓은 칸을 차지하고 있었다.
+
+            속지 제작 화면에는 용지 탭 자체가 없으므로(showPaper) 이 둘도
+            함께 안 보인다 — 거기서는 뜻이 없는 값들이다.
+          */}
+          {open === 'paper' && (
+            <>
+              <PaperGroup />
+              <div className="divider" />
+              <h3 className="rail-panel-title">반복</h3>
+              <RepeatGroup />
+              <div className="divider" />
+              <h3 className="rail-panel-title">배치 · 절취선</h3>
+              <LayoutGroup />
+            </>
+          )}
           {open === 'grid' && <GridGroup />}
           {open === 'punch' && <PunchGroup />}
           {/*

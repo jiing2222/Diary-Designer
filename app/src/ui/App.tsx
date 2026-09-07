@@ -32,7 +32,7 @@ import {
   paddedPageCount,
 } from '../core/notebook';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
-import { SettingsPanel, InsertGroup, RepeatGroup, LayoutGroup } from './SettingsPanel';
+import { InsertGroup } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
 import { PrintSlotEditor } from './PrintSlotEditor';
 import { EditorTab, ToolRail, ZoomStepper } from './EditorTab';
@@ -178,29 +178,6 @@ function UndoRedo() {
       <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
         ↷
       </button>
-    </div>
-  );
-}
-
-/**
- * 인쇄하기 우측 패널 — 반복 · 배치 · 절취선.
- *
- * "몇 장을 어떻게 뽑는가"는 속지 제작 화면(왼쪽 아코디언)에서 뺐다 —
- * 인쇄 단계에서만 뜻이 있는 질문이라 여기로 옮겼다. **임시 자리다** —
- * 어디에 어떤 모양으로 둘지는 아직 정해지지 않았고, 지금은 기능이
- * 잘리지 않는 것만 우선한다.
- */
-function PrintSidePanel() {
-  return (
-    <div className="print-side-panel">
-      <section>
-        <h2>반복</h2>
-        <RepeatGroup />
-      </section>
-      <section>
-        <h2>배치 · 절취선</h2>
-        <LayoutGroup />
-      </section>
     </div>
   );
 }
@@ -996,11 +973,27 @@ export function App() {
               없을 때만 따로 보여준다 — 인쇄하기에서 칸을 직접 손보고
               있지 않을 때는 도구줄 자체가 없어 합칠 자리가 없기 때문이다.
             */}
-            {tab === 'edit' || editingSession ? (
-              <ToolRail onStylePanelSlot={setStylePanelSlot} showPaper={tab === 'print'} />
-            ) : (
-              <SettingsPanel />
-            )}
+            {/*
+              인쇄하기에서도 늘 같은 도구줄을 쓴다. 예전에는 칸을 직접
+              손보는 중일 때만 이걸 띄우고 아닐 때는 SettingsPanel(말풍선)로
+              갈렸는데, 그래서 인쇄하기 화면의 왼쪽이 화면마다 달라 보였다.
+              보기·용지·속지 탭은 인쇄하기에서만 뜻이 있으므로 그때만 켠다.
+            */}
+            <ToolRail
+              onStylePanelSlot={setStylePanelSlot}
+              showPaper={tab === 'print'}
+              printView={
+                tab === 'print'
+                  ? { printPreview, setPrintPreview, backOnLeft, setBackOnLeft }
+                  : undefined
+              }
+            />
+
+            {/*
+              예전 말풍선(SettingsPanel)은 더 이상 쓰지 않는다 — 위 도구줄이
+              같은 설정을 탭으로 들고 있다. 파일은 남겨둔다: 도트 격자·타공
+              묶음(GridGroup·PunchGroup)을 그 도구줄이 그대로 가져다 쓴다.
+            */}
           </div>
         )}
 
@@ -1014,56 +1007,15 @@ export function App() {
           )
         ) : (
           <div className="print-tab">
-            {/* 양식 만들기 화면의 상단 도구줄과 같은 자리 — 같은 위치에 있어야 찾기 쉽다. */}
+            {/*
+              양식 만들기 화면의 상단 도구줄과 같은 자리.
+
+              **보기 토글들은 왼쪽 "보기" 탭으로 옮겼다.** 여기 한 줄로
+              늘어서 있을 때는 켤수록 줄이 길어져 용지 미리보기를 위에서
+              눌러 좁혔다. 지금 이 줄에는 매수·칸 배정처럼 인쇄 작업 자체를
+              정하는 것만 남는다.
+            */}
             <div className="print-bar">
-              <label className="preview-toggle">
-                <input
-                  type="checkbox"
-                  checked={printPreview}
-                  onChange={(e) => setPrintPreview(e.target.checked)}
-                />
-                실제 인쇄 모습만 보기
-                <span className="preview-toggle-hint">
-                  도트·타공 화면 설정과 무관하게 인쇄되는 것만 보여줍니다
-                </span>
-              </label>
-
-              <label className="preview-toggle">
-                <input
-                  type="checkbox"
-                  checked={s.duplex}
-                  onChange={(e) => s.patch({ duplex: e.target.checked })}
-                />
-                양면 인쇄
-              </label>
-
-              {/* 양면을 껐으면 앞뒤가 나란해질 일이 없으니 순서를 고를 이유가 없다. */}
-              {s.duplex && (
-                <label className="preview-toggle">
-                  <input
-                    type="checkbox"
-                    checked={backOnLeft}
-                    onChange={(e) => setBackOnLeft(e.target.checked)}
-                  />
-                  뒷면을 왼쪽에
-                </label>
-              )}
-
-              {s.duplex && (
-                <label className="preview-toggle">
-                  <input
-                    type="checkbox"
-                    checked={s.backTurn180}
-                    onChange={(e) => s.patch({ backTurn180: e.target.checked })}
-                  />
-                  뒷면 반 바퀴 돌리기
-                  <span className="preview-toggle-hint">
-                    짧은 변으로 넘기는 프린터용. 한 장 뽑아 빛에 비춰 앞뒤
-                    구멍자리가 겹치는 쪽으로 고르세요
-                  </span>
-                </label>
-              )}
-
               {lastReverted && (
                 <button
                   className="ghost"
@@ -1244,7 +1196,6 @@ export function App() {
               <ZoomStepper zoom={zoom} onChange={setZoom} />
             </div>
             </div>
-            <PrintSidePanel />
             </div>
           </div>
         )}
