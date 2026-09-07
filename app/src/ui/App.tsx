@@ -160,6 +160,48 @@ function TemplateInfo({ template }: { template: Template }) {
 }
 
 /**
+ * 지금 어느 단계에 있는지 — 양식 → 속지 → 인쇄.
+ *
+ * 햄버거 메뉴에도 같은 네 곳이 있지만 그건 **열어봐야** 보인다. 이건 늘
+ * 떠 있어서, 누르지 않아도 지금 위치를 알려주는 것이 먼저다.
+ *
+ * 갈 수 없는 곳은 눌리지 않는다 — 양식을 하나도 안 골랐으면 속지·인쇄에는
+ * 보여줄 것이 없다.
+ */
+function Breadcrumb({
+  tab,
+  setTab,
+  active,
+}: {
+  tab: Tab;
+  setTab: (t: Tab) => void;
+  active: Template | null;
+}) {
+  const steps: { id: Tab; label: string; enabled: boolean }[] = [
+    { id: 'gallery', label: 'Template', enabled: true },
+    { id: 'edit', label: 'Insert', enabled: !!active },
+    { id: 'print', label: 'Print', enabled: !!active },
+  ];
+
+  return (
+    <nav className="crumbs">
+      {steps.map((s, i) => (
+        <span key={s.id} className="crumb-item">
+          {i > 0 && <span className="crumb-sep">›</span>}
+          <button
+            className={`crumb ${tab === s.id ? 'on' : ''}`}
+            onClick={() => setTab(s.id)}
+            disabled={!s.enabled || tab === s.id}
+          >
+            {s.label}
+          </button>
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+/**
  * 실행취소 / 다시실행 — 속지 제작·노트 제작·인쇄하기(칸 손보기) 셋이 저마다
  * 들고 있던 버튼을 여기 하나로 모았다. `s.undo`·`s.redo`는 이미 그림자
  * (반쪽·칸을 직접 손보는 중)가 있으면 그쪽만, 없으면 활성 양식의 지금 쪽만
@@ -944,6 +986,13 @@ export function App() {
 
         <div className="header-spacer" />
 
+        {/*
+          지금 어디쯤 와 있는지. 양식을 고르고 → 그리고 → 인쇄한다는 순서가
+          그대로 길이 된다 — 앞 단계는 눌러서 돌아갈 수 있고, 지금 있는
+          곳은 눌리지 않는다.
+        */}
+        <Breadcrumb tab={tab} setTab={setTab} active={active} />
+
         {active ? (
           <div className="template-info-group">
             <TemplateInfo template={active} />
@@ -1187,12 +1236,6 @@ export function App() {
                 })
               )}
             </div>
-            <div className="zoom-float">
-              <button className="ghost" onClick={() => setZoom('fit')} disabled={zoom === 'fit'} title="화면에 맞춤">
-                맞춤
-              </button>
-              <ZoomStepper zoom={zoom} onChange={setZoom} />
-            </div>
             </div>
             {/* 칸 배정 — 접었다 펼 수 있고 폭도 끌어서 바꾼다(ui/SlotPanel). */}
             {printMode === 'combo' && <SlotPanel layout={layout} />}
@@ -1201,32 +1244,54 @@ export function App() {
         )}
       </main>
 
-      <footer>
-        <span>
-          용지 {width} × {height}mm
-        </span>
+      {/*
+        상태줄 두 줄. 윗줄은 **지금 무엇을 보고 있는지**(속지 크기 · 확대),
+        아랫줄은 **뽑으면 어떻게 되는지**(용지 · 한 장에 몇 개 · 인쇄 안내)다.
+        확대 컨트롤은 예전에 캔버스 위에 떠 있었는데, 용지 오른쪽 아래를
+        가려서 그 자리의 재단 표시를 볼 수가 없었다.
+      */}
+      <footer className="status">
         {active && (
-          <>
+          <div className="status-row">
             <span>
               속지 {active.insert.width} × {active.insert.height}mm
             </span>
+            <div className="status-gap" />
+            {tab === 'print' && (
+              <div className="zoom-controls">
+                <button
+                  className="ghost"
+                  onClick={() => setZoom('fit')}
+                  disabled={zoom === 'fit'}
+                  title="화면에 맞춤"
+                >
+                  맞춤
+                </button>
+                <ZoomStepper zoom={zoom} onChange={setZoom} />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="status-row">
+          <span>
+            용지 {width} × {height}mm
+          </span>
+          {active && (
             <span>
               한 장에 <b>{layout.count}개</b> ({layout.cols} × {layout.rows})
               {layout.rotated && ' · 90도 회전'}
             </span>
-          </>
-        )}
-
-        {/*
-          인쇄 안내. 인쇄하기 탭에서만 띄운다 — 양식 만들기 중에는 상관없는 이야기다.
-          맨 아래 줄에 두는 이유는 미리보기를 가리지 않기 위해서다.
-        */}
-        {tab === 'print' && (
-          <span className="print-hint">
-            인쇄 대화상자에서 <b>실제 크기 / 100%</b>를 고르세요 — “페이지에 맞춤”은 96~97%로
-            축소됩니다
-          </span>
-        )}
+          )}
+          <div className="status-gap" />
+          {/* 인쇄 안내는 인쇄하기 탭에서만 — 양식 만들기 중에는 상관없는 이야기다. */}
+          {tab === 'print' && (
+            <span className="print-hint">
+              인쇄 대화상자에서 <b>실제 크기 / 100%</b>를 고르세요 — “페이지에 맞춤”은 96~97%로
+              축소됩니다
+            </span>
+          )}
+        </div>
       </footer>
       <Toast />
     </div>

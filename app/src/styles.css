@@ -2071,24 +2071,104 @@ body.resizing-col {
 
 /* ─────────────────────────── 하단 ─────────────────────────── */
 
+/*
+  상태줄. 두 줄이다 — 윗줄은 지금 무엇을 보고 있는지, 아랫줄은 뽑으면
+  어떻게 되는지(ui/App의 footer 주석). 줄 사이에 옅은 선을 둬서 둘이
+  다른 이야기라는 것을 보이게 한다.
+*/
 footer {
   display: flex;
-  gap: 18px;
-  padding: 8px 16px;
+  flex-direction: column;
   background: var(--panel);
   border-top: 1px solid var(--line);
   font-size: 12px;
   color: var(--muted);
 }
 
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 5px 16px;
+  min-height: 28px;
+}
+
+.status-row + .status-row {
+  border-top: 1px solid var(--line);
+}
+
+/* 왼쪽 묶음과 오른쪽 묶음을 갈라놓는 빈자리. */
+.status-gap {
+  flex: 1;
+}
+
+/*
+  확대 컨트롤. 예전에는 캔버스 위에 떠 있었는데(zoom-float) 용지 오른쪽
+  아래를 가려서 그 자리의 재단 표시를 볼 수가 없었다.
+*/
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 footer b {
   color: var(--ink);
 }
 
-/* 인쇄 안내. 치수 표시들과 구분되게 오른쪽 끝으로 민다. */
+/* 인쇄 안내. 오른쪽 끝(.status-gap 뒤)에 붙는다. */
 .print-hint {
-  margin-left: auto;
   text-align: right;
+}
+
+/*
+  머리줄 가운데의 단계 표시 — 양식 › 속지 › 인쇄(ui/App의 Breadcrumb).
+  지금 있는 곳은 눌리지 않고 바탕만 옅게 깔린다.
+*/
+.crumbs {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.crumb-item {
+  display: flex;
+  align-items: center;
+}
+
+.crumb-sep {
+  padding: 0 2px;
+  color: #c6c6c0;
+  font-size: 12px;
+}
+
+.crumb {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.crumb:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--ink);
+}
+
+.crumb.on {
+  background: #f0f0ec;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* 갈 수 없는 곳(양식을 아직 안 고름)은 눌리지 않는 것이 보여야 한다. */
+.crumb:disabled:not(.on) {
+  color: var(--placeholder);
+  cursor: default;
 }
 
 /* ─────────────────────────── 양식 관리 ─────────────────────────── */
