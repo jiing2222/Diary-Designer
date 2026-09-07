@@ -122,8 +122,24 @@ export function PaperPreview({
               틈처럼 실제로 그려진 것이 없는 자리는 fill이 없으면 SVG가 클릭을
               받지 않는다(빈 곳을 눌렀는데 반응이 없던 버그) — fill="transparent"는
               안 보이면서도 클릭은 받는다(fill="none"과 다르다).
+
+              **마우스를 올리면 이 판이 그 칸을 드러낸다.** 한 장에 속지가
+              여럿 들어가면 어디부터 어디까지가 한 장인지 알 수 없는데,
+              "실제 인쇄 모습만 보기"를 켜두면 칸 경계선도 안 나오므로
+              (인쇄물에 없는 선이라 맞다) 짚어볼 방법이 없었다. 마우스를
+              올렸을 때만 나타나므로 "인쇄되는 것만 보여준다"는 약속은
+              그대로다 — 잠깐 짚어보는 것과 화면에 늘 그려두는 것은 다르다.
             */}
-            {onSlotClick && <rect x={s.x} y={s.y} width={s.width} height={s.height} fill="transparent" />}
+            {onSlotClick && (
+              <rect
+                x={s.x}
+                y={s.y}
+                width={s.width}
+                height={s.height}
+                className="paper-slot-hit"
+                fill="transparent"
+              />
+            )}
 
             {/*
               칸 경계선. 작업할 땐 어디가 한 장인지 보여주는 안내선이지만, 실제

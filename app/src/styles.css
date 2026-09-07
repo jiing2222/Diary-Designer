@@ -1653,6 +1653,30 @@ select,
   cursor: pointer;
 }
 
+/*
+  마우스를 올린 칸만 드러낸다(ui/PaperPreview의 paper-slot-hit 주석).
+
+  옅은 바탕과 테두리를 함께 쓴다 — 바탕만으로는 도트가 깔린 칸에서
+  잘 안 보이고, 테두리만으로는 두 칸이 붙어 있을 때(간격 0) 어느 쪽이
+  켜진 것인지 헷갈린다. 테두리 굵기는 mm 단위(viewBox가 mm)라 확대해도
+  같은 두께로 커진다.
+*/
+.paper-slot-hit {
+  transition: fill 90ms ease;
+}
+
+.paper-slot-clickable:hover .paper-slot-hit {
+  fill: rgb(47 111 79 / 0.07);
+  stroke: var(--accent);
+  stroke-width: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper-slot-hit {
+    transition: none;
+  }
+}
+
 /* 인쇄하기에서 직접 손본 칸·페이지 표시. 인쇄되지 않는 화면 전용 안내다. */
 .override-badge {
   fill: var(--accent);
