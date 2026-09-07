@@ -21,9 +21,6 @@ export function SlotAssign({ layout }: { layout: Layout }) {
   const templates = useStore((s) => s.templates);
   const slotAssignment = useStore((s) => s.slotAssignment);
   const assignSlot = useStore((s) => s.assignSlot);
-  const comboSheets = useStore((s) => s.comboSheets);
-  const patch = useStore((s) => s.patch);
-  const duplex = useStore((s) => s.duplex);
   const active = useStore(activeTemplate);
 
   if (!active || layout.count === 0) return null;
@@ -32,43 +29,58 @@ export function SlotAssign({ layout }: { layout: Layout }) {
     (t) => sameSize(t.insert, active.insert) && t.repeat.mode === 'single' && t.kind !== 'notebook',
   );
 
+  // 섞을 상대가 없으면 배정이라는 말 자체가 성립하지 않는다. 그때는 무엇을
+  // 해야 할지 알려준다 — 빈 칸만 남겨두면 고장 난 것처럼 보인다.
+  if (group.length <= 1) {
+    return (
+      <p className="slot-assign-empty">
+        같은 규격의 양식이 하나 더 있어야 칸마다 다르게 넣을 수 있습니다.
+        <br />
+        지금은 모든 칸에 <b>{active.name}</b>이 들어갑니다.
+      </p>
+    );
+  }
+
+  /** 이 칸이 어느 양식인지. 정하지 않았으면 지금 양식이다. */
+  const idAt = (i: number) => slotAssignment[i] ?? active.id;
+  /** 양식마다 다른 색 — 칸 배정을 한눈에 보려면 이름보다 색이 빠르다. */
+  const hueOf = (id: string) => (group.findIndex((t) => t.id === id) * 67) % 360;
+
   return (
     <div className="slot-assign">
-      <div className="slot-assign-repeat">
-        <span className="slot-assign-label">매수</span>
-        <div className="numfield">
-          <input
-            type="number"
-            min={1}
-            step={1}
-            value={comboSheets}
-            onChange={(e) =>
-              patch({ comboSheets: Math.max(1, Math.round(Number(e.target.value) || 1)) })
-            }
-          />
-          <span>장</span>
-        </div>
-        <span className="slot-assign-repeat-hint">
-          이 배치를 통째로 {comboSheets}장 찍습니다
-          {duplex && ` · PDF ${comboSheets * 2}쪽`}
-        </span>
+      {/* 어떤 양식이 몇 칸에 들어갔는지. 칸을 하나하나 세지 않아도 된다. */}
+      <div className="slot-chips">
+        {group.map((t) => {
+          const n = Array.from({ length: layout.count }, (_, i) => idAt(i)).filter(
+            (id) => id === t.id,
+          ).length;
+          if (n === 0) return null;
+          return (
+            <span key={t.id} className="slot-chip">
+              <span className="slot-chip-dot" style={{ background: `hsl(${hueOf(t.id)} 42% 45%)` }} />
+              {t.name}
+              <span className="slot-chip-count">· {n}칸</span>
+            </span>
+          );
+        })}
       </div>
 
-      {group.length > 1 && (
-        <>
-          <span className="slot-assign-label" title="같은 규격의 양식만 섞을 수 있습니다">
-            칸 배정
-          </span>
-          <div
-            className="slot-assign-grid"
-            style={{ gridTemplateColumns: `repeat(${layout.cols}, 1fr)` }}
-          >
-            {Array.from({ length: layout.count }, (_, i) => (
+      <div
+        className="slot-assign-grid"
+        style={{ gridTemplateColumns: `repeat(${layout.cols}, 1fr)` }}
+      >
+        {Array.from({ length: layout.count }, (_, i) => {
+          const row = Math.floor(i / layout.cols) + 1;
+          const col = (i % layout.cols) + 1;
+          return (
+            <label key={i} className="slot-cell" title={`${row}행 ${col}열`}>
+              <span
+                className="slot-cell-dot"
+                style={{ background: `hsl(${hueOf(idAt(i))} 42% 45%)` }}
+              />
               <select
-                key={i}
                 value={slotAssignment[i] ?? ''}
                 onChange={(e) => assignSlot(i, e.target.value || null)}
-                title={`${Math.floor(i / layout.cols) + 1}행 ${(i % layout.cols) + 1}열`}
               >
                 <option value="">기본 · {active.name}</option>
                 {group
@@ -79,10 +91,14 @@ export function SlotAssign({ layout }: { layout: Layout }) {
                     </option>
                   ))}
               </select>
-            ))}
-          </div>
-        </>
-      )}
+            </label>
+          );
+        })}
+      </div>
+
+      <p className="slot-assign-hint">
+        칸의 자리는 용지의 칸 자리와 같습니다. 같은 규격의 양식만 섞을 수 있습니다.
+      </p>
     </div>
   );
 }

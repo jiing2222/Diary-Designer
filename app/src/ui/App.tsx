@@ -40,7 +40,7 @@ import { NotebookEditorTab } from './NotebookEditorTab';
 import { GalleryTab } from './GalleryTab';
 import { StartScreen } from './StartScreen';
 import { Toast } from './Toast';
-import { SlotAssign } from './SlotAssign';
+import { SlotPanel } from './SlotPanel';
 import { RepeatPrint } from './RepeatPrint';
 import { PX_PER_MM_AT_100 } from './pixels';
 import { buildPdf, downloadPdf, type SlotContent } from '../pdf/export';
@@ -1051,9 +1051,7 @@ export function App() {
                 sheets={sheets}
                 hint={!s.duplex && <> · 양면 인쇄를 켜야 뒤쪽 쪽들이 함께 찍힙니다</>}
               />
-            ) : (
-              <SlotAssign layout={layout} />
-            )}
+            ) : null}
 
             <div className="editor-bar-slot" ref={setEditBarSlot} />
 
@@ -1196,6 +1194,8 @@ export function App() {
               <ZoomStepper zoom={zoom} onChange={setZoom} />
             </div>
             </div>
+            {/* 칸 배정 — 접었다 펼 수 있고 폭도 끌어서 바꾼다(ui/SlotPanel). */}
+            {printMode === 'combo' && <SlotPanel layout={layout} />}
             </div>
           </div>
         )}

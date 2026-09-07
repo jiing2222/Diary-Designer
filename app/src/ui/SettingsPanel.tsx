@@ -271,6 +271,31 @@ export function RepeatGroup() {
         </select>
       </Row>
 
+      {/*
+        "한 번만"일 때의 매수. 예전에는 칸 배정 화면(SlotAssign) 안에 있었는데,
+        그건 "어느 칸에 무엇을 넣는가"를 정하는 자리라 "몇 장 뽑는가"와는
+        다른 질문이다 — 디자인도 이 값을 용지 탭의 반복 아래 둔다.
+      */}
+      {repeat.mode === 'single' && (
+        <>
+          <Row label="매수">
+            <Num
+              value={s.comboSheets}
+              step={1}
+              min={1}
+              unit="장"
+              onChange={(n) => s.patch({ comboSheets: Math.max(1, Math.round(n)) })}
+            />
+          </Row>
+          <div className="readout">
+            <span>
+              이 배치를 통째로 <b>{s.comboSheets}장</b>
+              {s.duplex && ` · PDF ${s.comboSheets * 2}쪽`}
+            </span>
+          </div>
+        </>
+      )}
+
       {repeat.mode === 'repeat' && (
         <>
           <Row label="매수" hint="총 몇 칸(장)이 필요한지. 만년형이면 원하는 쪽수만큼">
