@@ -40,19 +40,45 @@ const MOCK_LABEL: Record<MockScreen, string> = {
 };
 
 export function StartScreen({ onStart }: { onStart: () => void }) {
+  // 머리줄의 이름과 아래 미리보기가 같은 화면을 가리킨다 — 그래서 상태를
+  // 여기서 들고 둘에 나눠준다(디자인의 navBg/pillStyle이 같은 값을 본다).
+  const [screen, setScreen] = useState<MockScreen>('insert');
+  const [pinnedAt, setPinnedAt] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setScreen((s) => MOCK_ORDER[(MOCK_ORDER.indexOf(s) + 1) % MOCK_ORDER.length]);
+    }, MOCK_CYCLE_MS);
+    return () => clearInterval(t);
+  }, [pinnedAt]);
+
+  function pick(s: MockScreen) {
+    setScreen(s);
+    // 직접 골랐으면 시계를 다시 맞춘다 — 보려던 것이 곧바로 넘어가면 답답하다.
+    setPinnedAt((n) => n + 1);
+  }
+
   return (
     <div className="start">
-      <StartHeader onStart={onStart} />
+      <StartHeader screen={screen} onPick={pick} onStart={onStart} />
       <main className="start-main">
         <Hero onStart={onStart} />
-        <ProductMock />
-        <FeatureCards onStart={onStart} />
+        <ProductMock screen={screen} onPick={pick} />
+        <Showcase onStart={onStart} />
       </main>
     </div>
   );
 }
 
-function StartHeader({ onStart }: { onStart: () => void }) {
+function StartHeader({
+  screen,
+  onPick,
+  onStart,
+}: {
+  screen: MockScreen;
+  onPick: (s: MockScreen) => void;
+  onStart: () => void;
+}) {
   return (
     <header className="start-header">
       <div className="start-header-inner">
@@ -62,22 +88,26 @@ function StartHeader({ onStart }: { onStart: () => void }) {
         </div>
 
         {/*
-          앱 안으로 들어가는 문이 넷처럼 보이지만 실제로는 하나다 — 어느
-          것을 눌러도 갤러리에서 시작한다. 양식을 고르기 전에는 편집할
-          것도 인쇄할 것도 없기 때문이다. Notebooks는 아직 열지 않았다.
+          이 이름들은 앱으로 들어가는 문이 아니라 **아래 미리보기를 고르는
+          것**이다(디자인). 지금 보고 있는 것에 옅은 바탕이 깔린다.
+          Notebooks는 보류 중인 기능이라 꺼져 있다.
         */}
         <nav className="start-nav">
-          <button onClick={onStart}>Template</button>
-          <button onClick={onStart}>Inserts</button>
-          <button className="off" disabled title="Coming soon">
-            Notebooks
+          <button className={screen === 'template' ? 'on' : ''} onClick={() => onPick('template')}>
+            Template
           </button>
-          <button onClick={onStart}>Print</button>
+          <button className={screen === 'insert' ? 'on' : ''} onClick={() => onPick('insert')}>
+            Inserts
+          </button>
+          <button className="off">Notebooks</button>
+          <button className={screen === 'print' ? 'on' : ''} onClick={() => onPick('print')}>
+            Print
+          </button>
         </nav>
 
         <div className="start-header-right">
-          <button className="ghost">Sign in</button>
-          <button className="primary" onClick={onStart}>
+          <button className="start-plain">Sign in</button>
+          <button className="start-header-cta" onClick={onStart}>
             Start Rings — it's free
           </button>
         </div>
@@ -113,9 +143,11 @@ function Hero({ onStart }: { onStart: () => void }) {
         Draw freely on the dot grid, then print it at exactly the size your binder takes.
       </p>
 
-      <button className="primary start-cta" onClick={onStart}>
-        Start Rings — it's free
-      </button>
+      <div className="start-cta-row">
+        <button className="start-cta" onClick={onStart}>
+          Start Rings — it's free
+        </button>
+      </div>
 
       <div className="start-meta">
         <span>M6 · A5 · A6 · Personal</span>
@@ -165,31 +197,20 @@ function useRotatingWord(): { text: string; fading: boolean } {
  * 저절로 넘어가되 눌러서 고를 수도 있다. 직접 고르면 저절로 넘어가는
  * 시계를 다시 맞춘다 — 보려던 것이 곧바로 넘어가버리면 답답하다.
  */
-function ProductMock() {
-  const [screen, setScreen] = useState<MockScreen>('insert');
-  const [pinnedAt, setPinnedAt] = useState(0);
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      setScreen((s) => MOCK_ORDER[(MOCK_ORDER.indexOf(s) + 1) % MOCK_ORDER.length]);
-    }, MOCK_CYCLE_MS);
-    return () => clearInterval(t);
-  }, [pinnedAt]);
-
-  function pick(s: MockScreen) {
-    setScreen(s);
-    setPinnedAt((n) => n + 1);
-  }
+function ProductMock({ screen, onPick }: { screen: MockScreen; onPick: (s: MockScreen) => void }) {
+  // 디자인의 알약 차례는 Template · Inserts · Print다. 저절로 넘어가는
+  // 차례(MOCK_ORDER)와 다르므로 여기만 따로 적는다.
+  const pills: MockScreen[] = ['template', 'insert', 'print'];
 
   return (
     <div className="start-mock">
       <div className="start-mock-bar">
         <div className="start-mock-pills">
-          {MOCK_ORDER.map((s) => (
+          {pills.map((s) => (
             <button
               key={s}
               className={screen === s ? 'on' : ''}
-              onClick={() => pick(s)}
+              onClick={() => onPick(s)}
               aria-pressed={screen === s}
             >
               {s === 'insert' ? 'Inserts' : s === 'template' ? 'Template' : 'Print'}
@@ -374,9 +395,82 @@ const FEATURES: { title: string; tone: 'accent' | 'soft' | 'ink' | 'muted' }[] =
   { title: 'Lay out many sheets at once', tone: 'accent' },
 ];
 
-function FeatureCards({ onStart }: { onStart: () => void }) {
+/**
+ * 무엇을 할 수 있는지 크게 보여주는 자리.
+ *
+ * 위 미리보기가 "앱이 어떻게 생겼나"라면, 여기는 "그래서 무엇을 하나"다.
+ * 큰 카드 셋(속지 제작 · 템플릿 · 인쇄)으로 보여준 뒤, 마지막에 작은
+ * 고리 다섯 개로 갈래를 늘어놓는다.
+ */
+function Showcase({ onStart }: { onStart: () => void }) {
   return (
-    <section className="start-features">
+    <section className="start-showcase">
+      <h2>Where a whole diary comes together, dot by dot</h2>
+
+      <div className="start-show-grid">
+        <ShowCard
+          kicker="Inserts"
+          title="Place elements freely and make the insert yours."
+          onStart={onStart}
+        >
+          <ShowSheet />
+        </ShowCard>
+
+        <ShowCard
+          kicker="Template"
+          title="Pick a template that fits your size and start right away."
+          onStart={onStart}
+          frameClass="tall"
+        >
+          <div className="start-show-templates">
+            <div className="on">
+              <div className="start-show-thumb" />
+              <div className="start-show-name">M6-1</div>
+            </div>
+            <div>
+              <div className="start-show-thumb" />
+              <div className="start-show-name">M6-2</div>
+            </div>
+            <div>
+              <div className="start-show-thumb" />
+              <div className="start-show-name">A5-1</div>
+            </div>
+            <div className="add">
+              <span className="plus">+</span>
+              <span>New template</span>
+            </div>
+          </div>
+        </ShowCard>
+      </div>
+
+      {/* 인쇄만 옆으로 넓은 카드다 — 용지와 칸 배정을 나란히 보여줘야 해서다. */}
+      <div className="start-show-wide">
+        <div className="start-show-wide-head">
+          <div>
+            <div className="start-show-kicker">Print</div>
+            <div className="start-show-title">
+              Ready for the paper size, crop marks and all.
+            </div>
+          </div>
+          <ArrowButton onClick={onStart} />
+        </div>
+        <div className="start-show-wide-body">
+          <div className="start-show-frame">
+            <ShowPaper />
+          </div>
+          <div className="start-show-slots">
+            <div className="start-mock-side-title">Slot assignment</div>
+            <div className="start-mock-slots">
+              <span className="a" />
+              <span className="b" />
+              <span className="a" />
+              <span className="b" />
+            </div>
+            <div className="start-mock-foot">4 per sheet · 2 × 2</div>
+          </div>
+        </div>
+      </div>
+
       <p className="start-features-title">What you can do with Rings</p>
       <div className="start-feature-grid">
         {FEATURES.map((f, i) => (
@@ -391,6 +485,99 @@ function FeatureCards({ onStart }: { onStart: () => void }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function ShowCard({
+  kicker,
+  title,
+  onStart,
+  frameClass,
+  children,
+}: {
+  kicker: string;
+  title: string;
+  onStart: () => void;
+  /** 액자를 다르게 잡아야 할 때. 템플릿 카드는 더 넉넉하다(디자인). */
+  frameClass?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="start-show-card">
+      <div className="start-show-head">
+        <div>
+          <div className="start-show-kicker">{kicker}</div>
+          <div className="start-show-title">{title}</div>
+        </div>
+        <ArrowButton onClick={onStart} />
+      </div>
+      <div className={`start-show-frame ${frameClass ?? ''}`}>{children}</div>
+    </div>
+  );
+}
+
+function ArrowButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button className="start-show-arrow" onClick={onClick} aria-label="Start Rings">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12h14" />
+        <path d="M13 6l6 6-6 6" />
+      </svg>
+    </button>
+  );
+}
+
+/* 속지 한 장 — 미리보기의 것과 같은 그림이되 고른 표시만 남긴다. */
+function ShowSheet() {
+  return (
+    <svg viewBox="0 0 80 125" preserveAspectRatio="xMidYMid meet" className="start-show-sheet">
+      <defs>
+        <pattern id="showDots" width="2.5" height="2.5" patternUnits="userSpaceOnUse">
+          <circle cx="1.25" cy="1.25" r="0.16" fill="#c2c2bc" />
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width="80" height="125" fill="#fff" />
+      <rect x="6" y="6" width="68" height="113" fill="url(#showDots)" />
+      <rect x="8" y="11" width="24" height="3" rx="0.5" fill="#1c1c1a" />
+      <rect x="8" y="18" width="64" height="0.3" fill="#1c1c1a" />
+      <g stroke="#8e8e88" strokeWidth="0.22" fill="none">
+        <path d="M8 24 H72 M8 38 H72 M8 52 H72 M8 66 H72" />
+        <path d="M8 24 V66 M24 24 V66 M40 24 V66 M56 24 V66 M72 24 V66" />
+      </g>
+      <rect x="7.4" y="103" width="30" height="10" fill="none" stroke="#2f6f4f" strokeWidth="0.3" />
+      <g fill="#2f6f4f">
+        <rect x="6.6" y="102.2" width="1.6" height="1.6" />
+        <rect x="36.6" y="102.2" width="1.6" height="1.6" />
+        <rect x="6.6" y="112.2" width="1.6" height="1.6" />
+        <rect x="36.6" y="112.2" width="1.6" height="1.6" />
+      </g>
+    </svg>
+  );
+}
+
+function ShowPaper() {
+  return (
+    <svg viewBox="0 0 210 297" preserveAspectRatio="xMidYMid meet" className="start-show-sheet">
+      <rect x="0" y="0" width="210" height="297" fill="#fff" />
+      <g fill="none" stroke="#dededa" strokeWidth="0.8">
+        <rect x="15" y="15" width="80" height="125" />
+        <rect x="115" y="15" width="80" height="125" />
+        <rect x="15" y="150" width="80" height="125" />
+        <rect x="115" y="150" width="80" height="125" />
+      </g>
+      <g fill="#c2c2bc">
+        <rect x="24" y="24" width="20" height="3" rx="0.6" />
+        <rect x="124" y="24" width="20" height="3" rx="0.6" />
+        <rect x="24" y="159" width="20" height="3" rx="0.6" />
+        <rect x="124" y="159" width="20" height="3" rx="0.6" />
+      </g>
+      <g stroke="#b6b6b0" strokeWidth="0.4">
+        <path d="M0 6 H6 M0 12 V0" />
+        <path d="M204 6 H210 M210 12 V0" />
+        <path d="M0 291 H6 M0 285 V297" />
+        <path d="M204 291 H210 M210 285 V297" />
+      </g>
+    </svg>
   );
 }
 

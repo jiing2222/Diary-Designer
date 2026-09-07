@@ -2801,6 +2801,7 @@ footer b {
   display: flex;
   align-items: center;
   gap: 2px;
+  margin-left: 8px;
 }
 
 .start-nav button {
@@ -2819,11 +2820,47 @@ footer b {
   background: var(--hover-bg);
 }
 
-.start-nav button.off,
-.start-nav button:disabled {
-  color: var(--placeholder);
+/* 지금 아래 미리보기가 보여주는 화면 — 머리줄과 미리보기가 같이 움직인다. */
+.start-nav button.on {
+  background: var(--accent-subtle);
+}
+
+.start-nav button.off {
+  color: #c6c6c0;
   background: transparent;
   cursor: default;
+}
+
+/* 머리줄의 두 버튼. 전역 button 규칙(초록 바탕)을 벗겨낸다. */
+.start-plain,
+.start-header-cta {
+  border: none;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.start-plain {
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.start-plain:hover {
+  background: var(--hover-bg);
+}
+
+.start-header-cta {
+  padding: 7px 14px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.start-header-cta:hover {
+  background: #275d42;
 }
 
 .start-header-right {
@@ -2878,6 +2915,13 @@ footer b {
   padding: 0.14em 0.32em;
   border-radius: 999px;
   background: var(--accent-subtle);
+  /*
+    보이는 상태를 명시한다. 없는 값(기본 1)에 기대면 앞선 전환이 끝나지
+    않았을 때 0에 머문 채로 남는다 — 실제로 낱말이 내내 안 보였다.
+    디자인도 opacity를 늘 명시한다.
+  */
+  opacity: 1;
+  transform: translateY(0);
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
@@ -2913,10 +2957,28 @@ footer b {
   text-wrap: pretty;
 }
 
-.start-cta {
+.start-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
   margin-top: 32px;
+}
+
+.start-cta {
   padding: 11px 22px;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
   font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.start-cta:hover {
+  background: #275d42;
 }
 
 .start-meta {
@@ -3170,10 +3232,6 @@ footer b {
 
 /* ── 할 수 있는 일 ── */
 
-.start-features {
-  margin-top: 40px;
-}
-
 .start-features-title {
   margin: 0 0 12px;
   font-size: 12px;
@@ -3185,7 +3243,7 @@ footer b {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  padding-bottom: 96px;
+  padding-bottom: 64px;
 }
 
 .start-feature {
@@ -3245,3 +3303,209 @@ footer b {
   color: var(--muted);
 }
 
+
+/* ── 무엇을 할 수 있는지 (큰 카드 셋 + 작은 고리 다섯) ── */
+
+.start-showcase {
+  padding: 96px 0 8px;
+}
+
+.start-showcase h2 {
+  margin: 0 0 32px;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.start-show-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.start-show-card,
+.start-show-wide {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  padding: 24px;
+}
+
+.start-show-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.start-show-head,
+.start-show-wide-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.start-show-kicker {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.start-show-title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.start-show-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  cursor: pointer;
+}
+
+.start-show-arrow:hover {
+  background: var(--accent);
+}
+
+/* 카드 안의 흰 액자. 그림이 배경과 바로 닿지 않게 한 겹 둔다. */
+.start-show-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+/* 템플릿 카드의 액자만 더 넉넉하다 — 안에 작은 카드 넷이 들어가서다. */
+.start-show-frame.tall {
+  padding: 20px;
+  min-height: 236px;
+}
+
+.start-show-sheet {
+  display: block;
+  height: 200px;
+  width: auto;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.start-show-templates {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 220px;
+}
+
+.start-show-templates > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.start-show-templates > div.on {
+  border: 2px solid var(--accent);
+  background: var(--accent-subtle);
+}
+
+.start-show-templates > div.add {
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px dashed #d3d3ce;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.start-show-templates .plus {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.start-show-thumb {
+  height: 56px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fff;
+}
+
+.start-show-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* 인쇄 카드만 옆으로 넓다 — 용지와 칸 배정을 나란히 놓아야 해서다. */
+.start-show-wide {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 40px;
+}
+
+.start-show-wide-head {
+  flex: 1;
+  min-width: 220px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+.start-show-wide-body {
+  flex: 2;
+  min-width: 300px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.start-show-wide-body > * {
+  flex: 1;
+  min-width: 150px;
+}
+
+.start-show-wide-body .start-show-frame {
+  padding: 14px;
+}
+
+.start-show-slots {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+/* 좁은 화면에서는 큰 카드 둘을 위아래로 쌓는다. */
+@media (max-width: 720px) {
+  .start-show-grid {
+    grid-template-columns: 1fr;
+  }
+}
