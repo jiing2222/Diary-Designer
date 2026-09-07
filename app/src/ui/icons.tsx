@@ -24,24 +24,44 @@ const box24 = {
   strokeLinejoin: 'round' as const,
 };
 
-/** 용지 — 세로로 선 종이 한 장에 안쪽 여백선 */
+/** 용지 — 모서리를 접은 종이 한 장. 클로드 디자인의 Paper 아이콘과 같은 모양. */
 export function PaperIcon() {
   return (
-    <svg {...box}>
-      <rect x={4.5} y={2.5} width={11} height={15} rx={1} />
-      <rect x={7} y={5} width={6} height={10} strokeDasharray="1.6 1.4" opacity={0.55} />
+    <svg {...box24}>
+      <path d="M6 3h9l4 4v14H6z" />
+      <path d="M15 3v4h4" />
     </svg>
   );
 }
 
-/** 속지 — 왼쪽에 구멍이 뚫린 작은 종이 */
+/**
+ * 속지 — 도트 격자와 그 아래 타공 구멍 두 개.
+ *
+ * 이 탭 하나가 도트 격자와 타공 안내를 함께 담으므로(디자인의 Insert 탭)
+ * 아이콘도 그 둘을 한 그림에 담는다. 클로드 디자인과 같은 모양.
+ */
 export function InsertIcon() {
   return (
-    <svg {...box}>
-      <rect x={5.5} y={3} width={10} height={14} rx={1} />
-      <circle cx={8} cy={7} r={0.9} />
-      <circle cx={8} cy={10} r={0.9} />
-      <circle cx={8} cy={13} r={0.9} />
+    <svg {...box24}>
+      {[7, 12].map((y) =>
+        [7, 12, 17].map((x) => (
+          <circle key={`${x}-${y}`} cx={x} cy={y} r={1} fill="currentColor" stroke="none" />
+        )),
+      )}
+      <circle cx={9} cy={18} r={1.6} />
+      <circle cx={15} cy={18} r={1.6} />
+    </svg>
+  );
+}
+
+/** 양식 — 크기가 다른 네 칸. 클로드 디자인의 Template 아이콘과 같은 모양. */
+export function TemplateIcon() {
+  return (
+    <svg {...box24}>
+      <rect x={4} y={4} width={7} height={9} rx={1} />
+      <rect x={13} y={4} width={7} height={6} rx={1} />
+      <rect x={13} y={12} width={7} height={8} rx={1} />
+      <rect x={4} y={15} width={7} height={5} rx={1} />
     </svg>
   );
 }
@@ -170,9 +190,9 @@ export function CheckboxIcon() {
 /** 보임 — 뜬 눈. 포토샵 등에서 화면 표시를 켜고 끄는 눈알 표시와 같은 뜻이다. */
 export function EyeIcon() {
   return (
-    <svg {...box}>
-      <path d="M2.5 10 C5 5.5, 15 5.5, 17.5 10 C15 14.5, 5 14.5, 2.5 10 Z" />
-      <circle cx={10} cy={10} r={2.2} />
+    <svg {...box24}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx={12} cy={12} r={2.6} />
     </svg>
   );
 }
@@ -180,10 +200,10 @@ export function EyeIcon() {
 /** 숨김 — 감은 눈(빗금 친 눈). EyeIcon과 짝이다. */
 export function EyeOffIcon() {
   return (
-    <svg {...box}>
-      <path d="M2.5 10 C5 5.5, 15 5.5, 17.5 10 C15 14.5, 5 14.5, 2.5 10 Z" />
-      <circle cx={10} cy={10} r={2.2} />
-      <line x1={3.5} y1={4} x2={16.5} y2={16} />
+    <svg {...box24}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx={12} cy={12} r={2.6} />
+      <line x1={4} y1={4} x2={20} y2={20} />
     </svg>
   );
 }
@@ -215,6 +235,17 @@ export function RingsLogo() {
     <svg viewBox="0 0 20 20" width={20} height={20} fill="none">
       <circle cx={7.3} cy={10} r={4.9} style={{ stroke: 'var(--accent)' }} strokeWidth={1.6} />
       <circle cx={12.7} cy={10} r={4.9} style={{ stroke: 'var(--ink)' }} strokeWidth={1.6} />
+    </svg>
+  );
+}
+
+/** 내려받기 — 아래로 향한 화살표와 받침선. 클로드 디자인의 PDF Export 아이콘과 같은 모양. */
+export function DownloadIcon() {
+  return (
+    <svg {...box24} strokeWidth={2}>
+      <path d="M12 3v13" />
+      <path d="M6.5 11.5L12 17l5.5-5.5" />
+      <path d="M5 21h14" />
     </svg>
   );
 }

@@ -32,7 +32,6 @@ import {
   paddedPageCount,
 } from '../core/notebook';
 import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
-import { InsertGroup } from './SettingsPanel';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
 import { PrintSlotEditor } from './PrintSlotEditor';
 import { EditorTab, ToolRail, ZoomStepper } from './EditorTab';
@@ -52,7 +51,7 @@ import {
   restoreCachedImages,
 } from '../images/registry';
 import type { DiaryObject, ImageObject, TextObject } from '../core/objects';
-import { MenuIcon, RingsLogo } from './icons';
+import { DownloadIcon, MenuIcon, RingsLogo } from './icons';
 
 /**
  * `start`는 다른 셋과 성격이 다르다 — 앱 화면이 아니라 소개 화면이라
@@ -93,73 +92,6 @@ type LastReverted = {
 const BLANK_PREVIEW_GRID: DotGrid = { ...DEFAULT_DOT_GRID, showOnScreen: false, print: false };
 
 /**
- * 헤더 가운데 — 양식 이름(클릭해서 바로 고치기)과 속지 크기.
- *
- * 규격을 정하는 곳은 하나뿐이어야 하므로, 크기 말풍선은 SettingsPanel의
- * `InsertGroup`을 그대로 가져다 쓴다(더 이상 왼쪽 도구바에는 없다).
- */
-function TemplateInfo({ template }: { template: Template }) {
-  const renameTemplate = useStore((s) => s.renameTemplate);
-  const [renaming, setRenaming] = useState(false);
-  const [sizeOpen, setSizeOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!sizeOpen) return;
-    function onDown(e: PointerEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) setSizeOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setSizeOpen(false);
-    }
-    document.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [sizeOpen]);
-
-  return (
-    <div className="template-info" ref={wrapRef}>
-      {renaming ? (
-        <input
-          className="template-name-input"
-          defaultValue={template.name}
-          autoFocus
-          onFocus={(e) => e.currentTarget.select()}
-          onBlur={(e) => {
-            renameTemplate(template.id, e.target.value);
-            setRenaming(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur();
-            if (e.key === 'Escape') setRenaming(false);
-          }}
-        />
-      ) : (
-        <button className="template-name" onClick={() => setRenaming(true)} title="클릭해서 이름 바꾸기">
-          {template.name}
-        </button>
-      )}
-
-      <button className="size-trigger" onClick={() => setSizeOpen((v) => !v)} title="속지 크기">
-        {template.insert.width} × {template.insert.height}mm ▾
-      </button>
-
-      {sizeOpen && (
-        <div className="popover popover-below">
-          <h2>속지</h2>
-          <div className="popover-body">
-            <InsertGroup />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
  * 지금 어느 단계에 있는지 — 양식 → 속지 → 인쇄.
  *
  * 햄버거 메뉴에도 같은 네 곳이 있지만 그건 **열어봐야** 보인다. 이건 늘
@@ -198,29 +130,6 @@ function Breadcrumb({
         </span>
       ))}
     </nav>
-  );
-}
-
-/**
- * 실행취소 / 다시실행 — 속지 제작·노트 제작·인쇄하기(칸 손보기) 셋이 저마다
- * 들고 있던 버튼을 여기 하나로 모았다. `s.undo`·`s.redo`는 이미 그림자
- * (반쪽·칸을 직접 손보는 중)가 있으면 그쪽만, 없으면 활성 양식의 지금 쪽만
- * 되돌린다 — `useObjects()`도 같은 우선순위라(store.ts) 버튼을 켜고 끄는
- * 기준이 실제로 눌렀을 때 되돌아가는 대상과 늘 같다.
- */
-function UndoRedo() {
-  const undo = useStore((s) => s.undo);
-  const redo = useStore((s) => s.redo);
-  const history = useObjects();
-  return (
-    <div className="undo-redo">
-      <button className="ghost" onClick={undo} disabled={!canUndo(history)} title="실행취소 (⌘Z)">
-        ↶
-      </button>
-      <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
-        ↷
-      </button>
-    </div>
   );
 }
 
@@ -972,17 +881,17 @@ export function App() {
   return (
     <div className="app">
       <header>
+        {/* 고르고 → 그리고 → 인쇄한다. 예전엔 여기 늘 늘어서 있던 탭
+            4개를 햄버거 메뉴 뒤로 옮겼다 — 버튼 자체(순서·disabled
+            조건)는 NavMenu 안에 그대로다. 디자인에서는 이 메뉴가 로고보다
+            **앞**이다. */}
+        <NavMenu tab={tab} setTab={setTab} active={active} />
+
         {/* 로고를 누르면 소개 화면으로 — 디자인의 갤러리 머리줄과 같다. */}
         <button className="logo" onClick={() => setTab('start')} title="Rings home">
           <RingsLogo />
           <h1>Rings</h1>
         </button>
-
-        {/* 고르고 → 그리고 → 인쇄한다. 예전엔 여기 늘 늘어서 있던 탭
-            4개를 햄버거 메뉴 뒤로 옮겼다 — 버튼 자체(순서·disabled
-            조건)는 NavMenu 안에 그대로다. 로고 바로 옆(가장 왼쪽)에
-            둔다 — 사용자 요청. */}
-        <NavMenu tab={tab} setTab={setTab} active={active} />
 
         <div className="header-spacer" />
 
@@ -990,22 +899,23 @@ export function App() {
           지금 어디쯤 와 있는지. 양식을 고르고 → 그리고 → 인쇄한다는 순서가
           그대로 길이 된다 — 앞 단계는 눌러서 돌아갈 수 있고, 지금 있는
           곳은 눌리지 않는다.
+
+          **양옆의 빈 칸이 같아서 이 줄이 화면 한가운데에 온다.** 예전엔
+          오른쪽에 양식 이름·크기·되돌리기가 더 붙어 있어 길이 왼쪽으로
+          밀려 있었다 — 그것들은 디자인에 없다(이름은 갤러리에서, 크기는
+          왼쪽 "속지" 탭에서, 되돌리기는 ⌘Z로 그대로 쓴다).
         */}
         <Breadcrumb tab={tab} setTab={setTab} active={active} />
 
-        {active ? (
-          <div className="template-info-group">
-            <TemplateInfo template={active} />
-            <UndoRedo />
-          </div>
-        ) : (
-          <span className="stage" />
-        )}
-
         <div className="header-spacer" />
 
-        <button onClick={exportPdf} disabled={busy || !active || layout.count === 0}>
-          {busy ? 'Preparing…' : 'Download'}
+        <button
+          className="export-btn"
+          onClick={exportPdf}
+          disabled={busy || !active || layout.count === 0}
+        >
+          <DownloadIcon />
+          <span>{busy ? 'Preparing…' : 'PDF Export'}</span>
         </button>
       </header>
 
@@ -1036,6 +946,7 @@ export function App() {
                   ? { printPreview, setPrintPreview, backOnLeft, setBackOnLeft }
                   : undefined
               }
+              onManageTemplates={() => setTab('gallery')}
             />
 
             {/*
@@ -1064,8 +975,12 @@ export function App() {
               눌러 좁혔다. 지금 이 줄에는 매수·칸 배정처럼 인쇄 작업 자체를
               정하는 것만 남는다.
             */}
-            <div className="print-bar">
-              {lastReverted && (
+            {/*
+              되돌릴 게 있을 때만 줄을 만든다. 늘 두면 아무것도 안 든 15px
+              짜리 빈 띠가 용지 위에 남아, 디자인에는 없는 줄이 하나 더 생긴다.
+            */}
+            {lastReverted && (
+              <div className="print-bar">
                 <button
                   className="ghost"
                   onClick={undoRevert}
@@ -1073,8 +988,8 @@ export function App() {
                 >
                   되돌리기 취소
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {printMode === 'repeat' ? (
               <RepeatPrint
@@ -1251,25 +1166,22 @@ export function App() {
         가려서 그 자리의 재단 표시를 볼 수가 없었다.
       */}
       <footer className="status">
-        {active && (
+        {/*
+          윗줄은 인쇄하기에서만 만든다. 양식 만들기 화면에는 이미 캔버스
+          바로 아래에 같은 값을 담은 줄(.editor-foot)이 있어서, 여기까지
+          만들면 "속지 80 × 125mm"가 한 화면에 두 번 뜬다 — 디자인도
+          화면마다 이 줄을 한 번씩만 둔다.
+        */}
+        {active && tab === 'print' && (
           <div className="status-row">
             <span>
               속지 {active.insert.width} × {active.insert.height}mm
             </span>
+            <span>
+              칸 {layout.cols} × {layout.rows}
+            </span>
             <div className="status-gap" />
-            {tab === 'print' && (
-              <div className="zoom-controls">
-                <button
-                  className="ghost"
-                  onClick={() => setZoom('fit')}
-                  disabled={zoom === 'fit'}
-                  title="화면에 맞춤"
-                >
-                  맞춤
-                </button>
-                <ZoomStepper zoom={zoom} onChange={setZoom} />
-              </div>
-            )}
+            <ZoomStepper zoom={zoom} onChange={setZoom} />
           </div>
         )}
 

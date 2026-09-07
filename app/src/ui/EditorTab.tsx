@@ -25,6 +25,7 @@ import {
   type TextStyle,
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
+import { groupBySize } from '../core/template';
 import { roundMm, type Mm } from '../core/units';
 import { fieldPlaceholder, newTextStyle, parseFieldText, rotateOf } from '../core/text';
 import {
@@ -48,6 +49,7 @@ import { StyleBar } from './StyleBar';
 import {
   PaperGroup,
   GridGroup,
+  InsertGroup,
   PunchGroup,
   RepeatGroup,
   LayoutGroup,
@@ -61,12 +63,12 @@ import {
   EyeIcon,
   EyeOffIcon,
   FieldIcon,
-  GridIcon,
   ImageIcon,
+  InsertIcon,
   LineIcon,
   PaperIcon,
-  PunchIcon,
   TableIcon,
+  TemplateIcon,
   TextIcon,
 } from './icons';
 import { measureTextBox } from './measureText';
@@ -1446,6 +1448,24 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
         <span>그린 것 {objects.length}개</span>
         {selectedIds.length > 0 && <span>고른 것 {selectedIds.length}개</span>}
         {/*
+          도구도 안 쓰고 고른 것도 없을 때(왼쪽 탭이 저절로 닫혀 있는 상태)
+          안내가 아예 없으면 뭘 해야 할지 알 수 없다 — 예전엔 위쪽 도구줄에
+          늘 떠 있던 문구였는데, 그 자리가 지금은 탭이 열렸을 때만 보이는
+          속성 칸으로 바뀌면서 조용히 사라졌었다.
+        */}
+        {tool === 'select' && selectedIds.length === 0 && (
+          <span>
+            {noGrid
+              ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
+              : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
+          </span>
+        )}
+        {/*
+          여기서부터 오른쪽 끝 — 왼쪽은 "무엇이 있나", 오른쪽은 "어디를
+          보고 있나"다(디자인의 줄 나눔 그대로).
+        */}
+        <div className="status-gap" />
+        {/*
           옮기는 중이면 얼마나 옮겼는지 띄운다. ⌘로 격자를 푸는 기능은 눌러보기
           전에는 있는지조차 알 수 없으므로, 여기서 지금 어느 쪽인지 알려준다.
         */}
@@ -1460,19 +1480,6 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
               {roundMm(hover.x, 2)} , {roundMm(hover.y, 2)} mm
             </span>
           )
-        )}
-        {/*
-          도구도 안 쓰고 고른 것도 없을 때(왼쪽 탭이 저절로 닫혀 있는 상태)
-          안내가 아예 없으면 뭘 해야 할지 알 수 없다 — 예전엔 위쪽 도구줄에
-          늘 떠 있던 문구였는데, 그 자리가 지금은 탭이 열렸을 때만 보이는
-          속성 칸으로 바뀌면서 조용히 사라졌었다.
-        */}
-        {tool === 'select' && selectedIds.length === 0 && (
-          <span>
-            {noGrid
-              ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
-              : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
-          </span>
         )}
         <ZoomStepper zoom={zoom} onChange={setZoom} />
       </div>
@@ -1655,8 +1662,13 @@ const ELEMENT_TOOLS: SubTool[] = [
   { tool: 'checkbox', label: 'Check box', shortcut: 'X', icon: <CheckboxIcon /> },
 ];
 
-const TEXT_TOOLS: SubTool[] = [
-  { tool: 'text', label: 'Text', shortcut: 'T', icon: <TextIcon /> },
+/**
+ * 자동 필드 — 날짜·달력처럼 **내용을 사람이 안 치는** 글자다. 손으로 치는
+ * 글자(Text 탭)와 갈라 둔 이유가 이것이다(디자인의 AutoField 탭) — 둘 다
+ * 결국 글자지만, 고를 것이 "무슨 글자를 칠까"와 "무엇을 자동으로 채울까"로
+ * 전혀 다르다.
+ */
+const AUTO_TOOLS: SubTool[] = [
   { tool: 'calendar', label: 'Calendar', shortcut: 'C', icon: <CalendarIcon /> },
   { tool: 'field', label: 'Field', shortcut: 'F', icon: <FieldIcon /> },
 ];
@@ -1665,15 +1677,22 @@ export type ToolCategory =
   | 'select'
   | 'elements'
   | 'text'
+  | 'auto'
   | 'image'
   | 'view'
   | 'paper'
-  | 'grid'
-  | 'punch';
+  | 'insert'
+  | 'template';
 
-/** 도구 카테고리(select·elements·text·image)인지, 보기·용지·도트격자·타공인지. */
+/**
+ * 그리는 도구 탭인지(고르기·요소·글자·자동필드·이미지), 아니면 "무엇을 어떤
+ * 종이에 어떻게 뽑는가"를 정하는 설정 탭인지(보기·용지·속지·양식).
+ *
+ * 설정 탭에는 고른 것의 속성막대를 붙이지 않는다 — 지금 고른 도형과 아무
+ * 상관이 없는 값들이다.
+ */
 function isSettingsCategory(cat: ToolCategory): boolean {
-  return cat === 'view' || cat === 'paper' || cat === 'grid' || cat === 'punch';
+  return cat === 'view' || cat === 'paper' || cat === 'insert' || cat === 'template';
 }
 
 /**
@@ -1697,12 +1716,13 @@ export function categoryFor(tool: Tool, picked: DiaryObject[]): ToolCategory {
   const pickedShapes = picked.filter(isShape);
   const pickedCheckboxes = picked.filter(isCheckbox);
 
-  if (tool === 'calendar' || pickedCalendars.length > 0) return 'text';
+  if (tool === 'calendar' || pickedCalendars.length > 0) return 'auto';
   if (tool === 'image' || pickedImages.length > 0) return 'image';
   if (pickedTexts.length > 0 && (pickedLines.length > 0 || pickedShapes.length > 0)) return 'select';
   if (pickedShapes.length > 0) return 'elements'; // 표(선+도형)든 도형 단독이든
   if (tool === 'checkbox' || pickedCheckboxes.length > 0) return 'elements';
-  if (tool === 'text' || tool === 'field' || (pickedTexts.length > 0 && pickedLines.length === 0)) return 'text';
+  if (tool === 'field') return 'auto';
+  if (tool === 'text' || (pickedTexts.length > 0 && pickedLines.length === 0)) return 'text';
   if (tool === 'draw' || tool === 'table' || picked.length > 0) return 'elements';
   return 'select';
 }
@@ -1727,6 +1747,7 @@ export function ToolRail({
   onStylePanelSlot,
   showPaper,
   printView,
+  onManageTemplates,
 }: {
   onStylePanelSlot: (el: HTMLDivElement | null) => void;
   /** 용지 크기는 인쇄에서만 뜻이 있는 값이라, 인쇄하기 화면일 때만 보여준다. */
@@ -1738,6 +1759,11 @@ export function ToolRail({
    * 되는 값) 여기로 받아 넘긴다.
    */
   printView?: PrintViewState;
+  /**
+   * "양식 관리" 링크를 눌렀을 때 갈 곳. 안 주면 링크를 안 보여준다 —
+   * 인쇄하기·노트 제작처럼 갤러리로 곧장 나가는 게 어색한 화면도 있다.
+   */
+  onManageTemplates?: () => void;
 }) {
   const tool = useStore((s) => s.tool);
   const setTool = useStore((s) => s.setTool);
@@ -1813,7 +1839,7 @@ export function ToolRail({
   }, [open]);
 
   const inElements = ELEMENT_TOOLS.some((t) => t.tool === tool);
-  const inText = TEXT_TOOLS.some((t) => t.tool === tool);
+  const inAuto = AUTO_TOOLS.some((t) => t.tool === tool);
 
   function toggle(cat: ToolCategory) {
     const opening = open !== cat;
@@ -1830,8 +1856,8 @@ export function ToolRail({
       setTool('draw');
       return;
     }
-    if (opening && cat === 'text' && !inText) {
-      setTool('text');
+    if (opening && cat === 'auto' && !inAuto) {
+      setTool('calendar');
       return;
     }
     setOpen(opening ? cat : null);
@@ -1841,32 +1867,28 @@ export function ToolRail({
     setTool(t);
   }
 
-  const items = open === 'elements' ? ELEMENT_TOOLS : open === 'text' ? TEXT_TOOLS : null;
+  const items = open === 'elements' ? ELEMENT_TOOLS : open === 'auto' ? AUTO_TOOLS : null;
 
   const TITLE: Record<ToolCategory, string> = {
     view: 'View',
-    select: 'Select',
-    elements: 'Elements',
-    text: 'Text',
-    image: 'Image',
     paper: 'Paper',
-    grid: 'Dot Grid',
-    punch: 'Punch Guide',
+    insert: 'Insert',
+    template: 'Template',
+    image: 'Image',
+    select: 'Select',
+    elements: 'Draw',
+    text: 'Text',
+    auto: 'AutoField',
   };
 
   return (
     <div className="rail-wrap rail-wrap-tool" ref={railRef}>
       <div className="rail">
         {/*
-          보기·용지가 도구들보다 **먼저** 온다(디자인의 차례).
-          "무엇을 어떤 종이에 뽑는가"를 먼저 정하고 그 다음 그리는
-          순서다. 속지 제작 화면에는 둘 다 없으므로 거기서는 예전처럼
-          도구가 맨 위다.
-        */}
-        {/*
-          "보기"는 인쇄하기에서만 있다 — 무엇을 어떻게 볼지 정하는 값들이라
-          속지 제작 화면에는 뜻이 없다. 맨 위에 두는 이유는 인쇄하기에서
-          가장 자주 여닫는 탭이어서다(디자인의 차례도 View · Paper · Insert).
+          차례는 클로드 디자인 그대로다 — 보기 · 용지 · 속지 | 양식 · 이미지 |
+          고르기 · 그리기 · 글자 · 자동필드. "무엇을 어떤 종이에 어떻게 뽑는가"를
+          먼저 정하고, 어떤 양식·그림을 쓸지 고른 다음, 마지막에 그린다.
+          가로줄은 그 세 묶음을 가른다.
         */}
         {printView && (
           <button
@@ -1891,31 +1913,31 @@ export function ToolRail({
           </button>
         )}
 
+        {/*
+          속지 — 도트 격자와 타공 안내가 한 탭에 들어 있다(디자인의 Insert 탭).
+          둘 다 "이 속지 한 장이 어떻게 생겼는가"를 정하는 값이라 따로 떼어
+          두면 같은 것을 두 군데서 찾아야 했다. 오른쪽 위 점은 그 안내가 지금
+          화면에 실제로 보이는 중이라는 표시다.
+        */}
         <button
-          className={`rail-btn ${tool === 'select' ? 'on' : ''}`}
-          onClick={() => setTool('select')}
-          title="Select (V)"
+          className={`rail-btn ${open === 'insert' ? 'on' : ''}`}
+          onClick={() => toggle('insert')}
+          title="Insert — Dot grid · Punch guide"
         >
-          <CursorIcon />
-          <span>Select</span>
+          <InsertIcon />
+          <span>Insert</span>
+          {(grid.showOnScreen || insert.punch.show) && <span className="rail-mark" />}
         </button>
 
-        <button
-          className={`rail-btn ${open === 'elements' || inElements ? 'on' : ''}`}
-          onClick={() => toggle('elements')}
-          title="Elements — Draw · Sheet · Check box"
-        >
-          <LineIcon />
-          <span>Elements</span>
-        </button>
+        <div className="rail-divider" />
 
         <button
-          className={`rail-btn ${open === 'text' || inText ? 'on' : ''}`}
-          onClick={() => toggle('text')}
-          title="Text — Calendar · Field"
+          className={`rail-btn ${open === 'template' ? 'on' : ''}`}
+          onClick={() => toggle('template')}
+          title="Template"
         >
-          <TextIcon />
-          <span>Text</span>
+          <TemplateIcon />
+          <span>Template</span>
         </button>
 
         <button
@@ -1935,45 +1957,51 @@ export function ToolRail({
           <span>Image</span>
         </button>
 
-        {/*
-          용지·도트 격자·타공 안내 — 예전엔 이 아래(SettingsPanel)에 따로
-          말풍선으로 떴었다. "이 칸이 어떻게 생겼는가"를 정하는 같은 종류의
-          설정이라 도구 카테고리와 같은 줄, 같은 탭 방식으로 합쳤다. 오른쪽
-          위 점은 그 설정이 지금 화면에 실제로 보이는 중이라는 표시다.
-        */}
+        <div className="rail-divider" />
 
         <button
-          className={`rail-btn ${open === 'grid' ? 'on' : ''}`}
-          onClick={() => toggle('grid')}
-          title="Dot Grid"
+          className={`rail-btn ${tool === 'select' ? 'on' : ''}`}
+          onClick={() => setTool('select')}
+          title="Select (V)"
         >
-          <GridIcon />
-          <span>Dot Grid</span>
-          {grid.showOnScreen && <span className="rail-mark" />}
+          <CursorIcon />
+          <span>Select</span>
         </button>
 
         <button
-          className={`rail-btn ${open === 'punch' ? 'on' : ''}`}
-          onClick={() => toggle('punch')}
-          title="Punch Guide"
+          className={`rail-btn ${open === 'elements' || inElements ? 'on' : ''}`}
+          onClick={() => toggle('elements')}
+          title="Draw — Line · Sheet · Check box"
         >
-          <PunchIcon />
-          <span>Punch Guide</span>
-          {insert.punch.show && <span className="rail-mark" />}
+          <LineIcon />
+          <span>Draw</span>
+        </button>
+
+        <button
+          className={`rail-btn ${open === 'text' || tool === 'text' ? 'on' : ''}`}
+          onClick={() => {
+            if (tool === 'text') toggle('text');
+            else setTool('text');
+          }}
+          title="Text (T)"
+        >
+          <TextIcon />
+          <span>Text</span>
         </button>
 
         {/*
-          탭을 손으로 열고 닫는 화살표 — 맨 아래에 붙는다(margin-top: auto,
-          .rail-panel-toggle). '고르기 도구 + 아무것도 안 고름'일 때
-          categoryFor가 이제 null 대신 'select'를 주므로(위 useEffect 참고)
-          자동으로는 안 닫히는데, 그래도 사용자가 손으로 접어두고 싶을 수
-          있어 만들었다(사용자 요청). 닫을 때 지금 열려 있던 탭을
-          lastOpenRef에 기억해뒀다가 다시 열 때 그대로 돌려준다 —
-          categoryFor로 새로 계산하면 용지·도트격자·타공처럼 그 함수가
-          절대 안 돌려주는 탭은 닫았다 다시 열었을 때 엉뚱한(고른 것) 탭으로
-          바뀌어버린다. 닫아둔 동안 도구나 선택이 바뀌면 위 useEffect가
-          먼저 새 탭을 열어버리므로, 그 전까지만 닫힌 채로 있는다.
+          자동 필드 — 달력·필드. 손으로 치는 글자와 갈라 둔 까닭은
+          AUTO_TOOLS 주석에 있다.
         */}
+        <button
+          className={`rail-btn ${open === 'auto' || inAuto ? 'on' : ''}`}
+          onClick={() => toggle('auto')}
+          title="AutoField — Calendar · Field"
+        >
+          <FieldIcon />
+          <span>AutoField</span>
+        </button>
+
         <button
           className="rail-btn rail-panel-toggle"
           onClick={() => {
@@ -1999,24 +2027,7 @@ export function ToolRail({
               설정을 만지는 중"이라는 뜻이 같은 켬/끔 하나로 통한다 — 포토샵의
               눈알처럼, 이 단추 하나가 그 체크박스 줄을 대신한다(사용자 요청).
             */}
-            {open === 'grid' && (
-              <button
-                className="eye-toggle"
-                onClick={() => patchDotGrid({ showOnScreen: !grid.showOnScreen })}
-                title={grid.showOnScreen ? '화면에서 숨기기' : '화면에 보이기'}
-              >
-                {grid.showOnScreen ? <EyeIcon /> : <EyeOffIcon />}
-              </button>
-            )}
-            {open === 'punch' && (
-              <button
-                className="eye-toggle"
-                onClick={() => patchPunch({ show: !insert.punch.show })}
-                title={insert.punch.show ? '화면에서 숨기기' : '화면에 보이기'}
-              >
-                {insert.punch.show ? <EyeIcon /> : <EyeOffIcon />}
-              </button>
-            )}
+
           </div>
           {items && (
             <div className="tool-subgrid">
@@ -2056,8 +2067,48 @@ export function ToolRail({
               <LayoutGroup />
             </>
           )}
-          {open === 'grid' && <GridGroup />}
-          {open === 'punch' && <PunchGroup />}
+          {/*
+            속지 탭 — 도트 격자와 타공 안내를 한 칸에 잇대어 둔다(디자인의
+            Insert 탭). 각 묶음의 눈알 단추는 "화면에 보이는 중"이라는 뜻과
+            "지금 그 설정을 만지는 중"이라는 뜻을 하나로 합친 것이다.
+          */}
+          {open === 'insert' && (
+            <>
+              {/*
+                속지 크기. 예전엔 머리줄 가운데 "80 × 125mm ▾"에 딸린
+                말풍선이었는데, 디자인의 머리줄에는 그런 게 없다 — 크기는
+                "이 속지 한 장이 어떻게 생겼는가"라서 도트 격자·타공과 같은
+                탭이 제자리다.
+              */}
+              <h3 className="rail-panel-title">Size</h3>
+              <InsertGroup />
+              <div className="divider" />
+              <div className="rail-panel-head-row">
+                <h3 className="rail-panel-title">Dot grid</h3>
+                <button
+                  className="eye-toggle"
+                  onClick={() => patchDotGrid({ showOnScreen: !grid.showOnScreen })}
+                  title={grid.showOnScreen ? '화면에서 숨기기' : '화면에 보이기'}
+                >
+                  {grid.showOnScreen ? <EyeIcon /> : <EyeOffIcon />}
+                </button>
+              </div>
+              <GridGroup />
+              <div className="divider" />
+              <div className="rail-panel-head-row">
+                <h3 className="rail-panel-title">Punch guide</h3>
+                <button
+                  className="eye-toggle"
+                  onClick={() => patchPunch({ show: !insert.punch.show })}
+                  title={insert.punch.show ? '화면에서 숨기기' : '화면에 보이기'}
+                >
+                  {insert.punch.show ? <EyeIcon /> : <EyeOffIcon />}
+                </button>
+              </div>
+              <PunchGroup />
+            </>
+          )}
+          {open === 'template' && <TemplateCategoryBody onManageAll={onManageTemplates} />}
           {/*
             지금 화면(속지 제작·노트 제작·인쇄하기 칸 손보기)이 자기 StyleBar를
             여기로 portal한다 — "쓰는 중인 글자" 같은 화면별 상태를 이 컴포넌트가
@@ -2066,6 +2117,56 @@ export function ToolRail({
           */}
           {!isSettingsCategory(open) && <div className="style-panel-slot" ref={onStylePanelSlot} />}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "양식" 탭 안 — 규격별로 묶은 양식 목록. 누르면 그 양식으로 바로 갈아탄다.
+ *
+ * 갤러리 화면(GalleryTab)을 대신하려는 게 아니다. 작업 도중 같은 규격의
+ * 다른 양식을 잠깐 보거나 앞뒤를 맞춰볼 때 화면을 통째로 떠나지 않으려는
+ * 것이라, 썸네일 없이 이름과 크기만 한 줄씩 늘어놓는다. 전부 손보려면
+ * 맨 아래 "양식 관리"로 나간다.
+ *
+ * **노트는 뺀다.** 노트는 반쪽(cover/pages)을 따로 여는 자기 화면이 있어서
+ * 여기서 골라봐야 이 화면이 그릴 수 있는 게 없다.
+ */
+function TemplateCategoryBody({ onManageAll }: { onManageAll?: () => void }) {
+  const templates = useStore((s) => s.templates);
+  const activeId = useStore((s) => s.activeId);
+  const selectTemplate = useStore((s) => s.selectTemplate);
+  const groups = groupBySize(templates.filter((t) => t.kind !== 'notebook'));
+
+  return (
+    <div className="tpl-list">
+      {groups.map((g) => (
+        <div key={g.label} className="tpl-group">
+          <div className="tpl-group-label">{g.label}</div>
+          {g.templates.map((t) => (
+            <button
+              key={t.id}
+              className={`tpl-row ${t.id === activeId ? 'on' : ''}`}
+              onClick={() => selectTemplate(t.id)}
+              title={t.name}
+            >
+              <span className="tpl-row-thumb" />
+              <span className="tpl-row-text">
+                <span className="tpl-row-name">{t.name}</span>
+                <span className="tpl-row-size">
+                  {t.insert.width} × {t.insert.height}mm
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      ))}
+      {onManageAll && (
+        <button className="tpl-manage" onClick={onManageAll}>
+          <span className="tpl-manage-plus">+</span>
+          <span>양식 관리</span>
+        </button>
       )}
     </div>
   );

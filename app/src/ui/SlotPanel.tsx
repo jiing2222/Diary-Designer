@@ -13,8 +13,8 @@ import type { Layout } from '../core/layout';
  * 것 자체를 알 수 없다.
  */
 
-/** 접었다 펼 때 돌아갈 폭. 칸 배정 격자가 두세 칸일 때 알맞은 값이다. */
-const DEFAULT_WIDTH = 260;
+/** 접었다 펼 때 돌아갈 폭. 클로드 디자인의 오른쪽 패널과 같은 300px이다. */
+const DEFAULT_WIDTH = 300;
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 520;
 
