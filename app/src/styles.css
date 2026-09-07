@@ -76,11 +76,27 @@ header {
 }
 
 /* 로고 — 반지 아이콘 + 이름. 늘 왼쪽 끝에 고정된 자리다. */
+/*
+  로고는 이제 누를 수 있다(소개 화면으로 간다). button이 된 만큼 전역
+  button 규칙(초록 바탕·흰 글자·안쪽 여백)을 여기서 벗겨낸다.
+*/
 .logo {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  padding: 4px 6px;
+  margin-left: -6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.logo:hover {
+  background: var(--hover-bg);
 }
 
 header h1 {
@@ -2725,4 +2741,503 @@ footer b {
   font-size: 13px;
   line-height: 1.5;
   color: var(--ink);
+}
+
+/* ─────────────────────────── 시작 화면 ─────────────────────────── */
+
+/*
+  소개 화면. 앱 껍데기(머리줄·도구줄)를 쓰지 않고 자기 것을 따로 그린다
+  (ui/StartScreen) — 앱은 화면 끝까지 쓰지만 여기는 1120px에서 멈춘다.
+*/
+.start {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  overflow-y: auto;
+}
+
+.start-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.start-header-inner,
+.start-main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.start-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+}
+
+.start-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.start-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.start-nav button {
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.start-nav button:hover {
+  background: var(--hover-bg);
+}
+
+.start-nav button.off,
+.start-nav button:disabled {
+  color: var(--placeholder);
+  background: transparent;
+  cursor: default;
+}
+
+.start-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── 제목 ── */
+
+.start-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 112px 0 50px;
+}
+
+.start-hero h1 {
+  margin: 0;
+  max-width: 900px;
+  text-align: center;
+  font-size: clamp(40px, 7.4vw, 92px);
+  font-weight: 600;
+  line-height: 1.06;
+  letter-spacing: -2.4px;
+}
+
+.start-hero-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.28em;
+}
+
+/*
+  돌아가는 낱말의 자리. 폭을 미리 잡아둬서 낱말이 길어지고 짧아져도
+  옆의 "system"이 좌우로 밀리지 않는다(StartScreen 주석).
+*/
+.start-hero-slot {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  width: 3.3em;
+  flex-shrink: 0;
+}
+
+.start-hero-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.16em;
+  padding: 0.14em 0.32em;
+  border-radius: 999px;
+  background: var(--accent-subtle);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.start-hero-word.out {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.start-hero-dot {
+  width: 0.42em;
+  height: 0.42em;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.start-hero-word em {
+  font-size: 0.72em;
+  font-style: italic;
+  font-weight: 400;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--accent);
+}
+
+.start-lede {
+  margin: 24px 0 0;
+  max-width: 520px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.start-cta {
+  margin-top: 32px;
+  padding: 11px 22px;
+  font-size: 14px;
+}
+
+.start-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.start-meta-sep {
+  width: 1px;
+  height: 10px;
+  background: var(--line);
+}
+
+/* ── 앱 미리보기 ── */
+
+.start-mock {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.start-mock-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.start-mock-pills {
+  display: flex;
+  gap: 2px;
+}
+
+.start-mock-pills button {
+  padding: 5px 9px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.start-mock-pills button.on {
+  background: var(--hover-bg);
+  color: var(--ink);
+}
+
+.start-mock-label {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* 좁은 화면에서는 옆 패널이 밀려 캔버스가 사라지므로 가로로 넘긴다. */
+.start-mock-body {
+  display: flex;
+  align-items: stretch;
+  min-height: 360px;
+  background: var(--bg);
+  overflow-x: auto;
+}
+
+.start-mock-side {
+  width: 180px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+.start-mock-side.right {
+  width: 200px;
+  gap: 16px;
+  border-right: 0;
+  border-left: 1px solid var(--line);
+}
+
+.start-mock-side-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.start-mock-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.start-mock-list > div {
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.start-mock-list > div.on {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.start-mock-stage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.start-mock-sheet {
+  display: block;
+  height: 296px;
+  width: auto;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.start-mock-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.start-mock-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.start-mock-value {
+  flex: 1;
+  max-width: 88px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  text-align: right;
+}
+
+.start-mock-foot {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.start-mock-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.start-mock-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.start-mock-card.on {
+  border: 2px solid var(--accent);
+  background: var(--accent-subtle);
+}
+
+.start-mock-thumb {
+  height: 70px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fff;
+}
+
+.start-mock-card-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.start-mock-card-size {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.start-mock-sizes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.start-mock-sizes > div {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.start-mock-sizes > div.on {
+  border: 2px solid var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.start-mock-slots {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  width: 72px;
+}
+
+.start-mock-slots span {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+}
+
+.start-mock-slots .a {
+  background: var(--accent);
+}
+
+/* 같은 배치에서 칸이 갈리는 것을 보여주려는 옅은 짝 색이다. */
+.start-mock-slots .b {
+  background: #8fb39e;
+}
+
+/* ── 할 수 있는 일 ── */
+
+.start-features {
+  margin-top: 40px;
+}
+
+.start-features-title {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.start-feature-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 96px;
+}
+
+.start-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 180px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.start-feature:hover {
+  border-color: var(--accent);
+  background: #f9fbfa;
+}
+
+.start-feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.start-feature-icon.accent {
+  background: var(--accent);
+}
+
+.start-feature-icon.soft {
+  background: #8fb39e;
+}
+
+.start-feature-icon.ink {
+  background: var(--ink);
+}
+
+.start-feature-icon.muted {
+  background: var(--muted);
+}
+
+.start-feature-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.start-feature-arrow {
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start-hero-word {
+    transition: none;
+  }
 }

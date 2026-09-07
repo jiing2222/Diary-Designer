@@ -38,6 +38,7 @@ import { PrintSlotEditor } from './PrintSlotEditor';
 import { EditorTab, ToolRail, ZoomStepper } from './EditorTab';
 import { NotebookEditorTab } from './NotebookEditorTab';
 import { GalleryTab } from './GalleryTab';
+import { StartScreen } from './StartScreen';
 import { Toast } from './Toast';
 import { SlotAssign } from './SlotAssign';
 import { RepeatPrint } from './RepeatPrint';
@@ -53,7 +54,11 @@ import {
 import type { DiaryObject, ImageObject, TextObject } from '../core/objects';
 import { MenuIcon, RingsLogo } from './icons';
 
-type Tab = 'gallery' | 'edit' | 'print';
+/**
+ * `start`는 다른 셋과 성격이 다르다 — 앱 화면이 아니라 소개 화면이라
+ * 머리줄·도구줄을 함께 그리지 않고 화면 전체를 혼자 쓴다(아래 렌더 참고).
+ */
+type Tab = 'start' | 'gallery' | 'edit' | 'print';
 
 /**
  * 인쇄하기에서 지금 칸(낱장 조합)·페이지(세트형)를 직접 손보는 중이면 그
@@ -354,8 +359,28 @@ export function App() {
     };
   }, [restored]);
 
-  // 처음 열면 양식이 하나도 없다. 갤러리에서 시작해 첫 양식을 만들게 한다.
-  const [tab, setTab] = useState<Tab>('gallery');
+  /**
+   * 처음 열면 소개 화면이다.
+   *
+   * 다만 하던 작업이 있으면 소개를 볼 이유가 없다 — 되살리기가 끝난 뒤
+   * 양식이 있으면 곧장 갤러리로 보낸다(아래 effect). 되살리기 전에 미리
+   * 정할 수 없는 이유는 그 시점에 store가 아직 비어 있어서다.
+   *
+   * 다시 이 화면으로 오는 길은 머리줄의 로고다.
+   */
+  const [tab, setTab] = useState<Tab>('start');
+
+  /**
+   * 되살린 작업이 있으면 소개 화면을 건너뛴다.
+   *
+   * `tab`을 의존성에 넣지 않는다 — 되살리기가 끝나는 순간 한 번만 판단하고,
+   * 그 뒤에 사용자가 로고를 눌러 소개 화면으로 돌아오면 그대로 둬야 한다.
+   */
+  useEffect(() => {
+    if (!restored) return;
+    if (useStore.getState().templates.length > 0) setTab('gallery');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restored]);
   /**
    * 인쇄하기 탭 전용. 켜면 지금 켜둔 도트·타공 화면 설정과 무관하게 **실제로
    * 인쇄될 모습만** 보여준다. 원래 설정은 그대로 두고 보는 방식만 잠깐 바꾸는
@@ -922,13 +947,17 @@ export function App() {
     }
   }
 
+  // 소개 화면은 자기 머리줄을 따로 갖고 있어서 앱 껍데기 밖에서 그린다.
+  if (tab === 'start') return <StartScreen onStart={() => setTab('gallery')} />;
+
   return (
     <div className="app">
       <header>
-        <div className="logo">
+        {/* 로고를 누르면 소개 화면으로 — 디자인의 갤러리 머리줄과 같다. */}
+        <button className="logo" onClick={() => setTab('start')} title="Rings home">
           <RingsLogo />
           <h1>Rings</h1>
-        </div>
+        </button>
 
         {/* 고르고 → 그리고 → 인쇄한다. 예전엔 여기 늘 늘어서 있던 탭
             4개를 햄버거 메뉴 뒤로 옮겼다 — 버튼 자체(순서·disabled
