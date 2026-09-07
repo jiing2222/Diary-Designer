@@ -106,9 +106,9 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
                 {s.templates.map((t) => (
                   <Card key={t.id} template={t} active={t.id === activeId} onEdit={onEdit} />
                 ))}
-                <button className="card-add" onClick={() => newFrom(s)} title={`New ${s.label} template`}>
+                <button className="card-add" onClick={() => newFrom(s)} title={`${s.label} 규격으로 새 양식`}>
                   <span className="card-add-plus">+</span>
-                  <span>New template</span>
+                  <span>새 양식</span>
                 </button>
               </div>
             </section>
@@ -157,7 +157,7 @@ function sizeSections(templates: Template[], family: SizeFamilyId | 'all'): Size
   if (family === 'all' || family === 'custom') {
     sections.push({
       key: 'custom',
-      label: 'Custom sizes',
+      label: '사용자 지정 크기',
       preset: null,
       templates: templates.filter((t) => familyOf(t.insert.presetId) === 'custom'),
     });
@@ -187,22 +187,22 @@ function GalleryRail({
     <div className="gallery-rail">
       <RailBtn
         on={isTemplates && view.family === 'all'}
-        label="All"
+        label="전체"
         onClick={() => setView({ kind: 'templates', family: 'all' })}
       >
         <AllIcon />
       </RailBtn>
-      <RailBtn on={view.kind === 'images'} label="Images" onClick={() => setView({ kind: 'images' })}>
+      <RailBtn on={view.kind === 'images'} label="이미지" onClick={() => setView({ kind: 'images' })}>
         <ImageIcon />
       </RailBtn>
-      <RailBtn on={view.kind === 'fonts'} label="Fonts" onClick={() => setView({ kind: 'fonts' })}>
+      <RailBtn on={view.kind === 'fonts'} label="글꼴" onClick={() => setView({ kind: 'fonts' })}>
         <span className="rail-aa">Aa</span>
       </RailBtn>
       {/*
         이것만 화면을 바꾸지 않고 창을 띄운다 — 규격을 고르는 일이라
         "무엇을 볼지"와 성격이 다르다. 그래서 눌러도 켜진 채로 남지 않는다.
       */}
-      <RailBtn on={false} label="New" onClick={onNew}>
+      <RailBtn on={false} label="새 양식" onClick={onNew}>
         <PlusIcon />
       </RailBtn>
 
@@ -328,7 +328,7 @@ function NewTemplateDialog({
   const [name, setName] = useState('');
   const [grid, setGrid] = useState<DotGrid>({ ...DEFAULT_DOT_GRID });
   /**
-   * 간격을 직접 칠지, By cell count 셀지.
+   * 간격을 직접 칠지, 칸 수로 셀지.
    *
    * **간격은 가로·세로가 하나뿐이다.** 그래서 한 축의 칸 수를 정하면 다른 축은
    * 거기서 따라 나온다. 둘 다 마음대로 정하면 칸이 정사각형이 아니게 되고,
@@ -345,7 +345,7 @@ function NewTemplateDialog({
         ? { presetId, width, height, punch: { ...current.punch } }
         : { ...insertFromPreset(presetId, current), width, height };
 
-  // By cell count 만들면 여기서 간격이 나온다. 딱 나누어떨어져 잘리는 칸이 없다.
+  // 칸 수로 만들면 여기서 간격이 나온다. 딱 나누어떨어져 잘리는 칸이 없다.
   // 실제로 그려지는 양식 크기(insert)를 쓴다 — 노트는 완성 페이지(width state)의
   // 두 배라서, 여기서 페이지 크기를 쓰면 칸 수가 절반으로 어긋난다.
   const spacing = byCells
@@ -370,21 +370,21 @@ function NewTemplateDialog({
   }
 
   return (
-    <Modal title="New template" onClose={onClose}>
+    <Modal title="새 양식" onClose={onClose}>
       <div className="modal-row">
         <label className="modal-check">
           <input type="radio" checked={kind === 'insert'} onChange={() => setKind('insert')} />
-          Insert — sits in a ring binder
+          속지 — 링 바인더에 끼운다
         </label>
         <label className="modal-check">
           <input type="radio" checked={kind === 'notebook'} onChange={() => setKind('notebook')} />
-          Notebook — bound with staples/thread
+          노트 — 스테이플러·바느질로 맨다
         </label>
       </div>
 
       {kind === 'insert' ? (
         <>
-          <p className="modal-note">Which insert size?</p>
+          <p className="modal-note">어떤 규격의 속지를 만들까요?</p>
 
           <div className="preset-list">
             {INSERT_PRESETS.map((p) => (
@@ -403,8 +403,8 @@ function NewTemplateDialog({
               className={`preset ${presetId === 'custom' ? 'on' : ''}`}
               onClick={() => pickPreset('custom')}
             >
-              <b>Custom</b>
-              <span>Enter size</span>
+              <b>사용자 지정</b>
+              <span>직접 입력</span>
             </button>
           </div>
 
@@ -431,7 +431,7 @@ function NewTemplateDialog({
         </>
       ) : (
         <>
-          <p className="modal-note">Size of one finished page. No punch holes.</p>
+          <p className="modal-note">완성됐을 때 페이지 한 쪽의 크기입니다. 타공은 없습니다.</p>
           <div className="card-dialog-size">
             <input
               type="number"
@@ -451,7 +451,7 @@ function NewTemplateDialog({
             <span>mm</span>
           </div>
           <p className="modal-note">
-            Folded down the middle, so the sheet you draw on is{' '}
+            가운데를 접어 만들므로, 실제로 그리는 양식은{' '}
             <b>
               {insert.width} × {insert.height}mm
             </b>
@@ -461,7 +461,7 @@ function NewTemplateDialog({
       )}
 
       <div className="modal-divider" />
-      <p className="modal-note">Paper — what you print on. Applies to the whole project.</p>
+      <p className="modal-note">용지 — 인쇄할 종이. 작업 전체에 적용됩니다.</p>
       <div className="modal-row">
         <select value={paper.presetId} onChange={(e) => setPaperPreset(e.target.value)}>
           {PAPER_PRESETS.map((p) => (
@@ -469,22 +469,22 @@ function NewTemplateDialog({
               {p.name} · {p.width} × {p.height}mm
             </option>
           ))}
-          <option value="custom">Custom</option>
+          <option value="custom">사용자 지정</option>
         </select>
       </div>
 
       <div className="modal-divider" />
-      <p className="modal-note">Dot grid</p>
+      <p className="modal-note">도트 격자</p>
 
       <div className="modal-row">
         <select
           value={grid.style}
           onChange={(e) => setGrid({ ...grid, style: e.target.value as GridStyle })}
         >
-          <option value="dot">Dots</option>
-          <option value="grid">Grid</option>
-          <option value="horizontal">Horizontal lines</option>
-          <option value="vertical">Vertical lines</option>
+          <option value="dot">도트</option>
+          <option value="grid">그리드</option>
+          <option value="horizontal">가로줄</option>
+          <option value="vertical">세로줄</option>
         </select>
 
         <label className="modal-check">
@@ -493,26 +493,26 @@ function NewTemplateDialog({
             checked={grid.toEdge}
             onChange={(e) => setGrid({ ...grid, toEdge: e.target.checked })}
           />
-          Fill to edge
+          여백 없이 끝까지
         </label>
       </div>
 
       <div className="modal-row">
         <label className="modal-check">
           <input type="radio" checked={!byCells} onChange={() => setByCells(false)} />
-          By spacing
+          간격으로
         </label>
         <label className="modal-check">
           <input type="radio" checked={byCells} onChange={() => setByCells(true)} />
-          By cell count
+          칸 수로
         </label>
       </div>
 
       {byCells ? (
         <div className="modal-row">
           <select value={cellAxis} onChange={(e) => setCellAxis(e.target.value as 'x' | 'y')}>
-            <option value="x">Cols</option>
-            <option value="y">Rows</option>
+            <option value="x">가로</option>
+            <option value="y">세로</option>
           </select>
           <input
             type="number"
@@ -522,7 +522,7 @@ function NewTemplateDialog({
             step={1}
             onChange={(e) => setCells(Math.max(1, Math.round(Number(e.target.value))))}
           />
-          <span className="modal-unit">cells</span>
+          <span className="modal-unit">칸</span>
         </div>
       ) : (
         <div className="modal-row">
@@ -543,23 +543,23 @@ function NewTemplateDialog({
         {preview.cols > 0 && preview.rows > 0 ? (
           <>
             <b>
-              {preview.cols} × {preview.rows} cells
+              {preview.cols} × {preview.rows}칸
             </b>
-            {' · spacing '}
+            {' · 간격 '}
             {roundMm(spacing, 2)}mm
-            {grid.toEdge ? '' : ` · margin ${roundMm(preview.marginX, 1)}mm`}
+            {grid.toEdge ? '' : ` · 여백 ${roundMm(preview.marginX, 1)}mm`}
           </>
         ) : (
-          <span className="warn">Spacing is wider than the insert — no grid fits.</span>
+          <span className="warn">간격이 속지보다 넓어 격자가 들어가지 않습니다.</span>
         )}
       </p>
 
       <div className="modal-divider" />
       <label className="modal-field">
-        Name
+        이름
         <input
           value={name}
-          placeholder="Leave blank for an automatic name"
+          placeholder="비워두면 자동으로 붙습니다"
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && create()}
         />
@@ -567,10 +567,10 @@ function NewTemplateDialog({
 
       <div className="card-dialog-actions">
         <button className="ghost" onClick={onClose}>
-          Cancel
+          취소
         </button>
         <button className="primary" onClick={create}>
-          Create
+          만들기
         </button>
       </div>
     </Modal>
@@ -654,7 +654,7 @@ function Card({
           selectTemplate(t.id);
           onEdit();
         }}
-        title="Open this template"
+        title="이 양식 편집하기"
       >
         {/*
           속지 비율 그대로 그린다. viewBox가 mm라 크기만 줄이면 되고,
@@ -688,7 +688,7 @@ function Card({
             }}
           />
         ) : (
-          <button className="card-name" onClick={() => setRenaming(true)} title="Click to rename">
+          <button className="card-name" onClick={() => setRenaming(true)} title="클릭해서 이름 바꾸기">
             {t.name}
           </button>
         )}
@@ -704,13 +704,13 @@ function Card({
         </span>
 
         <div className="card-actions">
-          <IconBtn label="Rename" onClick={() => setRenaming(true)}>
+          <IconBtn label="이름" onClick={() => setRenaming(true)}>
             <PencilIcon />
           </IconBtn>
-          <IconBtn label="Duplicate" onClick={() => setCopying(true)}>
+          <IconBtn label="복제" onClick={() => setCopying(true)}>
             <CopyIcon />
           </IconBtn>
-          <IconBtn label="Delete" danger onClick={() => removeTemplate(t.id)}>
+          <IconBtn label="삭제" danger onClick={() => removeTemplate(t.id)}>
             <TrashIcon />
           </IconBtn>
         </div>
@@ -806,14 +806,14 @@ function CopyDialog({ template, onClose }: { template: Template; onClose: () => 
   return (
     <div className="card-dialog">
       <label>
-        Size
+        규격
         <select value={presetId} onChange={(e) => pickPreset(e.target.value)}>
           {INSERT_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
           ))}
-          <option value="custom">Custom</option>
+          <option value="custom">사용자 지정</option>
         </select>
       </label>
 
@@ -844,12 +844,12 @@ function CopyDialog({ template, onClose }: { template: Template; onClose: () => 
 
       {lost > 0 && (
         <p className="card-dialog-warn">
-          <b>{lost}</b> object(s) fall outside the new size. They are kept, but printing clips them.
+          객체 <b>{lost}개</b>가 새 크기 밖으로 나갑니다. 지워지지는 않고 인쇄에서만 잘립니다.
         </p>
       )}
 
       <div className="card-dialog-actions">
-        <button onClick={onClose}>Cancel</button>
+        <button onClick={onClose}>취소</button>
         <button
           className="primary"
           onClick={() => {
@@ -862,7 +862,7 @@ function CopyDialog({ template, onClose }: { template: Template; onClose: () => 
             onClose();
           }}
         >
-          Duplicate
+          복제
         </button>
       </div>
     </div>

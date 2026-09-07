@@ -34,8 +34,8 @@ type MockScreen = 'insert' | 'template' | 'print';
 const MOCK_ORDER: MockScreen[] = ['insert', 'template', 'print'];
 
 const MOCK_LABEL: Record<MockScreen, string> = {
-  insert: 'M6 · 80 × 125mm · 2.5mm dots',
-  template: 'All templates · 4',
+  insert: 'M6 · 80 × 125mm · 2.5mm 도트',
+  template: '전체 템플릿 · 4개',
   print: 'A4 · 4 per sheet (2 × 2)',
 };
 
@@ -106,9 +106,9 @@ function StartHeader({
         </nav>
 
         <div className="start-header-right">
-          <button className="start-plain">Sign in</button>
+          <button className="start-plain">로그인</button>
           <button className="start-header-cta" onClick={onStart}>
-            Start Rings — it's free
+            Rings 무료로 사용하기
           </button>
         </div>
       </div>
@@ -140,19 +140,19 @@ function Hero({ onStart }: { onStart: () => void }) {
       </h1>
 
       <p className="start-lede">
-        Draw freely on the dot grid, then print it at exactly the size your binder takes.
+        도트 위에 자유롭게 표현하고, 규격에 맞춰 간편하게 인쇄하세요.
       </p>
 
       <div className="start-cta-row">
         <button className="start-cta" onClick={onStart}>
-          Start Rings — it's free
+          Rings 무료로 사용하기
         </button>
       </div>
 
       <div className="start-meta">
-        <span>M6 · A5 · A6 · Personal</span>
+        <span>M6 · A5 · A6 · 퍼스널</span>
         <span className="start-meta-sep" />
-        <span>No sign-up needed</span>
+        <span>가입 없이 바로 시작</span>
       </div>
     </section>
   );
@@ -247,7 +247,7 @@ function MockPanel({ title, items, activeIndex }: { title: string; items: string
 function InsertMock() {
   return (
     <>
-      <MockPanel title="Elements" items={['Text', 'Table', 'Check box', 'Image', 'Calendar']} activeIndex={0} />
+      <MockPanel title="요소" items={['글자', '표', '체크박스', '이미지', '달력']} activeIndex={0} />
 
       <div className="start-mock-stage">
         {/* 속지 한 장. 실제 M6 비율(80 × 125mm) 그대로다. */}
@@ -286,14 +286,14 @@ function InsertMock() {
       </div>
 
       <div className="start-mock-side right">
-        <div className="start-mock-side-title">Selected · Table</div>
+        <div className="start-mock-side-title">선택한 요소 · 표</div>
         <div className="start-mock-fields">
           <MockField label="X" value="8.0mm" />
           <MockField label="Y" value="103.0mm" />
-          <MockField label="Width" value="30.0mm" />
-          <MockField label="Height" value="10.0mm" />
+          <MockField label="너비" value="30.0mm" />
+          <MockField label="높이" value="10.0mm" />
         </div>
-        <div className="start-mock-foot">Snaps to the grid · 2.5mm</div>
+        <div className="start-mock-foot">격자에 맞춰 붙습니다 · 2.5mm</div>
       </div>
     </>
   );
@@ -317,7 +317,7 @@ function TemplateMock() {
 
   return (
     <>
-      <MockPanel title="View" items={['All', 'Images', 'Fonts']} activeIndex={0} />
+      <MockPanel title="보기" items={['전체', '이미지', '폰트']} activeIndex={0} />
 
       <div className="start-mock-stage">
         <div className="start-mock-cards">
@@ -332,7 +332,7 @@ function TemplateMock() {
       </div>
 
       <div className="start-mock-side right">
-        <div className="start-mock-side-title">Size</div>
+        <div className="start-mock-side-title">규격</div>
         <div className="start-mock-sizes">
           <div>A5 · A6</div>
           <div className="on">M6 · M5</div>
@@ -346,7 +346,7 @@ function TemplateMock() {
 function PrintMock() {
   return (
     <>
-      <MockPanel title="Settings" items={['Paper', 'View', 'Insert']} activeIndex={0} />
+      <MockPanel title="설정" items={['Paper', 'View', 'Insert']} activeIndex={0} />
 
       <div className="start-mock-stage">
         {/* A4 한 장에 M6 넉 장. 모서리의 짧은 선이 재단 표시다. */}
@@ -388,11 +388,11 @@ function PrintMock() {
 }
 
 const FEATURES: { title: string; tone: 'accent' | 'soft' | 'ink' | 'muted' }[] = [
-  { title: 'Start a new diary', tone: 'accent' },
-  { title: 'Get the dots right for your size', tone: 'soft' },
-  { title: 'Hand it straight to a print shop', tone: 'ink' },
-  { title: 'Share a finished insert', tone: 'muted' },
-  { title: 'Lay out many sheets at once', tone: 'accent' },
+  { title: '새 다이어리 시작하기', tone: 'accent' },
+  { title: '규격에 맞는 도트 잡기', tone: 'soft' },
+  { title: '인쇄소로 바로 넘기기', tone: 'ink' },
+  { title: '완성한 속지 공유하기', tone: 'muted' },
+  { title: '여러 장 한번에 배치하기', tone: 'accent' },
 ];
 
 /**
@@ -405,20 +405,20 @@ const FEATURES: { title: string; tone: 'accent' | 'soft' | 'ink' | 'muted' }[] =
 function Showcase({ onStart }: { onStart: () => void }) {
   return (
     <section className="start-showcase">
-      <h2>Where a whole diary comes together, dot by dot</h2>
+      <h2>도트 위에서 다이어리 한 권이 완성되는 곳</h2>
 
       <div className="start-show-grid">
         <ShowCard
-          kicker="Inserts"
-          title="Place elements freely and make the insert yours."
+          kicker="속지 제작"
+          title="요소를 자유롭게 배치해 나만의 속지를 만드세요."
           onStart={onStart}
         >
           <ShowSheet />
         </ShowCard>
 
         <ShowCard
-          kicker="Template"
-          title="Pick a template that fits your size and start right away."
+          kicker="템플릿"
+          title="규격에 맞는 템플릿을 고르고 바로 시작하세요."
           onStart={onStart}
           frameClass="tall"
         >
@@ -437,7 +437,7 @@ function Showcase({ onStart }: { onStart: () => void }) {
             </div>
             <div className="add">
               <span className="plus">+</span>
-              <span>New template</span>
+              <span>새 템플릿</span>
             </div>
           </div>
         </ShowCard>
@@ -447,9 +447,9 @@ function Showcase({ onStart }: { onStart: () => void }) {
       <div className="start-show-wide">
         <div className="start-show-wide-head">
           <div>
-            <div className="start-show-kicker">Print</div>
+            <div className="start-show-kicker">인쇄</div>
             <div className="start-show-title">
-              Ready for the paper size, crop marks and all.
+              종이 규격에 맞춰 크롭 마크까지 자동으로 준비하세요.
             </div>
           </div>
           <ArrowButton onClick={onStart} />
@@ -471,7 +471,7 @@ function Showcase({ onStart }: { onStart: () => void }) {
         </div>
       </div>
 
-      <p className="start-features-title">What you can do with Rings</p>
+      <p className="start-features-title">Rings로 할 수 있는 일 보기</p>
       <div className="start-feature-grid">
         {FEATURES.map((f, i) => (
           <button key={f.title} className="start-feature" onClick={onStart}>
@@ -518,7 +518,7 @@ function ShowCard({
 
 function ArrowButton({ onClick }: { onClick: () => void }) {
   return (
-    <button className="start-show-arrow" onClick={onClick} aria-label="Start Rings">
+    <button className="start-show-arrow" onClick={onClick} aria-label="Rings 시작하기">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 12h14" />
         <path d="M13 6l6 6-6 6" />

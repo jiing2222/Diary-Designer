@@ -47,15 +47,13 @@ export const HOLE_PITCH: Mm = 19;
  */
 export const INSERT_PRESETS: InsertPreset[] = [
   { id: 'A5', name: 'A5', width: 148, height: 210, holeCount: 6, groupGap: 70, markSize: 6 },
-  { id: 'TA6', name: 'TA6', width: 105, height: 148, holeCount: 6, groupGap: 38, markSize: 6 },
-  { id: 'DA6', name: 'DA6', width: 95, height: 171, holeCount: 6, groupGap: 51, markSize: 6 },
-  { id: 'M6', name: 'M6', width: 80, height: 125, holeCount: 6, groupGap: null, markSize: 4 },
-  { id: 'M5', name: 'M5', width: 62, height: 105, holeCount: 5, groupGap: null, markSize: 4 },
-  { id: 'M6TRI', name: 'M6 3-fold', width: 220, height: 125, holeCount: 6, groupGap: null, markSize: 4 },
-  { id: 'M5TRI', name: 'M5 3-fold', width: 202, height: 105, holeCount: 5, groupGap: null, markSize: 4 },
-  // 구멍이 셋이라 M3다. id는 DA9로 두었던 것을 그대로 쓴다 — 저장 파일에
-  // 이 id가 들어 있어서, 바꾸면 예전 파일이 이 규격을 못 찾는다.
-  { id: 'DA9', name: 'M3', width: 60, height: 80, holeCount: 3, groupGap: null, markSize: 4 },
+  { id: 'TA6', name: 'TA6 (트루 A6)', width: 105, height: 148, holeCount: 6, groupGap: 38, markSize: 6 },
+  { id: 'DA6', name: 'DA6 (다이어리 A6)', width: 95, height: 171, holeCount: 6, groupGap: 51, markSize: 6 },
+  { id: 'M6', name: 'M6 (미니6)', width: 80, height: 125, holeCount: 6, groupGap: null, markSize: 4 },
+  { id: 'M5', name: 'M5 (미니5)', width: 62, height: 105, holeCount: 5, groupGap: null, markSize: 4 },
+  { id: 'M6TRI', name: 'M6 3단접이', width: 220, height: 125, holeCount: 6, groupGap: null, markSize: 4 },
+  { id: 'M5TRI', name: 'M5 3단접이', width: 202, height: 105, holeCount: 5, groupGap: null, markSize: 4 },
+  { id: 'DA9', name: 'DA9', width: 60, height: 80, holeCount: 3, groupGap: null, markSize: 4 },
 ];
 
 /* ────────────────────────── 규격 계열 ────────────────────────── */
@@ -78,7 +76,7 @@ export interface SizeFamily {
 }
 
 export const SIZE_FAMILIES: SizeFamily[] = [
-  { id: 'custom', label: 'Custom', presetIds: [] },
+  { id: 'custom', label: '사용자 지정', presetIds: [] },
   { id: 'a5a6', label: 'A5/A6', presetIds: ['A5', 'TA6', 'DA6'] },
   { id: 'm6m5', label: 'M6/M5', presetIds: ['M6', 'M5'] },
   { id: 'etc', label: 'ETC', presetIds: ['M6TRI', 'M5TRI', 'DA9'] },
