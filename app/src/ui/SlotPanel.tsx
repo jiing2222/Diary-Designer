@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { SlotAssign } from './SlotAssign';
+import { ChevronIcon } from './icons';
 import type { Layout } from '../core/layout';
 
 /**
@@ -68,15 +69,31 @@ export function SlotPanel({ layout }: { layout: Layout }) {
         </>
       )}
 
-      <div className="slot-rail">
+      {/*
+        세로 탭과 그 왼쪽 가장자리에 걸친 동그란 단추 — 왼쪽 도구줄의
+        짝이다(디자인). 둘 다 같은 것을 여닫는다: 탭은 "여기 이런 게
+        있다"를 알리고, 동그란 단추는 패널을 실제로 밀고 당기는 손잡이다.
+      */}
+      <div className="slot-rail-wrap">
+        <div className="slot-rail">
+          <button
+            className={`rail-btn ${open ? 'on' : ''}`}
+            onClick={() => setOpen((v) => !v)}
+            title="칸 배정"
+            aria-pressed={open}
+          >
+            <SlotIcon />
+            <span>Slot</span>
+          </button>
+        </div>
+
         <button
-          className={`rail-btn ${open ? 'on' : ''}`}
+          className="panel-toggle panel-toggle-right"
           onClick={() => setOpen((v) => !v)}
-          title="칸 배정"
-          aria-pressed={open}
+          title={open ? '칸 배정 닫기' : '칸 배정 열기'}
+          aria-expanded={open}
         >
-          <SlotIcon />
-          <span>Slot</span>
+          <ChevronIcon />
         </button>
       </div>
     </>

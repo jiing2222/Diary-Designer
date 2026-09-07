@@ -722,14 +722,14 @@ export function App() {
   /*
    * 인쇄하기 탭의 px/mm 배율. 'fit'이면 지금 미리보기 영역 폭(stageWidth)에
    * 맞춰 계산한다 — 양면이면 두 쪽이 나란히 다 들어가야 하므로 폭을 둘로
-   * 나눈다. .stage-area의 padding(20px 양쪽)·.print-sheet의 gap(14px)을
+   * 나눈다. .stage-area의 padding(28px 양쪽)·.print-sheet의 gap(16px)을
    * 빼야 실제로 그릴 수 있는 폭이 나온다 — CSS 값이 바뀌면 여기도 맞춰야 한다.
    * 아직 폭을 못 쟀으면(첫 렌더) 100%로 잠깐 대신한다.
    */
   const pagesPerRow = s.duplex ? 2 : 1;
   const fitScale =
     stageWidth > 0
-      ? Math.max(0.15, (stageWidth - 40 - (pagesPerRow - 1) * 14) / (width * pagesPerRow))
+      ? Math.max(0.15, (stageWidth - 56 - (pagesPerRow - 1) * 16) / (width * pagesPerRow))
       : PX_PER_MM_AT_100;
   const scale = zoom === 'fit' ? fitScale : (zoom / 100) * PX_PER_MM_AT_100;
 

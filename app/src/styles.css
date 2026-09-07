@@ -1088,15 +1088,62 @@ main {
 }
 
 /*
- * ToolRail의 탭을 손으로 열고 닫는 화살표(>, <). margin-top: auto로 밀어
- * .rail(도구 아이콘이 늘어선 세로줄) 맨 아래에 붙인다 — .rail-wrap-tool이
- * row 방향이라 .rail 자신이 이미 전체 높이만큼 늘어나 있어서(64단계) 이
- * 트릭이 통한다.
+ * 패널을 접었다 펴는 동그란 단추. 세로줄의 가장자리에 반쯤 걸쳐 앉는다 —
+ * 26px 중 13px이 밖으로 나가므로 `right/left: -13px`이다(디자인의 값 그대로).
+ *
+ * 걸쳐 있으려면 세로줄 밖으로 나가야 하므로, 세로줄이 아니라 그 바깥
+ * 상자(.rail-wrap · .slot-rail-wrap, 둘 다 position: relative)를 기준으로
+ * 띄운다. z-index는 옆 패널의 경계선보다 위로 올리기 위한 것이다.
  */
-.rail-panel-toggle {
-  margin-top: auto;
-  font-size: 14px;
-  font-weight: 700;
+.panel-toggle {
+  position: absolute;
+  bottom: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--muted);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+}
+
+.panel-toggle:hover {
+  background: #f2f2ee;
+  color: var(--ink);
+}
+
+.panel-toggle svg {
+  width: 11px;
+  height: 11px;
+}
+
+.panel-toggle-left {
+  right: -13px;
+}
+
+.panel-toggle-right {
+  left: -13px;
+}
+
+/*
+ * 화살촉은 늘 "누르면 패널이 갈 쪽"을 가리킨다 — 열려 있으면 접히는 쪽,
+ * 닫혀 있으면 펴지는 쪽이다. 기본 모양이 오른쪽이라 반대일 때만 뒤집는다.
+ */
+.panel-toggle-left[aria-expanded='false'] svg,
+.panel-toggle-right[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+/* 오른쪽 세로 탭 + 그 가장자리에 걸친 동그란 단추를 함께 담는 상자. */
+.slot-rail-wrap {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
 }
 
 /* 용지·도트 격자·타공 안내 줄을 통째로 접었다 펴는 화살표 — 늘 맨 아래에 있다 */
@@ -1697,12 +1744,23 @@ body.resizing-col {
  * 각 장(.print-sheet)에 margin: auto를 줘서 가운데 둔다 — 그래야 확대해서
  * 넘칠 때도 스크롤로 양쪽 다 닿는다.
  */
+/*
+ * 용지를 늘어놓는 자리. 디자인의 값 그대로 — 사방 28px, 장과 장 사이 28px,
+ * 가운데 정렬. 위쪽 28px 중 20px은 용지 바깥에 앉는 앞면·뒷면 표시
+ * (.sheet-label, top:-20px)가 쓴다.
+ *
+ * **여기 padding과 아래 .print-sheet gap을 고치면 App.tsx의 fitScale도
+ * 같이 고쳐야 한다** — "화면에 맞춤" 배율이 이 두 값을 빼고 계산한다.
+ */
 .stage-area {
   flex: 1;
   min-width: 0;
   overflow: auto;
-  /* 위쪽만 넓다 — 용지 바깥 위에 앞면·뒷면 표시가 앉을 자리다(.sheet-label). */
-  padding: 32px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 28px;
 }
 
 /* stage-area + 우측 패널을 가로로 붙인다 */
@@ -1771,9 +1829,9 @@ body.resizing-col {
 /* 장 하나 — 양면이면 앞뒤 두 장을 나란히 담는다(뒷면을 왼쪽에 토글로 순서를 바꾼다). */
 .print-sheet {
   display: flex;
-  gap: 14px;
+  flex-shrink: 0;
+  gap: 16px;
   width: fit-content;
-  margin: 0 auto 24px;
 }
 
 .print-sheet-page {

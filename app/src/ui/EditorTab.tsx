@@ -59,6 +59,7 @@ import {
 import {
   CalendarIcon,
   CheckboxIcon,
+  ChevronIcon,
   CursorIcon,
   EyeIcon,
   EyeOffIcon,
@@ -2001,22 +2002,36 @@ export function ToolRail({
           <FieldIcon />
           <span>AutoField</span>
         </button>
-
-        <button
-          className="rail-btn rail-panel-toggle"
-          onClick={() => {
-            if (open) {
-              lastOpenRef.current = open;
-              setOpen(null);
-            } else {
-              setOpen(lastOpenRef.current ?? categoryFor(tool, picked));
-            }
-          }}
-          title={open ? '탭 닫기' : '탭 열기'}
-        >
-          {open ? '<' : '>'}
-        </button>
       </div>
+
+      {/*
+        탭을 손으로 열고 닫는 동그란 단추 — 세로줄 오른쪽 가장자리에 반쯤
+        걸쳐 앉는다(디자인). 세로줄 **안**이 아니라 `.rail-wrap` 기준으로
+        띄우는 이유가 이것이다: 걸쳐 있으려면 세로줄 밖으로 나가야 한다.
+
+        '고르기 도구 + 아무것도 안 고름'일 때 categoryFor가 null 대신
+        'select'를 주므로 자동으로는 안 닫히는데, 그래도 사용자가 손으로
+        접어두고 싶을 수 있어 만들었다(사용자 요청). 닫을 때 지금 열려
+        있던 탭을 lastOpenRef에 기억해뒀다가 다시 열 때 그대로 돌려준다 —
+        categoryFor로 새로 계산하면 용지·속지·양식처럼 그 함수가 절대
+        안 돌려주는 탭은 닫았다 다시 열었을 때 엉뚱한(고른 것) 탭으로
+        바뀌어버린다.
+      */}
+      <button
+        className="panel-toggle panel-toggle-left"
+        onClick={() => {
+          if (open) {
+            lastOpenRef.current = open;
+            setOpen(null);
+          } else {
+            setOpen(lastOpenRef.current ?? categoryFor(tool, picked));
+          }
+        }}
+        title={open ? '탭 닫기' : '탭 열기'}
+        aria-expanded={!!open}
+      >
+        <ChevronIcon />
+      </button>
 
       {open && (
         <div className="tool-panel">

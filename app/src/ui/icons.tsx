@@ -249,3 +249,16 @@ export function DownloadIcon() {
     </svg>
   );
 }
+
+/**
+ * 오른쪽을 가리키는 화살촉. 패널을 접었다 펴는 동그란 단추 안에 들어간다 —
+ * 어느 쪽을 가리킬지는 CSS의 `transform: rotate(180deg)`이 정한다(디자인의
+ * `leftPanelArrowTransform`과 같은 방식).
+ */
+export function ChevronIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
