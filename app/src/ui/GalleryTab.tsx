@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  groupBySize,
   insertFromPreset,
   outsideCount,
   sizeLabel,
@@ -8,6 +7,12 @@ import {
   type Template,
   type TemplateKind,
 } from '../core/template';
+import {
+  familyOf,
+  SIZE_FAMILIES,
+  type InsertPreset,
+  type SizeFamilyId,
+} from '../core/presets';
 import { notebookInsertSize } from '../core/notebook';
 import { INSERT_PRESETS, PAPER_PRESETS, useInsert, useStore } from '../store';
 import {
@@ -20,7 +25,30 @@ import {
 } from '../core/grid';
 import { roundMm } from '../core/units';
 import { InsertView } from './InsertView';
-import { DesignLibraryDialog } from './DesignLibraryDialog';
+import { FontManagePanel, ImageManagePanel } from './DesignLibraryDialog';
+
+/**
+ * 왼쪽 줄에서 무엇을 보고 있는지.
+ *
+ * 규격 갈래(`SizeFamilyId`)와 나란히 두지 않고 따로 둔 이유는, 이미지·글꼴은
+ * 양식이 아니라서 "규격으로 거른다"는 말 자체가 성립하지 않기 때문이다.
+ */
+type GalleryView = { kind: 'templates'; family: SizeFamilyId | 'all' } | { kind: 'images' } | { kind: 'fonts' };
+
+/**
+ * 규격 한 칸 — 화면에 실제로 그려지는 한 덩어리.
+ *
+ * 양식이 하나도 없는 규격도 칸을 만든다. 빈 칸에는 "New template"만 놓여서,
+ * **아직 안 만든 규격이 무엇인지도 한눈에 보인다** — 예전에는 이미 만든
+ * 규격만 나와서, M5로 하나 만들려면 새 양식 창을 열어 규격을 다시 골라야 했다.
+ */
+interface SizeSection {
+  key: string;
+  label: string;
+  /** 이 칸의 `New template`이 쓸 규격. 프리셋이 없는(custom) 칸은 없다. */
+  preset: InsertPreset | null;
+  templates: Template[];
+}
 
 /**
  * 양식 관리 — 만들어둔 속지들을 한눈에 본다.
@@ -28,6 +56,10 @@ import { DesignLibraryDialog } from './DesignLibraryDialog';
  * **크기별로 묶어서 보여준다.** 양식이 크기를 소유하는 것이 아니라 크기를
  * 속성으로 가지므로(core/template), 여기서는 그 속성으로 줄을 세울 뿐이다.
  * 같은 M6 양식이 열 개여도 된다.
+ *
+ * 왼쪽 줄에서 규격 갈래를 골라 걸러 볼 수 있고, 이미지·글꼴 관리도 같은
+ * 줄에 있다 — 예전에는 "디자인 관리" 버튼을 눌러 창을 띄웠는데, 창을 띄우면
+ * 양식 목록이 가려져서 오가며 비교할 수가 없었다.
  *
  * 썸네일은 편집 화면과 **같은 InsertView**를 작게 그린 것이다. 따로 이미지를
  * 만들지 않는다 — 화면이 이미 SVG로 그리고 있어서 그대로 미리보기가 된다.
@@ -38,26 +70,50 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
   const activeId = useStore((s) => s.activeId);
   const addTemplate = useStore((s) => s.addTemplate);
   const [creating, setCreating] = useState(false);
-  const [managingDesign, setManagingDesign] = useState(false);
+  const [view, setView] = useState<GalleryView>({ kind: 'templates', family: 'all' });
 
-  const groups = groupBySize(templates);
+  const sections = sizeSections(templates, view.kind === 'templates' ? view.family : 'all');
+
+  function newFrom(section: SizeSection) {
+    // 프리셋 칸은 그 규격으로 바로 만든다 — 규격을 이미 골라서 누른 것이라
+    // 창을 한 번 더 띄우면 같은 것을 두 번 고르게 된다. 프리셋이 없는
+    // custom 칸만 창을 띄운다(크기를 물어봐야 하므로).
+    if (!section.preset) {
+      setCreating(true);
+      return;
+    }
+    addTemplate(insertFromPreset(section.preset.id), undefined, undefined, 'insert');
+    onEdit();
+  }
 
   return (
     <div className="gallery">
-      <div className="gallery-bar">
-        {/*
-          맨 위 버튼은 규격을 고르고 만든다. 크기 그룹의 `+`와 다른 점이다 —
-          그쪽은 "이 크기로 하나 더"라는 뜻이라 바로 만드는 것이 맞다.
-        */}
-        <button className="primary" onClick={() => setCreating(true)}>
-          + 새 양식
-        </button>
-        <button className="ghost" onClick={() => setManagingDesign(true)}>
-          디자인 관리
-        </button>
-        <span className="gallery-hint">
-          양식 {templates.length}개 · 클릭하면 그 양식으로 넘어갑니다
-        </span>
+      <GalleryRail view={view} setView={setView} onNew={() => setCreating(true)} />
+
+      <div className="gallery-body">
+        {view.kind === 'images' ? (
+          <ImageManagePanel />
+        ) : view.kind === 'fonts' ? (
+          <FontManagePanel />
+        ) : (
+          sections.map((s) => (
+            <section key={s.key} className="gallery-group">
+              <h2>
+                {s.label}
+                <span className="count">{s.templates.length}</span>
+              </h2>
+              <div className="gallery-grid">
+                {s.templates.map((t) => (
+                  <Card key={t.id} template={t} active={t.id === activeId} onEdit={onEdit} />
+                ))}
+                <button className="card-add" onClick={() => newFrom(s)} title={`New ${s.label} template`}>
+                  <span className="card-add-plus">+</span>
+                  <span>New template</span>
+                </button>
+              </div>
+            </section>
+          ))
+        )}
       </div>
 
       {creating && (
@@ -70,42 +126,175 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
           }}
         />
       )}
-
-      {managingDesign && <DesignLibraryDialog onClose={() => setManagingDesign(false)} />}
-
-      <div className="gallery-body">
-        {templates.length === 0 && (
-          <div className="gallery-empty">
-            <p>아직 만든 양식이 없습니다.</p>
-            <p className="muted">
-              <b>+ 새 양식</b>을 눌러 속지 규격과 격자를 고르는 것부터 시작합니다.
-            </p>
-          </div>
-        )}
-
-        {groups.map((g) => (
-          <section key={`${g.width}x${g.height}`} className="gallery-group">
-            <h2>
-              {g.label}
-              <span className="count">{g.templates.length}개</span>
-            </h2>
-            <div className="gallery-grid">
-              {g.templates.map((t) => (
-                <Card key={t.id} template={t} active={t.id === activeId} onEdit={onEdit} />
-              ))}
-              {/* 이 크기로 하나 더. 규격을 다시 고르지 않아도 된다. */}
-              <button
-                className="card card-add"
-                onClick={() => addTemplate({ ...g.templates[0].insert }, undefined, undefined, g.templates[0].kind)}
-                title={`${g.label} 규격으로 새 양식`}
-              >
-                +
-              </button>
-            </div>
-          </section>
-        ))}
-      </div>
     </div>
+  );
+}
+
+/**
+ * 화면에 그릴 규격 칸들.
+ *
+ * 프리셋 순서를 그대로 따르고(presets.ts), 프리셋에 없는 크기로 만든 양식은
+ * 맨 앞 `Custom` 칸에 모은다. 갈래를 고르면 그 갈래만 남긴다.
+ *
+ * **양식이 없는 프리셋 칸도 남긴다** — 그것이 이 화면의 요점이다(SizeSection
+ * 주석). 다만 custom 칸은 양식이 있을 때만 만든다. 프리셋에 없는 크기는
+ * 무한히 많아서 "아직 안 만든 것"을 보여준다는 말이 성립하지 않는다.
+ */
+function sizeSections(templates: Template[], family: SizeFamilyId | 'all'): SizeSection[] {
+  const sections: SizeSection[] = [];
+
+  for (const preset of INSERT_PRESETS) {
+    if (family !== 'all' && familyOf(preset.id) !== family) continue;
+    sections.push({
+      key: preset.id,
+      label: `${preset.name} · ${preset.width} × ${preset.height}mm`,
+      preset,
+      templates: templates.filter((t) => t.insert.presetId === preset.id),
+    });
+  }
+
+  // 맨 끝에 둔다. 프리셋을 먼저 훑고 "여기 없네" 싶을 때 눈이 닿는 자리다.
+  if (family === 'all' || family === 'custom') {
+    sections.push({
+      key: 'custom',
+      label: 'Custom sizes',
+      preset: null,
+      templates: templates.filter((t) => familyOf(t.insert.presetId) === 'custom'),
+    });
+  }
+
+  return sections;
+}
+
+/**
+ * 왼쪽 줄 — 무엇을 볼지 고른다.
+ *
+ * 아이콘 아래에 아주 작은 글자를 붙인다. 아이콘만 두면 처음 온 사람은
+ * 눌러보기 전까지 무엇인지 알 수 없고, 글자만 두면 이 좁은 줄에 안 들어간다.
+ */
+function GalleryRail({
+  view,
+  setView,
+  onNew,
+}: {
+  view: GalleryView;
+  setView: (v: GalleryView) => void;
+  onNew: () => void;
+}) {
+  const isTemplates = view.kind === 'templates';
+
+  return (
+    <div className="gallery-rail">
+      <RailBtn
+        on={isTemplates && view.family === 'all'}
+        label="All"
+        onClick={() => setView({ kind: 'templates', family: 'all' })}
+      >
+        <AllIcon />
+      </RailBtn>
+      <RailBtn on={view.kind === 'images'} label="Images" onClick={() => setView({ kind: 'images' })}>
+        <ImageIcon />
+      </RailBtn>
+      <RailBtn on={view.kind === 'fonts'} label="Fonts" onClick={() => setView({ kind: 'fonts' })}>
+        <span className="rail-aa">Aa</span>
+      </RailBtn>
+      {/*
+        이것만 화면을 바꾸지 않고 창을 띄운다 — 규격을 고르는 일이라
+        "무엇을 볼지"와 성격이 다르다. 그래서 눌러도 켜진 채로 남지 않는다.
+      */}
+      <RailBtn on={false} label="New" onClick={onNew}>
+        <PlusIcon />
+      </RailBtn>
+
+      <div className="rail-divider" />
+
+      {SIZE_FAMILIES.map((f) => (
+        <RailBtn
+          key={f.id}
+          on={isTemplates && view.family === f.id}
+          label={f.label}
+          onClick={() => setView({ kind: 'templates', family: f.id })}
+        >
+          <FamilyIcon id={f.id} />
+        </RailBtn>
+      ))}
+    </div>
+  );
+}
+
+function RailBtn({
+  on,
+  label,
+  onClick,
+  children,
+}: {
+  on: boolean;
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button className={`rail-tab ${on ? 'on' : ''}`} onClick={onClick} title={label} aria-pressed={on}>
+      {children}
+      <span className="rail-tab-label">{label}</span>
+    </button>
+  );
+}
+
+/* 갈래마다 속지 비율을 닮은 네모를 그린다 — 이름을 못 읽어도 모양으로 가늠된다. */
+function FamilyIcon({ id }: { id: SizeFamilyId }) {
+  if (id === 'custom') {
+    return (
+      <svg width="16" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeDasharray="2 2">
+        <rect x="5" y="3" width="14" height="18" rx="1" />
+      </svg>
+    );
+  }
+  if (id === 'etc') {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="8.5" y="14" width="7" height="7" rx="1" />
+      </svg>
+    );
+  }
+  // A5/A6는 넓적하고 M6/M5는 갸름하다 — 실제 비율을 따른다.
+  const [x, w] = id === 'a5a6' ? [4, 16] : [7, 10];
+  return (
+    <svg width="18" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x={x} y="3" width={w} height="18" rx="1" />
+    </svg>
+  );
+}
+
+function AllIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="7" height="9" rx="1" />
+      <rect x="13" y="4" width="7" height="6" rx="1" />
+      <rect x="13" y="12" width="7" height="8" rx="1" />
+      <rect x="4" y="15" width="7" height="5" rx="1" />
+    </svg>
+  );
+}
+
+function ImageIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="5" width="16" height="14" rx="1.5" />
+      <circle cx="9" cy="10" r="1.4" fill="currentColor" stroke="none" />
+      <path d="M5 17l4.5-5 3 3 3-4 4.5 6" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
   );
 }
 
@@ -139,7 +328,7 @@ function NewTemplateDialog({
   const [name, setName] = useState('');
   const [grid, setGrid] = useState<DotGrid>({ ...DEFAULT_DOT_GRID });
   /**
-   * 간격을 직접 칠지, 칸 수로 셀지.
+   * 간격을 직접 칠지, By cell count 셀지.
    *
    * **간격은 가로·세로가 하나뿐이다.** 그래서 한 축의 칸 수를 정하면 다른 축은
    * 거기서 따라 나온다. 둘 다 마음대로 정하면 칸이 정사각형이 아니게 되고,
@@ -156,7 +345,7 @@ function NewTemplateDialog({
         ? { presetId, width, height, punch: { ...current.punch } }
         : { ...insertFromPreset(presetId, current), width, height };
 
-  // 칸 수로 만들면 여기서 간격이 나온다. 딱 나누어떨어져 잘리는 칸이 없다.
+  // By cell count 만들면 여기서 간격이 나온다. 딱 나누어떨어져 잘리는 칸이 없다.
   // 실제로 그려지는 양식 크기(insert)를 쓴다 — 노트는 완성 페이지(width state)의
   // 두 배라서, 여기서 페이지 크기를 쓰면 칸 수가 절반으로 어긋난다.
   const spacing = byCells
@@ -181,21 +370,21 @@ function NewTemplateDialog({
   }
 
   return (
-    <Modal title="새 양식" onClose={onClose}>
+    <Modal title="New template" onClose={onClose}>
       <div className="modal-row">
         <label className="modal-check">
           <input type="radio" checked={kind === 'insert'} onChange={() => setKind('insert')} />
-          속지 — 링 바인더에 끼운다
+          Insert — sits in a ring binder
         </label>
         <label className="modal-check">
           <input type="radio" checked={kind === 'notebook'} onChange={() => setKind('notebook')} />
-          노트 — 스테이플러·바느질로 맨다
+          Notebook — bound with staples/thread
         </label>
       </div>
 
       {kind === 'insert' ? (
         <>
-          <p className="modal-note">어떤 규격의 속지를 만들까요?</p>
+          <p className="modal-note">Which insert size?</p>
 
           <div className="preset-list">
             {INSERT_PRESETS.map((p) => (
@@ -214,8 +403,8 @@ function NewTemplateDialog({
               className={`preset ${presetId === 'custom' ? 'on' : ''}`}
               onClick={() => pickPreset('custom')}
             >
-              <b>사용자 지정</b>
-              <span>직접 입력</span>
+              <b>Custom</b>
+              <span>Enter size</span>
             </button>
           </div>
 
@@ -242,7 +431,7 @@ function NewTemplateDialog({
         </>
       ) : (
         <>
-          <p className="modal-note">완성됐을 때 페이지 한 쪽의 크기입니다. 타공은 없습니다.</p>
+          <p className="modal-note">Size of one finished page. No punch holes.</p>
           <div className="card-dialog-size">
             <input
               type="number"
@@ -262,17 +451,17 @@ function NewTemplateDialog({
             <span>mm</span>
           </div>
           <p className="modal-note">
-            가운데를 접어 만들므로, 실제로 그리는 양식은{' '}
+            Folded down the middle, so the sheet you draw on is{' '}
             <b>
               {insert.width} × {insert.height}mm
             </b>
-            입니다.
+            .
           </p>
         </>
       )}
 
       <div className="modal-divider" />
-      <p className="modal-note">용지 — 인쇄할 종이입니다. 작업 전체에 적용됩니다.</p>
+      <p className="modal-note">Paper — what you print on. Applies to the whole project.</p>
       <div className="modal-row">
         <select value={paper.presetId} onChange={(e) => setPaperPreset(e.target.value)}>
           {PAPER_PRESETS.map((p) => (
@@ -280,22 +469,22 @@ function NewTemplateDialog({
               {p.name} · {p.width} × {p.height}mm
             </option>
           ))}
-          <option value="custom">사용자 지정</option>
+          <option value="custom">Custom</option>
         </select>
       </div>
 
       <div className="modal-divider" />
-      <p className="modal-note">도트 격자</p>
+      <p className="modal-note">Dot grid</p>
 
       <div className="modal-row">
         <select
           value={grid.style}
           onChange={(e) => setGrid({ ...grid, style: e.target.value as GridStyle })}
         >
-          <option value="dot">도트</option>
-          <option value="grid">그리드</option>
-          <option value="horizontal">가로줄</option>
-          <option value="vertical">세로줄</option>
+          <option value="dot">Dots</option>
+          <option value="grid">Grid</option>
+          <option value="horizontal">Horizontal lines</option>
+          <option value="vertical">Vertical lines</option>
         </select>
 
         <label className="modal-check">
@@ -304,26 +493,26 @@ function NewTemplateDialog({
             checked={grid.toEdge}
             onChange={(e) => setGrid({ ...grid, toEdge: e.target.checked })}
           />
-          여백 없이 끝까지
+          Fill to edge
         </label>
       </div>
 
       <div className="modal-row">
         <label className="modal-check">
           <input type="radio" checked={!byCells} onChange={() => setByCells(false)} />
-          간격으로
+          By spacing
         </label>
         <label className="modal-check">
           <input type="radio" checked={byCells} onChange={() => setByCells(true)} />
-          칸 수로
+          By cell count
         </label>
       </div>
 
       {byCells ? (
         <div className="modal-row">
           <select value={cellAxis} onChange={(e) => setCellAxis(e.target.value as 'x' | 'y')}>
-            <option value="x">가로</option>
-            <option value="y">세로</option>
+            <option value="x">Cols</option>
+            <option value="y">Rows</option>
           </select>
           <input
             type="number"
@@ -333,7 +522,7 @@ function NewTemplateDialog({
             step={1}
             onChange={(e) => setCells(Math.max(1, Math.round(Number(e.target.value))))}
           />
-          <span className="modal-unit">칸</span>
+          <span className="modal-unit">cells</span>
         </div>
       ) : (
         <div className="modal-row">
@@ -354,23 +543,23 @@ function NewTemplateDialog({
         {preview.cols > 0 && preview.rows > 0 ? (
           <>
             <b>
-              {preview.cols} × {preview.rows}칸
+              {preview.cols} × {preview.rows} cells
             </b>
-            {' · 간격 '}
+            {' · spacing '}
             {roundMm(spacing, 2)}mm
-            {grid.toEdge ? '' : ` · 여백 ${roundMm(preview.marginX, 1)}mm`}
+            {grid.toEdge ? '' : ` · margin ${roundMm(preview.marginX, 1)}mm`}
           </>
         ) : (
-          <span className="warn">간격이 속지보다 넓어 격자가 들어가지 않습니다.</span>
+          <span className="warn">Spacing is wider than the insert — no grid fits.</span>
         )}
       </p>
 
       <div className="modal-divider" />
       <label className="modal-field">
-        이름
+        Name
         <input
           value={name}
-          placeholder="비워두면 자동으로 붙습니다"
+          placeholder="Leave blank for an automatic name"
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && create()}
         />
@@ -378,10 +567,10 @@ function NewTemplateDialog({
 
       <div className="card-dialog-actions">
         <button className="ghost" onClick={onClose}>
-          취소
+          Cancel
         </button>
         <button className="primary" onClick={create}>
-          만들기
+          Create
         </button>
       </div>
     </Modal>
@@ -427,8 +616,16 @@ export function Modal({
 /**
  * 양식 하나.
  *
- * 누르면 그 양식으로 넘어가 편집 화면이 열린다. 관리 동작(이름·복제·삭제)은
- * 카드 아래 줄에 둔다 — 썸네일을 가리지 않아야 무엇인지 보인다.
+ * 누르면 그 양식으로 넘어가 편집 화면이 열린다.
+ *
+ * **관리 동작(이름·복제·삭제)은 마우스를 올려야 나타난다.** 늘 보이면 카드
+ * 열 개가 늘어선 화면이 버튼 서른 개로 뒤덮인다 — 정작 봐야 할 썸네일보다
+ * 버튼이 더 눈에 띈다. 키보드로 쓰는 사람을 위해 카드 안 어디든 초점이
+ * 들어오면 함께 나타난다(`:focus-within`).
+ *
+ * 이름은 클릭하면 그 자리에서 고쳐진다 — 예전에는 "이름" 버튼을 눌러야
+ * 입력칸으로 바뀌었는데, 이름을 고치려고 버튼을 찾는 것보다 이름을 직접
+ * 누르는 쪽이 먼저 떠오른다.
  */
 function Card({
   template,
@@ -457,7 +654,7 @@ function Card({
           selectTemplate(t.id);
           onEdit();
         }}
-        title="이 양식 편집하기"
+        title="Open this template"
       >
         {/*
           속지 비율 그대로 그린다. viewBox가 mm라 크기만 줄이면 되고,
@@ -491,28 +688,93 @@ function Card({
             }}
           />
         ) : (
-          <button className="card-name" onDoubleClick={() => setRenaming(true)} title="더블클릭해서 이름 바꾸기">
+          <button className="card-name" onClick={() => setRenaming(true)} title="Click to rename">
             {t.name}
           </button>
         )}
 
-        <span className="card-meta">그린 것 {objects.length}개</span>
+        {/*
+          크기를 적는다. 예전엔 "그린 것 N개"였는데, 규격 칸 안에 이미 같은
+          크기끼리 모여 있어서 그 안에서는 개수가 카드를 가르는 단서가 되지
+          못했다. 크기는 규격 칸 제목과 겹치지만, 카드만 떼어 봐도 무엇인지
+          알 수 있어야 한다.
+        */}
+        <span className="card-meta">
+          {t.insert.width} × {t.insert.height}mm
+        </span>
 
         <div className="card-actions">
-          <button className="ghost" onClick={() => setRenaming(true)} title="이름 바꾸기">
-            이름
-          </button>
-          <button className="ghost" onClick={() => setCopying(true)} title="복제 — 규격을 바꿔서도 됩니다">
-            복제
-          </button>
-          <button className="ghost" onClick={() => removeTemplate(t.id)} title="삭제">
-            삭제
-          </button>
+          <IconBtn label="Rename" onClick={() => setRenaming(true)}>
+            <PencilIcon />
+          </IconBtn>
+          <IconBtn label="Duplicate" onClick={() => setCopying(true)}>
+            <CopyIcon />
+          </IconBtn>
+          <IconBtn label="Delete" danger onClick={() => removeTemplate(t.id)}>
+            <TrashIcon />
+          </IconBtn>
         </div>
       </div>
 
       {copying && <CopyDialog template={t} onClose={() => setCopying(false)} />}
     </div>
+  );
+}
+
+/**
+ * 카드 아래의 작은 동작 버튼.
+ *
+ * 아이콘만 있고 글자가 없으므로 `title`이 곧 이름이다 — 화면 낭독기도
+ * 이걸 읽으므로 `aria-label`을 같이 준다.
+ */
+function IconBtn({
+  label,
+  onClick,
+  danger,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      className={`card-action ${danger ? 'danger' : ''}`}
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h4L18.5 9.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 15.5z" />
+      <path d="M13 5.5L18.5 11" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="11" height="11" rx="1.5" />
+      <path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H15" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 7h14" />
+      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      <path d="M7 7l1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13" />
+    </svg>
   );
 }
 
@@ -544,14 +806,14 @@ function CopyDialog({ template, onClose }: { template: Template; onClose: () => 
   return (
     <div className="card-dialog">
       <label>
-        규격
+        Size
         <select value={presetId} onChange={(e) => pickPreset(e.target.value)}>
           {INSERT_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
             </option>
           ))}
-          <option value="custom">사용자 지정</option>
+          <option value="custom">Custom</option>
         </select>
       </label>
 
@@ -582,12 +844,12 @@ function CopyDialog({ template, onClose }: { template: Template; onClose: () => 
 
       {lost > 0 && (
         <p className="card-dialog-warn">
-          객체 <b>{lost}개</b>가 새 크기 밖으로 나갑니다. 지워지지는 않고 인쇄에서만 잘립니다.
+          <b>{lost}</b> object(s) fall outside the new size. They are kept, but printing clips them.
         </p>
       )}
 
       <div className="card-dialog-actions">
-        <button onClick={onClose}>취소</button>
+        <button onClick={onClose}>Cancel</button>
         <button
           className="primary"
           onClick={() => {
@@ -600,7 +862,7 @@ function CopyDialog({ template, onClose }: { template: Template; onClose: () => 
             onClose();
           }}
         >
-          복제
+          Duplicate
         </button>
       </div>
     </div>

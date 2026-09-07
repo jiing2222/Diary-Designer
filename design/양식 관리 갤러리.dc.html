@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  body { margin: 0; background: #f4f4f2; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #2f6f4f; text-decoration: none; }
+  a:hover { color: #1c1c1a; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; display:flex; flex-direction:column; background:#f4f4f2; color:#1c1c1a">
+
+  <div style="display:flex; align-items:center; height:52px; padding:0 16px; background:#ffffff; border-bottom:1px solid #dededa; flex-shrink:0; gap:24px; position:relative">
+    <div style="position:relative; flex-shrink:0">
+      <button onClick="{{ toggleMenu }}" title="Menu" style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:none; border-radius:4px; background:{{ menuBtnBg }}; color:#1c1c1a; cursor:pointer" style-hover="background:#eeeeea">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+      </button>
+      <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; top:40px; left:0; width:180px; background:#ffffff; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:6px; z-index:20">
+          <div style="position:absolute; top:-5px; left:11px; width:10px; height:10px; background:#ffffff; transform:rotate(45deg); box-shadow:-2px -2px 4px -2px rgba(0,0,0,0.06)"></div>
+          <span style="display:block; padding:8px 10px; border-radius:4px; background:#e3ede7; color:#2f6f4f; font-size:13px; font-weight:600">Template</span>
+          <a href="속지 제작 (Inserts).dc.html" style="display:block; padding:8px 10px; border-radius:4px; color:#1c1c1a; font-size:13px; font-weight:500" style-hover="background:#f2f2ee">Inserts</a>
+          <span style="display:block; padding:8px 10px; border-radius:4px; color:#b6b6b0; font-size:13px; font-weight:500">Notebooks</span>
+          <span style="display:block; padding:8px 10px; border-radius:4px; color:#1c1c1a; font-size:13px; font-weight:500; cursor:default" style-hover="background:#f2f2ee">Print</span>
+        </div>
+      </sc-if>
+    </div>
+    <a href="Rings 시작화면.dc.html" style="display:flex; align-items:center; gap:8px; flex-shrink:0; color:#1c1c1a">
+      <svg width="20" height="20" viewBox="0 0 22 22" style="display:block; flex-shrink:0">
+        <circle cx="8" cy="11" r="5.4" fill="none" stroke="#2f6f4f" stroke-width="1.6"></circle>
+        <circle cx="14" cy="11" r="5.4" fill="none" stroke="#1c1c1a" stroke-width="1.6"></circle>
+      </svg>
+      <span style="font-size:15px; font-weight:600; letter-spacing:-0.2px; white-space:nowrap">Rings</span>
+    </a>
+
+    <div style="position:absolute; left:50%; top:50%; transform:translate(-50%, -50%); display:flex; align-items:center; gap:4px; white-space:nowrap">
+      <span style="padding:6px 10px; border-radius:6px; background:#f0f0ec; color:#1c1c1a; font-size:13px; font-weight:600">Template</span>
+      <span style="color:#c6c6c0; font-size:12px; padding:0 2px">›</span>
+      <a href="속지 제작 (Inserts).dc.html" style="padding:6px 10px; border-radius:6px; color:#a8a8a2; font-size:13px; font-weight:500" style-hover="background:#f2f2ee">Insert</a>
+      <span style="color:#c6c6c0; font-size:12px; padding:0 2px">›</span>
+      <a href="인쇄하기 (Print).dc.html" style="padding:6px 10px; border-radius:6px; color:#a8a8a2; font-size:13px; font-weight:500" style-hover="background:#f2f2ee">Print</a>
+    </div>
+
+    <div style="flex:1"></div>
+  </div>
+
+  <div style="display:flex; flex:1; min-height:0">
+
+    
+
+    <div style="width:68px; flex-shrink:0; background:#ffffff; border-right:1px solid #dededa; display:flex; flex-direction:column; align-items:center; padding:10px 6px; gap:4px; overflow-y:auto">
+      <button onClick="{{ setAll }}" title="All" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ allBg }}; color:{{ allColor }}; cursor:pointer" style-hover="background:{{ allHoverBg }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="1"></rect><rect x="13" y="4" width="7" height="6" rx="1"></rect><rect x="13" y="12" width="7" height="8" rx="1"></rect><rect x="4" y="15" width="7" height="5" rx="1"></rect></svg>
+        <span style="font-size:9px; font-weight:500">All</span>
+      </button>
+      <button onClick="{{ setImage }}" title="Images" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ imageBg }}; color:{{ imageColor }}; cursor:pointer" style-hover="background:{{ imageHoverBg }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1.5"></rect><circle cx="9" cy="10" r="1.4" fill="currentColor" stroke="none"></circle><path d="M5 17l4.5-5 3 3 3-4 4.5 6"></path></svg>
+        <span style="font-size:9px; font-weight:500">Images</span>
+      </button>
+      <button onClick="{{ setFont }}" title="Fonts" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ fontBg }}; color:{{ fontColor }}; cursor:pointer" style-hover="background:{{ fontHoverBg }}">
+        <span style="font-size:15px; font-weight:700; line-height:1">Aa</span>
+        <span style="font-size:9px; font-weight:500">Fonts</span>
+      </button>
+      <button onClick="{{ setNew }}" title="New template" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ newBg }}; color:{{ newColor }}; cursor:pointer" style-hover="background:{{ newHoverBg }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span style="font-size:9px; font-weight:500">New</span>
+      </button>
+      <div style="width:100%; height:1px; background:#eeeeea; margin:4px 0"></div>
+      <button onClick="{{ setCustom }}" title="Custom" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ customBg }}; color:{{ customColor }}; cursor:pointer" style-hover="background:{{ customHoverBg }}">
+        <svg width="16" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2 2"><rect x="5" y="3" width="14" height="18" rx="1"></rect></svg>
+        <span style="font-size:9px; font-weight:500">Custom</span>
+      </button>
+      <sc-for list="{{ sizeTabs }}" as="tab" hint-placeholder-count="2">
+        <button onClick="{{ tab.onClick }}" title="{{ tab.title }}" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ tab.bg }}; color:{{ tab.color }}; cursor:pointer" style-hover="background:{{ tab.hoverBg }}">
+          <svg width="18" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="{{ tab.rx }}" y="{{ tab.ry }}" width="{{ tab.rw }}" height="{{ tab.rh }}" rx="1"></rect></svg>
+          <span style="font-size:9px; font-weight:500">{{ tab.label }}</span>
+        </button>
+      </sc-for>
+      <button onClick="{{ setEtc }}" title="ETC" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ etcBg }}; color:{{ etcColor }}; cursor:pointer" style-hover="background:{{ etcHoverBg }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="8.5" y="14" width="7" height="7" rx="1"></rect></svg>
+        <span style="font-size:9px; font-weight:500">ETC</span>
+      </button>
+    </div><div style="flex:1; min-width:0; overflow-y:auto; padding:24px 32px 64px">
+
+    <sc-if value="{{ isImageView }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width:640px">
+        <h2 style="margin:0 0 4px; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">Images</h2>
+        <p style="margin:0 0 20px; font-size:12px; font-weight:500; color:#7a7a74; line-height:1.6">Drag to reorder. Starred images are kept forever — unstarred ones are pruned to the most recent 10.</p>
+        <div style="display:flex; flex-direction:column; gap:6px">
+          <sc-for list="{{ images }}" as="img" hint-placeholder-count="4">
+            <div draggable="true" onDragStart="{{ img.dragStart }}" onDragOver="{{ dragOver }}" onDrop="{{ img.drop }}" style="display:flex; align-items:center; gap:6px; padding:8px 10px; border:1px solid #dededa; border-radius:8px; background:#ffffff; cursor:grab">
+              <svg width="12" height="18" viewBox="0 0 12 18" style="flex-shrink:0; color:#c6c6c0"><circle cx="3" cy="3" r="1.3" fill="currentColor"></circle><circle cx="9" cy="3" r="1.3" fill="currentColor"></circle><circle cx="3" cy="9" r="1.3" fill="currentColor"></circle><circle cx="9" cy="9" r="1.3" fill="currentColor"></circle><circle cx="3" cy="15" r="1.3" fill="currentColor"></circle><circle cx="9" cy="15" r="1.3" fill="currentColor"></circle></svg>
+              <div style="width:36px; height:36px; flex-shrink:0; border-radius:4px; background:#eeeeea; border:1px solid #dededa; display:flex; align-items:center; justify-content:center; color:#b6b6b0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1.5"></rect><circle cx="9" cy="10" r="1.4" fill="currentColor" stroke="none"></circle><path d="M5 17l4.5-5 3 3 3-4 4.5 6"></path></svg>
+              </div>
+              <div contentEditable="true" spellcheck="false" style="flex:1; min-width:0; font-size:13px; font-weight:600; color:#1c1c1a; outline:none; border-radius:4px; padding:2px 4px; margin:-2px -4px" style-hover="background:#f2f2ee" style-focus="background:#ffffff; box-shadow:0 0 0 1px #2f6f4f">{{ img.name }}</div>
+              <button onClick="{{ img.toggleStar }}" title="Favorite" style="display:flex; align-items:center; justify-content:center; width:26px; height:26px; border:none; border-radius:4px; background:transparent; color:{{ img.starColor }}; cursor:pointer" style-hover="background:#f2f2ee">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="{{ img.starFill }}" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3l2.6 5.9 6.4.6-4.8 4.3 1.4 6.3L12 17l-5.6 3.1 1.4-6.3-4.8-4.3 6.4-.6z"></path></svg>
+              </button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isFontView }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width:640px">
+        <h2 style="margin:0 0 4px; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">Fonts</h2>
+        <p style="margin:0 0 20px; font-size:12px; font-weight:500; color:#7a7a74; line-height:1.6">Drag to reorder saved fonts.</p>
+        <div style="display:flex; flex-direction:column; gap:6px">
+          <sc-for list="{{ fonts }}" as="fnt" hint-placeholder-count="3">
+            <div draggable="true" onDragStart="{{ fnt.dragStart }}" onDragOver="{{ dragOver }}" onDrop="{{ fnt.drop }}" style="display:flex; align-items:center; gap:6px; padding:8px 10px; border:1px solid #dededa; border-radius:8px; background:#ffffff; cursor:grab">
+              <svg width="12" height="18" viewBox="0 0 12 18" style="flex-shrink:0; color:#c6c6c0"><circle cx="3" cy="3" r="1.3" fill="currentColor"></circle><circle cx="9" cy="3" r="1.3" fill="currentColor"></circle><circle cx="3" cy="9" r="1.3" fill="currentColor"></circle><circle cx="9" cy="9" r="1.3" fill="currentColor"></circle><circle cx="3" cy="15" r="1.3" fill="currentColor"></circle><circle cx="9" cy="15" r="1.3" fill="currentColor"></circle></svg>
+              <div style="width:36px; height:36px; flex-shrink:0; border-radius:4px; background:#eeeeea; border:1px solid #dededa; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; color:#1c1c1a">Aa</div>
+              <div contentEditable="true" spellcheck="false" style="flex:1; min-width:0; font-size:13px; font-weight:600; color:#1c1c1a; outline:none; border-radius:4px; padding:2px 4px; margin:-2px -4px" style-hover="background:#f2f2ee" style-focus="background:#ffffff; box-shadow:0 0 0 1px #2f6f4f">{{ fnt.name }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showA5 }}" hint-placeholder-val="{{ true }}">
+    <section style="margin-bottom:32px">
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px">
+        <h2 style="margin:0; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">A5 · 148 × 210mm</h2>
+        <span style="font-size:11px; font-weight:500; color:#7a7a74">1</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px">
+
+        <div onMouseEnter="{{ enterC }}" onMouseLeave="{{ leaveC }}" style="width:160px; border:1px solid #dededa; border-radius:8px; background:#ffffff; overflow:hidden" style-hover="border-color:#c6c6c0">
+          <a href="속지 제작 (Inserts).dc.html" style="display:flex; align-items:center; justify-content:center; height:216px; padding:12px; background:#ffffff">
+            <svg viewBox="0 0 148 210" preserveAspectRatio="xMidYMid meet" style="display:block; height:192px; width:auto; border:1px solid #e6e6e2">
+              <defs><pattern id="dotsC" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r="0.4" fill="#bcbcb6"></circle></pattern></defs>
+              <rect x="0" y="0" width="148" height="210" fill="#ffffff"></rect>
+              <rect x="8" y="8" width="132" height="194" fill="url(#dotsC)"></rect>
+              <rect x="12" y="16" width="46" height="5" rx="1" fill="#3a3a36"></rect>
+              <rect x="12" y="28" width="124" height="0.5" fill="#3a3a36"></rect>
+              <g fill="none" stroke="#8e8e88" stroke-width="0.4">
+                <rect x="12" y="36" width="60" height="40"></rect>
+                <rect x="76" y="36" width="60" height="40"></rect>
+                <rect x="12" y="80" width="60" height="40"></rect>
+                <rect x="76" y="80" width="60" height="40"></rect>
+                <rect x="12" y="124" width="60" height="40"></rect>
+                <rect x="76" y="124" width="60" height="40"></rect>
+              </g>
+              <g fill="#c6c6c0">
+                <rect x="12" y="172" width="124" height="0.5"></rect>
+                <rect x="12" y="182" width="124" height="0.5"></rect>
+                <rect x="12" y="192" width="90" height="0.5"></rect>
+              </g>
+            </svg>
+          </a>
+          <div style="padding:12px; border-top:1px solid #dededa">
+            <div contentEditable="true" spellcheck="false" style="font-size:13px; font-weight:600; color:#1c1c1a; outline:none; border-radius:4px; padding:1px 3px; margin:-1px -3px; cursor:text" style-hover="background:#f2f2ee" style-focus="background:#ffffff; box-shadow:0 0 0 1px #2f6f4f">A5-1</div>
+            <div style="margin-top:4px; font-size:11px; font-weight:500; color:#7a7a74">148 × 210mm</div>
+            <div style="display:flex; gap:2px; margin-top:8px; opacity:{{ opC }}; transition:opacity 120ms ease">
+              <button title="Rename" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; border:none; border-radius:4px; background:transparent; color:#7a7a74; cursor:pointer" style-hover="background:#f0f0ec; color:#1c1c1a"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L18.5 9.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 15.5z"></path><path d="M13 5.5L18.5 11"></path></svg></button>
+              <button title="Duplicate" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; border:none; border-radius:4px; background:transparent; color:#7a7a74; cursor:pointer" style-hover="background:#f0f0ec; color:#1c1c1a"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="1.5"></rect><path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H15"></path></svg></button>
+              <button title="Delete" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; border:none; border-radius:4px; background:transparent; color:#7a7a74; cursor:pointer" style-hover="background:#f5e6e0; color:#b04a2f"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14"></path><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path><path d="M7 7l1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"></path></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <a href="속지 제작 (Inserts).dc.html" style="width:160px; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px dashed #d3d3ce; border-radius:8px; background:transparent; color:#7a7a74; font-size:12px; font-weight:500" style-hover="border-color:#2f6f4f; color:#2f6f4f; background:#ffffff">
+          <span style="font-size:18px; font-weight:400; line-height:1">+</span>
+          <span>New template</span>
+        </a>
+      </div>
+    </section>
+    </sc-if>
+
+    <sc-if value="{{ showM6Fold }}" hint-placeholder-val="{{ false }}">
+    <section style="margin-bottom:32px">
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px">
+        <h2 style="margin:0; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">M6 3-fold · 220 × 125mm</h2>
+        <span style="font-size:11px; font-weight:500; color:#7a7a74">0</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px">
+        <a href="속지 제작 (Inserts).dc.html" style="width:160px; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px dashed #d3d3ce; border-radius:8px; background:transparent; color:#7a7a74; font-size:12px; font-weight:500" style-hover="border-color:#2f6f4f; color:#2f6f4f; background:#ffffff">
+          <span style="font-size:18px; font-weight:400; line-height:1">+</span>
+          <span>New template</span>
+        </a>
+      </div>
+    </section>
+    </sc-if>
+
+    <sc-if value="{{ showM5Fold }}" hint-placeholder-val="{{ false }}">
+    <section style="margin-bottom:32px">
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px">
+        <h2 style="margin:0; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">M5 3-fold · 202 × 105mm</h2>
+        <span style="font-size:11px; font-weight:500; color:#7a7a74">0</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px">
+        <a href="속지 제작 (Inserts).dc.html" style="width:160px; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px dashed #d3d3ce; border-radius:8px; background:transparent; color:#7a7a74; font-size:12px; font-weight:500" style-hover="border-color:#2f6f4f; color:#2f6f4f; background:#ffffff">
+          <span style="font-size:18px; font-weight:400; line-height:1">+</span>
+          <span>New template</span>
+        </a>
+      </div>
+    </section>
+    </sc-if>
+
+    <sc-if value="{{ showDA6 }}" hint-placeholder-val="{{ false }}">
+    <section style="margin-bottom:32px">
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px">
+        <h2 style="margin:0; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">DA6 · 95 × 171mm</h2>
+        <span style="font-size:11px; font-weight:500; color:#7a7a74">0</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px">
+        <a href="속지 제작 (Inserts).dc.html" style="width:160px; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px dashed #d3d3ce; border-radius:8px; background:transparent; color:#7a7a74; font-size:12px; font-weight:500" style-hover="border-color:#2f6f4f; color:#2f6f4f; background:#ffffff">
+          <span style="font-size:18px; font-weight:400; line-height:1">+</span>
+          <span>New template</span>
+        </a>
+      </div>
+    </section>
+    </sc-if>
+
+    <sc-if value="{{ showTA6 }}" hint-placeholder-val="{{ false }}">
+    <section style="margin-bottom:32px">
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px">
+        <h2 style="margin:0; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">TA6 · 105 × 148mm</h2>
+        <span style="font-size:11px; font-weight:500; color:#7a7a74">0</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px">
+        <a href="속지 제작 (Inserts).dc.html" style="width:160px; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px dashed #d3d3ce; border-radius:8px; background:transparent; color:#7a7a74; font-size:12px; font-weight:500" style-hover="border-color:#2f6f4f; color:#2f6f4f; background:#ffffff">
+          <span style="font-size:18px; font-weight:400; line-height:1">+</span>
+          <span>New template</span>
+        </a>
+      </div>
+    </section>
+    </sc-if>
+
+    <sc-if value="{{ showM6 }}" hint-placeholder-val="{{ true }}">
+    <section style="margin-bottom:32px">
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px">
+        <h2 style="margin:0; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">M6 · 80 × 125mm</h2>
+        <span style="font-size:11px; font-weight:500; color:#7a7a74">2</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px">
+
+        <div onMouseEnter="{{ enterA }}" onMouseLeave="{{ leaveA }}" style="width:160px; border:1px solid #dededa; border-radius:8px; background:#ffffff; overflow:hidden" style-hover="border-color:#c6c6c0">
+          <a href="속지 제작 (Inserts).dc.html" style="display:flex; align-items:center; justify-content:center; height:216px; padding:12px; background:#ffffff">
+            <svg viewBox="0 0 80 125" preserveAspectRatio="xMidYMid meet" style="display:block; height:192px; width:auto; border:1px solid #e6e6e2">
+              <defs><pattern id="dotsA" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r="0.28" fill="#bcbcb6"></circle></pattern></defs>
+              <rect x="0" y="0" width="80" height="125" fill="#ffffff"></rect>
+              <rect x="5" y="5" width="70" height="115" fill="url(#dotsA)"></rect>
+              <rect x="7" y="10" width="26" height="3.2" rx="0.6" fill="#3a3a36"></rect>
+              <rect x="7" y="18" width="66" height="0.3" fill="#3a3a36"></rect>
+              <g stroke="#8e8e88" stroke-width="0.25">
+                <path d="M7 24 H73 M7 40 H73 M7 56 H73 M7 72 H73 M7 88 H73 M7 104 H73"></path>
+                <path d="M7 24 V104 M18 24 V104 M29 24 V104 M40 24 V104 M51 24 V104 M62 24 V104 M73 24 V104"></path>
+              </g>
+              <rect x="7" y="110" width="40" height="0.3" fill="#c6c6c0"></rect>
+              <rect x="7" y="115" width="30" height="0.3" fill="#c6c6c0"></rect>
+            </svg>
+          </a>
+          <div style="padding:12px; border-top:1px solid #dededa">
+            <div contentEditable="true" spellcheck="false" style="font-size:13px; font-weight:600; color:#1c1c1a; outline:none; border-radius:4px; padding:1px 3px; margin:-1px -3px; cursor:text" style-hover="background:#f2f2ee" style-focus="background:#ffffff; box-shadow:0 0 0 1px #2f6f4f">M6-1</div>
+            <div style="margin-top:4px; font-size:11px; font-weight:500; color:#7a7a74">80 × 125mm</div>
+            <div style="display:flex; gap:2px; margin-top:8px; opacity:{{ opA }}; transition:opacity 120ms ease">
+              <button title="Rename" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; border:none; border-radius:4px; background:transparent; color:#7a7a74; cursor:pointer" style-hover="background:#f0f0ec; color:#1c1c1a"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L18.5 9.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 15.5z"></path><path d="M13 5.5L18.5 11"></path></svg></button>
+              <button title="Duplicate" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; border:none; border-radius:4px; background:transparent; color:#7a7a74; cursor:pointer" style-hover="background:#f0f0ec; color:#1c1c1a"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="1.5"></rect><path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H15"></path></svg></button>
+              <button title="Delete" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; border:none; border-radius:4px; background:transparent; color:#7a7a74; cursor:pointer" style-hover="background:#f5e6e0; color:#b04a2f"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14"></path><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path><path d="M7 7l1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"></path></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <div onMouseEnter="{{ enterB }}" onMouseLeave="{{ leaveB }}" style="width:160px; border:1px solid #dededa; border-radius:8px; background:#ffffff; overflow:hidden" style-hover="border-color:#c6c6c0">
+          <a href="속지 제작 (Inserts).dc.html" style="display:flex; align-items:center; justify-content:center; height:216px; padding:12px; background:#ffffff">
+            <svg viewBox="0 0 80 125" preserveAspectRatio="xMidYMid meet" style="display:block; height:192px; width:auto; border:1px solid #e6e6e2">
+              <defs><pattern id="dotsB" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r="0.28" fill="#bcbcb6"></circle></pattern></defs>
+              <rect x="0" y="0" width="80" height="125" fill="#ffffff"></rect>
+              <rect x="5" y="5" width="70" height="115" fill="url(#dotsB)"></rect>
+              <rect x="7" y="10" width="20" height="3.2" rx="0.6" fill="#3a3a36"></rect>
+              <rect x="7" y="17" width="66" height="0.3" fill="#3a3a36"></rect>
+              <g>
+                <rect x="7" y="23" width="3" height="3" fill="none" stroke="#8e8e88" stroke-width="0.25"></rect>
+                <rect x="12" y="24.2" width="48" height="0.3" fill="#c6c6c0"></rect>
+                <rect x="7" y="31" width="3" height="3" fill="none" stroke="#8e8e88" stroke-width="0.25"></rect>
+                <rect x="12" y="32.2" width="55" height="0.3" fill="#c6c6c0"></rect>
+                <rect x="7" y="39" width="3" height="3" fill="none" stroke="#8e8e88" stroke-width="0.25"></rect>
+                <rect x="12" y="40.2" width="42" height="0.3" fill="#c6c6c0"></rect>
+                <rect x="7" y="47" width="3" height="3" fill="none" stroke="#8e8e88" stroke-width="0.25"></rect>
+                <rect x="12" y="48.2" width="58" height="0.3" fill="#c6c6c0"></rect>
+                <rect x="7" y="55" width="3" height="3" fill="none" stroke="#8e8e88" stroke-width="0.25"></rect>
+                <rect x="12" y="56.2" width="36" height="0.3" fill="#c6c6c0"></rect>
+                <rect x="7" y="63" width="3" height="3" fill="none" stroke="#8e8e88" stroke-width="0.25"></rect>
+                <rect x="12" y="64.2" width="52" height="0.3" fill="#c6c6c0"></rect>
+                <rect x="7" y="71" width="3" height="3" fill="none" stroke="#8e8e88" stroke-width="0.25"></rect>
+                <rect x="12" y="72.2" width="46" height="0.3" fill="#c6c6c0"></rect>
+              </g>
+              <rect x="7" y="82" width="66" height="0.3" fill="#3a3a36"></rect>
+              <rect x="7" y="87" width="66" height="30" fill="none" stroke="#8e8e88" stroke-width="0.25"></rect>
+            </svg>
+          </a>
+          <div style="padding:12px; border-top:1px solid #dededa">
+            <div contentEditable="true" spellcheck="false" style="font-size:13px; font-weight:600; color:#1c1c1a; outline:none; border-radius:4px; padding:1px 3px; margin:-1px -3px; cursor:text" style-hover="background:#f2f2ee" style-focus="background:#ffffff; box-shadow:0 0 0 1px #2f6f4f">M6-2</div>
+            <div style="margin-top:4px; font-size:11px; font-weight:500; color:#7a7a74">80 × 125mm</div>
+            <div style="display:flex; gap:2px; margin-top:8px; opacity:{{ opB }}; transition:opacity 120ms ease">
+              <button title="Rename" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; border:none; border-radius:4px; background:transparent; color:#7a7a74; cursor:pointer" style-hover="background:#f0f0ec; color:#1c1c1a"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L18.5 9.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 15.5z"></path><path d="M13 5.5L18.5 11"></path></svg></button>
+              <button title="Duplicate" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; border:none; border-radius:4px; background:transparent; color:#7a7a74; cursor:pointer" style-hover="background:#f0f0ec; color:#1c1c1a"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="1.5"></rect><path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H15"></path></svg></button>
+              <button title="Delete" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; border:none; border-radius:4px; background:transparent; color:#7a7a74; cursor:pointer" style-hover="background:#f5e6e0; color:#b04a2f"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14"></path><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path><path d="M7 7l1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"></path></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <a href="속지 제작 (Inserts).dc.html" style="width:160px; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px dashed #d3d3ce; border-radius:8px; background:transparent; color:#7a7a74; font-size:12px; font-weight:500" style-hover="border-color:#2f6f4f; color:#2f6f4f; background:#ffffff">
+          <span style="font-size:18px; font-weight:400; line-height:1">+</span>
+          <span>New template</span>
+        </a>
+      </div>
+    </section>
+    </sc-if>
+
+    <sc-if value="{{ showM5 }}" hint-placeholder-val="{{ false }}">
+    <section style="margin-bottom:32px">
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px">
+        <h2 style="margin:0; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">M5 · 62 × 105mm</h2>
+        <span style="font-size:11px; font-weight:500; color:#7a7a74">0</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px">
+        <a href="속지 제작 (Inserts).dc.html" style="width:160px; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px dashed #d3d3ce; border-radius:8px; background:transparent; color:#7a7a74; font-size:12px; font-weight:500" style-hover="border-color:#2f6f4f; color:#2f6f4f; background:#ffffff">
+          <span style="font-size:18px; font-weight:400; line-height:1">+</span>
+          <span>New template</span>
+        </a>
+      </div>
+    </section>
+    </sc-if>
+
+    <sc-if value="{{ showDA9 }}" hint-placeholder-val="{{ false }}">
+    <section style="margin-bottom:32px">
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px">
+        <h2 style="margin:0; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">M3 · 60 × 80mm</h2>
+        <span style="font-size:11px; font-weight:500; color:#7a7a74">0</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px">
+        <a href="속지 제작 (Inserts).dc.html" style="width:160px; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px dashed #d3d3ce; border-radius:8px; background:transparent; color:#7a7a74; font-size:12px; font-weight:500" style-hover="border-color:#2f6f4f; color:#2f6f4f; background:#ffffff">
+          <span style="font-size:18px; font-weight:400; line-height:1">+</span>
+          <span>New template</span>
+        </a>
+      </div>
+    </section>
+    </sc-if>
+
+    <sc-if value="{{ showCustom }}" hint-placeholder-val="{{ false }}">
+    <section>
+      <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px">
+        <h2 style="margin:0; font-size:15px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">Custom sizes</h2>
+        <span style="font-size:11px; font-weight:500; color:#7a7a74">0</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:16px">
+        <a href="속지 제작 (Inserts).dc.html" style="width:160px; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; border:1px dashed #d3d3ce; border-radius:8px; background:transparent; color:#7a7a74; font-size:12px; font-weight:500" style-hover="border-color:#2f6f4f; color:#2f6f4f; background:#ffffff">
+          <span style="font-size:18px; font-weight:400; line-height:1">+</span>
+          <span>New template</span>
+        </a>
+      </div>
+    </section>
+    </sc-if>
+
+    <sc-if value="{{ isNewView }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:480px; display:flex; flex-direction:column; gap:20px">
+        <h2 style="margin:0; font-size:17px; font-weight:600; color:#1c1c1a; letter-spacing:-0.1px">New template</h2>
+
+        <div style="font-size:12px; font-weight:500; color:#7a7a74; margin-bottom:8px">Name</div><input placeholder="Leave blank to auto-name" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1px solid #dededa; border-radius:6px; font:inherit; font-size:13px; color:#1c1c1a"><div style="height:1px; background:#dededa"></div><div style="display:flex; gap:16px">
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; color:#1c1c1a; cursor:pointer">
+            <input type="radio" name="kind" checked="">
+            <span>Insert — sits in a ring binder</span>
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; color:#7a7a74; cursor:pointer">
+            <input type="radio" name="kind">
+            <span>Notebook — bound with staples/thread</span>
+          </label>
+        </div>
+
+        <div>
+          <div style="font-size:12px; font-weight:500; color:#7a7a74; margin-bottom:8px">Which insert size?</div>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-bottom:12px">
+            <button onClick="{{ setGroupCustom }}" style="padding:8px 4px; border:{{ groupCustomBorder }}; border-radius:6px; background:{{ groupCustomBg }}; color:{{ groupCustomColor }}; font:inherit; font-size:12px; font-weight:600; cursor:pointer">Custom</button>
+            <button onClick="{{ setGroupA5 }}" style="padding:8px 4px; border:{{ groupA5Border }}; border-radius:6px; background:{{ groupA5Bg }}; color:{{ groupA5Color }}; font:inherit; font-size:12px; font-weight:600; cursor:pointer">A5/A6</button>
+            <button onClick="{{ setGroupM6 }}" style="padding:8px 4px; border:{{ groupM6Border }}; border-radius:6px; background:{{ groupM6Bg }}; color:{{ groupM6Color }}; font:inherit; font-size:12px; font-weight:600; cursor:pointer">M6/M5</button>
+            <button onClick="{{ setGroupEtc }}" style="padding:8px 4px; border:{{ groupEtcBorder }}; border-radius:6px; background:{{ groupEtcBg }}; color:{{ groupEtcColor }}; font:inherit; font-size:12px; font-weight:600; cursor:pointer">ETC</button>
+          </div>
+
+          <sc-if value="{{ isGroupCustom }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; align-items:flex-end; gap:8px">
+              <div style="flex:1">
+                <input value="{{ customW }}" onInput="{{ setCustomW }}" style="width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #dededa; border-radius:6px; font:inherit; font-size:13px; font-weight:600; color:#1c1c1a; text-align:center">
+                <div style="font-size:10px; font-weight:500; color:#7a7a74; margin-top:4px; text-align:center">width (mm)</div>
+              </div>
+              <span style="color:#b6b6b0; font-size:13px; padding-bottom:16px">×</span>
+              <div style="flex:1">
+                <input value="{{ customH }}" onInput="{{ setCustomH }}" style="width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid #dededa; border-radius:6px; font:inherit; font-size:13px; font-weight:600; color:#1c1c1a; text-align:center">
+                <div style="font-size:10px; font-weight:500; color:#7a7a74; margin-top:4px; text-align:center">height (mm)</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isGroupSizes }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+              <sc-for list="{{ newSizeOptions }}" as="opt" hint-placeholder-count="4">
+                <button onClick="{{ opt.onClick }}" style="text-align:left; padding:12px 14px; border:{{ opt.border }}; border-radius:8px; background:{{ opt.bg }}; cursor:pointer">
+                  <div style="font-size:13px; font-weight:600; color:{{ opt.titleColor }}">{{ opt.label }}</div>
+                  <div style="margin-top:2px; font-size:11px; font-weight:500; color:{{ opt.subColor }}">{{ opt.sub }}</div>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="height:1px; background:#dededa"></div>
+
+        
+
+        
+
+        <div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px">
+            <span style="font-size:12px; font-weight:500; color:#7a7a74">Dot grid</span>
+            <span style="font-size:11px; font-weight:500; color:#7a7a74">{{ newGridInfo }}</span>
+          </div>
+          <div style="display:flex; gap:8px; margin-bottom:10px">
+            
+            
+          </div>
+          <div style="display:flex; gap:16px; margin-bottom:10px">
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; color:#1c1c1a; cursor:pointer">
+              <input type="radio" name="gridmode" checked="">
+              <span>By spacing</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; color:#7a7a74; cursor:pointer">
+              <input type="radio" name="gridmode">
+              <span>By cell count</span>
+            </label>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px">
+            <input value="{{ newSpacing }}" onInput="{{ setSpacing }}" style="width:80px; padding:8px 10px; border:1px solid #dededa; border-radius:6px; font:inherit; font-size:13px; font-weight:500; color:#1c1c1a">
+            <span style="font-size:12px; font-weight:500; color:#7a7a74">mm</span>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px">
+          <button onClick="{{ setAll }}" style="padding:9px 16px; border:1px solid #dededa; border-radius:6px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:13px; font-weight:500; cursor:pointer" style-hover="background:#f4f4f2">Cancel</button>
+          <a href="속지 제작 (Inserts).dc.html" style="display:inline-flex; align-items:center; padding:9px 18px; border:none; border-radius:6px; background:#2f6f4f; color:#ffffff; font:inherit; font-size:13px; font-weight:600; cursor:pointer" style-hover="background:#275d42">Create</a>
+        </div>
+      </div>
+    </sc-if>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const SIZES = [
+  { key: 'a5', label: 'A5', mm: '148 × 210mm', w: 148, h: 210 },
+  { key: 'm6fold', label: 'M6 3-fold', mm: '220 × 125mm', w: 220, h: 125 },
+  { key: 'm5fold', label: 'M5 3-fold', mm: '202 × 105mm', w: 202, h: 105 },
+  { key: 'da6', label: 'DA6', mm: '95 × 171mm', w: 95, h: 171 },
+  { key: 'ta6', label: 'TA6', mm: '105 × 148mm', w: 105, h: 148 },
+  { key: 'm6', label: 'M6', mm: '80 × 125mm', w: 80, h: 125 },
+  { key: 'm5', label: 'M5', mm: '62 × 105mm', w: 62, h: 105 },
+  { key: 'da9', label: 'DA9', mm: '60 × 80mm', w: 60, h: 80 },
+  { key: 'custom', label: 'Custom', mm: 'Set your own size', w: null, h: null },
+];
+const GROUP_TABS = [
+  { key: 'a5group', label: 'A5/A6', title: 'A5 · A6 · TA6 · DA6', rw: 16, rh: 20 },
+  { key: 'm6group', label: 'M6/M5', title: 'M6 · M5', rw: 11, rh: 15 },
+];
+class Component extends DCLogic {
+  state = {
+    hover: null, menuOpen: false, size: 'all', newSize: 'm5', newSizeGroup: 'm6group', newSpacing: '5', customW: '80', customH: '125',
+    images: [
+      { id: 1, name: 'Cover photo', starred: true },
+      { id: 2, name: 'Washi tape 01', starred: false },
+      { id: 3, name: 'Washi tape 02', starred: false },
+      { id: 4, name: 'Sticker sheet', starred: false },
+    ],
+    fonts: [
+      { id: 1, name: 'Pretendard' },
+      { id: 2, name: 'Hand-drawn Sans' },
+      { id: 3, name: 'Serif Diary' },
+    ],
+  };
+  op(id) { return this.state.hover === id ? 1 : 0; }
+  sizeStyle(name) {
+    const on = this.state.size === name;
+    return { bg: on ? '#2f6f4f' : 'transparent', color: on ? '#ffffff' : '#1c1c1a', hoverBg: on ? '#2f6f4f' : '#f2f2ee' };
+  }
+  groupStyle(name) {
+    const on = this.state.newSizeGroup === name;
+    return { border: on ? '2px solid #2f6f4f' : '1px solid #dededa', bg: on ? '#e3ede7' : '#ffffff', color: on ? '#2f6f4f' : '#1c1c1a' };
+  }
+  move(listKey, fromIdx, toIdx) {
+    this.setState((s) => {
+      const list = s[listKey].slice();
+      const [item] = list.splice(fromIdx, 1);
+      list.splice(toIdx, 0, item);
+      return { [listKey]: list };
+    });
+  }
+  toggleStar(id) {
+    this.setState((s) => ({ images: s.images.map((x) => (x.id === id ? { ...x, starred: !x.starred } : x)) }));
+  }
+  renderVals() {
+    const all = this.sizeStyle('all'), image = this.sizeStyle('image'), font = this.sizeStyle('font'), nw = this.sizeStyle('new'), custom = this.sizeStyle('custom'), etc = this.sizeStyle('etc');
+    const isAll = this.state.size === 'all';
+    const sizeTabs = GROUP_TABS.map((sz) => {
+      const st = this.sizeStyle(sz.key);
+      return {
+        title: sz.title,
+        label: sz.label,
+        bg: st.bg, color: st.color, hoverBg: st.hoverBg,
+        onClick: () => this.setState({ size: sz.key }),
+        rx: (24 - sz.rw) / 2, ry: (24 - sz.rh) / 2, rw: sz.rw, rh: sz.rh,
+      };
+    });
+    const dragStart = (listKey, idx) => (e) => { e.dataTransfer.effectAllowed = 'move'; this._drag = { listKey, idx }; };
+    const drop = (listKey, idx) => (e) => {
+      e.preventDefault();
+      if (this._drag && this._drag.listKey === listKey && this._drag.idx !== idx) this.move(listKey, this._drag.idx, idx);
+      this._drag = null;
+    };
+    const GROUP_MEMBERS = { a5group: ['a5', 'ta6', 'da6'], m6group: ['m6', 'm5'], etc: ['m6fold', 'm5fold', 'da9'] };
+    const members = GROUP_MEMBERS[this.state.newSizeGroup] || [];
+    const newSizeOptions = SIZES.filter((sz) => members.includes(sz.key)).map((sz) => {
+      const on = this.state.newSize === sz.key;
+      return {
+        label: sz.label, sub: sz.mm,
+        border: on ? '2px solid #2f6f4f' : '1px solid #dededa',
+        bg: on ? '#e3ede7' : '#ffffff',
+        titleColor: on ? '#2f6f4f' : '#1c1c1a',
+        subColor: on ? '#2f6f4f' : '#7a7a74',
+        onClick: () => this.setState({ newSize: sz.key }),
+      };
+    });
+    const chosen = this.state.newSizeGroup === 'custom'
+      ? { w: parseFloat(this.state.customW) || 0, h: parseFloat(this.state.customH) || 0 }
+      : SIZES.find((s) => s.key === this.state.newSize);
+    let gridInfo = 'Pick a size to see the grid';
+    if (chosen && chosen.w) {
+      const spacing = parseFloat(this.state.newSpacing) || 5;
+      const margin = 3.5;
+      const cols = Math.max(0, Math.floor((chosen.w - margin * 2) / spacing));
+      const rows = Math.max(0, Math.floor((chosen.h - margin * 2) / spacing));
+      gridInfo = cols + ' × ' + rows + ' cells · ' + spacing + 'mm spacing · ' + margin + 'mm margin';
+    }
+    const g_custom = this.groupStyle('custom'), g_a5 = this.groupStyle('a5group'), g_m6 = this.groupStyle('m6group'), g_etc = this.groupStyle('etc');
+    return {
+      opA: this.op('a'), opB: this.op('b'), opC: this.op('c'),
+      enterA: () => this.setState({ hover: 'a' }),
+      enterB: () => this.setState({ hover: 'b' }),
+      enterC: () => this.setState({ hover: 'c' }),
+      leaveA: () => this.setState({ hover: null }),
+      leaveB: () => this.setState({ hover: null }),
+      leaveC: () => this.setState({ hover: null }),
+      menuOpen: this.state.menuOpen,
+      menuBtnBg: this.state.menuOpen ? '#eeeeea' : 'transparent',
+      toggleMenu: () => this.setState((s) => ({ menuOpen: !s.menuOpen })),
+      allBg: all.bg, allColor: all.color, allHoverBg: all.hoverBg,
+      imageBg: image.bg, imageColor: image.color, imageHoverBg: image.hoverBg,
+      fontBg: font.bg, fontColor: font.color, fontHoverBg: font.hoverBg,
+      newBg: nw.bg, newColor: nw.color, newHoverBg: nw.hoverBg,
+      customBg: custom.bg, customColor: custom.color, customHoverBg: custom.hoverBg,
+      etcBg: etc.bg, etcColor: etc.color, etcHoverBg: etc.hoverBg,
+      setAll: () => this.setState({ size: 'all' }),
+      setImage: () => this.setState({ size: 'image' }),
+      setFont: () => this.setState({ size: 'font' }),
+      setNew: () => this.setState({ size: 'new' }),
+      setCustom: () => this.setState({ size: 'custom' }),
+      setEtc: () => this.setState({ size: 'etc' }),
+      isImageView: this.state.size === 'image',
+      isFontView: this.state.size === 'font',
+      isNewView: this.state.size === 'new',
+      showA5: isAll || this.state.size === 'a5group',
+      showM6Fold: isAll || this.state.size === 'etc',
+      showM5Fold: isAll || this.state.size === 'etc',
+      showDA6: isAll || this.state.size === 'a5group',
+      showTA6: isAll || this.state.size === 'a5group',
+      showM6: isAll || this.state.size === 'm6group',
+      showM5: isAll || this.state.size === 'm6group',
+      showDA9: isAll || this.state.size === 'etc',
+      showCustom: isAll || this.state.size === 'custom',
+      sizeTabs,
+      dragOver: (e) => e.preventDefault(),
+      newSizeOptions,
+      newSpacing: this.state.newSpacing,
+      setSpacing: (e) => this.setState({ newSpacing: e.target.value }),
+      isGroupCustom: this.state.newSizeGroup === 'custom',
+      isGroupSizes: this.state.newSizeGroup !== 'custom',
+      groupCustomBg: g_custom.bg, groupCustomColor: g_custom.color, groupCustomBorder: g_custom.border,
+      groupA5Bg: g_a5.bg, groupA5Color: g_a5.color, groupA5Border: g_a5.border,
+      groupM6Bg: g_m6.bg, groupM6Color: g_m6.color, groupM6Border: g_m6.border,
+      groupEtcBg: g_etc.bg, groupEtcColor: g_etc.color, groupEtcBorder: g_etc.border,
+      setGroupCustom: () => this.setState({ newSizeGroup: 'custom', newSize: 'custom' }),
+      setGroupA5: () => this.setState({ newSizeGroup: 'a5group', newSize: 'a5' }),
+      setGroupM6: () => this.setState({ newSizeGroup: 'm6group', newSize: 'm5' }),
+      setGroupEtc: () => this.setState({ newSizeGroup: 'etc', newSize: 'da9' }),
+      customW: this.state.customW,
+      setCustomW: (e) => this.setState({ customW: e.target.value }),
+      customH: this.state.customH,
+      setCustomH: (e) => this.setState({ customH: e.target.value }),
+      newGridInfo: gridInfo,
+      images: this.state.images.map((img, idx) => ({
+        name: img.name,
+        starFill: img.starred ? '#2f6f4f' : 'none',
+        starColor: img.starred ? '#2f6f4f' : '#b6b6b0',
+        toggleStar: () => this.toggleStar(img.id),
+        dragStart: dragStart('images', idx),
+        drop: drop('images', idx),
+      })),
+      fonts: this.state.fonts.map((fnt, idx) => ({
+        name: fnt.name,
+        dragStart: dragStart('fonts', idx),
+        drop: drop('fonts', idx),
+      })),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -20,13 +20,13 @@ export function DesignLibraryDialog({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<'image' | 'font'>('image');
 
   return (
-    <Modal title="디자인 관리" onClose={onClose} size="large">
+    <Modal title="Library" onClose={onClose} size="large">
       <div className="design-tabs">
         <button type="button" className={tab === 'image' ? 'on' : ''} onClick={() => setTab('image')}>
-          이미지
+          Images
         </button>
         <button type="button" className={tab === 'font' ? 'on' : ''} onClick={() => setTab('font')}>
-          글꼴
+          Fonts
         </button>
       </div>
       {tab === 'image' ? <ImageManagePanel /> : <FontManagePanel />}
@@ -34,7 +34,7 @@ export function DesignLibraryDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function ImageManagePanel() {
+export function ImageManagePanel() {
   const userImages = useStore((s) => s.userImages);
   const addUserImage = useStore((s) => s.addUserImage);
   const renameUserImage = useStore((s) => s.renameUserImage);
@@ -59,24 +59,24 @@ function ImageManagePanel() {
       const orphan = userImages.find((i) => i.name === name && !hasImage(i.id));
       addUserImage(await registerImage(file, orphan?.id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : '이미지를 읽지 못했습니다');
+      setError(e instanceof Error ? e.message : "Couldn't read that image");
     }
   }
 
   return (
     <>
       <p className="modal-note">
-        저장한 이미지는 계속 남습니다. 저장하지 않은 "최근 사용" 이미지는 최대 {RECENT_IMAGE_CAP}개까지만 남고,
-        지금 어느 양식에도 안 쓰는 중인 것부터 오래된 순으로 자동으로 지워집니다.
+        Starred images are kept forever. Unstarred ones stay only as the {RECENT_IMAGE_CAP} most
+        recent — the oldest ones no template is using are pruned first.
       </p>
       {usable.length > 0 && (
         <p className="modal-note">
-          저장 {savedCount}개 · 최근 사용 {recentCount}/{RECENT_IMAGE_CAP}개
+          {savedCount} starred · {recentCount}/{RECENT_IMAGE_CAP} recent
         </p>
       )}
 
       {usable.length === 0 ? (
-        <p className="modal-note">아직 등록한 이미지가 없습니다.</p>
+        <p className="modal-note">No images yet.</p>
       ) : (
         <div className="design-grid">
           {usable.map((img) => (
@@ -105,7 +105,7 @@ function ImageManagePanel() {
                   type="button"
                   className="design-name"
                   onDoubleClick={() => setRenamingId(img.id)}
-                  title="더블클릭해서 이름 바꾸기"
+                  title="Double-click to rename"
                 >
                   {imageLabelOf(img)}
                 </button>
@@ -118,19 +118,19 @@ function ImageManagePanel() {
                   onClick={() => (img.saved ? unsaveUserImage(img.id) : saveUserImage(img.id))}
                   title={
                     img.saved
-                      ? '저장 해제 — 다시 최근 사용으로 (오래되면 자동으로 지워질 수 있습니다)'
-                      : '저장 — 계속 남깁니다'
+                      ? 'Unstar — back to recent (may be pruned once it ages out)'
+                      : 'Star — keep forever'
                   }
                 >
-                  {img.saved ? '★ 저장됨' : '☆ 저장'}
+                  {img.saved ? '★ Starred' : '☆ Star'}
                 </button>
                 <button
                   type="button"
                   className="ghost"
                   onClick={() => removeUserImage(img.id)}
-                  title="지금 지우기 — 어딘가에 쓰는 중이면 안 지워집니다"
+                  title="Delete now — refused if a template still uses it"
                 >
-                  삭제
+                  Delete
                 </button>
               </div>
             </div>
@@ -140,7 +140,7 @@ function ImageManagePanel() {
 
       {error && <p className="modal-note warn">{error}</p>}
       <button className="ghost" onClick={() => fileRef.current?.click()}>
-        파일 추가…
+        Add file…
       </button>
       <input
         ref={fileRef}
@@ -156,7 +156,7 @@ function ImageManagePanel() {
   );
 }
 
-function FontManagePanel() {
+export function FontManagePanel() {
   const userFonts = useStore((s) => s.userFonts);
   const addUserFont = useStore((s) => s.addUserFont);
   const renameUserFont = useStore((s) => s.renameUserFont);
@@ -172,16 +172,16 @@ function FontManagePanel() {
       const orphan = userFonts.find((f) => f.name === name && !hasFont(f.id));
       addUserFont(await registerFont(file, orphan?.id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : '글꼴을 읽지 못했습니다');
+      setError(e instanceof Error ? e.message : "Couldn't read that font");
     }
   }
 
   return (
     <>
-      <p className="modal-note">지금까지 등록한 글꼴입니다. 이름은 목록·속성 막대에 함께 반영됩니다.</p>
+      <p className="modal-note">Fonts you have added. Renaming one updates it in the list and the property bar.</p>
 
       {userFonts.length === 0 ? (
-        <p className="modal-note">아직 등록한 글꼴이 없습니다.</p>
+        <p className="modal-note">No fonts yet.</p>
       ) : (
         <div className="font-manage-list">
           {userFonts.map((f) => (
@@ -192,7 +192,7 @@ function FontManagePanel() {
 
       {error && <p className="modal-note warn">{error}</p>}
       <button className="ghost" onClick={() => fileRef.current?.click()}>
-        파일 추가…
+        Add file…
       </button>
       <input
         ref={fileRef}
@@ -224,7 +224,7 @@ function FontRow({
   return (
     <div className="font-manage-row">
       <span className="font-manage-preview" style={loaded ? { fontFamily: font.family } : undefined}>
-        가나다 ABC
+        Aa Bb Cc 123
       </span>
       {renaming ? (
         <input
@@ -242,9 +242,9 @@ function FontRow({
           }}
         />
       ) : (
-        <button type="button" className="design-name" onDoubleClick={() => setRenaming(font.id)} title="더블클릭해서 이름 바꾸기">
+        <button type="button" className="design-name" onDoubleClick={() => setRenaming(font.id)} title="Double-click to rename">
           {fontLabelOf(font)}
-          {!loaded && ' (파일 없음)'}
+          {!loaded && ' (file missing)'}
         </button>
       )}
     </div>

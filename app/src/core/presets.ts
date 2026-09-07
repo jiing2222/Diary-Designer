@@ -47,14 +47,47 @@ export const HOLE_PITCH: Mm = 19;
  */
 export const INSERT_PRESETS: InsertPreset[] = [
   { id: 'A5', name: 'A5', width: 148, height: 210, holeCount: 6, groupGap: 70, markSize: 6 },
-  { id: 'TA6', name: 'TA6 (트루 A6)', width: 105, height: 148, holeCount: 6, groupGap: 38, markSize: 6 },
-  { id: 'DA6', name: 'DA6 (다이어리 A6)', width: 95, height: 171, holeCount: 6, groupGap: 51, markSize: 6 },
-  { id: 'M6', name: 'M6 (미니6)', width: 80, height: 125, holeCount: 6, groupGap: null, markSize: 4 },
-  { id: 'M5', name: 'M5 (미니5)', width: 62, height: 105, holeCount: 5, groupGap: null, markSize: 4 },
-  { id: 'M6TRI', name: 'M6 3단접이', width: 220, height: 125, holeCount: 6, groupGap: null, markSize: 4 },
-  { id: 'M5TRI', name: 'M5 3단접이', width: 202, height: 105, holeCount: 5, groupGap: null, markSize: 4 },
-  { id: 'DA9', name: 'DA9', width: 60, height: 80, holeCount: 3, groupGap: null, markSize: 4 },
+  { id: 'TA6', name: 'TA6', width: 105, height: 148, holeCount: 6, groupGap: 38, markSize: 6 },
+  { id: 'DA6', name: 'DA6', width: 95, height: 171, holeCount: 6, groupGap: 51, markSize: 6 },
+  { id: 'M6', name: 'M6', width: 80, height: 125, holeCount: 6, groupGap: null, markSize: 4 },
+  { id: 'M5', name: 'M5', width: 62, height: 105, holeCount: 5, groupGap: null, markSize: 4 },
+  { id: 'M6TRI', name: 'M6 3-fold', width: 220, height: 125, holeCount: 6, groupGap: null, markSize: 4 },
+  { id: 'M5TRI', name: 'M5 3-fold', width: 202, height: 105, holeCount: 5, groupGap: null, markSize: 4 },
+  // 구멍이 셋이라 M3다. id는 DA9로 두었던 것을 그대로 쓴다 — 저장 파일에
+  // 이 id가 들어 있어서, 바꾸면 예전 파일이 이 규격을 못 찾는다.
+  { id: 'DA9', name: 'M3', width: 60, height: 80, holeCount: 3, groupGap: null, markSize: 4 },
 ];
+
+/* ────────────────────────── 규격 계열 ────────────────────────── */
+
+/**
+ * 규격을 몇 갈래로 묶은 것.
+ *
+ * 프리셋이 여덟 개나 되어 한 줄로 늘어놓으면 고르기 어렵다. 실제로 쓰는
+ * 사람은 "내 바인더가 M6냐 A5냐"부터 정하므로, 그 갈래를 먼저 고르게 한다.
+ * 양식 갤러리의 왼쪽 줄과 새 양식 만들기 창이 **같은 갈래**를 쓴다 — 두
+ * 군데가 서로 다르게 묶으면 같은 규격을 찾는 길이 화면마다 달라진다.
+ */
+export type SizeFamilyId = 'custom' | 'a5a6' | 'm6m5' | 'etc';
+
+export interface SizeFamily {
+  id: SizeFamilyId;
+  label: string;
+  /** 이 갈래에 드는 프리셋. `custom`은 비어 있다 — 프리셋에 없는 크기를 뜻한다. */
+  presetIds: string[];
+}
+
+export const SIZE_FAMILIES: SizeFamily[] = [
+  { id: 'custom', label: 'Custom', presetIds: [] },
+  { id: 'a5a6', label: 'A5/A6', presetIds: ['A5', 'TA6', 'DA6'] },
+  { id: 'm6m5', label: 'M6/M5', presetIds: ['M6', 'M5'] },
+  { id: 'etc', label: 'ETC', presetIds: ['M6TRI', 'M5TRI', 'DA9'] },
+];
+
+/** 이 프리셋이 어느 갈래인지. 프리셋에 없는 id면 `custom`. */
+export function familyOf(presetId: string): SizeFamilyId {
+  return SIZE_FAMILIES.find((f) => f.presetIds.includes(presetId))?.id ?? 'custom';
+}
 
 export function findInsertPreset(id: string): InsertPreset | undefined {
   return INSERT_PRESETS.find((p) => p.id === id);

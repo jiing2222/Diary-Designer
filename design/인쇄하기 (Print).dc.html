@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  body { margin: 0; background: #f4f4f2; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #2f6f4f; text-decoration: none; }
+  a:hover { color: #1c1c1a; }
+</style>
+</helmet>
+
+<div style="height:100vh; display:flex; flex-direction:column; background:#f4f4f2; color:#1c1c1a; overflow:hidden">
+
+  
+
+  <div style="display:flex; align-items:center; height:52px; padding:0 16px; background:#ffffff; border-bottom:1px solid #dededa; flex-shrink:0; gap:16px">
+    <div style="position:relative; flex-shrink:0">
+      <button onClick="{{ toggleMenu }}" title="Menu" style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:none; border-radius:4px; background:{{ menuBtnBg }}; color:#1c1c1a; cursor:pointer" style-hover="background:#eeeeea">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+      </button>
+      <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; top:40px; left:0; width:180px; background:#ffffff; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.12); padding:6px; z-index:20">
+          <a href="양식 관리 갤러리.dc.html" style="display:block; padding:8px 10px; border-radius:4px; color:#1c1c1a; font-size:13px; font-weight:500" style-hover="background:#f2f2ee">Template</a>
+          <a href="속지 제작 (Inserts).dc.html" style="display:block; padding:8px 10px; border-radius:4px; color:#1c1c1a; font-size:13px; font-weight:500" style-hover="background:#f2f2ee">Inserts</a>
+          <span style="display:block; padding:8px 10px; border-radius:4px; color:#b6b6b0; font-size:13px; font-weight:500">Notebooks</span>
+          <span style="display:block; padding:8px 10px; border-radius:4px; background:#e3ede7; color:#2f6f4f; font-size:13px; font-weight:600">Print</span>
+        </div>
+      </sc-if>
+    </div>
+    <a href="Rings 시작화면.dc.html" style="display:flex; align-items:center; gap:8px; flex-shrink:0; color:#1c1c1a">
+      <svg width="20" height="20" viewBox="0 0 22 22" style="display:block; flex-shrink:0">
+        <circle cx="8" cy="11" r="5.4" fill="none" stroke="#2f6f4f" stroke-width="1.6"></circle>
+        <circle cx="14" cy="11" r="5.4" fill="none" stroke="#1c1c1a" stroke-width="1.6"></circle>
+      </svg>
+      <span style="font-size:15px; font-weight:600; letter-spacing:-0.2px; white-space:nowrap">Rings</span>
+    </a>
+
+    <div style="flex:1"></div>
+
+    <div style="display:flex; align-items:center; gap:4px">
+      <a href="양식 관리 갤러리.dc.html" style="padding:6px 10px; border-radius:6px; color:#a8a8a2; font-size:13px; font-weight:500" style-hover="background:#f2f2ee">Template</a>
+      <span style="color:#c6c6c0; font-size:12px; padding:0 2px">›</span>
+      <a href="속지 제작 (Inserts).dc.html" style="padding:6px 10px; border-radius:6px; color:#a8a8a2; font-size:13px; font-weight:500" style-hover="background:#f2f2ee">Insert</a>
+      <span style="color:#c6c6c0; font-size:12px; padding:0 2px">›</span>
+      <span style="padding:6px 10px; border-radius:6px; background:#f0f0ec; color:#1c1c1a; font-size:13px; font-weight:600">Print</span>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <button style="display:flex; align-items:center; gap:6px; padding:7px 14px; border:none; border-radius:4px; background:#2f6f4f; color:#ffffff; font:inherit; font-size:13px; font-weight:600; cursor:pointer" style-hover="background:#275d42">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"></path><path d="M6.5 11.5L12 17l5.5-5.5"></path><path d="M5 21h14"></path></svg>
+      <span>PDF Export</span>
+    </button>
+  </div><div style="display:flex; flex:1; min-height:0">
+
+    <div style="position:relative; flex-shrink:0">
+    <div style="width: 45px; flex-shrink: 0; background: #ffffff; border-right: 1px solid #dededa; display: flex; flex-direction: column; align-items: center; padding: 10px 6px; gap: 4px; overflow-y: auto; height: 730px">
+      <button onClick="{{ setView }}" title="Print view" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ viewBg }}; color:{{ viewColor }}; cursor:pointer" style-hover="background:{{ viewHoverBg }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="2.6"></circle></svg><span style="font-size:9px; font-weight:500">View</span>
+        
+      </button><button onClick="{{ setPaper }}" title="Paper" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ paperBg }}; color:{{ paperColor }}; cursor:pointer" style-hover="background:{{ paperHoverBg }}">
+        <svg width="16" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"></path><path d="M15 3v4h4"></path></svg>
+        <span style="font-size:9px; font-weight:500">Paper</span>
+      </button>
+      
+      <button onClick="{{ setInsert }}" title="Insert" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ insertBg }}; color:{{ insertColor }}; cursor:pointer" style-hover="background:{{ insertHoverBg }}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="7" r="1" fill="currentColor" stroke="none"></circle><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"></circle><circle cx="7" cy="12" r="1" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"></circle><circle cx="17" cy="12" r="1" fill="currentColor" stroke="none"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg>
+        <span style="font-size:9px; font-weight:500">Insert</span>
+      </button>
+      <div style="width:100%; height:1px; background:#eeeeea; margin:4px 0"></div>
+      <button onClick="{{ setTemplate }}" title="Template" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ templateBg }}; color:{{ templateColor }}; cursor:pointer" style-hover="background:{{ templateHoverBg }}">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="1"></rect><rect x="13" y="4" width="7" height="6" rx="1"></rect><rect x="13" y="12" width="7" height="8" rx="1"></rect><rect x="4" y="15" width="7" height="5" rx="1"></rect></svg>
+        <span style="font-size:9px; font-weight:500">Template</span>
+      </button>
+      <button onClick="{{ setImage }}" title="Image" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ imageBg }}; color:{{ imageColor }}; cursor:pointer" style-hover="background:{{ imageHoverBg }}">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1.5"></rect><circle cx="9" cy="10" r="1.4" fill="currentColor" stroke="none"></circle><path d="M5 17l4.5-5 3 3 3-4 4.5 6"></path></svg>
+        <span style="font-size:9px; font-weight:500">Image</span>
+      </button>
+      <div style="width:100%; height:1px; background:#eeeeea; margin:4px 0"></div>
+      <button onClick="{{ setSelectTool }}" title="Select" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ selectBg }}; color:{{ selectColor }}; cursor:pointer" style-hover="background:{{ selectHoverBg }}">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l14 6-6 1.8L11 18z"></path></svg>
+        <span style="font-size:9px; font-weight:500">Select</span>
+      </button>
+      <button onClick="{{ setDrawTool }}" title="Draw" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ drawBg }}; color:{{ drawColor }}; cursor:pointer" style-hover="background:{{ drawHoverBg }}">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="6" y1="18" x2="18" y2="6"></line><circle cx="6" cy="18" r="1.3" fill="currentColor" stroke="none"></circle><circle cx="18" cy="6" r="1.3" fill="currentColor" stroke="none"></circle></svg>
+        <span style="font-size:9px; font-weight:500">Draw</span>
+      </button>
+      <button onClick="{{ setTextTool }}" title="Text" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ textBg }}; color:{{ textColor }}; cursor:pointer" style-hover="background:{{ textHoverBg }}">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="5" y1="6" x2="19" y2="6"></line><line x1="12" y1="6" x2="12" y2="19"></line></svg>
+        <span style="font-size:9px; font-weight:500">Text</span>
+      </button>
+      <button onClick="{{ setAutoField }}" title="AutoField" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ autoFieldBg }}; color:{{ autoFieldColor }}; cursor:pointer" style-hover="background:{{ autoFieldHoverBg }}">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="12" x2="12" y2="7.5"></line><line x1="12" y1="12" x2="15.2" y2="14"></line></svg>
+        <span style="font-size:8.5px; font-weight:500">AutoField</span>
+      </button>
+    </div>
+    <button onClick="{{ toggleLeftPanel }}" title="설정 패널 열기/닫기" style="position:absolute; right:-13px; bottom:16px; width:26px; height:26px; border-radius:50%; border:1px solid #dededa; background:#ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.12); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:5" style-hover="background:#f2f2ee">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ leftPanelArrowTransform }}"><path d="M9 6l6 6-6 6"></path></svg>
+    </button>
+    </div>
+
+    <div style="width:{{ leftPanelOuterWidthPx }}; flex-shrink:0; overflow:hidden">
+    
+    <div style="width:{{ panelWidthPx }}; height:100%; box-sizing:border-box; background:#ffffff; border-right:1px solid #dededa; padding:16px; overflow-y:auto">
+
+      <sc-if value="{{ isView }}" hint-placeholder-val="{{ false }}">
+        <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer; margin-bottom:16px">
+          <input type="checkbox" checked="{{ previewOnly }}" onChange="{{ togglePreviewOnly }}">
+          <span>Show print-only view</span>
+        </label>
+
+        <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:8px">Double-sided</div>
+        <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer; margin-bottom:10px">
+          <input type="checkbox" checked="{{ duplex }}" onChange="{{ toggleDuplex }}">
+          <span>Print both sides</span>
+        </label>
+        <sc-if value="{{ duplex }}" hint-placeholder-val="{{ true }}">
+          <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer; margin-bottom:10px">
+            <input type="checkbox" checked="{{ backOnLeft }}" onChange="{{ toggleBackOnLeft }}">
+            <span>Back side on left</span>
+          </label>
+          <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer; margin-bottom:16px">
+            <input type="checkbox" checked="{{ backTurn180 }}" onChange="{{ toggleBackTurn180 }}">
+            <span>Flip back 180°</span>
+          </label>
+        </sc-if>
+
+        <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer; margin-bottom:16px">
+          <input type="checkbox" checked="{{ true }}">
+          <span>Show printer's unsafe edge</span>
+        </label>
+
+        <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer; margin-bottom:10px">
+          <input type="checkbox" checked="{{ showDots }}" onChange="{{ toggleDots }}">
+          <span>Dot grid</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer">
+          <input type="checkbox" checked="{{ showPunch }}" onChange="{{ togglePunch }}">
+          <span>Punch guide</span>
+        </label>
+      </sc-if>
+
+      <sc-if value="{{ isInsert }}" hint-placeholder-val="{{ false }}">
+
+      <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:10px">Dot grid</div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px">
+
+        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:6px">
+          <button onClick="{{ setDotStyleDot }}" title="Dot" style="display:flex; align-items:center; justify-content:center; padding:10px 0; border:{{ dotStyleDotBorder }}; border-radius:6px; background:{{ dotStyleDotBg }}; color:{{ dotStyleDotColor }}; cursor:pointer" style-hover="background:{{ dotStyleDotHoverBg }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="7" cy="7" r="1.3" fill="currentColor"></circle><circle cx="12" cy="7" r="1.3" fill="currentColor"></circle><circle cx="17" cy="7" r="1.3" fill="currentColor"></circle><circle cx="7" cy="12" r="1.3" fill="currentColor"></circle><circle cx="12" cy="12" r="1.3" fill="currentColor"></circle><circle cx="17" cy="12" r="1.3" fill="currentColor"></circle><circle cx="7" cy="17" r="1.3" fill="currentColor"></circle><circle cx="12" cy="17" r="1.3" fill="currentColor"></circle><circle cx="17" cy="17" r="1.3" fill="currentColor"></circle></svg>
+          </button>
+          <button onClick="{{ setDotStyleGrid }}" title="Grid" style="display:flex; align-items:center; justify-content:center; padding:10px 0; border:{{ dotStyleGridBorder }}; border-radius:6px; background:{{ dotStyleGridBg }}; color:{{ dotStyleGridColor }}; cursor:pointer" style-hover="background:{{ dotStyleGridHoverBg }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16"></rect><line x1="4" y1="10.6" x2="20" y2="10.6"></line><line x1="4" y1="17.2" x2="20" y2="17.2"></line><line x1="10.6" y1="4" x2="10.6" y2="20"></line><line x1="17.2" y1="4" x2="17.2" y2="20"></line></svg>
+          </button>
+          <button onClick="{{ setDotStyleH }}" title="Horizontal lines" style="display:flex; align-items:center; justify-content:center; padding:10px 0; border:{{ dotStyleHBorder }}; border-radius:6px; background:{{ dotStyleHBg }}; color:{{ dotStyleHColor }}; cursor:pointer" style-hover="background:{{ dotStyleHHoverBg }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="17" x2="20" y2="17"></line></svg>
+          </button>
+          <button onClick="{{ setDotStyleV }}" title="Vertical lines" style="display:flex; align-items:center; justify-content:center; padding:10px 0; border:{{ dotStyleVBorder }}; border-radius:6px; background:{{ dotStyleVBg }}; color:{{ dotStyleVColor }}; cursor:pointer" style-hover="background:{{ dotStyleVHoverBg }}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="7" y1="4" x2="7" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line><line x1="17" y1="4" x2="17" y2="20"></line></svg>
+          </button>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+          <span style="font-size:12px; font-weight:500; color:#1c1c1a">2.5</span>
+          <span style="font-size:11px; font-weight:500; color:#7a7a74">mm spacing</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px">
+          <div style="flex:1; display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+            <span style="font-size:12px; font-weight:500; color:#1c1c1a">29</span>
+            <span style="font-size:11px; font-weight:500; color:#7a7a74">cols</span>
+          </div>
+          <div style="flex:1; display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+            <span style="font-size:12px; font-weight:500; color:#1c1c1a">47</span>
+            <span style="font-size:11px; font-weight:500; color:#7a7a74">rows</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+          <span style="font-size:12px; font-weight:500; color:#1c1c1a">3</span>
+          <span style="font-size:11px; font-weight:500; color:#7a7a74">mm min margin</span>
+        </div><div style="padding:8px 12px; border-radius:6px; background:#f4f4f2; font-size:12px; font-weight:500; color:#1c1c1a">Margin <b>3.75mm</b></div><div style="font-size:11px; font-weight:500; color:#7a7a74">Split guide</div>
+        <div style="display:flex; align-items:center; gap:8px">
+          <div style="flex:1; display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+            <span style="font-size:12px; font-weight:500; color:#1c1c1a">0</span>
+            <span style="font-size:11px; font-weight:500; color:#7a7a74">cols</span>
+          </div>
+          <div style="flex:1; display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+            <span style="font-size:12px; font-weight:500; color:#1c1c1a">0</span>
+            <span style="font-size:11px; font-weight:500; color:#7a7a74">rows</span>
+          </div>
+        </div>
+        <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer">
+          <input type="checkbox">
+          <span>Clear punch safe area</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer">
+          <input type="checkbox">
+          <span>Fill to edge, no margin</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer">
+          <input type="checkbox" checked="{{ showDots }}" onChange="{{ toggleDots }}">
+          <span>Keep on printout</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer">
+          <input type="checkbox">
+          <span>Dots only if no back side</span>
+        </label>
+      </div>
+
+      <div style="height:1px; background:#eeeeea; margin:16px 0"></div>
+
+      <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:10px">Punch guide</div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+          <span style="font-size:12px; font-weight:500; color:#1c1c1a">6</span>
+          <span style="font-size:11px; font-weight:500; color:#7a7a74">holes</span>
+        </div>
+        <div style="display:flex; gap:8px">
+          <button onClick="{{ setPunchModeEven }}" style="flex:1; display:flex; align-items:center; justify-content:center; padding:10px 6px; border:{{ punchModeEvenBorder }}; border-radius:6px; background:{{ punchModeEvenBg }}; color:{{ punchModeEvenColor }}; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:{{ punchModeEvenHoverBg }}">Evenly spaced</button>
+          <button onClick="{{ setPunchModeGrouped }}" style="flex:1; display:flex; align-items:center; justify-content:center; padding:10px 6px; border:{{ punchModeGroupedBorder }}; border-radius:6px; background:{{ punchModeGroupedBg }}; color:{{ punchModeGroupedColor }}; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:{{ punchModeGroupedHoverBg }}">Grouped (3+3)</button>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+          <span style="font-size:12px; font-weight:500; color:#1c1c1a">10</span>
+          <span style="font-size:11px; font-weight:500; color:#7a7a74">mm safe area</span>
+        </div>
+        <div style="padding:8px 12px; border-radius:6px; background:#f4f4f2; font-size:12px; font-weight:500; color:#1c1c1a; line-height:1.6">Margin <b>13mm</b></div>
+      </div>
+
+      </sc-if>
+
+      <sc-if value="{{ isTemplateTool }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:10px">Templates</div>
+        <div style="display:flex; flex-direction:column; gap:16px">
+          <div>
+            <div style="font-size:10px; font-weight:600; color:#a8a8a2; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px">M6 · 80 × 125mm</div>
+            <div style="display:flex; flex-direction:column; gap:4px">
+              <button style="display:flex; align-items:center; gap:10px; width:100%; padding:6px; border:1px solid transparent; border-radius:6px; background:#e3ede7; cursor:pointer; text-align:left" style-hover="background:#dbe8e0">
+                <div style="width:26px; height:40px; flex-shrink:0; background:#ffffff; border:1px solid #dededa; border-radius:2px"></div>
+                <div style="min-width:0">
+                  <div style="font-size:12px; font-weight:600; color:#1c1c1a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">M6-1</div>
+                  <div style="font-size:10px; font-weight:500; color:#7a7a74">80 × 125mm</div>
+                </div>
+              </button>
+              <button style="display:flex; align-items:center; gap:10px; width:100%; padding:6px; border:1px solid transparent; border-radius:6px; background:transparent; cursor:pointer; text-align:left" style-hover="background:#f2f2ee">
+                <div style="width:26px; height:40px; flex-shrink:0; background:#ffffff; border:1px solid #dededa; border-radius:2px"></div>
+                <div style="min-width:0">
+                  <div style="font-size:12px; font-weight:600; color:#1c1c1a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">M6-2</div>
+                  <div style="font-size:10px; font-weight:500; color:#7a7a74">80 × 125mm</div>
+                </div>
+              </button>
+            </div>
+          </div>
+          <a href="양식 관리 갤러리.dc.html" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 6px; border:1px dashed #d3d3ce; border-radius:6px; color:#7a7a74; font-size:12px; font-weight:500" style-hover="border-color:#2f6f4f; color:#2f6f4f; background:#ffffff">
+            <span style="font-size:15px; line-height:1">+</span>
+            <span>Manage all</span>
+          </a>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isSelectTool }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:10px">Select</div>
+        <div style="font-size:12px; line-height:1.6; color:#7a7a74">Click an object to select it. Drag on empty space to box-select multiple.</div>
+      </sc-if>
+
+      <sc-if value="{{ isDrawTool }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:10px">Elements</div>
+        <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:20px">
+          <button onClick="{{ setDrawTabDraw }}" title="Draw" style="display:flex; align-items:center; gap:8px; padding:8px 6px; border:{{ drawTabDrawBorder }}; border-radius:6px; background:{{ drawTabDrawBg }}; color:{{ drawTabDrawColor }}; cursor:pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="flex-shrink:0"><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+            <span style="font-size:11px; font-weight:600">Draw</span>
+          </button>
+          <button onClick="{{ setDrawTabTable }}" title="Table" style="display:flex; align-items:center; gap:8px; padding:8px 6px; border:{{ drawTabTableBorder }}; border-radius:6px; background:{{ drawTabTableBg }}; color:{{ drawTabTableColor }}; cursor:pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="flex-shrink:0"><rect x="4" y="4" width="16" height="16"></rect><line x1="4" y1="10.6" x2="20" y2="10.6"></line><line x1="4" y1="17.2" x2="20" y2="17.2"></line><line x1="10.6" y1="4" x2="10.6" y2="20"></line></svg>
+            <span style="font-size:11px; font-weight:600">Table</span>
+          </button>
+          <button onClick="{{ setDrawTabCheckbox }}" title="Checkbox" style="display:flex; align-items:center; gap:8px; padding:8px 6px; border:{{ drawTabCheckboxBorder }}; border-radius:6px; background:{{ drawTabCheckboxBg }}; color:{{ drawTabCheckboxColor }}; cursor:pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="5" y="5" width="14" height="14" rx="1.5"></rect><path d="M8.5 12.5l2.3 2.3 4.7-5.3"></path></svg>
+            <span style="font-size:11px; font-weight:600">Check box</span>
+          </button>
+        </div>
+
+        <sc-if value="{{ isDrawTabDraw }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:8px">Line</div>
+          <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px">
+            <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+              <span>0.2mm</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+              <span>Solid</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+          </div>
+          <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:8px">Corner</div>
+          <div style="display:flex; flex-direction:column; gap:10px">
+            <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+              <span>Sharp</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDrawTabTable }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:8px">Table lines</div>
+          <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px">
+            <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+              <span>0.2mm</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+              <span>Solid</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+          </div>
+          <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:8px">Border corner</div>
+          <div style="display:flex; flex-direction:column; gap:10px">
+            <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+              <span>Sharp</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDrawTabCheckbox }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:8px">Stroke</div>
+          <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer; width:100%; margin-bottom:16px" style-hover="background:#f9f9f7">
+            <span>0.2mm</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:8px">Icon</div>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px">
+            <button title="Square" style="display:flex; align-items:center; justify-content:center; padding:8px 0; border:2px solid #2f6f4f; border-radius:4px; background:#e3ede7; color:#2f6f4f; cursor:pointer">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="1.5"></rect></svg>
+            </button>
+            <button title="Circle" style="display:flex; align-items:center; justify-content:center; padding:8px 0; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#7a7a74; cursor:pointer" style-hover="background:#f9f9f7">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle></svg>
+            </button>
+            <button title="Triangle" style="display:flex; align-items:center; justify-content:center; padding:8px 0; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#7a7a74; cursor:pointer" style-hover="background:#f9f9f7">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 16H3z"></path></svg>
+            </button>
+          </div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{ isTextTool }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:10px">Text</div>
+        <div style="display:flex; flex-direction:column; gap:10px">
+          <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+            <span>Pretendard</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+            <span style="font-size:12px; font-weight:500; color:#1c1c1a">9</span>
+            <span style="font-size:11px; font-weight:500; color:#7a7a74">pt</span>
+          </div>
+          <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+            <span>Left</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isImageTool }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:10px">Image</div>
+        <div style="display:flex; flex-direction:column; gap:10px">
+          <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#b6b6b0; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+            <span>Choose image…</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+            <span style="font-size:12px; font-weight:500; color:#1c1c1a">20</span>
+            <span style="font-size:11px; font-weight:500; color:#7a7a74">mm width</span>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+            <span style="font-size:12px; font-weight:500; color:#1c1c1a">20</span>
+            <span style="font-size:11px; font-weight:500; color:#7a7a74">mm height</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isAutoFieldTool }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:10px">Auto Field</div>
+        <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:20px">
+          <button onClick="{{ setAutoTabCalendar }}" title="Calendar" style="display:flex; align-items:center; gap:8px; padding:8px 6px; border:{{ autoTabCalendarBorder }}; border-radius:6px; background:{{ autoTabCalendarBg }}; color:{{ autoTabCalendarColor }}; cursor:pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="4" y="5" width="16" height="15" rx="1.5"></rect><line x1="4" y1="10" x2="20" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg>
+            <span style="font-size:11px; font-weight:600">Calendar</span>
+          </button>
+          <button onClick="{{ setAutoTabField }}" title="Auto Field" style="display:flex; align-items:center; gap:8px; padding:8px 6px; border:{{ autoTabFieldBorder }}; border-radius:6px; background:{{ autoTabFieldBg }}; color:{{ autoTabFieldColor }}; cursor:pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="12" x2="12" y2="7.5"></line><line x1="12" y1="12" x2="15.2" y2="14"></line></svg>
+            <span style="font-size:11px; font-weight:600">Auto Field</span>
+          </button>
+        </div>
+
+        <sc-if value="{{ isAutoTabCalendar }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex; flex-direction:column; gap:10px">
+            <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+              <span>Start on Sunday</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+              <span>Korean weekdays</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#1c1c1a; cursor:pointer">
+              <input type="checkbox">
+              <span>Show adjacent month dates</span>
+            </label>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isAutoTabField }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; gap:10px">
+            <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+              <span>Format: Day</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <div style="font-size:12px; line-height:1.6; color:#7a7a74">Click a cell to stamp the next value. The offset increases automatically (0, 1, 2…).</div>
+          </div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{ isPaper }}" hint-placeholder-val="{{ true }}">
+      <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:10px">Paper</div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px">
+        <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+          <span>A4</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
+        <div style="display:flex; align-items:center; gap:6px">
+          <div style="flex:1; display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+            <span style="font-size:12px; font-weight:500; color:#1c1c1a">210</span>
+            <span style="font-size:11px; font-weight:500; color:#7a7a74">mm</span>
+          </div>
+          <span style="font-size:11px; font-weight:500; color:#b6b6b0">W</span>
+          <div style="flex:1; display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+            <span style="font-size:12px; font-weight:500; color:#1c1c1a">297</span>
+            <span style="font-size:11px; font-weight:500; color:#7a7a74">mm</span>
+          </div>
+          <span style="font-size:11px; font-weight:500; color:#b6b6b0">H</span>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+          <span style="font-size:12px; font-weight:500; color:#1c1c1a">3</span>
+          <span style="font-size:11px; font-weight:500; color:#7a7a74">mm margin</span>
+        </div>
+      </div>
+
+      <div style="height:1px; background:#eeeeea; margin:16px 0"></div>
+
+      <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:8px">Repeat</div>
+      <div style="display:flex; gap:8px; margin-bottom:12px">
+        <button onClick="{{ setRepeatModeSheet }}" style="flex:1; display:flex; align-items:center; justify-content:center; padding:10px 6px; border:{{ repeatModeSheetBorder }}; border-radius:6px; background:{{ repeatModeSheetBg }}; color:{{ repeatModeSheetColor }}; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:{{ repeatModeSheetHoverBg }}">Sheet</button>
+        <button onClick="{{ setRepeatModePage }}" style="flex:1; display:flex; align-items:center; justify-content:center; padding:10px 6px; border:{{ repeatModePageBorder }}; border-radius:6px; background:{{ repeatModePageBg }}; color:{{ repeatModePageColor }}; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:{{ repeatModePageHoverBg }}">Page</button>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:12px">
+        <input value="{{ sheetCount }}" onInput="{{ setSheetCount }}" style="width:52px; padding:6px 8px; border:1px solid #dededa; border-radius:6px; font:inherit; font-size:13px; font-weight:600; color:#1c1c1a; text-align:center">
+        <span style="font-size:12px; font-weight:500; color:#7a7a74">sheets</span>
+      </div>
+      <div style="font-size:12px; font-weight:500; color:#7a7a74; line-height:1.6; margin-bottom:16px">This layout prints {{ sheetCount }} times as-is{{ duplexHint }}.</div>
+      
+      <div style="height:1px; background:#eeeeea; margin:16px 0"></div><div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:16px">
+        <sc-for list="{{ slots }}" as="slot" hint-placeholder-count="4">
+          
+        </sc-for>
+      </div>
+      <div style="font-size:11px; font-weight:500; color:#7a7a74; margin-bottom:10px">Cut lines</div><div style="display:flex; align-items:center; gap:8px; margin-bottom:10px">
+        <div style="flex:1; display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff">
+          <span style="font-size:12px; font-weight:500; color:#1c1c1a">0</span>
+          <span style="font-size:11px; font-weight:500; color:#7a7a74">mm gap</span>
+        </div>
+      </div>
+      <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer; margin-bottom:10px">
+        <input type="checkbox" checked="{{ true }}">
+        <span>Rotate 90° to fit more</span>
+      </label>
+      <button style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer; margin-bottom:10px" style-hover="background:#f9f9f7">
+        <span>Align center</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </button>
+      <button style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer; margin-bottom:10px" style-hover="background:#f9f9f7">
+        <span>Cut marks · corners only</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </button>
+      <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer">
+        <input type="checkbox">
+        <span>50mm calibration ruler</span>
+      </label>
+
+      
+
+      
+      <label style="display:flex; align-items:center; gap:7px; font-size:12px; font-weight:500; color:#1c1c1a; cursor:pointer; margin-bottom:12px">
+        <input type="checkbox" checked="{{ showCutlines }}" onChange="{{ toggleCutlines }}">
+        <span>Show cut marks</span>
+      </label>
+      <div style="display:flex; flex-direction:column; gap:10px">
+        <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+          <span>Corner marks</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
+        <button style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #dededa; border-radius:4px; background:#ffffff; color:#1c1c1a; font:inherit; font-size:12px; font-weight:500; cursor:pointer" style-hover="background:#f9f9f7">
+          <span>0.3mm</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
+      </div>
+      </sc-if>
+
+    </div></div>
+
+    <div onMouseDown="{{ startResize }}" title="Drag to resize" style="width:4px; flex-shrink:0; cursor:col-resize; background:transparent" style-hover="background:#2f6f4f"></div>
+
+    <div style="flex:1; min-width:0; display:flex; flex-direction:column">
+
+    <div style="flex:1; min-height:0; overflow:auto; padding:28px; display:flex; flex-direction:column; align-items:center; gap:28px">
+
+    <sc-for list="{{ sheets }}" as="sh" hint-placeholder-count="1">
+      <div style="display:flex; gap:16px">
+
+        <sc-if value="{{ showBackLeft }}" hint-placeholder-val="{{ false }}">
+          <div style="position:relative">
+            <svg viewBox="0 0 210 297" style="display:block; width:280px; height:auto; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.12)">
+              <defs><pattern id="dotsPB{{ $index }}" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r="0.35" fill="#bcbcb6"></circle></pattern></defs>
+              <rect x="0" y="0" width="210" height="297" fill="#ffffff"></rect>
+              <sc-for list="{{ cells }}" as="c" hint-placeholder-count="4">
+                <g>
+                  <rect x="{{ c.x }}" y="{{ c.y }}" width="80" height="125" fill="none" stroke="#dededa" stroke-width="0.6"></rect>
+                  <rect x="{{ c.dx }}" y="{{ c.dy }}" width="70" height="115" fill="url(#dotsPB{{ $index }})"></rect>
+                  <rect x="{{ c.dx }}" y="{{ c.textY }}" width="24" height="3" rx="0.6" fill="#3a3a36"></rect>
+                </g>
+              </sc-for>
+            </svg>
+            <span style="position:absolute; top:-20px; left:0; font-size:11px; font-weight:600; color:#7a7a74">Back</span>
+          </div>
+        </sc-if>
+
+        <div style="position:relative">
+          <svg viewBox="0 0 210 297" style="display:block; width:280px; height:auto; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.12)">
+            <defs><pattern id="dotsPF{{ $index }}" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r="0.35" fill="#bcbcb6"></circle></pattern></defs>
+            <rect x="0" y="0" width="210" height="297" fill="#ffffff"></rect>
+            <sc-for list="{{ cells }}" as="c" hint-placeholder-count="4">
+              <g>
+                <rect x="{{ c.x }}" y="{{ c.y }}" width="80" height="125" fill="none" stroke="#dededa" stroke-width="0.6"></rect>
+                <rect x="{{ c.dx }}" y="{{ c.dy }}" width="70" height="115" fill="url(#dotsPF{{ $index }})"></rect>
+                <rect x="{{ c.dx }}" y="{{ c.textY }}" width="24" height="3" rx="0.6" fill="#3a3a36"></rect>
+                <line x1="{{ c.dx }}" y1="{{ c.lineY }}" x2="{{ c.lineX2 }}" y2="{{ c.lineY }}" stroke="#3a3a36" stroke-width="0.3"></line>
+              </g>
+            </sc-for>
+            <g stroke="#b6b6b0" stroke-width="0.3">
+              <path d="M0 4 H4 M0 6 V0"></path>
+              <path d="M206 4 H210 M210 6 V0"></path>
+              <path d="M0 293 H4 M0 291 V297"></path>
+              <path d="M206 293 H210 M210 291 V297"></path>
+            </g>
+          </svg>
+          <span style="position:absolute; top:-20px; left:0; font-size:11px; font-weight:600; color:#7a7a74">{{ frontLabel }}</span>
+        </div>
+
+        <sc-if value="{{ showBackRight }}" hint-placeholder-val="{{ true }}">
+          <div style="position:relative">
+            <svg viewBox="0 0 210 297" style="display:block; width:280px; height:auto; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.12)">
+              <defs><pattern id="dotsPR{{ $index }}" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r="0.35" fill="#bcbcb6"></circle></pattern></defs>
+              <rect x="0" y="0" width="210" height="297" fill="#ffffff"></rect>
+              <sc-for list="{{ cells }}" as="c" hint-placeholder-count="4">
+                <g>
+                  <rect x="{{ c.x }}" y="{{ c.y }}" width="80" height="125" fill="none" stroke="#dededa" stroke-width="0.6"></rect>
+                  <rect x="{{ c.dx }}" y="{{ c.dy }}" width="70" height="115" fill="url(#dotsPR{{ $index }})"></rect>
+                </g>
+              </sc-for>
+            </svg>
+            <span style="position:absolute; top:-20px; left:0; font-size:11px; font-weight:600; color:#7a7a74">Back</span>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+
+    </div>
+    </div>
+
+    <div onMouseDown="{{ startResizeRight }}" title="Drag to resize" style="width:4px; flex-shrink:0; cursor:col-resize; background:transparent" style-hover="background:#2f6f4f"></div>
+
+    <div style="width:{{ rightPanelWidthPx }}; flex-shrink:0; overflow:hidden">
+      <div style="width:{{ rightPanelInnerWidthPx }}; height:100%; box-sizing:border-box; background:#ffffff; border-left:1px solid #dededa; padding:16px; overflow-y:auto">
+          <div style="font-size:12px; font-weight:600; color:#1c1c1a; margin-bottom:3px">Slot assignment</div>
+          <div style="font-size:11px; font-weight:500; color:#7a7a74; line-height:1.5; margin-bottom:12px">시트·슬롯마다 다른 속지를 지정하세요</div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px">
+            <sc-for list="{{ summaryChips }}" as="chip" hint-placeholder-count="2">
+              <div style="display:flex; align-items:center; gap:5px; padding:5px 9px; border-radius:5px; background:#f4f4f2; white-space:nowrap">
+                <span style="width:7px; height:7px; border-radius:2px; background:{{ chip.color }}; flex-shrink:0"></span>
+                <span style="font-size:11px; font-weight:600; color:#1c1c1a; white-space:nowrap; flex-shrink:0">{{ chip.name }}</span>
+                <span style="font-size:11px; font-weight:500; color:#7a7a74; white-space:nowrap; flex-shrink:0">· {{ chip.count }}장</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="height:1px; background:#eeeeea; margin-bottom:12px"></div>
+
+          <sc-for list="{{ sheetRows }}" as="sh" hint-placeholder-count="2">
+            <div style="display:flex; align-items:flex-start; gap:8px; padding:6px; border-radius:8px; background:{{ sh.rowBg }}; margin-bottom:6px">
+              <div style="display:flex; flex-direction:column; align-items:center; gap:5px; width:20px; flex-shrink:0; padding-top:10px">
+                <span style="font-size:12px; font-weight:700; color:#1c1c1a">{{ sh.sheetNum }}</span>
+                <button onClick="{{ sh.onDuplicate }}" title="이 시트 복제" style="width:16px; height:16px; display:flex; align-items:center; justify-content:center; border:none; border-radius:3px; background:#f2f2ee; color:#7a7a74; cursor:pointer; padding:0" style-hover="background:#e3ede7">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="1"></rect><path d="M8 16v3a2 2 0 002 2h9a2 2 0 002-2V10a2 2 0 00-2-2h-3"></path></svg>
+                </button>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:4px; flex:1">
+                <sc-for list="{{ sh.cells }}" as="c" hint-placeholder-count="4">
+                  <div style="position:relative">
+                    <div onMouseDown="{{ c.onHandleDown }}" onMouseEnter="{{ c.onEnter }}" onClick="{{ c.onClick }}" style="height:36px; border-radius:6px; background:{{ c.color }}; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; cursor:pointer; box-shadow:{{ c.ring }}">
+                      <span style="font-size:9px; font-weight:600; color:#ffffff; opacity:0.85">{{ c.location }}</span>
+                      <span style="font-size:10px; font-weight:700; color:#ffffff">{{ c.value }}</span>
+                    </div>
+                    <div onMouseDown="{{ c.onHandleDown }}" title="드래그해서 채우기" style="position:absolute; right:-2px; bottom:-2px; width:8px; height:8px; border:1.5px solid #ffffff; border-radius:50%; background:#1c1c1a; cursor:crosshair; z-index:2"></div>
+                    <sc-if value="{{ c.popoverOpen }}" hint-placeholder-val="{{ false }}">
+                      <div style="position:absolute; top:40px; left:0; z-index:10; background:#ffffff; border:1px solid #dededa; border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,0.14); padding:4px; display:flex; flex-direction:column; gap:1px; min-width:70px">
+                        <sc-for list="{{ c.options }}" as="opt" hint-placeholder-count="2">
+                          <button onClick="{{ opt.onSelect }}" style="display:flex; align-items:center; gap:6px; padding:5px 7px; border:none; border-radius:4px; background:transparent; font:inherit; font-size:11px; font-weight:600; color:#1c1c1a; cursor:pointer; text-align:left; white-space:nowrap" style-hover="background:#f2f2ee">
+                            <span style="width:7px; height:7px; border-radius:2px; background:{{ opt.color }}; flex-shrink:0"></span>{{ opt.name }}
+                          </button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+
+          <div style="height:1px; background:#eeeeea; margin:10px 0 10px"></div>
+          <div style="font-size:11px; font-weight:500; color:#a8a8a2; line-height:1.6">칸을 클릭해 속지를 고르고, 오른쪽 아래 점을 드래그하면 아래 슬롯·다음 시트까지 순서대로 채워져요.</div>
+      </div>
+    </div>
+
+    <div style="position:relative; flex-shrink:0">
+      <div style="width:33px; flex-shrink:0; background:#ffffff; border-left:1px solid #dededa; display:flex; flex-direction:column; align-items:center; padding:10px 6px; gap:4px; height:730px">
+        <button onClick="{{ toggleRightPanel }}" title="Slot assignment" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border:none; border-radius:4px; background:{{ slotTabBg }}; color:{{ slotTabColor }}; cursor:pointer" style-hover="background:{{ slotTabHoverBg }}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1"></rect><rect x="13" y="4" width="7" height="7" rx="1"></rect><rect x="4" y="13" width="7" height="7" rx="1"></rect><rect x="13" y="13" width="7" height="7" rx="1"></rect></svg>
+          <span style="font-size:9px; font-weight:500">Slot</span>
+        </button>
+      </div>
+      <button onClick="{{ toggleRightPanel }}" title="Slot assignment 열기/닫기" style="position:absolute; left:-13px; bottom:16px; width:26px; height:26px; border-radius:50%; border:1px solid #dededa; background:#ffffff; box-shadow:0 1px 4px rgba(0,0,0,0.12); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:5" style-hover="background:#f2f2ee">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7a7a74" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:{{ rightPanelArrowTransform }}"><path d="M9 6l6 6-6 6"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:20px; height:26px; padding:0 16px; background:#f4f4f2; border-top:1px solid #dededa; flex-shrink:0; font-size:10px; font-weight:500; color:#a8a8a2">
+    <span>Insert 80 × 125mm</span>
+    <span>Cells 2 × 2</span>
+    <div style="flex:1"></div>
+    <span>0.0 , 0.0 mm</span>
+    <span style="width:1px; height:12px; background:#dededa"></span>
+    <button style="border:none; background:transparent; color:#7a7a74; font:inherit; font-size:13px; line-height:1; cursor:pointer; padding:0 2px" style-hover="color:#1c1c1a">−</button>
+    <span style="font-size:11px; font-weight:600; color:#1c1c1a">100%</span>
+    <button style="border:none; background:transparent; color:#7a7a74; font:inherit; font-size:13px; line-height:1; cursor:pointer; padding:0 2px" style-hover="color:#1c1c1a">+</button>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:20px; height:26px; padding:0 16px; background:#f9f9f7; border-top:1px solid #dededa; flex-shrink:0; font-size:10px; font-weight:500; color:#a8a8a2">
+    <span>Paper A4 · 210 × 297mm</span>
+    <span>Insert 80 × 125mm</span>
+    <span>4 per sheet (2 × 2)</span>
+    <div style="flex:1"></div>
+    <span>Print at <b style="color:#7a7a74">Actual Size / 100%</b> — "Fit to page" scales to ~96–97%</span>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+function makeCells() {
+  const positions = [
+    { x: 15, y: 15 }, { x: 115, y: 15 },
+    { x: 15, y: 150 }, { x: 115, y: 150 },
+  ];
+  return positions.map((p) => ({
+    x: p.x, y: p.y,
+    dx: p.x + 5, dy: p.y + 5,
+    textY: p.y + 8, lineY: p.y + 16, lineX2: p.x + 75,
+  }));
+}
+class Component extends DCLogic {
+  state = { menuOpen: false, previewOnly: true, duplex: true, backOnLeft: true, backTurn180: false, sheetCount: '2', tool: 'paper', showCutlines: true, showDots: true, showPunch: true, panelWidth: 220, dotStyle: 'dot', punchMode: 'even', repeatMode: 'sheet', rightPanelOpen: false, slotAssignments: {}, fillDrag: null, openPopover: null, leftPanelOpen: false, rightPanelWidth: 300, drawTab: 'draw', autoTab: 'calendar' };
+  tabStyle(current, name) {
+    const on = current === name;
+    return { bg: on ? '#ffffff' : '#f4f4f2', color: on ? '#2f6f4f' : '#7a7a74', border: on ? '2px solid #2f6f4f' : '1px solid #dededa' };
+  }
+  startResizeRight(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = this.state.rightPanelWidth;
+    const onMove = (ev) => {
+      const w = Math.min(360, Math.max(200, startWidth - (ev.clientX - startX)));
+      this.setState({ rightPanelWidth: w });
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+  componentDidMount() {
+    this._onUp = () => this.finishFill();
+    window.addEventListener('mouseup', this._onUp);
+  }
+  componentWillUnmount() {
+    window.removeEventListener('mouseup', this._onUp);
+  }
+  getAssignment(idx) {
+    return this.state.slotAssignments[idx] || 'M6-1';
+  }
+  setAssignment(idx, val) {
+    this.setState((s) => ({ slotAssignments: { ...s.slotAssignments, [idx]: val } }));
+  }
+  handleSelectChange(idx, e) {
+    this.setAssignment(idx, e.target.value);
+  }
+  startFill(idx, e) {
+    e.preventDefault();
+    const val = this.getAssignment(idx);
+    this.setState({ fillDrag: { sourceIdx: idx, currentIdx: idx, value: val } });
+  }
+  enterRow(idx) {
+    if (this.state.fillDrag) this.setState((s) => ({ fillDrag: { ...s.fillDrag, currentIdx: idx } }));
+  }
+  finishFill() {
+    const fd = this.state.fillDrag;
+    if (!fd) return;
+    const lo = Math.min(fd.sourceIdx, fd.currentIdx), hi = Math.max(fd.sourceIdx, fd.currentIdx);
+    const next = { ...this.state.slotAssignments };
+    for (let i = lo; i <= hi; i++) next[i] = fd.value;
+    this.setState({ slotAssignments: next, fillDrag: null });
+  }
+  duplicateSheet(sheetIdx) {
+    const n = Math.max(1, parseInt(this.state.sheetCount, 10) || 1);
+    const newSheetIdx = n;
+    const next = { ...this.state.slotAssignments };
+    for (let loc = 0; loc < 4; loc++) next[newSheetIdx * 4 + loc] = this.getAssignment(sheetIdx * 4 + loc);
+    this.setState({ slotAssignments: next, sheetCount: String(n + 1) });
+  }
+  togglePopover(idx, e) {
+    if (e) e.stopPropagation();
+    this.setState((s) => ({ openPopover: s.openPopover === idx ? null : idx }));
+  }
+  selectInsert(idx, val) {
+    this.setAssignment(idx, val);
+    this.setState({ openPopover: null });
+  }
+  buildSheetRows() {
+    const n = Math.max(1, parseInt(this.state.sheetCount, 10) || 1);
+    const locLabels = ['1-A', '1-B', '2-A', '2-B'];
+    const colorMap = { 'M6-1': '#2f6f4f', 'M6-2': '#8fb39e' };
+    const fd = this.state.fillDrag;
+    const inRange = (idx) => !!fd && idx >= Math.min(fd.sourceIdx, fd.currentIdx) && idx <= Math.max(fd.sourceIdx, fd.currentIdx);
+    const valueAt = (idx) => (inRange(idx) ? fd.value : this.getAssignment(idx));
+    const rows = [];
+    for (let s = 0; s < n; s++) {
+      const cells = [];
+      for (let l = 0; l < 4; l++) {
+        const idx = s * 4 + l;
+        const val = valueAt(idx);
+        cells.push({
+          location: locLabels[l],
+          value: val,
+          color: colorMap[val] || '#b6b6b0',
+          ring: inRange(idx) ? 'inset 0 0 0 2px #ffffff' : 'none',
+          onClick: (e) => this.togglePopover(idx, e),
+          onEnter: () => this.enterRow(idx),
+          onHandleDown: (e) => this.startFill(idx, e),
+          popoverOpen: this.state.openPopover === idx,
+          options: ['M6-1', 'M6-2'].map((name) => ({ name, color: colorMap[name], onSelect: () => this.selectInsert(idx, name) })),
+        });
+      }
+      rows.push({ sheetNum: s + 1, rowBg: 'transparent', onDuplicate: () => this.duplicateSheet(s), cells });
+    }
+    return rows;
+  }
+  buildSummary() {
+    const n = Math.max(1, parseInt(this.state.sheetCount, 10) || 1);
+    const colorMap = { 'M6-1': '#2f6f4f', 'M6-2': '#8fb39e' };
+    const counts = {};
+    for (let i = 0; i < n * 4; i++) { const v = this.getAssignment(i); counts[v] = (counts[v] || 0) + 1; }
+    return Object.keys(counts).map((k) => ({ name: k, count: counts[k], color: colorMap[k] || '#b6b6b0' }));
+  }
+  startResize(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = this.state.panelWidth;
+    const onMove = (ev) => {
+      const w = Math.min(360, Math.max(160, startWidth + (ev.clientX - startX)));
+      this.setState({ panelWidth: w });
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+  sideStyle(name) {
+    const on = this.state.tool === name;
+    return { bg: on ? '#e3ede7' : 'transparent', color: on ? '#2f6f4f' : '#1c1c1a', hoverBg: on ? '#e3ede7' : '#f2f2ee' };
+  }
+  dotStyleOpt(name) {
+    const on = this.state.dotStyle === name;
+    return { border: on ? '2px solid #2f6f4f' : '1px solid #dededa', bg: on ? '#e3ede7' : '#ffffff', color: on ? '#2f6f4f' : '#7a7a74', hoverBg: on ? '#e3ede7' : '#f9f9f7' };
+  }
+  punchModeOpt(name) {
+    const on = this.state.punchMode === name;
+    return { border: on ? '2px solid #2f6f4f' : '1px solid #dededa', bg: on ? '#e3ede7' : '#ffffff', color: on ? '#2f6f4f' : '#1c1c1a', hoverBg: on ? '#e3ede7' : '#f9f9f7' };
+  }
+  repeatModeOpt(name) {
+    const on = this.state.repeatMode === name;
+    return { border: on ? '2px solid #2f6f4f' : '1px solid #dededa', bg: on ? '#e3ede7' : '#ffffff', color: on ? '#2f6f4f' : '#1c1c1a', hoverBg: on ? '#e3ede7' : '#f9f9f7' };
+  }
+  renderVals() {
+    const n = Math.max(1, parseInt(this.state.sheetCount, 10) || 1);
+    const paper = this.sideStyle('paper'), view = this.sideStyle('view'), insertT = this.sideStyle('insert');
+    const template_ = this.sideStyle('template'), image_ = this.sideStyle('image'), select_ = this.sideStyle('select'), draw_ = this.sideStyle('draw'), text_ = this.sideStyle('text'), autoField_ = this.sideStyle('autofield');
+    const drawTab_draw = this.tabStyle(this.state.drawTab, 'draw'), drawTab_table = this.tabStyle(this.state.drawTab, 'table'), drawTab_checkbox = this.tabStyle(this.state.drawTab, 'checkbox');
+    const autoTab_calendar = this.tabStyle(this.state.autoTab, 'calendar'), autoTab_field = this.tabStyle(this.state.autoTab, 'field');
+    const dotStyle_dot = this.dotStyleOpt('dot'), dotStyle_grid = this.dotStyleOpt('grid'), dotStyle_h = this.dotStyleOpt('h'), dotStyle_v = this.dotStyleOpt('v');
+    const punchMode_even = this.punchModeOpt('even'), punchMode_grouped = this.punchModeOpt('grouped');
+    const repeatMode_sheet = this.repeatModeOpt('sheet'), repeatMode_page = this.repeatModeOpt('page');
+    return {
+      menuOpen: this.state.menuOpen,
+      menuBtnBg: this.state.menuOpen ? '#eeeeea' : 'transparent',
+      toggleMenu: () => this.setState((s) => ({ menuOpen: !s.menuOpen })),
+      previewOnly: this.state.previewOnly,
+      togglePreviewOnly: () => this.setState((s) => ({ previewOnly: !s.previewOnly })),
+      duplex: this.state.duplex,
+      toggleDuplex: () => this.setState((s) => ({ duplex: !s.duplex })),
+      backOnLeft: this.state.backOnLeft,
+      toggleBackOnLeft: () => this.setState((s) => ({ backOnLeft: !s.backOnLeft })),
+      backTurn180: this.state.backTurn180,
+      toggleBackTurn180: () => this.setState((s) => ({ backTurn180: !s.backTurn180 })),
+      sheetCount: this.state.sheetCount,
+      setSheetCount: (e) => this.setState({ sheetCount: e.target.value }),
+      duplexHint: this.state.duplex ? ' · double-sided' : '',
+      slots: [
+        { title: 'Row 1, Col 1', name: 'M6-1' },
+        { title: 'Row 1, Col 2', name: 'M6-1' },
+        { title: 'Row 2, Col 1', name: 'M6-1' },
+        { title: 'Row 2, Col 2', name: 'M6-1' },
+      ],
+      sheets: Array.from({ length: n }, (_, i) => ({ id: i })),
+      cells: makeCells(),
+      showBackLeft: this.state.duplex && this.state.backOnLeft,
+      showBackRight: this.state.duplex && !this.state.backOnLeft,
+      frontLabel: this.state.duplex ? 'Front' : 'Sheet',
+      setPaper: () => this.setState({ tool: 'paper' }),
+      setView: () => this.setState({ tool: 'view' }),
+      setInsert: () => this.setState({ tool: 'insert' }),
+      isPaper: this.state.tool === 'paper',
+      isView: this.state.tool === 'view',
+      isInsert: this.state.tool === 'insert',
+      isTemplateTool: this.state.tool === 'template',
+      isImageTool: this.state.tool === 'image',
+      isSelectTool: this.state.tool === 'select',
+      isDrawTool: this.state.tool === 'draw',
+      isTextTool: this.state.tool === 'text',
+      isAutoFieldTool: this.state.tool === 'autofield',
+      setDrawTabDraw: () => this.setState({ drawTab: 'draw' }),
+      setDrawTabTable: () => this.setState({ drawTab: 'table' }),
+      setDrawTabCheckbox: () => this.setState({ drawTab: 'checkbox' }),
+      isDrawTabDraw: this.state.drawTab === 'draw',
+      isDrawTabTable: this.state.drawTab === 'table',
+      isDrawTabCheckbox: this.state.drawTab === 'checkbox',
+      setAutoTabCalendar: () => this.setState({ autoTab: 'calendar' }),
+      setAutoTabField: () => this.setState({ autoTab: 'field' }),
+      isAutoTabCalendar: this.state.autoTab === 'calendar',
+      isAutoTabField: this.state.autoTab === 'field',
+      drawTabDrawBg: drawTab_draw.bg, drawTabDrawColor: drawTab_draw.color, drawTabDrawBorder: drawTab_draw.border,
+      drawTabTableBg: drawTab_table.bg, drawTabTableColor: drawTab_table.color, drawTabTableBorder: drawTab_table.border,
+      drawTabCheckboxBg: drawTab_checkbox.bg, drawTabCheckboxColor: drawTab_checkbox.color, drawTabCheckboxBorder: drawTab_checkbox.border,
+      autoTabCalendarBg: autoTab_calendar.bg, autoTabCalendarColor: autoTab_calendar.color, autoTabCalendarBorder: autoTab_calendar.border,
+      autoTabFieldBg: autoTab_field.bg, autoTabFieldColor: autoTab_field.color, autoTabFieldBorder: autoTab_field.border,
+      paperBg: paper.bg, paperColor: paper.color, paperHoverBg: paper.hoverBg,
+      viewBg: view.bg, viewColor: view.color, viewHoverBg: view.hoverBg,
+      insertBg: insertT.bg, insertColor: insertT.color, insertHoverBg: insertT.hoverBg,
+      setTemplate: () => this.setState({ tool: 'template' }),
+      setImage: () => this.setState({ tool: 'image' }),
+      setSelectTool: () => this.setState({ tool: 'select' }),
+      setDrawTool: () => this.setState({ tool: 'draw' }),
+      setTextTool: () => this.setState({ tool: 'text' }),
+      setAutoField: () => this.setState({ tool: 'autofield' }),
+      templateBg: template_.bg, templateColor: template_.color, templateHoverBg: template_.hoverBg,
+      imageBg: image_.bg, imageColor: image_.color, imageHoverBg: image_.hoverBg,
+      selectBg: select_.bg, selectColor: select_.color, selectHoverBg: select_.hoverBg,
+      drawBg: draw_.bg, drawColor: draw_.color, drawHoverBg: draw_.hoverBg,
+      textBg: text_.bg, textColor: text_.color, textHoverBg: text_.hoverBg,
+      autoFieldBg: autoField_.bg, autoFieldColor: autoField_.color, autoFieldHoverBg: autoField_.hoverBg,
+      panelWidthPx: this.state.panelWidth + 'px',
+      startResize: (e) => this.startResize(e),
+      showCutlines: this.state.showCutlines,
+      toggleCutlines: () => this.setState((s) => ({ showCutlines: !s.showCutlines })),
+      showDots: this.state.showDots,
+      toggleDots: () => this.setState((s) => ({ showDots: !s.showDots })),
+      dotsEyeColor: this.state.showDots ? '#2f6f4f' : '#b6b6b0',
+      showPunch: this.state.showPunch,
+      togglePunch: () => this.setState((s) => ({ showPunch: !s.showPunch })),
+      punchEyeColor: this.state.showPunch ? '#2f6f4f' : '#b6b6b0',
+      repeatModeSheetBg: repeatMode_sheet.bg, repeatModeSheetColor: repeatMode_sheet.color, repeatModeSheetHoverBg: repeatMode_sheet.hoverBg, repeatModeSheetBorder: repeatMode_sheet.border,
+      repeatModePageBg: repeatMode_page.bg, repeatModePageColor: repeatMode_page.color, repeatModePageHoverBg: repeatMode_page.hoverBg, repeatModePageBorder: repeatMode_page.border,
+      setRepeatModeSheet: () => this.setState({ repeatMode: 'sheet' }),
+      setRepeatModePage: () => this.setState({ repeatMode: 'page' }),
+      dotStyleDotBg: dotStyle_dot.bg, dotStyleDotColor: dotStyle_dot.color, dotStyleDotHoverBg: dotStyle_dot.hoverBg, dotStyleDotBorder: dotStyle_dot.border,
+      dotStyleGridBg: dotStyle_grid.bg, dotStyleGridColor: dotStyle_grid.color, dotStyleGridHoverBg: dotStyle_grid.hoverBg, dotStyleGridBorder: dotStyle_grid.border,
+      dotStyleHBg: dotStyle_h.bg, dotStyleHColor: dotStyle_h.color, dotStyleHHoverBg: dotStyle_h.hoverBg, dotStyleHBorder: dotStyle_h.border,
+      dotStyleVBg: dotStyle_v.bg, dotStyleVColor: dotStyle_v.color, dotStyleVHoverBg: dotStyle_v.hoverBg, dotStyleVBorder: dotStyle_v.border,
+      setDotStyleDot: () => this.setState({ dotStyle: 'dot' }),
+      setDotStyleGrid: () => this.setState({ dotStyle: 'grid' }),
+      setDotStyleH: () => this.setState({ dotStyle: 'h' }),
+      setDotStyleV: () => this.setState({ dotStyle: 'v' }),
+      punchModeEvenBg: punchMode_even.bg, punchModeEvenColor: punchMode_even.color, punchModeEvenHoverBg: punchMode_even.hoverBg, punchModeEvenBorder: punchMode_even.border,
+      punchModeGroupedBg: punchMode_grouped.bg, punchModeGroupedColor: punchMode_grouped.color, punchModeGroupedHoverBg: punchMode_grouped.hoverBg, punchModeGroupedBorder: punchMode_grouped.border,
+      setPunchModeEven: () => this.setState({ punchMode: 'even' }),
+      setPunchModeGrouped: () => this.setState({ punchMode: 'grouped' }),
+      rightPanelOpen: this.state.rightPanelOpen,
+      rightPanelWidthPx: this.state.rightPanelOpen ? this.state.rightPanelWidth + 'px' : '0px',
+      rightPanelInnerWidthPx: this.state.rightPanelWidth + 'px',
+      rightPanelArrowTransform: this.state.rightPanelOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+      toggleRightPanel: () => this.setState((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
+      startResizeRight: (e) => this.startResizeRight(e),
+      slotTabBg: this.state.rightPanelOpen ? '#e3ede7' : 'transparent',
+      slotTabColor: this.state.rightPanelOpen ? '#2f6f4f' : '#1c1c1a',
+      slotTabHoverBg: this.state.rightPanelOpen ? '#e3ede7' : '#f2f2ee',
+      leftPanelOpen: this.state.leftPanelOpen,
+      leftPanelOuterWidthPx: this.state.leftPanelOpen ? this.state.panelWidth + 'px' : '0px',
+      leftPanelArrowTransform: this.state.leftPanelOpen ? 'rotate(0deg)' : 'rotate(180deg)',
+      toggleLeftPanel: () => this.setState((s) => ({ leftPanelOpen: !s.leftPanelOpen })),
+      sheetRows: this.buildSheetRows(),
+      summaryChips: this.buildSummary(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

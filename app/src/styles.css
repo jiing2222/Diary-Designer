@@ -38,6 +38,8 @@
   --accent: #2f6f4f;
   --accent-subtle: #e3ede7;
   --warn: #b04a2f;
+  /* 위험한 동작(삭제)의 옅은 배경. --accent-subtle과 같은 자리의 짝이다. */
+  --danger-subtle: #f5e6e0;
   --placeholder: #b6b6b0;
   --hover-bg: #eaeae6;
   font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard',
@@ -1911,45 +1913,91 @@ footer b {
 
 /* ─────────────────────────── 양식 관리 ─────────────────────────── */
 
+/*
+  양식 관리. 왼쪽 줄(무엇을 볼지) + 본문(규격 칸들) 두 칸이다 — 편집·인쇄
+  화면의 ToolRail과 같은 자리에 같은 폭으로 두어, 탭을 오가도 본문이 튀지 않는다.
+*/
 .gallery {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
 }
 
-/* 편집 화면의 도구 막대와 같은 자리·같은 높이. 탭을 오갈 때 화면이 튀지 않는다. */
-.gallery-bar {
+.gallery-rail {
+  width: 68px;
+  flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--line);
+  gap: 4px;
+  padding: 10px 6px;
   background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
 }
 
-.gallery-hint {
-  font-size: 12px;
+.rail-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
   color: var(--muted);
+  cursor: pointer;
+}
+
+.rail-tab:hover {
+  background: var(--hover-bg);
+  color: var(--ink);
+}
+
+.rail-tab.on {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.rail-tab-label {
+  font-size: 9px;
+  font-weight: 500;
+}
+
+/* 글꼴 칸은 아이콘 대신 글자 자체가 아이콘이다. */
+.rail-aa {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.rail-divider {
+  width: 100%;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--hover-bg);
 }
 
 .gallery-body {
   flex: 1;
+  min-width: 0;
   overflow: auto;
-  padding: 20px 24px 40px;
+  padding: 24px 32px 64px;
 }
 
 .gallery-group + .gallery-group {
-  margin-top: 28px;
+  margin-top: 32px;
 }
 
 .gallery-group h2 {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin: 0 0 10px;
-  font-size: 13px;
+  margin: 0 0 12px;
+  font-size: 15px;
   font-weight: 600;
+  letter-spacing: -0.1px;
   color: var(--ink);
 }
 
@@ -1962,7 +2010,7 @@ footer b {
 .gallery-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 16px;
 }
 
 .card {
@@ -1971,9 +2019,13 @@ footer b {
   flex-direction: column;
   width: 160px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
   background: #fff;
   overflow: visible;
+}
+
+.card:hover {
+  border-color: #c6c6c0;
 }
 
 .card.on {
@@ -2030,31 +2082,83 @@ footer b {
   color: var(--muted);
 }
 
+/*
+  이름·복제·삭제는 마우스를 올려야 나타난다(GalleryTab의 Card 주석).
+  `visibility`가 아니라 `opacity`로 감추는 이유는 자리를 계속 차지하게
+  두려는 것이다 — 나타날 때 카드 높이가 늘어나면 줄 전체가 출렁인다.
+*/
 .card-actions {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   margin-top: 4px;
+  opacity: 0;
+  transition: opacity 120ms ease;
 }
 
-.card-actions .ghost {
-  padding: 2px 6px;
-  font-size: 11px;
+.card:hover .card-actions,
+.card:focus-within .card-actions {
+  opacity: 1;
 }
 
-/* 이 크기로 하나 더. 카드와 같은 크기라 줄이 흐트러지지 않는다. */
-.card-add {
+.card-action {
+  display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 160px;
-  border-style: dashed;
-  font-size: 22px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
   color: var(--muted);
   cursor: pointer;
 }
 
+.card-action:hover {
+  background: var(--hover-bg);
+  color: var(--ink);
+}
+
+.card-action.danger:hover {
+  background: var(--danger-subtle);
+  color: var(--warn);
+}
+
+/* 이 규격으로 하나 더. 카드와 같은 폭이라 줄이 흐트러지지 않는다. */
+.card-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 160px;
+  min-height: 200px;
+  border: 1px dashed #d3d3ce;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.card-add-plus {
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+}
+
 .card-add:hover {
   border-color: var(--accent);
+  background: #fff;
   color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-actions {
+    transition: none;
+  }
 }
 
 /* 복제 — 규격을 바꿔 복제할 수 있다. 카드 위에 겹쳐 띄운다. */

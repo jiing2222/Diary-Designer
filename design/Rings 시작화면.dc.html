@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  body { margin: 0; background: #f4f4f2; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #2f6f4f; text-decoration: none; }
+  a:hover { color: #1c1c1a; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#f4f4f2; color:#1c1c1a">
+
+  <header style="position:sticky; top:0; z-index:10; background:#f4f4f2; border-bottom:1px solid #dededa">
+    
+  <div style="max-width:1120px; margin:0 auto; padding:0 24px; height:56px; display:flex; align-items:center; gap:24px">
+      <a href="#" style="display:flex; align-items:center; gap:8px; color:#1c1c1a">
+        <svg width="22" height="22" viewBox="0 0 22 22" style="display:block">
+          <circle cx="8" cy="11" r="5.4" fill="none" stroke="#2f6f4f" stroke-width="1.6"></circle>
+          <circle cx="14" cy="11" r="5.4" fill="none" stroke="#1c1c1a" stroke-width="1.6"></circle>
+        </svg>
+        <span style="font-size:15px; font-weight:600; letter-spacing:-0.2px">Rings</span>
+      </a>
+
+      <nav style="display:flex; align-items:center; gap:2px; margin-left:8px">
+        <button onClick="{{ setTemplateScreen }}" style="display:flex; align-items:baseline; gap:6px; padding:6px 10px; border:none; border-radius:4px; background:{{ navTemplateBg }}; color:#1c1c1a; font:inherit; font-size:13px; font-weight:500; cursor:pointer" style-hover="background:#eaeae6">
+          <span>Template</span>
+        </button>
+        <button onClick="{{ setInsertScreen }}" style="display:flex; align-items:baseline; gap:6px; padding:6px 10px; border:none; border-radius:4px; background:{{ navInsertBg }}; color:#1c1c1a; font:inherit; font-size:13px; font-weight:500; cursor:pointer" style-hover="background:#eaeae6">
+          <span>Inserts</span>
+        </button>
+        <button title="준비 중" style="display:flex; align-items:baseline; gap:6px; padding:6px 10px; border:none; border-radius:4px; background:transparent; color:#c6c6c0; font:inherit; font-size:13px; font-weight:500; cursor:default">
+          <span>Notebooks</span>
+        </button>
+        <button onClick="{{ setPrintScreen }}" style="display:flex; align-items:baseline; gap:6px; padding:6px 10px; border:none; border-radius:4px; background:{{ navPrintBg }}; color:#1c1c1a; font:inherit; font-size:13px; font-weight:500; cursor:pointer" style-hover="background:#eaeae6">
+          <span>Print</span>
+        </button>
+      </nav>
+
+      <div style="margin-left:auto; display:flex; align-items:center; gap:8px">
+        <button style="padding:6px 10px; border:none; border-radius:4px; background:transparent; color:#1c1c1a; font:inherit; font-size:13px; font-weight:500; cursor:pointer" style-hover="background:#eaeae6">로그인</button>
+        <button onClick="{{ start }}" style="padding:7px 14px; border:none; border-radius:4px; background:#2f6f4f; color:#ffffff; font:inherit; font-size:13px; font-weight:600; cursor:pointer" style-hover="background:#275d42">Rings 무료로 사용하기</button>
+      </div>
+    </div></header>
+
+  <main style="max-width:1120px; margin:0 auto; padding:0 24px">
+
+    <section style="display: flex; flex-direction: column; align-items: center; padding: 112px 0 0; padding-bottom: 50px">
+      <h1 style="margin:0; max-width:900px; text-align:center; font-size:clamp(44px, 7.4vw, 92px); font-weight:600; line-height:1.06; letter-spacing:-2.4px">
+        <div>Make your</div>
+        <div style="display:flex; align-items:baseline; justify-content:center; gap:0.28em">
+          <span style="display:inline-flex; align-items:baseline; justify-content:center; width:3.3em; flex-shrink:0">
+            <span style="display: inline-flex; align-items: center; gap: 0.16em; padding: 0.14em 0.32em; border-radius: 999px; background: #e3ede7; opacity: {{ wordOpacity }}; transform: {{ wordTransform }}; transition: opacity 0.25s ease, transform 0.25s ease; text-align: right">
+              <span style="width: 37px; height: 37px; border-radius: 50%; background: #2f6f4f; flex-shrink: 0"></span>
+              <span style="font-size:0.72em; font-style:italic; font-weight:400; font-family:Georgia, 'Times New Roman', serif; color:#2f6f4f; text-transform:capitalize">{{ heroWord }}</span>
+            </span>
+          </span>
+          <span>system</span>
+        </div>
+      </h1>
+
+      <p style="margin:24px 0 0; max-width:520px; text-align:center; font-size:15px; font-weight:500; line-height:1.6; color:#7a7a74; text-wrap:pretty">도트 위에 자유롭게 표현하고, 규격에 맞춰 간편하게 인쇄하세요.</p>
+
+      <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-top:32px">
+        <button onClick="{{ start }}" style="padding:11px 22px; border:none; border-radius:4px; background:#2f6f4f; color:#ffffff; font:inherit; font-size:14px; font-weight:600; cursor:pointer" style-hover="background:#275d42">Rings 무료로 사용하기</button>
+        
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px; margin-top:16px; font-size:11px; font-weight:500; color:#7a7a74">
+        <span>M6 · A5 · A6 · 퍼스널</span>
+        <span style="width:1px; height:10px; background:#dededa"></span>
+        <span>가입 없이 바로 시작</span>
+      </div>
+    </section>
+
+    <div style="border:1px solid #dededa; border-radius:8px; background:#ffffff; overflow:hidden">
+        <div style="display:flex; align-items:center; gap:12px; height:44px; padding:0 16px; border-bottom:1px solid #dededa">
+          <div style="display:flex; gap:2px">
+            <button onClick="{{ setTemplateScreen }}" style="padding:5px 9px; border:none; border-radius:4px; background:{{ pillTemplateBg }}; color:{{ pillTemplateColor }}; font:inherit; font-size:12px; font-weight:600; cursor:pointer">Template</button><button onClick="{{ setInsertScreen }}" style="padding:5px 9px; border:none; border-radius:4px; background:{{ pillInsertBg }}; color:{{ pillInsertColor }}; font:inherit; font-size:12px; font-weight:600; cursor:pointer">Inserts</button>
+            
+            <button onClick="{{ setPrintScreen }}" style="padding:5px 9px; border:none; border-radius:4px; background:{{ pillPrintBg }}; color:{{ pillPrintColor }}; font:inherit; font-size:12px; font-weight:600; cursor:pointer">Print</button>
+          </div>
+          <span style="margin-left:auto; font-size:11px; font-weight:500; color:#7a7a74">{{ mockLabel }}</span>
+        </div>
+
+        <sc-if value="{{ isInsertScreen }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; align-items:stretch; min-height:360px; background:#f4f4f2">
+          <div style="width:180px; flex-shrink:0; padding:16px; border-right:1px solid #dededa; background:#ffffff; display:flex; flex-direction:column; gap:12px">
+            <div style="font-size:11px; font-weight:500; color:#7a7a74">요소</div>
+            <div style="display:flex; flex-direction:column; gap:4px">
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; background:#e3ede7; color:#2f6f4f">글자</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">표</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">체크박스</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">이미지</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">달력</div>
+            </div>
+          </div>
+
+          <div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:center; padding:32px">
+            <svg viewBox="0 0 80 125" preserveAspectRatio="xMidYMid meet" style="display:block; height:296px; width:auto; border:1px solid #dededa; background:#fff">
+              <defs><pattern id="ringsDots" width="2.5" height="2.5" patternUnits="userSpaceOnUse"><circle cx="1.25" cy="1.25" r="0.16" fill="#c2c2bc"></circle></pattern></defs>
+              <rect x="0" y="0" width="80" height="125" fill="#ffffff"></rect>
+              <rect x="6" y="6" width="68" height="113" fill="url(#ringsDots)"></rect>
+              <rect x="8" y="11" width="24" height="3" rx="0.5" fill="#1c1c1a"></rect>
+              <rect x="8" y="18" width="64" height="0.3" fill="#1c1c1a"></rect>
+              <g stroke="#8e8e88" stroke-width="0.22" fill="none">
+                <path d="M8 24 H72 M8 38 H72 M8 52 H72 M8 66 H72"></path>
+                <path d="M8 24 V66 M24 24 V66 M40 24 V66 M56 24 V66 M72 24 V66"></path>
+              </g>
+              <g>
+                <rect x="8" y="74" width="2.6" height="2.6" fill="none" stroke="#8e8e88" stroke-width="0.22"></rect>
+                <rect x="13" y="75" width="40" height="0.3" fill="#c2c2bc"></rect>
+                <rect x="8" y="81" width="2.6" height="2.6" fill="none" stroke="#8e8e88" stroke-width="0.22"></rect>
+                <rect x="13" y="82" width="48" height="0.3" fill="#c2c2bc"></rect>
+                <rect x="8" y="88" width="2.6" height="2.6" fill="none" stroke="#8e8e88" stroke-width="0.22"></rect>
+                <rect x="13" y="89" width="34" height="0.3" fill="#c2c2bc"></rect>
+              </g>
+              <rect x="8" y="98" width="64" height="0.3" fill="#1c1c1a"></rect>
+              <rect x="7.4" y="103" width="30" height="10" fill="none" stroke="#2f6f4f" stroke-width="0.3"></rect>
+              <g fill="#2f6f4f">
+                <rect x="6.6" y="102.2" width="1.6" height="1.6"></rect>
+                <rect x="36.6" y="102.2" width="1.6" height="1.6"></rect>
+                <rect x="6.6" y="112.2" width="1.6" height="1.6"></rect>
+                <rect x="36.6" y="112.2" width="1.6" height="1.6"></rect>
+              </g>
+            </svg>
+          </div>
+
+          <div style="width:200px; flex-shrink:0; padding:16px; border-left:1px solid #dededa; background:#ffffff; display:flex; flex-direction:column; gap:16px">
+            <div style="font-size:11px; font-weight:500; color:#7a7a74">선택한 요소 · 표</div>
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <span style="font-size:12px; font-weight:500; color:#7a7a74">X</span>
+                <span style="flex:1; max-width:88px; padding:4px 8px; border:1px solid #dededa; border-radius:4px; font-size:12px; font-weight:500; text-align:right">8.0mm</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <span style="font-size:12px; font-weight:500; color:#7a7a74">Y</span>
+                <span style="flex:1; max-width:88px; padding:4px 8px; border:1px solid #dededa; border-radius:4px; font-size:12px; font-weight:500; text-align:right">103.0mm</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <span style="font-size:12px; font-weight:500; color:#7a7a74">너비</span>
+                <span style="flex:1; max-width:88px; padding:4px 8px; border:1px solid #dededa; border-radius:4px; font-size:12px; font-weight:500; text-align:right">30.0mm</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                <span style="font-size:12px; font-weight:500; color:#7a7a74">높이</span>
+                <span style="flex:1; max-width:88px; padding:4px 8px; border:1px solid #dededa; border-radius:4px; font-size:12px; font-weight:500; text-align:right">10.0mm</span>
+              </div>
+            </div>
+            <div style="padding-top:12px; border-top:1px solid #dededa; font-size:11px; font-weight:500; color:#7a7a74; line-height:1.6">격자에 맞춰 붙습니다 · 2.5mm</div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isTemplateScreen }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; align-items:stretch; min-height:360px; background:#f4f4f2">
+          <div style="width:180px; flex-shrink:0; padding:16px; border-right:1px solid #dededa; background:#ffffff; display:flex; flex-direction:column; gap:12px">
+            <div style="font-size:11px; font-weight:500; color:#7a7a74">보기</div>
+            <div style="display:flex; flex-direction:column; gap:4px">
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; background:#e3ede7; color:#2f6f4f">전체</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">이미지</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">폰트</div>
+            </div>
+          </div>
+
+          <div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:center; padding:32px">
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; width:100%; max-width:420px">
+              <div style="display:flex; flex-direction:column; gap:8px; padding:10px; border:2px solid #2f6f4f; border-radius:8px; background:#e3ede7">
+                <div style="height:70px; background:#ffffff; border:1px solid #dededa; border-radius:3px"></div>
+                <div style="font-size:12px; font-weight:600; color:#1c1c1a">M6-1</div>
+                <div style="font-size:10px; font-weight:500; color:#7a7a74">80 × 125mm</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid #dededa; border-radius:8px; background:#ffffff">
+                <div style="height:70px; background:#ffffff; border:1px solid #dededa; border-radius:3px"></div>
+                <div style="font-size:12px; font-weight:600; color:#1c1c1a">M6-2</div>
+                <div style="font-size:10px; font-weight:500; color:#7a7a74">80 × 125mm</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:8px; padding:10px; border:1px solid #dededa; border-radius:8px; background:#ffffff">
+                <div style="height:70px; background:#ffffff; border:1px solid #dededa; border-radius:3px"></div>
+                <div style="font-size:12px; font-weight:600; color:#1c1c1a">A5-1</div>
+                <div style="font-size:10px; font-weight:500; color:#7a7a74">148 × 210mm</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:200px; flex-shrink:0; padding:16px; border-left:1px solid #dededa; background:#ffffff; display:flex; flex-direction:column; gap:16px">
+            <div style="font-size:11px; font-weight:500; color:#7a7a74">규격</div>
+            <div style="display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:500; color:#1c1c1a">
+              <div style="padding:8px; border:1px solid #dededa; border-radius:6px">A5 · A6</div>
+              <div style="padding:8px; border:2px solid #2f6f4f; border-radius:6px; background:#e3ede7; color:#2f6f4f">M6 · M5</div>
+              <div style="padding:8px; border:1px solid #dededa; border-radius:6px">ETC</div>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isPrintScreen }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; align-items:stretch; min-height:360px; background:#f4f4f2">
+          <div style="width:180px; flex-shrink:0; padding:16px; border-right:1px solid #dededa; background:#ffffff; display:flex; flex-direction:column; gap:12px">
+            <div style="font-size:11px; font-weight:500; color:#7a7a74">설정</div>
+            <div style="display:flex; flex-direction:column; gap:4px">
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; background:#e3ede7; color:#2f6f4f">Paper</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">View</div>
+              <div style="padding:6px 8px; border-radius:4px; font-size:12px; font-weight:500; color:#1c1c1a">Insert</div>
+            </div>
+          </div>
+
+          <div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:center; padding:32px">
+            <svg viewBox="0 0 210 297" preserveAspectRatio="xMidYMid meet" style="display:block; height:296px; width:auto; border:1px solid #dededa; background:#fff">
+              <rect x="0" y="0" width="210" height="297" fill="#ffffff"></rect>
+              <g fill="none" stroke="#dededa" stroke-width="0.8">
+                <rect x="15" y="15" width="80" height="125"></rect>
+                <rect x="115" y="15" width="80" height="125"></rect>
+                <rect x="15" y="150" width="80" height="125"></rect>
+                <rect x="115" y="150" width="80" height="125"></rect>
+              </g>
+              <g fill="#c2c2bc"><rect x="24" y="24" width="20" height="3" rx="0.6"></rect><rect x="124" y="24" width="20" height="3" rx="0.6"></rect><rect x="24" y="159" width="20" height="3" rx="0.6"></rect><rect x="124" y="159" width="20" height="3" rx="0.6"></rect></g>
+              <g stroke="#b6b6b0" stroke-width="0.4">
+                <path d="M0 6 H6 M0 12 V0"></path><path d="M204 6 H210 M210 12 V0"></path>
+                <path d="M0 291 H6 M0 285 V297"></path><path d="M204 291 H210 M210 285 V297"></path>
+              </g>
+            </svg>
+          </div>
+
+          <div style="width:200px; flex-shrink:0; padding:16px; border-left:1px solid #dededa; background:#ffffff; display:flex; flex-direction:column; gap:16px">
+            <div style="font-size:11px; font-weight:500; color:#7a7a74">Slot assignment</div>
+            <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; width:72px">
+              <span style="width:28px; height:28px; border-radius:5px; background:#2f6f4f"></span>
+              <span style="width:28px; height:28px; border-radius:5px; background:#8fb39e"></span>
+              <span style="width:28px; height:28px; border-radius:5px; background:#2f6f4f"></span>
+              <span style="width:28px; height:28px; border-radius:5px; background:#8fb39e"></span>
+            </div>
+            <div style="font-size:11px; font-weight:500; color:#7a7a74; line-height:1.6">4 per sheet · 2 × 2</div>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+
+    <section style="padding:96px 0 8px">
+      <h2 style="margin:0 0 32px; font-size:clamp(24px, 3vw, 34px); font-weight:700; letter-spacing:-0.5px; color:#1c1c1a; text-wrap:balance">도트 위에서 다이어리 한 권이 완성되는 곳</h2>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px">
+        <div style="border:1px solid #dededa; border-radius:12px; background:#f4f4f2; padding:24px; display:flex; flex-direction:column; gap:16px">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px">
+            <div>
+              <div style="font-size:12px; font-weight:600; color:#7a7a74; margin-bottom:6px">속지 제작</div>
+              <div style="font-size:18px; font-weight:700; color:#1c1c1a; line-height:1.4">요소를 자유롭게 배치해 나만의 속지를 만드세요.</div>
+            </div>
+            <button style="width:32px; height:32px; flex-shrink:0; border:none; border-radius:50%; background:#1c1c1a; color:#ffffff; display:flex; align-items:center; justify-content:center; cursor:pointer" style-hover="background:#2f6f4f">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+            </button>
+          </div>
+          <div style="border:1px solid #dededa; border-radius:8px; background:#ffffff; padding:16px; display:flex; align-items:center; justify-content:center">
+            <svg viewBox="0 0 80 125" preserveAspectRatio="xMidYMid meet" style="display:block; height:200px; width:auto; border:1px solid #dededa; background:#fff">
+              <defs><pattern id="featDots" width="2.5" height="2.5" patternUnits="userSpaceOnUse"><circle cx="1.25" cy="1.25" r="0.16" fill="#c2c2bc"></circle></pattern></defs>
+              <rect x="0" y="0" width="80" height="125" fill="#ffffff"></rect>
+              <rect x="6" y="6" width="68" height="113" fill="url(#featDots)"></rect>
+              <rect x="8" y="11" width="24" height="3" rx="0.5" fill="#1c1c1a"></rect>
+              <rect x="8" y="18" width="64" height="0.3" fill="#1c1c1a"></rect>
+              <g stroke="#8e8e88" stroke-width="0.22" fill="none">
+                <path d="M8 24 H72 M8 38 H72 M8 52 H72 M8 66 H72"></path>
+                <path d="M8 24 V66 M24 24 V66 M40 24 V66 M56 24 V66 M72 24 V66"></path>
+              </g>
+              <rect x="7.4" y="103" width="30" height="10" fill="none" stroke="#2f6f4f" stroke-width="0.3"></rect>
+              <g fill="#2f6f4f">
+                <rect x="6.6" y="102.2" width="1.6" height="1.6"></rect>
+                <rect x="36.6" y="102.2" width="1.6" height="1.6"></rect>
+                <rect x="6.6" y="112.2" width="1.6" height="1.6"></rect>
+                <rect x="36.6" y="112.2" width="1.6" height="1.6"></rect>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <div style="border:1px solid #dededa; border-radius:12px; background:#f4f4f2; padding:24px; display:flex; flex-direction:column; gap:16px">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px">
+            <div>
+              <div style="font-size:12px; font-weight:600; color:#7a7a74; margin-bottom:6px">템플릿</div>
+              <div style="font-size:18px; font-weight:700; color:#1c1c1a; line-height:1.4">규격에 맞는 템플릿을 고르고 바로 시작하세요.</div>
+            </div>
+            <button style="width:32px; height:32px; flex-shrink:0; border:none; border-radius:50%; background:#1c1c1a; color:#ffffff; display:flex; align-items:center; justify-content:center; cursor:pointer" style-hover="background:#2f6f4f">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+            </button>
+          </div>
+          <div style="border:1px solid #dededa; border-radius:8px; background:#ffffff; padding:20px; display:flex; align-items:center; justify-content:center; min-height:236px">
+            <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; width:100%; max-width:220px">
+              <div style="display:flex; flex-direction:column; gap:6px; padding:8px; border:2px solid #2f6f4f; border-radius:8px; background:#e3ede7">
+                <div style="height:56px; background:#ffffff; border:1px solid #dededa; border-radius:3px"></div>
+                <div style="font-size:11px; font-weight:600; color:#1c1c1a">M6-1</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px; padding:8px; border:1px solid #dededa; border-radius:8px; background:#ffffff">
+                <div style="height:56px; background:#ffffff; border:1px solid #dededa; border-radius:3px"></div>
+                <div style="font-size:11px; font-weight:600; color:#1c1c1a">M6-2</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px; padding:8px; border:1px solid #dededa; border-radius:8px; background:#ffffff">
+                <div style="height:56px; background:#ffffff; border:1px solid #dededa; border-radius:3px"></div>
+                <div style="font-size:11px; font-weight:600; color:#1c1c1a">A5-1</div>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:8px; border:1px dashed #d3d3ce; border-radius:8px; color:#7a7a74; font-size:11px; font-weight:500">
+                <span style="font-size:16px; line-height:1">+</span>
+                <span>새 템플릿</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="border:1px solid #dededa; border-radius:12px; background:#f4f4f2; padding:24px; display:flex; gap:24px; flex-wrap:wrap; margin-bottom:40px">
+        <div style="flex:1; min-width:220px; display:flex; flex-direction:column; gap:14px; justify-content:flex-start">
+          <div>
+            <div style="font-size:12px; font-weight:600; color:#7a7a74; margin-bottom:6px">인쇄</div>
+            <div style="font-size:18px; font-weight:700; color:#1c1c1a; line-height:1.4">종이 규격에 맞춰 크롭 마크까지 자동으로 준비하세요.</div>
+          </div>
+          <button style="width:32px; height:32px; flex-shrink:0; border:none; border-radius:50%; background:#1c1c1a; color:#ffffff; display:flex; align-items:center; justify-content:center; cursor:pointer" style-hover="background:#2f6f4f">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+          </button>
+        </div>
+        <div style="flex:2; min-width:300px; display:flex; gap:12px; flex-wrap:wrap">
+          <div style="flex:1; min-width:150px; border:1px solid #dededa; border-radius:8px; background:#ffffff; padding:14px; display:flex; align-items:center; justify-content:center">
+            <svg viewBox="0 0 210 297" preserveAspectRatio="xMidYMid meet" style="display:block; height:200px; width:auto; border:1px solid #dededa; background:#fff">
+              <rect x="0" y="0" width="210" height="297" fill="#ffffff"></rect>
+              <g fill="none" stroke="#dededa" stroke-width="0.8">
+                <rect x="15" y="15" width="80" height="125"></rect>
+                <rect x="115" y="15" width="80" height="125"></rect>
+                <rect x="15" y="150" width="80" height="125"></rect>
+                <rect x="115" y="150" width="80" height="125"></rect>
+              </g>
+              <g fill="#c2c2bc"><rect x="24" y="24" width="20" height="3" rx="0.6"></rect><rect x="124" y="24" width="20" height="3" rx="0.6"></rect><rect x="24" y="159" width="20" height="3" rx="0.6"></rect><rect x="124" y="159" width="20" height="3" rx="0.6"></rect></g>
+              <g stroke="#b6b6b0" stroke-width="0.4">
+                <path d="M0 6 H6 M0 12 V0"></path><path d="M204 6 H210 M210 12 V0"></path>
+                <path d="M0 291 H6 M0 285 V297"></path><path d="M204 291 H210 M210 285 V297"></path>
+              </g>
+            </svg>
+          </div>
+          <div style="flex:1; min-width:150px; border:1px solid #dededa; border-radius:8px; background:#ffffff; padding:16px; display:flex; flex-direction:column; gap:14px; justify-content:center">
+            <div style="font-size:11px; font-weight:600; color:#7a7a74">Slot assignment</div>
+            <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; width:72px">
+              <span style="width:28px; height:28px; border-radius:5px; background:#2f6f4f"></span>
+              <span style="width:28px; height:28px; border-radius:5px; background:#8fb39e"></span>
+              <span style="width:28px; height:28px; border-radius:5px; background:#2f6f4f"></span>
+              <span style="width:28px; height:28px; border-radius:5px; background:#8fb39e"></span>
+            </div>
+            <div style="font-size:11px; font-weight:500; color:#7a7a74; line-height:1.6">4 per sheet · 2 × 2</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:12px; font-weight:500; color:#7a7a74; margin-bottom:12px">Rings로 할 수 있는 일 보기</div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px; padding-bottom:64px">
+        <a href="속지 제작 (Inserts).dc.html" style="display:flex; flex-direction:column; gap:16px; width:180px; padding:16px; border:1px solid #dededa; border-radius:10px; background:#ffffff; color:#1c1c1a" style-hover="border-color:#2f6f4f; background:#f9fbfa">
+          <span style="width:32px; height:32px; border-radius:8px; background:#2f6f4f; display:flex; align-items:center; justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="9" rx="1"></rect><rect x="13" y="4" width="7" height="6" rx="1"></rect><rect x="13" y="12" width="7" height="8" rx="1"></rect><rect x="4" y="15" width="7" height="5" rx="1"></rect></svg>
+          </span>
+          <span style="font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px">새 다이어리 시작하기 <span style="color:#7a7a74">→</span></span>
+        </a>
+        <a href="속지 제작 (Inserts).dc.html" style="display:flex; flex-direction:column; gap:16px; width:180px; padding:16px; border:1px solid #dededa; border-radius:10px; background:#ffffff; color:#1c1c1a" style-hover="border-color:#2f6f4f; background:#f9fbfa">
+          <span style="width:32px; height:32px; border-radius:8px; background:#8fb39e; display:flex; align-items:center; justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8"><circle cx="7" cy="7" r="1.3" fill="#ffffff" stroke="none"></circle><circle cx="12" cy="7" r="1.3" fill="#ffffff" stroke="none"></circle><circle cx="17" cy="7" r="1.3" fill="#ffffff" stroke="none"></circle><circle cx="7" cy="12" r="1.3" fill="#ffffff" stroke="none"></circle><circle cx="12" cy="12" r="1.3" fill="#ffffff" stroke="none"></circle><circle cx="17" cy="12" r="1.3" fill="#ffffff" stroke="none"></circle></svg>
+          </span>
+          <span style="font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px">규격에 맞는 도트 잡기 <span style="color:#7a7a74">→</span></span>
+        </a>
+        <a href="인쇄하기 (Print).dc.html" style="display:flex; flex-direction:column; gap:16px; width:180px; padding:16px; border:1px solid #dededa; border-radius:10px; background:#ffffff; color:#1c1c1a" style-hover="border-color:#2f6f4f; background:#f9fbfa">
+          <span style="width:32px; height:32px; border-radius:8px; background:#1c1c1a; display:flex; align-items:center; justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"></path><path d="M15 3v4h4"></path></svg>
+          </span>
+          <span style="font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px">인쇄소로 바로 넘기기 <span style="color:#7a7a74">→</span></span>
+        </a>
+        <a href="속지 제작 (Inserts).dc.html" style="display:flex; flex-direction:column; gap:16px; width:180px; padding:16px; border:1px solid #dededa; border-radius:10px; background:#ffffff; color:#1c1c1a" style-hover="border-color:#2f6f4f; background:#f9fbfa">
+          <span style="width:32px; height:32px; border-radius:8px; background:#7a7a74; display:flex; align-items:center; justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1.5"></rect><circle cx="9" cy="10" r="1.4" fill="#ffffff" stroke="none"></circle><path d="M5 17l4.5-5 3 3 3-4 4.5 6"></path></svg>
+          </span>
+          <span style="font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px">완성한 속지 공유하기 <span style="color:#7a7a74">→</span></span>
+        </a>
+        <a href="인쇄하기 (Print).dc.html" style="display:flex; flex-direction:column; gap:16px; width:180px; padding:16px; border:1px solid #dededa; border-radius:10px; background:#ffffff; color:#1c1c1a" style-hover="border-color:#2f6f4f; background:#f9fbfa">
+          <span style="width:32px; height:32px; border-radius:8px; background:#2f6f4f; display:flex; align-items:center; justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1"></rect><rect x="13" y="4" width="7" height="7" rx="1"></rect><rect x="4" y="13" width="7" height="7" rx="1"></rect><rect x="13" y="13" width="7" height="7" rx="1"></rect></svg>
+          </span>
+          <span style="font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px">여러 장 한번에 배치하기 <span style="color:#7a7a74">→</span></span>
+        </a>
+      </div>
+    </section><section style="margin-top:16px; padding-bottom:96px">
+      
+    </section>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const ORDER = ['insert', 'template', 'print'];
+const LABELS = { insert: 'M6 · 80 × 125mm · 2.5mm 도트', template: '전체 템플릿 · 4개', print: 'A4 · 4 per sheet (2 × 2)' };
+const HERO_WORDS = ['own', 'paper', 'planner', 'diary', 'binder'];
+class Component extends DCLogic {
+  state = { activeScreen: 'insert', wordIndex: 0, wordPhase: 'in' };
+  componentDidMount() {
+    this.startAuto();
+    this._wordTimer = setInterval(() => this.cycleWord(), 3400);
+  }
+  componentWillUnmount() {
+    clearInterval(this._timer);
+    clearInterval(this._wordTimer);
+  }
+  cycleWord() {
+    this.setState({ wordPhase: 'out' });
+    setTimeout(() => {
+      this.setState((s) => ({ wordIndex: (s.wordIndex + 1) % HERO_WORDS.length, wordPhase: 'in' }));
+    }, 200);
+  }
+  startAuto() {
+    clearInterval(this._timer);
+    this._timer = setInterval(() => {
+      const i = ORDER.indexOf(this.state.activeScreen);
+      this.setState({ activeScreen: ORDER[(i + 1) % ORDER.length] });
+    }, 4000);
+  }
+  setScreen(name) {
+    this.setState({ activeScreen: name });
+    this.startAuto();
+  }
+  navBg(name) {
+    return this.state.activeScreen === name ? '#e3ede7' : 'transparent';
+  }
+  pillStyle(name) {
+    const on = this.state.activeScreen === name;
+    return { bg: on ? '#eeeeea' : 'transparent', color: on ? '#1c1c1a' : '#7a7a74' };
+  }
+  renderVals() {
+    const pInsert = this.pillStyle('insert'), pTemplate = this.pillStyle('template'), pPrint = this.pillStyle('print');
+    const wordOut = this.state.wordPhase === 'out';
+    return {
+      start: () => { window.location.href = '양식 관리 갤러리.dc.html'; },
+      heroWord: HERO_WORDS[this.state.wordIndex],
+      wordOpacity: wordOut ? 0 : 1,
+      wordTransform: wordOut ? 'translateY(6px)' : 'translateY(0)',
+      isInsertScreen: this.state.activeScreen === 'insert',
+      isTemplateScreen: this.state.activeScreen === 'template',
+      isPrintScreen: this.state.activeScreen === 'print',
+      mockLabel: LABELS[this.state.activeScreen],
+      setInsertScreen: () => this.setScreen('insert'),
+      setTemplateScreen: () => this.setScreen('template'),
+      setPrintScreen: () => this.setScreen('print'),
+      navInsertBg: this.navBg('insert'),
+      navTemplateBg: this.navBg('template'),
+      navPrintBg: this.navBg('print'),
+      pillInsertBg: pInsert.bg, pillInsertColor: pInsert.color,
+      pillTemplateBg: pTemplate.bg, pillTemplateColor: pTemplate.color,
+      pillPrintBg: pPrint.bg, pillPrintColor: pPrint.color,
+    };
+  }
+}
+</script>
+</body>
+</html>
