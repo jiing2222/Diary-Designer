@@ -4,7 +4,22 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>System Diary Designer</title>
+    <!--
+      화면(UI)에 쓰는 Pretendard. 굵기가 100~900까지 다 들어 있는 가변
+      글꼴이라, 디자인이 쓰는 600 같은 중간 굵기가 제대로 나온다 — 앱에
+      들어 있는 파일은 400·700 둘뿐이라 600을 부르면 700으로 그려졌다.
+
+      **속지에 쓰는 Pretendard와는 다른 이름('Pretendard Variable')이다.**
+      속지 글자는 PDF에 심는 파일과 화면이 같은 글꼴이어야 글자 폭이
+      어긋나지 않으므로(설계 원칙), 그쪽은 public/fonts의 파일을 계속 쓴다.
+      이름이 갈려 있어서 서로 섞이지 않는다.
+    -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"
+    />
+    <title>Rings</title>
   </head>
   <body>
     <div id="root"></div>

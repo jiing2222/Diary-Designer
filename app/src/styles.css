@@ -42,8 +42,13 @@
   --danger-subtle: #f5e6e0;
   --placeholder: #b6b6b0;
   --hover-bg: #eaeae6;
-  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard',
-    'Malgun Gothic', sans-serif;
+  /*
+    화면용은 가변 Pretendard가 먼저다(index.html) — 600 같은 중간 굵기가
+    실제로 있어야 디자인대로 나온다. 뒤의 'Pretendard'는 CDN이 막혔을 때
+    쓰는 앱 안의 파일이다(400·700).
+  */
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont,
+    'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   font-size: 14px;
   color: var(--ink);
 }
@@ -2762,11 +2767,27 @@ footer b {
   z-index: 10;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
+  /*
+    전역 `header { display: flex; padding: 10px 16px }`를 여기서 되돌린다.
+    그건 앱 머리줄이 쓰는 규칙인데 같은 태그라 여기도 걸렸다 — 안쪽
+    1120px 칸이 flex 항목이 되어 내용 폭으로 쪼그라들고, 로고·메뉴·버튼이
+    화면 가운데로 뭉쳐 있었다.
+  */
+  display: block;
+  padding: 0;
 }
 
+/*
+  1120px이 아니라 1168px인 이유.
+
+  디자인 파일에는 `box-sizing` 리셋이 없어서 `max-width:1120px`에 좌우
+  패딩 24px씩이 **더해진다** — 실제로 그려지는 폭은 1168px이다. 이 앱은
+  `* { box-sizing: border-box }`라 1120으로 두면 패딩이 안쪽으로 먹혀
+  내용 폭이 1072px이 되고, 디자인보다 한 칸씩 좁아 보인다.
+*/
 .start-header-inner,
 .start-main {
-  max-width: 1120px;
+  max-width: 1168px;
   margin: 0 auto;
   padding: 0 24px;
 }
@@ -2939,6 +2960,7 @@ footer b {
 }
 
 .start-hero-word em {
+  text-transform: capitalize;
   font-size: 0.72em;
   font-style: italic;
   font-weight: 400;
