@@ -1154,6 +1154,12 @@ export function App() {
 
                   const frontPage = (
                     <div className="print-sheet-page" style={pageStyle}>
+                      {/*
+                        양면일 때만 앞뒤를 적는다. 한 면만 찍으면 헷갈릴
+                        것이 없는데 라벨만 붙으면 군더더기다(디자인도 양면
+                        미리보기에만 Back·Front가 붙어 있다).
+                      */}
+                      {s.duplex && <span className="sheet-label">앞면</span>}
                       <PaperPreview
                         paper={{ ...s.paper, width, height }}
                         insert={active.insert}
@@ -1190,6 +1196,7 @@ export function App() {
                   // 항상 켠다.
                   const backPage = s.duplex && (
                     <div className="print-sheet-page" style={pageStyle}>
+                      <span className="sheet-label">뒷면</span>
                       <PaperPreview
                         paper={{ ...s.paper, width, height }}
                         insert={active.insert}

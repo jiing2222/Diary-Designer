@@ -1556,7 +1556,8 @@ select,
   flex: 1;
   min-width: 0;
   overflow: auto;
-  padding: 20px;
+  /* 위쪽만 넓다 — 용지 바깥 위에 앞면·뒷면 표시가 앉을 자리다(.sheet-label). */
+  padding: 32px 20px 20px;
 }
 
 /* stage-area + 우측 패널을 가로로 붙인다 */
@@ -1647,6 +1648,25 @@ select,
      장 기준으로 절대 위치시킨다 — .stage-area 전체 기준이면 스크롤할
      때마다 자리가 어긋난다. */
   position: relative;
+}
+
+/*
+  용지 위에 붙는 앞면·뒷면 표시.
+
+  용지 **바깥 위쪽**에 띄운다 — 안에 두면 인쇄될 내용과 섞여 보이고,
+  이건 화면 전용 안내다. 자리를 차지하지 않게(absolute) 두는 이유는 이
+  칸의 크기가 용지 실제 크기라서다 — 위에 한 줄을 밀어 넣으면 그만큼
+  용지가 밀려 내려가고, 나란히 놓인 앞뒤 두 장의 높이가 어긋난다.
+  기준이 되는 `position: relative`는 .print-sheet-page에 이미 있다.
+*/
+.sheet-label {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  pointer-events: none;
 }
 
 .paper-slot-clickable {
