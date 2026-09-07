@@ -76,9 +76,7 @@ function StartHeader({ onStart }: { onStart: () => void }) {
         </nav>
 
         <div className="start-header-right">
-          <button className="ghost" disabled title="Coming soon">
-            Sign in
-          </button>
+          <button className="ghost">Sign in</button>
           <button className="primary" onClick={onStart}>
             Start Rings — it's free
           </button>
@@ -133,17 +131,12 @@ function Hero({ onStart }: { onStart: () => void }) {
  *
  * 사라지는 동안(`fading`)에는 낱말을 바꾸지 않는다 — 흐려지는 도중에
  * 글자가 바뀌면 두 낱말이 겹쳐 보인다. 다 사라진 뒤에 갈아 끼운다.
- *
- * 움직임을 꺼둔 사람에게는 첫 낱말만 보여주고 아예 돌리지 않는다 —
- * 애니메이션을 줄여달라는 요청은 "천천히"가 아니라 "멈춰라"에 가깝다.
  */
 function useRotatingWord(): { text: string; fading: boolean } {
   const [index, setIndex] = useState(0);
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
     let swap: ReturnType<typeof setTimeout>;
     const tick = setInterval(() => {
       setFading(true);
@@ -177,7 +170,6 @@ function ProductMock() {
   const [pinnedAt, setPinnedAt] = useState(0);
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const t = setInterval(() => {
       setScreen((s) => MOCK_ORDER[(MOCK_ORDER.indexOf(s) + 1) % MOCK_ORDER.length]);
     }, MOCK_CYCLE_MS);

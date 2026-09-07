@@ -2771,6 +2771,15 @@ footer b {
   padding: 0 24px;
 }
 
+/*
+  전역 `main { display: flex }`를 여기서 되돌린다. 그건 앱 편집 화면이
+  왼쪽 도구줄과 캔버스를 나란히 놓으려고 둔 규칙인데, 소개 화면의 <main>
+  에도 걸려서 제목·미리보기·카드가 가로로 늘어섰다.
+*/
+.start-main {
+  display: block;
+}
+
 .start-header-inner {
   display: flex;
   align-items: center;
@@ -2837,7 +2846,7 @@ footer b {
   margin: 0;
   max-width: 900px;
   text-align: center;
-  font-size: clamp(40px, 7.4vw, 92px);
+  font-size: clamp(44px, 7.4vw, 92px);
   font-weight: 600;
   line-height: 1.06;
   letter-spacing: -2.4px;
@@ -2878,8 +2887,8 @@ footer b {
 }
 
 .start-hero-dot {
-  width: 0.42em;
-  height: 0.42em;
+  width: 37px;
+  height: 37px;
   border-radius: 50%;
   background: var(--accent);
   flex-shrink: 0;
@@ -3236,8 +3245,3 @@ footer b {
   color: var(--muted);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .start-hero-word {
-    transition: none;
-  }
-}
