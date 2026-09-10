@@ -1,104 +1,134 @@
+import { useEffect, useRef, useState } from 'react';
 import { sameSize } from '../core/template';
 import { activeTemplate, useStore } from '../store';
 import type { Layout } from '../core/layout';
 
-/**
- * 낱장 조합 — 용지 한 장의 칸마다 다른 양식을 넣는다.
- *
- * **같은 규격끼리만 섞을 수 있다.** 배치(칸 크기·개수)가 한 규격을 기준으로
- * 한 번만 계산되기 때문이다(설계문서 8장). 지금 양식과 같은 규격의 양식이
- * 하나뿐이면(자기 자신뿐이면) 칸 배정 드롭다운은 고를 게 없어 보여주지 않지만,
- * 이 배치를 몇 장 찍을지(매수)는 조합이 없어도 의미가 있으므로 항상 보여준다.
- *
- * **반복(`repeat`) 양식은 목록에 안 뜬다.** 그 양식은 자기 하나로만 여러 장을
- * 채우는 것이라, 다른 양식과 한 칸씩 섞이는 낱장 조합에 낄 수 없다 — 이 화면
- * 자체가 지금 양식이 `single`일 때만 뜬다(App.tsx가 가른다).
- *
- * 드롭다운을 칸 배치와 같은 모양(가로·세로)으로 늘어놓는다 — 어느 칸을
- * 고치는지 바로 알아볼 수 있어야 한다.
- */
-export function SlotAssign({ layout }: { layout: Layout }) {
+/** 시트별 칸 배정 보드. 채우기 점은 엑셀처럼 연속 범위를 배정한다. */
+export function SlotAssign({ layout, sheets }: { layout: Layout; sheets: number }) {
   const templates = useStore((s) => s.templates);
   const slotAssignment = useStore((s) => s.slotAssignment);
-  const assignSlot = useStore((s) => s.assignSlot);
+  const sheetSlotAssignment = useStore((s) => s.sheetSlotAssignment);
+  const assignSheetSlot = useStore((s) => s.assignSheetSlot);
+  const assignSheetSlotRange = useStore((s) => s.assignSheetSlotRange);
+  const duplicateComboSheet = useStore((s) => s.duplicateComboSheet);
+  const removeComboSheet = useStore((s) => s.removeComboSheet);
+  const patch = useStore((s) => s.patch);
   const active = useStore(activeTemplate);
+  const [openSlot, setOpenSlot] = useState<number | null>(null);
+  const dragRef = useRef<{ source: number; current: number; templateId: string | null } | null>(null);
+  const [drag, setDrag] = useState<{ source: number; current: number; templateId: string | null } | null>(null);
+
+  useEffect(() => {
+    function finish() {
+      const current = dragRef.current;
+      if (!current) return;
+      assignSheetSlotRange(current.source, current.current, current.templateId);
+      dragRef.current = null;
+      setDrag(null);
+    }
+    window.addEventListener('pointerup', finish);
+    return () => window.removeEventListener('pointerup', finish);
+  }, [assignSheetSlotRange]);
 
   if (!active || layout.count === 0) return null;
-
+  const activeId = active.id;
   const group = templates.filter(
     (t) => sameSize(t.insert, active.insert) && t.repeat.mode === 'single' && t.kind !== 'notebook',
   );
-
-  // 섞을 상대가 없으면 배정이라는 말 자체가 성립하지 않는다. 그때는 무엇을
-  // 해야 할지 알려준다 — 빈 칸만 남겨두면 고장 난 것처럼 보인다.
   if (group.length <= 1) {
-    return (
-      <p className="slot-assign-empty">
-        같은 규격의 양식이 하나 더 있어야 칸마다 다르게 넣을 수 있습니다.
-        <br />
-        지금은 모든 칸에 <b>{active.name}</b>이 들어갑니다.
-      </p>
-    );
+    return <p className="slot-assign-empty">같은 규격의 양식이 하나 더 있어야 칸마다 다르게 넣을 수 있습니다.</p>;
   }
 
-  /** 이 칸이 어느 양식인지. 정하지 않았으면 지금 양식이다. */
-  const idAt = (i: number) => slotAssignment[i] ?? active.id;
-  /** 양식마다 다른 색 — 칸 배정을 한눈에 보려면 이름보다 색이 빠르다. */
+  const globalOf = (sheet: number, slot: number) => sheet * layout.count + slot;
+  const idAt = (sheet: number, slot: number) => {
+    const global = globalOf(sheet, slot);
+    return Object.prototype.hasOwnProperty.call(sheetSlotAssignment, global)
+      ? sheetSlotAssignment[global] || active.id
+      : slotAssignment[slot] || active.id;
+  };
   const hueOf = (id: string) => (group.findIndex((t) => t.id === id) * 67) % 360;
+  const colorOf = (id: string) => `hsl(${hueOf(id)} 42% 45%)`;
+  const locationOf = (slot: number) => `${Math.floor(slot / layout.cols) + 1}-${String.fromCharCode(65 + (slot % layout.cols))}`;
+  const previewIdAt = (global: number) =>
+    drag && global >= Math.min(drag.source, drag.current) && global <= Math.max(drag.source, drag.current)
+      ? drag.templateId || activeId
+      : idAt(Math.floor(global / layout.count), global % layout.count);
+
+  function beginFill(global: number, templateId: string, e: React.PointerEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = { source: global, current: global, templateId: templateId === activeId ? null : templateId };
+    dragRef.current = next;
+    setDrag(next);
+    setOpenSlot(null);
+  }
+  function extendFill(global: number) {
+    const current = dragRef.current;
+    if (!current) return;
+    const next = { ...current, current: global };
+    dragRef.current = next;
+    setDrag(next);
+    // 마지막 카드에 닿으면 다음 시트를 먼저 열어 끊지 않고 계속 끌 수 있다.
+    if (global === sheets * layout.count - 1) patch({ comboSheets: sheets + 1 });
+  }
+
+  const counts = group.map((template) => ({
+    template,
+    count: Array.from({ length: sheets * layout.count }, (_, global) => previewIdAt(global)).filter((id) => id === template.id).length,
+  }));
 
   return (
     <div className="slot-assign">
-      {/* 어떤 양식이 몇 칸에 들어갔는지. 칸을 하나하나 세지 않아도 된다. */}
       <div className="slot-chips">
-        {group.map((t) => {
-          const n = Array.from({ length: layout.count }, (_, i) => idAt(i)).filter(
-            (id) => id === t.id,
-          ).length;
-          if (n === 0) return null;
-          return (
-            <span key={t.id} className="slot-chip">
-              <span className="slot-chip-dot" style={{ background: `hsl(${hueOf(t.id)} 42% 45%)` }} />
-              {t.name}
-              <span className="slot-chip-count">· {n}칸</span>
-            </span>
-          );
-        })}
+        {counts.filter((item) => item.count > 0).map(({ template, count }) => (
+          <span key={template.id} className="slot-chip"><span className="slot-chip-dot" style={{ background: colorOf(template.id) }} />{template.name}<span className="slot-chip-count">· {count}칸</span></span>
+        ))}
       </div>
-
-      <div
-        className="slot-assign-grid"
-        style={{ gridTemplateColumns: `repeat(${layout.cols}, 1fr)` }}
-      >
-        {Array.from({ length: layout.count }, (_, i) => {
-          const row = Math.floor(i / layout.cols) + 1;
-          const col = (i % layout.cols) + 1;
-          return (
-            <label key={i} className="slot-cell" title={`${row}행 ${col}열`}>
-              <span
-                className="slot-cell-dot"
-                style={{ background: `hsl(${hueOf(idAt(i))} 42% 45%)` }}
-              />
-              <select
-                value={slotAssignment[i] ?? ''}
-                onChange={(e) => assignSlot(i, e.target.value || null)}
-              >
-                <option value="">기본 · {active.name}</option>
-                {group
-                  .filter((t) => t.id !== active.id)
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-          );
-        })}
+      <div className="slot-sheets">
+        {Array.from({ length: sheets }, (_, sheet) => (
+          <section className="slot-sheet" key={sheet}>
+            <div className="slot-sheet-heading">
+              <div className="slot-sheet-title">시트 {sheet + 1}</div>
+              <div className="slot-sheet-actions">
+                <button onClick={() => duplicateComboSheet(sheet, layout.count)} title={`시트 ${sheet + 1} 복사`} aria-label={`시트 ${sheet + 1} 복사`}>
+                  <CopyIcon />
+                </button>
+                <button onClick={() => removeComboSheet(sheet, layout.count)} disabled={sheets <= 1} title={sheets <= 1 ? '마지막 시트는 지울 수 없습니다' : `시트 ${sheet + 1} 삭제`} aria-label={`시트 ${sheet + 1} 삭제`}>
+                  <TrashIcon />
+                </button>
+              </div>
+            </div>
+            <div className="slot-assign-grid" style={{ gridTemplateColumns: `repeat(${layout.cols}, 1fr)` }}>
+              {Array.from({ length: layout.count }, (_, slot) => {
+                const global = globalOf(sheet, slot);
+                const id = previewIdAt(global);
+                const template = group.find((t) => t.id === id) ?? active;
+                const isOpen = openSlot === global;
+                return (
+                  <div key={slot} className="slot-cell" title={`${sheet + 1}번 시트 ${locationOf(slot)} 칸`} onPointerEnter={() => extendFill(global)}>
+                    <button className="slot-card" style={{ background: colorOf(template.id) }} onClick={() => setOpenSlot((current) => current === global ? null : global)} aria-expanded={isOpen} aria-haspopup="listbox">
+                      <span className="slot-card-location">{locationOf(slot)}</span><span className="slot-card-name">{template.name}</span>
+                    </button>
+                    <span className="slot-fill-handle" onPointerDown={(e) => beginFill(global, idAt(sheet, slot), e)} title="끌어서 연속 채우기" />
+                    {isOpen && <div className="slot-options" role="listbox" aria-label={`${locationOf(slot)} 칸 양식 선택`}>
+                      {group.map((option) => <button key={option.id} className={option.id === template.id ? 'on' : undefined} role="option" aria-selected={option.id === template.id} onClick={() => { assignSheetSlot(global, option.id === activeId ? null : option.id); setOpenSlot(null); }}><span style={{ background: colorOf(option.id) }} />{option.name}{option.id === activeId && <small>기본</small>}</button>)}
+                    </div>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
-
-      <p className="slot-assign-hint">
-        칸의 자리는 용지의 칸 자리와 같습니다. 같은 규격의 양식만 섞을 수 있습니다.
-      </p>
+      <p className="slot-assign-hint">카드 오른쪽 아래 점을 끌면 다음 칸·다음 시트까지 같은 양식으로 채웁니다.</p>
     </div>
   );
+}
+
+function CopyIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="11" height="11" rx="1.5" /><path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H15" /></svg>;
+}
+
+function TrashIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M5 7h14M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M7 7l1 12h8l1-12" /></svg>;
 }

@@ -108,6 +108,8 @@ export type TemplateKind = 'insert' | 'notebook';
 export interface Template {
   id: string;
   name: string;
+  /** 만든 시각. 갤러리의 최신순에서 쓴다. 옛 저장 파일에는 없을 수 있다. */
+  createdAt?: string;
   /** 속지인지 노트인지. 편집 화면의 탭(속지 제작/노트 제작)과 타공 기본값을 가른다. */
   kind: TemplateKind;
   insert: InsertSetting;
@@ -212,6 +214,7 @@ export function newTemplate(
   const base: Template = {
     id: `t${counter}`,
     name,
+    createdAt: new Date().toISOString(),
     kind,
     insert,
     dotGrid: { ...DEFAULT_DOT_GRID },
@@ -329,6 +332,8 @@ export function duplicateTemplate(t: Template, name: string, insert?: InsertSett
   return {
     id: `t${counter}`,
     name,
+    // 사본은 새 양식이다. 원본의 만든 시각을 물려주면 최신순에서 제자리를 못 찾는다.
+    createdAt: new Date().toISOString(),
     kind: t.kind,
     insert: insert ?? { ...t.insert, punch: { ...t.insert.punch } },
     dotGrid: { ...t.dotGrid },

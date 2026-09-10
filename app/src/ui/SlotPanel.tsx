@@ -19,7 +19,7 @@ const DEFAULT_WIDTH = 300;
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 520;
 
-export function SlotPanel({ layout }: { layout: Layout }) {
+export function SlotPanel({ layout, sheets }: { layout: Layout; sheets: number }) {
   const [open, setOpen] = useState(false);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   /** 끄는 중인지. 끄는 동안에는 화면 전체에서 마우스를 따라간다. */
@@ -63,8 +63,8 @@ export function SlotPanel({ layout }: { layout: Layout }) {
           />
           <div className="slot-panel" style={{ width }}>
             <h2>칸 배정</h2>
-            <p className="slot-panel-note">칸마다 다른 속지를 넣을 수 있습니다.</p>
-            <SlotAssign layout={layout} />
+            <p className="slot-panel-note">시트·칸마다 다른 속지를 넣을 수 있습니다.</p>
+            <SlotAssign layout={layout} sheets={sheets} />
           </div>
         </>
       )}

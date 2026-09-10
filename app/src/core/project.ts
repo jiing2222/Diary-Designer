@@ -46,6 +46,8 @@ export interface SavedImage {
 export interface SavedTemplate {
   id: string;
   name: string;
+  /** 최신순 표시용. 옛 저장 파일에는 없으므로 선택 필드다. */
+  createdAt?: string;
   /** 속지인지 노트인지(27단계 이전 파일에는 없다). 없으면 속지로 읽는다. */
   kind?: TemplateKind;
   insert: InsertSetting;
@@ -105,6 +107,7 @@ export function toProject(input: {
     templates: input.templates.map((t) => ({
       id: t.id,
       name: t.name,
+      createdAt: t.createdAt,
       kind: t.kind,
       insert: t.insert,
       dotGrid: t.dotGrid,
@@ -254,6 +257,7 @@ export function toTemplates(p: SavedProject): Template[] {
     return {
       id: t.id || `t${idx + 1}`,
       name: t.name,
+      ...(t.createdAt !== undefined ? { createdAt: t.createdAt } : {}),
       kind: t.kind ?? 'insert',
       insert: { ...defaultInsert(), ...t.insert },
       dotGrid: { ...DEFAULT_DOT_GRID, ...t.dotGrid },

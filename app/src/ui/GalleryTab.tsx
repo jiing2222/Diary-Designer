@@ -33,7 +33,11 @@ import { FontManagePanel, ImageManagePanel } from './DesignLibraryDialog';
  * 규격 갈래(`SizeFamilyId`)와 나란히 두지 않고 따로 둔 이유는, 이미지·글꼴은
  * 양식이 아니라서 "규격으로 거른다"는 말 자체가 성립하지 않기 때문이다.
  */
-type GalleryView = { kind: 'templates'; family: SizeFamilyId | 'all' } | { kind: 'images' } | { kind: 'fonts' };
+type GalleryView =
+  | { kind: 'templates'; family: SizeFamilyId | 'all' }
+  | { kind: 'latest' }
+  | { kind: 'images' }
+  | { kind: 'fonts' };
 
 /**
  * 규격 한 칸 — 화면에 실제로 그려지는 한 덩어리.
@@ -73,6 +77,7 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
   const [view, setView] = useState<GalleryView>({ kind: 'templates', family: 'all' });
 
   const sections = sizeSections(templates, view.kind === 'templates' ? view.family : 'all');
+  const latest = newestFirst(templates);
 
   function newFrom(section: SizeSection) {
     // 프리셋 칸은 그 규격으로 바로 만든다 — 규격을 이미 골라서 누른 것이라
@@ -95,6 +100,23 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
           <ImageManagePanel />
         ) : view.kind === 'fonts' ? (
           <FontManagePanel />
+        ) : view.kind === 'latest' ? (
+          <section className="gallery-group">
+            <h2>
+              최신 양식
+              <span className="count">{latest.length}</span>
+            </h2>
+            <p className="gallery-group-note">최근에 만든 양식부터 표시합니다.</p>
+            <div className="gallery-grid">
+              {latest.map((t) => (
+                <Card key={t.id} template={t} active={t.id === activeId} onEdit={onEdit} />
+              ))}
+              <button className="card-add" onClick={() => setCreating(true)} title="새 양식">
+                <span className="card-add-plus">+</span>
+                <span>새 양식</span>
+              </button>
+            </div>
+          </section>
         ) : (
           sections.map((s) => (
             <section key={s.key} className="gallery-group">
@@ -128,6 +150,24 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
       )}
     </div>
   );
+}
+
+/**
+ * 최신 생성 순서. 새 파일은 `createdAt`으로 정확히 정렬하고, 그 값이 없던
+ * 예전 저장 파일은 기존 목록의 뒤쪽을 더 최근으로 본다 — 옛 파일을 열었다고
+ * 카드 순서가 불규칙해지지 않는다.
+ */
+function newestFirst(templates: Template[]): Template[] {
+  return templates
+    .map((template, index) => ({ template, index, time: Date.parse(template.createdAt ?? '') }))
+    .sort((a, b) => {
+      const aHasTime = Number.isFinite(a.time);
+      const bHasTime = Number.isFinite(b.time);
+      if (aHasTime && bHasTime && a.time !== b.time) return b.time - a.time;
+      if (aHasTime !== bHasTime) return aHasTime ? -1 : 1;
+      return b.index - a.index;
+    })
+    .map(({ template }) => template);
 }
 
 /**
@@ -192,6 +232,9 @@ function GalleryRail({
       >
         <AllIcon />
       </RailBtn>
+      <RailBtn on={view.kind === 'latest'} label="최신" onClick={() => setView({ kind: 'latest' })}>
+        <RecentIcon />
+      </RailBtn>
       <RailBtn on={view.kind === 'images'} label="이미지" onClick={() => setView({ kind: 'images' })}>
         <ImageIcon />
       </RailBtn>
@@ -219,6 +262,15 @@ function GalleryRail({
         </RailBtn>
       ))}
     </div>
+  );
+}
+
+function RecentIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 7v5l3 2" />
+    </svg>
   );
 }
 

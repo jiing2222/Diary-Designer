@@ -256,6 +256,8 @@ interface Settings {
    * 돌아간다 — `resolveSlotTemplates`가 그 판단을 한다.
    */
   slotAssignment: Record<number, string>;
+  /** 시트별 칸 배정. 키는 `sheet × 한 장의 칸 수 + slot`이다. */
+  sheetSlotAssignment: Record<number, string>;
   /**
    * 낱장 조합에서, 특정 칸만 "인쇄하기"에서 직접 손본 내용. 키는 슬롯 번호
    * (slotAssignment와 같은 번호 매김). 값이 있으면 그 칸에 배정된 양식이
@@ -269,6 +271,9 @@ interface Settings {
   comboSlotOverrides: Record<number, DiaryObject[]>;
   /** 뒷면 쪽의 comboSlotOverrides. */
   comboSlotBackOverrides: Record<number, DiaryObject[]>;
+  /** 시트별로 직접 손본 칸. 키 규칙은 sheetSlotAssignment와 같다. */
+  comboSheetSlotOverrides: Record<number, DiaryObject[]>;
+  comboSheetSlotBackOverrides: Record<number, DiaryObject[]>;
   /**
    * 인쇄하기에서 칸·페이지 하나를 직접 손보는 중일 때만 값이 있다. 실제
    * 양식 목록(`templates`)에는 들어가지 않는다 — 갤러리에도 저장 파일에도
@@ -338,10 +343,20 @@ interface Store extends Settings {
   removeTemplate: (id: string) => void;
   /** 낱장 조합에서 이 칸에 넣을 양식. `null`이면 배정을 지우고 기본값(activeId)으로 돌린다. */
   assignSlot: (index: number, templateId: string | null) => void;
+  /** 시트별 칸 하나를 배정한다. `null`은 현재 양식으로 명시한다. */
+  assignSheetSlot: (index: number, templateId: string | null) => void;
+  /** 드래그 채우기 — 연속한 칸을 한 번에 배정한다. */
+  assignSheetSlotRange: (from: number, to: number, templateId: string | null) => void;
+  /** 시트를 바로 뒤에 복제한다. 시트별 배정·직접 수정 내용도 함께 복사한다. */
+  duplicateComboSheet: (sheet: number, slotsPerSheet: number) => void;
+  /** 시트를 지우고 뒤쪽 시트를 한 칸씩 앞으로 당긴다. 마지막 한 장은 남긴다. */
+  removeComboSheet: (sheet: number, slotsPerSheet: number) => void;
   /** 낱장 조합의 그 칸을 "인쇄하기"에서 직접 손본 내용으로 남긴다. */
   setComboSlotOverride: (index: number, side: Side, objects: DiaryObject[]) => void;
+  setComboSheetSlotOverride: (index: number, side: Side, objects: DiaryObject[]) => void;
   /** 손본 내용을 지우고 다시 배정된 양식을 자동으로 따르게 한다. */
   clearComboSlotOverride: (index: number, side: Side) => void;
+  clearComboSheetSlotOverride: (index: number, side: Side) => void;
   /** 세트형의 그 페이지를 "인쇄하기"에서 직접 손본 내용으로 남긴다. */
   setPageOverride: (page: number, side: Side, objects: DiaryObject[]) => void;
   /** 손본 페이지를 지우고 다시 원본 양식에서 자동 계산하게 한다. */
@@ -599,8 +614,11 @@ export function projectOf(s: Store, templates: Template[]): SavedProject {
       cutStackGroup: s.cutStackGroup,
       unprintable: s.unprintable,
       slotAssignment: s.slotAssignment,
+      sheetSlotAssignment: s.sheetSlotAssignment,
       comboSlotOverrides: s.comboSlotOverrides,
       comboSlotBackOverrides: s.comboSlotBackOverrides,
+      comboSheetSlotOverrides: s.comboSheetSlotOverrides,
+      comboSheetSlotBackOverrides: s.comboSheetSlotBackOverrides,
     },
     fonts: s.userFonts.map((f) => ({ id: f.id, name: f.name })),
     images: s.userImages.map((i) => ({ id: i.id, name: i.name })),
@@ -859,7 +877,8 @@ function pruneSlotAssignment(
   assignment: Record<number, string>,
 ): Record<number, string> {
   const ids = new Set(templates.map((t) => t.id));
-  return Object.fromEntries(Object.entries(assignment).filter(([, id]) => ids.has(id)));
+  // 빈 문자열은 "현재 양식"을 명시한 시트별 배정값이다.
+  return Object.fromEntries(Object.entries(assignment).filter(([, id]) => id === '' || ids.has(id)));
 }
 
 /**
@@ -869,12 +888,17 @@ function pruneSlotAssignment(
  * 양식이 지워졌거나, **규격이 지금 양식과 다르면** 전부 지금 양식(activeId)으로
  * 대신한다. 규격이 다른 양식을 섞으면 배치 계산(칸 크기)이 성립하지 않는다.
  */
-export function resolveSlotTemplates(s: Settings, count: number): Template[] {
+export function resolveSlotTemplates(s: Settings, count: number, sheet = 0): Template[] {
   const base = activeTemplate(s);
   if (!base) return [];
   const out: Template[] = [];
   for (let i = 0; i < count; i++) {
-    const id = s.slotAssignment[i];
+    const global = sheet * count + i;
+    // 시트별 값이 있으면 그것을, 없으면 예전 한-시트 배정을 모든 시트의
+    // 기본값으로 쓴다. 그래서 이전 파일의 반복 인쇄 결과가 그대로 남는다.
+    const id = Object.prototype.hasOwnProperty.call(s.sheetSlotAssignment, global)
+      ? s.sheetSlotAssignment[global]
+      : s.slotAssignment[i];
     const t = id ? s.templates.find((x) => x.id === id) : undefined;
     // 규격이 같고, 그 양식도 낱장 조합에 낄 수 있어야(single) 유효하다.
     // 반복(repeat) 양식은 자기 하나로만 여러 장을 채우는 것이라 낄 수 없다 —
@@ -936,8 +960,11 @@ export const useStore = create<Store>((set) => ({
   cutStackGroup: 0,
   unprintable: { show: true, width: 3 },
   slotAssignment: {},
+  sheetSlotAssignment: {},
   comboSlotOverrides: {},
   comboSlotBackOverrides: {},
+  comboSheetSlotOverrides: {},
+  comboSheetSlotBackOverrides: {},
   shadowTemplate: null,
   shadowSide: 'front',
   shadowToken: 0,
@@ -1131,6 +1158,7 @@ export const useStore = create<Store>((set) => ({
         selectedIds: [],
         // 지워진 양식을 가리키던 칸 배정도 함께 걷어낸다.
         slotAssignment: pruneSlotAssignment(templates, s.slotAssignment),
+        sheetSlotAssignment: pruneSlotAssignment(templates, s.sheetSlotAssignment),
       };
     }),
 
@@ -1142,15 +1170,86 @@ export const useStore = create<Store>((set) => ({
       return { slotAssignment: next };
     }),
 
+  assignSheetSlot: (index, templateId) =>
+    set((s) => ({ sheetSlotAssignment: { ...s.sheetSlotAssignment, [index]: templateId ?? '' } })),
+
+  assignSheetSlotRange: (from, to, templateId) =>
+    set((s) => {
+      const next = { ...s.sheetSlotAssignment };
+      for (let i = Math.min(from, to); i <= Math.max(from, to); i++) next[i] = templateId ?? '';
+      return { sheetSlotAssignment: next };
+    }),
+
+  duplicateComboSheet: (sheet, slotsPerSheet) =>
+    set((s) => {
+      if (slotsPerSheet <= 0 || sheet < 0 || sheet >= s.comboSheets) return {};
+      const insertAfter = sheet;
+      const duplicate = <T,>(record: Record<number, T>): Record<number, T> => {
+        const next: Record<number, T> = {};
+        for (const [raw, value] of Object.entries(record)) {
+          const global = Number(raw);
+          const sourceSheet = Math.floor(global / slotsPerSheet);
+          const slot = global % slotsPerSheet;
+          const shifted = sourceSheet > insertAfter ? sourceSheet + 1 : sourceSheet;
+          next[shifted * slotsPerSheet + slot] = value;
+          if (sourceSheet === insertAfter) next[(insertAfter + 1) * slotsPerSheet + slot] = value;
+        }
+        return next;
+      };
+      return {
+        comboSheets: s.comboSheets + 1,
+        sheetSlotAssignment: duplicate(s.sheetSlotAssignment),
+        comboSheetSlotOverrides: duplicate(s.comboSheetSlotOverrides),
+        comboSheetSlotBackOverrides: duplicate(s.comboSheetSlotBackOverrides),
+      };
+    }),
+
+  removeComboSheet: (sheet, slotsPerSheet) =>
+    set((s) => {
+      if (slotsPerSheet <= 0 || s.comboSheets <= 1 || sheet < 0 || sheet >= s.comboSheets) return {};
+      const remove = <T,>(record: Record<number, T>): Record<number, T> => {
+        const next: Record<number, T> = {};
+        for (const [raw, value] of Object.entries(record)) {
+          const global = Number(raw);
+          const sourceSheet = Math.floor(global / slotsPerSheet);
+          if (sourceSheet === sheet) continue;
+          const slot = global % slotsPerSheet;
+          const shifted = sourceSheet > sheet ? sourceSheet - 1 : sourceSheet;
+          next[shifted * slotsPerSheet + slot] = value;
+        }
+        return next;
+      };
+      return {
+        comboSheets: s.comboSheets - 1,
+        sheetSlotAssignment: remove(s.sheetSlotAssignment),
+        comboSheetSlotOverrides: remove(s.comboSheetSlotOverrides),
+        comboSheetSlotBackOverrides: remove(s.comboSheetSlotBackOverrides),
+      };
+    }),
+
   setComboSlotOverride: (index, side, objects) =>
     set((s) => {
       const key = side === 'back' ? 'comboSlotBackOverrides' : 'comboSlotOverrides';
       return { [key]: { ...s[key], [index]: objects } };
     }),
 
+  setComboSheetSlotOverride: (index, side, objects) =>
+    set((s) => {
+      const key = side === 'back' ? 'comboSheetSlotBackOverrides' : 'comboSheetSlotOverrides';
+      return { [key]: { ...s[key], [index]: objects } };
+    }),
+
   clearComboSlotOverride: (index, side) =>
     set((s) => {
       const key = side === 'back' ? 'comboSlotBackOverrides' : 'comboSlotOverrides';
+      const next = { ...s[key] };
+      delete next[index];
+      return { [key]: next };
+    }),
+
+  clearComboSheetSlotOverride: (index, side) =>
+    set((s) => {
+      const key = side === 'back' ? 'comboSheetSlotBackOverrides' : 'comboSheetSlotOverrides';
       const next = { ...s[key] };
       delete next[index];
       return { [key]: next };
@@ -1584,6 +1683,9 @@ export const useStore = create<Store>((set) => ({
         // 칸 배정도 저장돼 있으면 함께 돌아온다. id는 양식과 함께 저장되므로
         // 대개 그대로 맞지만, 혹시 어긋난 것이 있으면 걷어낸다.
         slotAssignment: pruneSlotAssignment(deduped, print.slotAssignment ?? {}),
+        sheetSlotAssignment: pruneSlotAssignment(deduped, print.sheetSlotAssignment ?? {}),
+        comboSheetSlotOverrides: print.comboSheetSlotOverrides ?? {},
+        comboSheetSlotBackOverrides: print.comboSheetSlotBackOverrides ?? {},
         // side는 저장하지 않는 값이다. print를 펼친 뒤 마지막에 확실히 앞면으로 둔다.
         side: 'front' as const,
       };

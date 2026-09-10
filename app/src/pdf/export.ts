@@ -259,8 +259,8 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   const font = await doc.embedFont(StandardFonts.Helvetica);
 
   /** 칸 하나의 내용. 낱장 조합에서 정한 칸만 기본값을 벗어난다. */
-  const resolveSlot = (i: number): SlotContent =>
-    input.slotOverrides?.get(i) ?? {
+  const resolveSlot = (sheet: number, i: number): SlotContent =>
+    input.slotOverrides?.get(sheet * input.layout.slots.length + i) ?? {
       dotGrid: input.dotGrid,
       objects: input.objects,
       safeZoneWidth: input.safeZoneWidth,
@@ -271,8 +271,10 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
    * 정하지 않은 칸(기본 뒷면을 씀)을 구분한다 — 앞면의 기본값 대체와 다른
    * 지점이다.
    */
-  const resolveBackSlot = (i: number): SlotContent =>
-    (input.backSlotOverrides?.has(i) ? input.backSlotOverrides.get(i) : input.defaultBack) ??
+  const resolveBackSlot = (sheet: number, i: number): SlotContent =>
+    (input.backSlotOverrides?.has(sheet * input.layout.slots.length + i)
+      ? input.backSlotOverrides.get(sheet * input.layout.slots.length + i)
+      : input.defaultBack) ??
     BLANK_SLOT;
 
   /*
@@ -468,11 +470,11 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
       ? frontBackFilled(sheet, input.totalSlots, slotsPerSheet, duplex)
       : { front: slotsPerSheet, back: slotsPerSheet };
 
-    drawSide(page, input.layout, (i) => (i < front ? resolveSlot(i) : BLANK_SLOT), false, null);
+    drawSide(page, input.layout, (i) => (i < front ? resolveSlot(sheet, i) : BLANK_SLOT), false, null);
 
     if (duplex && backLayout) {
       const backPage = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
-      drawSide(backPage, backLayout, (i) => (i < back ? resolveBackSlot(i) : BLANK_SLOT), true, null);
+      drawSide(backPage, backLayout, (i) => (i < back ? resolveBackSlot(sheet, i) : BLANK_SLOT), true, null);
     }
   }
 

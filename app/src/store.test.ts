@@ -835,6 +835,58 @@ describe('낱장 조합 — 칸 배정', () => {
     expect(resolveSlotTemplates(s(), 1)[0].id).toBe(first);
   });
 
+  it('시트별 배정은 같은 칸 번호여도 서로 독립적이다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    s().selectTemplate(first);
+
+    // 한 시트에 네 칸이라고 가정하면 1번 시트의 0번과 2번 시트의 0번은 0·4다.
+    s().assignSheetSlot(4, second);
+    expect(resolveSlotTemplates(s(), 4, 0)[0].id).toBe(first);
+    expect(resolveSlotTemplates(s(), 4, 1)[0].id).toBe(second);
+  });
+
+  it('드래그 채우기는 시트 경계를 넘는 연속 범위를 한 번에 배정한다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    s().selectTemplate(first);
+
+    s().assignSheetSlotRange(2, 5, second);
+    expect(resolveSlotTemplates(s(), 4, 0).map((t) => t.id)).toEqual([first, first, second, second]);
+    expect(resolveSlotTemplates(s(), 4, 1).map((t) => t.id)).toEqual([second, second, first, first]);
+  });
+
+  it('시트를 복사하면 시트별 배정도 바로 다음 시트에 복사한다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    s().selectTemplate(first);
+    s().assignSheetSlot(1, second);
+
+    s().duplicateComboSheet(0, 4);
+    expect(s().comboSheets).toBe(2);
+    expect(resolveSlotTemplates(s(), 4, 1)[1].id).toBe(second);
+  });
+
+  it('시트를 지우면 뒤쪽 배정이 앞으로 당겨진다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    s().selectTemplate(first);
+    s().patch({ comboSheets: 3 });
+    s().assignSheetSlot(8, second);
+
+    s().removeComboSheet(1, 4);
+    expect(s().comboSheets).toBe(2);
+    expect(resolveSlotTemplates(s(), 4, 1)[0].id).toBe(second);
+  });
+
   it('배정된 양식을 지우면 그 칸도 기본값으로 돌아간다', () => {
     s().addTemplate(insertFromPreset('M6'));
     const first = s().activeId;
