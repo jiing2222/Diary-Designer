@@ -693,6 +693,23 @@ describe('저장 파일 불러오기', () => {
 
     expect(s().userFonts).toEqual([{ id: 'f3', name: '내글꼴', family: 'user-font-f3' }]);
   });
+
+  it('옛 평면형 시트 배정을 불러오면 시트와 슬롯을 나눠 보관한다', () => {
+    s().loadProject({
+      version: 1,
+      savedAt: '',
+      templates: [
+        { id: 'x1', name: '기본', insert: insertFromPreset('M6'), dotGrid: DEFAULT_DOT_GRID, objects: [] },
+        { id: 'x2', name: '배정', insert: insertFromPreset('M6'), dotGrid: DEFAULT_DOT_GRID, objects: [] },
+      ],
+      // A4·M6는 한 장에 네 칸이다. 옛 키 4는 둘째 장 첫 칸이었다.
+      print: { comboSheets: 2, sheetSlotAssignment: { 4: 'x2' } },
+      fonts: [],
+    });
+
+    expect(s().sheetSlotAssignment).toEqual({ 1: { 0: 'x2' } });
+    expect(resolveSlotTemplates(s(), 4, 1)[0].id).toBe('x2');
+  });
 });
 
 describe('양식 하나짜리 파일을 더해 불러오기', () => {
@@ -718,6 +735,25 @@ describe('양식 하나짜리 파일을 더해 불러오기', () => {
     expect(s().templates).toHaveLength(2);
     expect(s().templates[0].name).toBe('기존양식');
     expect(at().name).toBe('불러온것'); // 방금 더한 것이 활성 양식이 된다
+  });
+
+  it('가져온 양식은 가져온 시각을 새 생성 시각으로 받는다', () => {
+    s().importTemplates([
+      {
+        id: 'x1',
+        name: '오래된 파일',
+        createdAt: '2000-01-01T00:00:00.000Z',
+        insert: insertFromPreset('M6'),
+        dotGrid: DEFAULT_DOT_GRID,
+        kind: 'insert',
+        palette: { main: null, subs: [] },
+        objects: { present: [], past: [], future: [] },
+        repeat: { mode: 'single' },
+        back: null,
+      },
+    ]);
+
+    expect(Date.parse(at().createdAt ?? '')).toBeGreaterThan(Date.parse('2000-01-01T00:00:00.000Z'));
   });
 
   it('id가 지금 프로젝트의 기존 객체와 겹쳐도 새 id를 받아 안전하다', () => {
@@ -842,10 +878,22 @@ describe('낱장 조합 — 칸 배정', () => {
     const second = s().activeId;
     s().selectTemplate(first);
 
-    // 한 시트에 네 칸이라고 가정하면 1번 시트의 0번과 2번 시트의 0번은 0·4다.
-    s().assignSheetSlot(4, second);
+    s().assignSheetSlot(1, 0, second);
     expect(resolveSlotTemplates(s(), 4, 0)[0].id).toBe(first);
     expect(resolveSlotTemplates(s(), 4, 1)[0].id).toBe(second);
+  });
+
+  it('한 장의 칸 수가 바뀌어도 다른 시트 배정으로 뒤바뀌지 않는다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const first = s().activeId;
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    s().selectTemplate(first);
+    s().assignSheetSlot(1, 0, second);
+
+    expect(resolveSlotTemplates(s(), 4, 1)[0].id).toBe(second);
+    expect(resolveSlotTemplates(s(), 2, 1)[0].id).toBe(second);
+    expect(resolveSlotTemplates(s(), 6, 0).every((t) => t.id === first)).toBe(true);
   });
 
   it('드래그 채우기는 시트 경계를 넘는 연속 범위를 한 번에 배정한다', () => {
@@ -855,7 +903,7 @@ describe('낱장 조합 — 칸 배정', () => {
     const second = s().activeId;
     s().selectTemplate(first);
 
-    s().assignSheetSlotRange(2, 5, second);
+    s().assignSheetSlotRange({ sheet: 0, slot: 2 }, { sheet: 1, slot: 1 }, 4, second);
     expect(resolveSlotTemplates(s(), 4, 0).map((t) => t.id)).toEqual([first, first, second, second]);
     expect(resolveSlotTemplates(s(), 4, 1).map((t) => t.id)).toEqual([second, second, first, first]);
   });
@@ -866,9 +914,9 @@ describe('낱장 조합 — 칸 배정', () => {
     s().addTemplate(insertFromPreset('M6'));
     const second = s().activeId;
     s().selectTemplate(first);
-    s().assignSheetSlot(1, second);
+    s().assignSheetSlot(0, 1, second);
 
-    s().duplicateComboSheet(0, 4);
+    s().duplicateComboSheet(0);
     expect(s().comboSheets).toBe(2);
     expect(resolveSlotTemplates(s(), 4, 1)[1].id).toBe(second);
   });
@@ -880,11 +928,35 @@ describe('낱장 조합 — 칸 배정', () => {
     const second = s().activeId;
     s().selectTemplate(first);
     s().patch({ comboSheets: 3 });
-    s().assignSheetSlot(8, second);
+    s().assignSheetSlot(2, 0, second);
 
-    s().removeComboSheet(1, 4);
+    s().removeComboSheet(1);
     expect(s().comboSheets).toBe(2);
     expect(resolveSlotTemplates(s(), 4, 1)[0].id).toBe(second);
+  });
+
+  it('매수를 줄이면 잘린 시트의 배정과 직접 수정 내용도 지운다', () => {
+    s().addTemplate(insertFromPreset('M6'));
+    const second = s().activeId;
+    const objects: DiaryObject[] = [{ id: 'l1', type: 'line', x1: 0, y1: 0, x2: 10, y2: 10 }];
+    s().patch({ comboSheets: 3 });
+    s().assignSheetSlot(2, 0, second);
+    s().setComboSheetSlotOverride(2, 0, 'front', objects);
+
+    s().patch({ comboSheets: 1 });
+    s().patch({ comboSheets: 3 });
+    expect(s().sheetSlotAssignment[2]).toBeUndefined();
+    expect(s().comboSheetSlotOverrides[2]).toBeUndefined();
+  });
+
+  it('예전 직접 수정 내용을 되돌리면 그 시트에서 실제로 사라진다', () => {
+    const objects: DiaryObject[] = [{ id: 'l1', type: 'line', x1: 0, y1: 0, x2: 10, y2: 10 }];
+    useStore.setState({ comboSheets: 2, comboSlotOverrides: { 0: objects } });
+
+    s().clearComboSheetSlotOverride(0, 0, 'front');
+    expect(s().comboSlotOverrides).toEqual({});
+    expect(s().comboSheetSlotOverrides[0]?.[0]).toBeUndefined();
+    expect(s().comboSheetSlotOverrides[1]?.[0]).toEqual(objects);
   });
 
   it('배정된 양식을 지우면 그 칸도 기본값으로 돌아간다', () => {
@@ -944,6 +1016,16 @@ describe('인쇄하기에서 직접 손본 내용 — 낱장 조합 칸', () => 
     s().setComboSlotOverride(1, 'front', [obj('b')]);
     s().clearComboSlotOverride(0, 'front');
     expect(s().comboSlotOverrides[1]).toEqual([obj('b')]);
+  });
+
+  it('시트를 복사·삭제하면 시트별 수정 내용도 같은 시트와 함께 움직인다', () => {
+    s().setComboSheetSlotOverride(0, 1, 'front', [obj('a')]);
+    s().duplicateComboSheet(0);
+    expect(s().comboSheetSlotOverrides[1]?.[1]).toEqual([obj('a')]);
+
+    s().removeComboSheet(0);
+    expect(s().comboSheetSlotOverrides[0]?.[1]).toEqual([obj('a')]);
+    expect(s().comboSheetSlotOverrides[1]).toBeUndefined();
   });
 });
 

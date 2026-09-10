@@ -89,6 +89,7 @@ import {
   weekStartOf,
 } from '../core/calendar';
 import { calendarCellAt, isInMonth } from '../core/dataset';
+import { sheetSlotKey } from '../core/sheetSlots';
 
 /**
  * PDF 생성.
@@ -134,15 +135,15 @@ interface ExportInput {
   /**
    * 낱장 조합 — 칸마다 다른 양식을 넣을 때, **기본값과 다른 칸만** 채운다.
    *
-   * 키는 슬롯 번호(0부터, `layout.slots`와 같은 순서). 여기 없는 칸은 위의
-   * `dotGrid`·`objects`·`safeZoneWidth`를 그대로 쓴다 — 지금까지의 "모든 칸이
-   * 같은 양식"이라는 동작이 곧 이 맵이 비어 있는 경우다.
+   * 키는 core/sheetSlots의 `시트:슬롯` 주소다. 여기 없는 칸은 위의 `dotGrid`·
+   * `objects`·`safeZoneWidth`를 그대로 쓴다 — 지금까지의 "모든 칸이 같은
+   * 양식"이라는 동작이 곧 이 맵이 비어 있는 경우다.
    *
    * 글꼴은 문서 전체에 한 번만 심는다. 칸마다 다른 양식이라도 텍스트가 있는
    * 칸이 하나라도 있으면 같은 글꼴로 전부 그린다 — 칸마다 다른 글꼴 파일을
    * 심으면 문서가 그만큼 무거워지고, 등록한 글꼴이 칸마다 다를 이유도 없다.
    */
-  slotOverrides?: Map<number, SlotContent>;
+  slotOverrides?: Map<string, SlotContent>;
   /**
    * 반복 인쇄 — 이 내용을 몇 칸어치 찍을지.
    *
@@ -177,12 +178,12 @@ interface ExportInput {
    */
   defaultBack?: SlotContent;
   /**
-   * 낱장 조합에서 칸마다 다른 뒷면. 키는 `layout.slots`와 같은 인덱스(앞면 기준).
+   * 낱장 조합에서 칸마다 다른 뒷면. 키는 앞면과 같은 `시트:슬롯` 주소다.
    *
    * 값이 `null`이면 "그 칸에 배정된 양식엔 뒷면이 없다"는 뜻으로, `defaultBack`을
    * 대신 쓰지 않고 그 칸만 완전히 비운다. 맵에 아예 없는 칸은 `defaultBack`을 쓴다.
    */
-  backSlotOverrides?: Map<number, SlotContent | null>;
+  backSlotOverrides?: Map<string, SlotContent | null>;
   /**
    * 낱장 조합 — 이 배치를 통째로 몇 장 찍을지.
    *
@@ -260,7 +261,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
 
   /** 칸 하나의 내용. 낱장 조합에서 정한 칸만 기본값을 벗어난다. */
   const resolveSlot = (sheet: number, i: number): SlotContent =>
-    input.slotOverrides?.get(sheet * input.layout.slots.length + i) ?? {
+    input.slotOverrides?.get(sheetSlotKey(sheet, i)) ?? {
       dotGrid: input.dotGrid,
       objects: input.objects,
       safeZoneWidth: input.safeZoneWidth,
@@ -272,8 +273,8 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
    * 지점이다.
    */
   const resolveBackSlot = (sheet: number, i: number): SlotContent =>
-    (input.backSlotOverrides?.has(sheet * input.layout.slots.length + i)
-      ? input.backSlotOverrides.get(sheet * input.layout.slots.length + i)
+    (input.backSlotOverrides?.has(sheetSlotKey(sheet, i))
+      ? input.backSlotOverrides.get(sheetSlotKey(sheet, i))
       : input.defaultBack) ??
     BLANK_SLOT;
 

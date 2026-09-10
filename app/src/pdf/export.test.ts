@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { buildPdf, type SlotContent } from './export';
 import { computeLayout } from '../core/layout';
 import { DEFAULT_DOT_GRID } from '../core/grid';
+import { sheetSlotKey } from '../core/sheetSlots';
 import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from '../core/style';
 import { MM_TO_PT } from '../core/units';
 import type { CalendarObject } from '../core/objects';
@@ -324,7 +325,7 @@ describe('낱장 조합 — 칸마다 다른 양식', () => {
     const line = { id: 'l1', type: 'line' as const, x1: 10, y1: 10, x2: 70, y2: 10 };
     const overridden = await buildPdf({
       ...base,
-      slotOverrides: new Map([[1, { dotGrid: noGrid, objects: [line], safeZoneWidth: 10 }]]),
+      slotOverrides: new Map([[sheetSlotKey(0, 1), { dotGrid: noGrid, objects: [line], safeZoneWidth: 10 }]]),
     });
     // 두 칸 다 비어 있던 것보다 커야 한다 — 칸 1에 선이 하나 늘었다.
     expect(overridden.byteLength).toBeGreaterThan((await buildPdf(base)).byteLength);
@@ -335,7 +336,7 @@ describe('낱장 조합 — 칸마다 다른 양식', () => {
     const bothOff = await buildPdf(base);
     const oneOn = await buildPdf({
       ...base,
-      slotOverrides: new Map([[0, { dotGrid: DEFAULT_DOT_GRID, objects: [], safeZoneWidth: 10 }]]),
+      slotOverrides: new Map([[sheetSlotKey(0, 0), { dotGrid: DEFAULT_DOT_GRID, objects: [], safeZoneWidth: 10 }]]),
     });
     expect(oneOn.byteLength).toBeGreaterThan(bothOff.byteLength);
   });
@@ -354,7 +355,7 @@ describe('낱장 조합 — 칸마다 다른 양식', () => {
     };
     const withText = await buildPdf({
       ...base,
-      slotOverrides: new Map([[1, { dotGrid: noGrid, objects: [text], safeZoneWidth: 10 }]]),
+      slotOverrides: new Map([[sheetSlotKey(0, 1), { dotGrid: noGrid, objects: [text], safeZoneWidth: 10 }]]),
     });
     const withoutText = await buildPdf(base);
     expect(withText).toEqual(withoutText);
@@ -378,7 +379,7 @@ describe('낱장 조합 — 칸마다 다른 양식', () => {
       buildPdf({
         ...base,
         fontBytes: new Uint8Array([1, 2, 3]),
-        slotOverrides: new Map([[1, { dotGrid: noGrid, objects: [text], safeZoneWidth: 10 }]]),
+        slotOverrides: new Map([[sheetSlotKey(0, 1), { dotGrid: noGrid, objects: [text], safeZoneWidth: 10 }]]),
       }),
     ).rejects.toThrow();
   });
@@ -424,6 +425,20 @@ describe('낱장 조합 — 통째로 반복(sheets)', () => {
     // 3장은 1장의 3배 내용이어야 한다(같은 도트 패턴이 그대로 반복되므로
     // 바이트도 거의 정비례해야 한다 — 장마다 빈 칸이 섞이면 이 비율이 깨진다).
     expect(three.byteLength).toBeGreaterThan(one.byteLength * 2.5);
+  });
+
+  it('두 번째 시트에만 지정한 내용은 첫 번째 시트에 섞이지 않는다', async () => {
+    const line = { id: 'sheet-2-line', type: 'line' as const, x1: 10, y1: 10, x2: 70, y2: 10 };
+    const plain = await buildPdf({ ...base, dotGrid: noGrid, sheets: 2 });
+    const secondSheetOnly = await buildPdf({
+      ...base,
+      dotGrid: noGrid,
+      sheets: 2,
+      slotOverrides: new Map([
+        [sheetSlotKey(1, 0), { dotGrid: noGrid, objects: [line], safeZoneWidth: 10 }],
+      ]),
+    });
+    expect(secondSheetOnly.byteLength).toBeGreaterThan(plain.byteLength);
   });
 
   it('totalSlots가 있으면 sheets는 무시된다', async () => {
@@ -585,7 +600,7 @@ describe('양면 인쇄', () => {
     const oneBack = await buildPdf({
       ...base,
       duplex: true,
-      backSlotOverrides: new Map([[1, backContent(true)]]),
+      backSlotOverrides: new Map([[sheetSlotKey(0, 1), backContent(true)]]),
     });
     const noBack = await buildPdf({ ...base, duplex: true });
     expect(oneBack.byteLength).toBeGreaterThan(noBack.byteLength);
@@ -597,7 +612,7 @@ describe('양면 인쇄', () => {
       ...base,
       duplex: true,
       defaultBack: backContent(true),
-      backSlotOverrides: new Map([[0, null], [1, null]]),
+      backSlotOverrides: new Map([[sheetSlotKey(0, 0), null], [sheetSlotKey(0, 1), null]]),
     });
     expect(overriddenBlank.byteLength).toBeLessThan(withDefault.byteLength);
   });

@@ -53,6 +53,7 @@ import {
 import type { DiaryObject, ImageObject, TextObject } from '../core/objects';
 import { InsertGroup } from './SettingsPanel';
 import { DownloadIcon, MenuIcon, RingsLogo } from './icons';
+import { sheetSlotKey, sheetSlotValue } from '../core/sheetSlots';
 
 /**
  * `start`는 다른 셋과 성격이 다르다 — 앱 화면이 아니라 소개 화면이라
@@ -517,7 +518,8 @@ export function App() {
     if (objects !== editingSession.seed) {
       if (editingSession.kind === 'combo') {
         store.setComboSheetSlotOverride(
-          editingSession.sheet * layout.count + editingSession.index,
+          editingSession.sheet,
+          editingSession.index,
           editingSession.side,
           objects,
         );
@@ -576,12 +578,12 @@ export function App() {
     if (editingSession.kind === 'combo') {
       const existing =
         editingSession.side === 'front'
-          ? (store.comboSheetSlotOverrides[editingSession.sheet * layout.count + editingSession.index] ?? store.comboSlotOverrides[editingSession.index])
-          : (store.comboSheetSlotBackOverrides[editingSession.sheet * layout.count + editingSession.index] ?? store.comboSlotBackOverrides[editingSession.index]);
+          ? (sheetSlotValue(store.comboSheetSlotOverrides, editingSession.sheet, editingSession.index) ?? store.comboSlotOverrides[editingSession.index])
+          : (sheetSlotValue(store.comboSheetSlotBackOverrides, editingSession.sheet, editingSession.index) ?? store.comboSlotBackOverrides[editingSession.index]);
       if (existing) {
         setLastReverted({ kind: 'combo', sheet: editingSession.sheet, index: editingSession.index, side: editingSession.side, objects: existing });
       }
-      store.clearComboSheetSlotOverride(editingSession.sheet * layout.count + editingSession.index, editingSession.side);
+      store.clearComboSheetSlotOverride(editingSession.sheet, editingSession.index, editingSession.side);
     } else {
       const activeNow = store.templates.find((t) => t.id === store.activeId);
       const existing =
@@ -609,7 +611,7 @@ export function App() {
     if (!lastReverted) return;
     const store = useStore.getState();
     if (lastReverted.kind === 'combo') {
-      store.setComboSheetSlotOverride(lastReverted.sheet * layout.count + lastReverted.index, lastReverted.side, lastReverted.objects);
+      store.setComboSheetSlotOverride(lastReverted.sheet, lastReverted.index, lastReverted.side, lastReverted.objects);
     } else {
       store.setPageOverride(lastReverted.page, lastReverted.side, lastReverted.objects);
     }
@@ -634,11 +636,27 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  const previewOverrides = new Map<number, PreviewSlotContent>();
-  const pdfOverrides = new Map<number, SlotContent>();
+  // 숫자 입력으로 장수를 줄이면 버튼 경로(beforeSheetChange)를 거치지 않는다.
+  // 편집하던 시트 자체가 잘렸다면 그림자도 버리고, 남아 있는 시트라면 먼저
+  // 저장한다. 칸 수가 줄어 편집 칸이 잠시 안 보이는 경우도 같은 주소에 저장해
+  // 다른 시트로 섞이지 않게 한다.
+  useEffect(() => {
+    if (editingSession?.kind !== 'combo') return;
+    if (editingSession.sheet >= s.comboSheets) {
+      useStore.getState().endShadowEdit();
+      setEditingSession(null);
+    } else if (editingSession.index >= layout.count) {
+      commitEdit();
+      setEditingSession(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.comboSheets, layout.count]);
+
+  const previewOverrides = new Map<string, PreviewSlotContent>();
+  const pdfOverrides = new Map<string, SlotContent>();
   /** 뒷면 쪽 override. 앞면과 같은 인덱스, 같은 채우는 규칙을 쓴다. */
-  const previewBackOverrides = new Map<number, PreviewSlotContent>();
-  const pdfBackOverrides = new Map<number, SlotContent | null>();
+  const previewBackOverrides = new Map<string, PreviewSlotContent>();
+  const pdfBackOverrides = new Map<string, SlotContent | null>();
   /** 반복 인쇄가 아닐 때만 쓰인다. 글꼴을 모을 때 어느 양식들이 관여했는지 알아야 한다. */
   let slotTemplates: ReturnType<typeof resolveSlotTemplates> = [];
 
@@ -676,30 +694,29 @@ export function App() {
      * 지금 양식과 같은 칸은 굳이 override에 넣지 않는다. 대부분의 칸이 지금
      * 양식을 그대로 쓰므로, 다른 칸만 골라내는 편이 다루기 쉽다.
      *
-     * comboSheets만큼 찍어도 장마다 이 배치가 그대로 반복된다 — 그래서
-     * 인쇄하기 탭의 장별 미리보기(sheetOverrides)는 이 값을 sheet 번호와
-     * 무관하게 그대로 돌려준다.
+     * 시트와 슬롯 번호를 따로 주소로 쓴다. 용지 설정이 바뀌어 한 장의 칸 수가
+     * 달라져도 다른 시트의 내용으로 해석되지 않는다.
      */
     for (let sheet = 0; sheet < Math.max(1, s.comboSheets); sheet++) {
       const templatesForSheet = resolveSlotTemplates(s, layout.count, sheet);
       slotTemplates.push(...templatesForSheet);
       templatesForSheet.forEach((t, i) => {
-      const global = sheet * layout.count + i;
+      const key = sheetSlotKey(sheet, i);
       // "인쇄하기"에서 그 칸을 직접 손봤으면(comboSlotOverrides) 배정된 양식이
       // 무엇이든 그 내용을 그대로 쓴다 — 지금 양식과 같은 칸이라도 손봤으면
       // 건너뛰지 않는다.
-      const frontOverride = s.comboSheetSlotOverrides[global] ?? s.comboSlotOverrides[i];
-      const backOverride = s.comboSheetSlotBackOverrides[global] ?? s.comboSlotBackOverrides[i];
+      const frontOverride = sheetSlotValue(s.comboSheetSlotOverrides, sheet, i) ?? s.comboSlotOverrides[i];
+      const backOverride = sheetSlotValue(s.comboSheetSlotBackOverrides, sheet, i) ?? s.comboSlotBackOverrides[i];
       if (t.id === active.id && !frontOverride && !backOverride) return;
 
       const frontObjects = frontOverride ?? t.objects.present;
-      previewOverrides.set(global, {
+      previewOverrides.set(key, {
         insert: t.insert,
         dotGrid: t.dotGrid,
         objects: frontObjects,
         overridden: frontOverride !== undefined,
       });
-      pdfOverrides.set(global, {
+      pdfOverrides.set(key, {
         dotGrid: t.dotGrid,
         objects: frontObjects,
         safeZoneWidth: t.insert.punch.safeZoneWidth,
@@ -709,13 +726,13 @@ export function App() {
       // 뒷면을 직접 손봤으면(backOverride) 원본에 뒷면이 없어도 그 내용을 쓴다.
       const backObjects = backOverride ?? (t.back ? t.back.objects.present : null);
       previewBackOverrides.set(
-        global,
+        key,
         backObjects
           ? { insert: t.insert, dotGrid: t.dotGrid, objects: backObjects, overridden: backOverride !== undefined }
           : { insert: t.insert, dotGrid: s.fillEmptyBack ? t.dotGrid : BLANK_PREVIEW_GRID, objects: [] },
       );
       pdfBackOverrides.set(
-        global,
+        key,
         backObjects
           ? { dotGrid: t.dotGrid, objects: backObjects, safeZoneWidth: t.insert.punch.safeZoneWidth }
           : (backFallback(t) ?? null),
@@ -729,8 +746,8 @@ export function App() {
    * 그래서 "지금 보는 장"(previewPage) 하나가 아니라 장 번호를 인자로 받아
    * 그 장의 칸 내용을 낸다.
    *
-   * 낱장 조합은 장마다 내용이 같으므로(comboSheets는 같은 배치의 반복) 위에서
-   * 이미 계산해둔 previewOverrides·previewBackOverrides를 그대로 돌려준다.
+   * 낱장 조합은 위에서 시트별 내용을 모두 계산해둔 previewOverrides·
+   * previewBackOverrides에서 해당 장의 주소만 꺼낸다.
    * 반복 인쇄·세트형은 장마다 달라서 그때그때 계산한다 — 세트형은 쪽수가
    * 아주 많으면(수백 쪽) 장마다 새로 계산하는 비용이 쌓일 수 있다. 지금은
    * "화면에 없는 장까지 다 그린다"는 단순한 방식을 쓴다 — 느려지면 그때
@@ -746,9 +763,9 @@ export function App() {
       const front = new Map<number, PreviewSlotContent>();
       const back = new Map<number, PreviewSlotContent>();
       for (let i = 0; i < layout.count; i++) {
-        const global = sheet * layout.count + i;
-        const frontContent = previewOverrides.get(global);
-        const backContent = previewBackOverrides.get(global);
+        const key = sheetSlotKey(sheet, i);
+        const frontContent = previewOverrides.get(key);
+        const backContent = previewBackOverrides.get(key);
         if (frontContent) front.set(i, frontContent);
         if (backContent) back.set(i, backContent);
       }
@@ -843,7 +860,7 @@ export function App() {
       return { previewOverrides: front, previewBackOverrides: back };
     }
 
-    return { previewOverrides, previewBackOverrides };
+    return { previewOverrides: new Map(), previewBackOverrides: new Map() };
   }
 
   const sheets =
@@ -1230,7 +1247,7 @@ export function App() {
                         calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
                         onSlotClick={editable ? onSlotClickFor('front') : undefined}
                       />
-                      {editingSession?.sheet === sheet && editingSession.side === 'front' && (
+                      {editingSession?.sheet === sheet && editingSession.index < layout.count && editingSession.side === 'front' && (
                         <PrintSlotEditor
                           slot={layout.slots[editingSession.index]}
                           rotated={layout.rotated}
@@ -1269,7 +1286,7 @@ export function App() {
                         calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
                         onSlotClick={editable ? onSlotClickFor('back') : undefined}
                       />
-                      {editingSession?.sheet === sheet && editingSession.side === 'back' && (
+                      {editingSession?.sheet === sheet && editingSession.index < layout.count && editingSession.side === 'back' && (
                         <PrintSlotEditor
                           slot={backLayout.slots[editingSession.index]}
                           rotated={backLayout.rotated}
@@ -1295,7 +1312,7 @@ export function App() {
             </div>
             </div>
             {/* 칸 배정 — 접었다 펼 수 있고 폭도 끌어서 바꾼다(ui/SlotPanel). */}
-            {printMode === 'combo' && <SlotPanel layout={layout} sheets={sheets} />}
+            {printMode === 'combo' && <SlotPanel layout={layout} sheets={sheets} beforeSheetChange={finishEdit} />}
             </div>
           </div>
         )}

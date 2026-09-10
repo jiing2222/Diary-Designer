@@ -1801,6 +1801,14 @@ body.resizing-col {
   border-radius: 50%;
   background: var(--ink);
   cursor: crosshair;
+  touch-action: none;
+}
+
+/* 점의 보이는 크기는 그대로 두되 터치·펜으로 잡는 영역은 넓힌다. */
+.slot-fill-handle::before {
+  position: absolute;
+  inset: -6px;
+  content: '';
 }
 
 .slot-fill-handle:hover {

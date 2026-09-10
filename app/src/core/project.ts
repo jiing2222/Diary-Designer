@@ -31,7 +31,7 @@ interface SavedNotebookHalf {
  * 불어나고, 남의 글꼴을 파일에 실어 옮기는 것은 라이선스상으로도 애매하다.
  * 불러올 때 무엇이 필요한지 알려주고 다시 등록받는다.
  */
-export const PROJECT_VERSION = 1;
+export const PROJECT_VERSION = 2;
 
 export interface SavedFont {
   id: string;
