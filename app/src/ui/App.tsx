@@ -51,6 +51,7 @@ import {
   restoreCachedImages,
 } from '../images/registry';
 import type { DiaryObject, ImageObject, TextObject } from '../core/objects';
+import { InsertGroup } from './SettingsPanel';
 import { DownloadIcon, MenuIcon, RingsLogo } from './icons';
 
 /**
@@ -92,6 +93,101 @@ type LastReverted = {
 const BLANK_PREVIEW_GRID: DotGrid = { ...DEFAULT_DOT_GRID, showOnScreen: false, print: false };
 
 /**
+ * 길찾기 줄의 "속지" 칸 안 — 양식 이름(클릭해서 바로 고치기)과 속지 크기.
+ *
+ * 디자인에서 이것들은 머리줄에 따로 떠 있는 게 아니라 **지금 있는 단계
+ * 안**에 들어 있다 — 지금 고치고 있는 속지가 무엇인지 말해주는 값이라
+ * "속지" 단계에 붙는 게 맞고, 인쇄하기 화면으로 가면 저절로 사라진다.
+ *
+ * 규격을 정하는 곳은 하나뿐이어야 하므로, 크기 말풍선은 SettingsPanel의
+ * `InsertGroup`을 그대로 가져다 쓴다 — 왼쪽 "속지" 탭이 쓰는 것과 같은
+ * 컴포넌트다.
+ */
+function TemplateInfo({ template }: { template: Template }) {
+  const renameTemplate = useStore((s) => s.renameTemplate);
+  const [renaming, setRenaming] = useState(false);
+  const [sizeOpen, setSizeOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sizeOpen) return;
+    function onDown(e: PointerEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setSizeOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSizeOpen(false);
+    }
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [sizeOpen]);
+
+  return (
+    <div className="template-info" ref={wrapRef}>
+      {renaming ? (
+        <input
+          className="template-name-input"
+          defaultValue={template.name}
+          autoFocus
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={(e) => {
+            renameTemplate(template.id, e.target.value);
+            setRenaming(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+            if (e.key === 'Escape') setRenaming(false);
+          }}
+        />
+      ) : (
+        <button className="template-name" onClick={() => setRenaming(true)} title="클릭해서 이름 바꾸기">
+          {template.name}
+        </button>
+      )}
+
+      <button className="size-trigger" onClick={() => setSizeOpen((v) => !v)} title="속지 크기">
+        {template.insert.width} × {template.insert.height}mm ▾
+      </button>
+
+      {sizeOpen && (
+        <div className="popover popover-below">
+          <h2>속지</h2>
+          <div className="popover-body">
+            <InsertGroup />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 실행취소 / 다시실행 — 속지 제작·노트 제작·인쇄하기(칸 손보기) 셋이 저마다
+ * 들고 있던 버튼을 여기 하나로 모았다. `s.undo`·`s.redo`는 이미 그림자
+ * (반쪽·칸을 직접 손보는 중)가 있으면 그쪽만, 없으면 활성 양식의 지금 쪽만
+ * 되돌린다 — `useObjects()`도 같은 우선순위라(store.ts) 버튼을 켜고 끄는
+ * 기준이 실제로 눌렀을 때 되돌아가는 대상과 늘 같다.
+ */
+function UndoRedo() {
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
+  const history = useObjects();
+  return (
+    <div className="undo-redo">
+      <button className="ghost" onClick={undo} disabled={!canUndo(history)} title="실행취소 (⌘Z)">
+        ↶
+      </button>
+      <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
+        ↷
+      </button>
+    </div>
+  );
+}
+
+/**
  * 지금 어느 단계에 있는지 — 양식 → 속지 → 인쇄.
  *
  * 햄버거 메뉴에도 같은 네 곳이 있지만 그건 **열어봐야** 보인다. 이건 늘
@@ -117,18 +213,35 @@ function Breadcrumb({
 
   return (
     <nav className="crumbs">
-      {steps.map((s, i) => (
-        <span key={s.id} className="crumb-item">
-          {i > 0 && <span className="crumb-sep">›</span>}
-          <button
-            className={`crumb ${tab === s.id ? 'on' : ''}`}
-            onClick={() => setTab(s.id)}
-            disabled={!s.enabled || tab === s.id}
-          >
-            {s.label}
-          </button>
-        </span>
-      ))}
+      {steps.map((s, i) => {
+        /*
+          지금 있는 곳이 "속지"면, 그 칸이 테두리 있는 상자로 부풀어 지금
+          고치는 양식의 이름·크기·되돌리기를 품는다(디자인). 그 값들은
+          "무슨 속지를 고치는 중인가"에 대한 답이라 이 단계 밖에서는 뜻이
+          없다 — 인쇄하기로 옮기면 저절로 사라진다.
+        */
+        const detailed = s.id === 'edit' && tab === 'edit' && !!active;
+        return (
+          <span key={s.id} className="crumb-item">
+            {i > 0 && <span className="crumb-sep">›</span>}
+            {detailed ? (
+              <span className="crumb-active-group">
+                <span className="crumb-active-label">{s.label}</span>
+                <TemplateInfo template={active} />
+                <UndoRedo />
+              </span>
+            ) : (
+              <button
+                className={`crumb ${tab === s.id ? 'on' : ''}`}
+                onClick={() => setTab(s.id)}
+                disabled={!s.enabled || tab === s.id}
+              >
+                {s.label}
+              </button>
+            )}
+          </span>
+        );
+      })}
     </nav>
   );
 }
@@ -909,13 +1022,19 @@ export function App() {
 
         <div className="header-spacer" />
 
+        {/*
+          인쇄하기 화면에서만 "PDF Export"에 아이콘이 붙는다 — 거기서는
+          이게 그 화면의 결론이라 눈에 띄어야 하고, 속지 제작 중에는
+          그냥 언제든 받아둘 수 있는 "Download"다(디자인의 두 화면이 실제로
+          그렇게 다르다).
+        */}
         <button
           className="export-btn"
           onClick={exportPdf}
           disabled={busy || !active || layout.count === 0}
         >
-          <DownloadIcon />
-          <span>{busy ? 'Preparing…' : 'PDF Export'}</span>
+          {tab === 'print' && <DownloadIcon />}
+          <span>{busy ? 'Preparing…' : tab === 'print' ? 'PDF Export' : 'Download'}</span>
         </button>
       </header>
 

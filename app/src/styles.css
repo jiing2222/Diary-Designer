@@ -123,17 +123,13 @@ header h1 {
 }
 
 /* 헤더 가운데 — 양식 이름 · 속지 크기 · 실행취소/다시실행 */
-.template-info-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+
 
 .template-info {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 .undo-redo {
@@ -142,9 +138,8 @@ header h1 {
   gap: 2px;
 }
 
-.template-name,
-.size-trigger {
-  padding: 4px 8px;
+.template-name {
+  padding: 2px 4px;
   border-radius: 4px;
   background: transparent;
   color: var(--ink);
@@ -152,8 +147,13 @@ header h1 {
   font-weight: 600;
 }
 
+/* 크기는 이름보다 한 단계 작고 옅다 — 이름이 먼저 읽혀야 한다(디자인). */
 .size-trigger {
+  padding: 0;
+  border-radius: 4px;
+  background: transparent;
   color: var(--muted);
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -445,8 +445,14 @@ button.ghost:disabled {
   flex: 1;
   min-height: 0;
   display: flex;
+  /*
+   * 위아래 가운데. `align-items: center`가 아닌 이유는 아래
+   * .canvas-rotate-frame 주석과 같다 — 확대해서 속지가 화면보다 커지면
+   * flex 가운데 정렬은 넘친 양을 한쪽에만 있는 것처럼 계산해서 스크롤로
+   * 위쪽 끝까지 갈 수 없다. margin: auto는 그 문제가 없다.
+   */
   align-items: flex-start;
-  padding: 24px;
+  padding: 32px;
   overflow: auto;
 }
 
@@ -465,7 +471,7 @@ button.ghost:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto;
+  margin: auto;
 }
 
 /*
@@ -2264,6 +2270,37 @@ footer b {
   padding: 0 2px;
   color: #c6c6c0;
   font-size: 12px;
+}
+
+/*
+ * 지금 있는 곳이 "속지"일 때, 그 칸이 테두리 있는 상자로 부풀어 양식
+ * 이름·크기·되돌리기를 품는다(디자인). 다른 단계는 눌러서 가는 글자
+ * 하나뿐이므로 이 상자가 없다.
+ */
+.crumb-active-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f9f9f7;
+}
+
+.crumb-active-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* 되돌리기·다시실행은 20px짜리 작은 사각형 — 상자 안에서 조용히 있는다. */
+.undo-redo button.ghost {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .crumb {
