@@ -31,7 +31,7 @@ import {
   valignOf,
 } from '../core/text';
 import { mirrorLayout, turnLayout180, type Layout } from '../core/layout';
-import { cropSegments, type CropMode } from '../core/crop';
+import { cropModeForSide, cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import {
   capacityPerSheet,
@@ -157,6 +157,7 @@ interface ExportInput {
    */
   totalSlots?: number;
   cropMark: CropMode;
+  cropFrontOnly?: boolean;
   showRuler: boolean;
   /**
    * 양면 인쇄. 켜면 장마다 뒷면 페이지를 하나씩 더 넣는다.
@@ -409,7 +410,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     }
 
     // 재단선과 눈금자는 속지 내용이 아니라 용지 위의 표시라 장마다 그 위에 얹는다.
-    for (const s of cropSegments(layout, input.paperWidth, input.paperHeight, input.cropMark)) {
+    for (const s of cropSegments(layout, input.paperWidth, input.paperHeight, cropModeForSide(input.cropMark, input.cropFrontOnly ?? false, mirror))) {
       page.drawLine({
         start: { x: mmToPt(s.x1), y: mmToPt(flipY(s.y1)) },
         end: { x: mmToPt(s.x2), y: mmToPt(flipY(s.y2)) },

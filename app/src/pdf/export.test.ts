@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { describe, expect, it } from 'vitest';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFArray, PDFRawStream } from 'pdf-lib';
 import { inflateSync } from 'node:zlib';
 import { Buffer } from 'node:buffer';
 import { readFileSync } from 'node:fs';
@@ -35,6 +35,19 @@ function contentStreamWidths(bytes: Uint8Array): number[] {
     }
   }
   return widths;
+}
+
+/** 페이지별 내용 스트림을 직접 비교해 엉뚱한 장에 그려지는 회귀를 잡는다. */
+async function pageStreams(bytes: Uint8Array): Promise<string[]> {
+  const doc = await PDFDocument.load(bytes);
+  return doc.getPages().map((page) => {
+    const contents = page.node.Contents();
+    if (!contents) return '';
+    const streams = contents instanceof PDFArray
+      ? contents.asArray().map((ref) => doc.context.lookup(ref) as PDFRawStream)
+      : [contents as PDFRawStream];
+    return streams.map((stream) => inflateSync(stream.getContents()).toString('latin1')).join('\n');
+  });
 }
 
 const layout = computeLayout({
@@ -438,7 +451,45 @@ describe('낱장 조합 — 통째로 반복(sheets)', () => {
         [sheetSlotKey(1, 0), { dotGrid: noGrid, objects: [line], safeZoneWidth: 10 }],
       ]),
     });
-    expect(secondSheetOnly.byteLength).toBeGreaterThan(plain.byteLength);
+    const baseline = await pageStreams(plain);
+    const actual = await pageStreams(secondSheetOnly);
+    expect(actual).toHaveLength(2);
+    expect(actual[0]).toBe(baseline[0]);
+    expect(actual[1]).not.toBe(baseline[1]);
+  });
+
+  it('두 번째 시트 뒷면의 수정은 그 페이지에만 출력된다', async () => {
+    const options = { ...base, dotGrid: noGrid, sheets: 2, duplex: true };
+    const baseline = await pageStreams(await buildPdf(options));
+    const actual = await pageStreams(await buildPdf({
+      ...options,
+      backSlotOverrides: new Map([[sheetSlotKey(1, 0), {
+        dotGrid: noGrid, safeZoneWidth: 10,
+        objects: [{ id: 'back', type: 'line' as const, x1: 10, y1: 10, x2: 70, y2: 10 }],
+      }]]),
+    }));
+    expect(actual).toHaveLength(4);
+    expect(actual.slice(0, 3)).toEqual(baseline.slice(0, 3));
+    expect(actual[3]).not.toBe(baseline[3]);
+  });
+
+  it.each(['mark', 'markAll', 'line'] as const)('앞면 전용 절취선(%s)은 매 시트 뒷면에서만 빠진다', async (cropMark) => {
+    const content: SlotContent = { dotGrid: noGrid, safeZoneWidth: 10,
+      objects: [{ id: 'line', type: 'line', x1: 10, y1: 10, x2: 60, y2: 20 }] };
+    const options = { ...base, dotGrid: noGrid, objects: content.objects,
+      defaultBack: content, sheets: 2, duplex: true, cropMark };
+    const both = await pageStreams(await buildPdf(options));
+    const none = await pageStreams(await buildPdf({ ...options, cropMark: 'none' }));
+    const front = await pageStreams(await buildPdf({ ...options, cropFrontOnly: true }));
+    for (const i of [0, 2]) {
+      expect(front[i]).toBe(both[i]);
+      expect(front[i]).not.toBe(none[i]);
+      expect(front[i + 1]).toBe(none[i + 1]);
+      expect(front[i + 1]).not.toBe(both[i + 1]);
+    }
+    const single = { ...options, duplex: false };
+    expect(await pageStreams(await buildPdf({ ...single, cropFrontOnly: true })))
+      .toEqual(await pageStreams(await buildPdf(single)));
   });
 
   it('totalSlots가 있으면 sheets는 무시된다', async () => {

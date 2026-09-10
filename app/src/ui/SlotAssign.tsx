@@ -20,17 +20,21 @@ export function SlotAssign({
   const assignSheetSlotRange = useStore((s) => s.assignSheetSlotRange);
   const duplicateComboSheet = useStore((s) => s.duplicateComboSheet);
   const removeComboSheet = useStore((s) => s.removeComboSheet);
-  const patch = useStore((s) => s.patch);
+  const sheetRevision = useStore((s) => s.sheetRevision);
   const active = useStore(activeTemplate);
   type Address = { sheet: number; slot: number };
   type Fill = { source: Address; current: Address; templateId: string | null; pointerId: number };
   const [openSlot, setOpenSlot] = useState<Address | null>(null);
   const dragRef = useRef<Fill | null>(null);
   const [drag, setDrag] = useState<Fill | null>(null);
+  // 드래그 중에는 한 장 앞까지 보여주되 실제 매수는 놓을 때만 늘린다.
+  const visibleSheets = drag ? Math.max(sheets, drag.current.sheet + 1) + 1 : sheets;
 
   useEffect(() => {
     setOpenSlot(null);
-  }, [layout.count, sheets]);
+    dragRef.current = null;
+    setDrag(null);
+  }, [layout.count, layout.cols, sheets, sheetRevision, active?.id]);
 
   if (!active || layout.count === 0) return null;
   const activeId = active.id;
@@ -83,8 +87,6 @@ export function SlotAssign({
     const next = { ...current, current: address };
     dragRef.current = next;
     setDrag(next);
-    // 마지막 카드에 닿으면 다음 시트를 먼저 열어 끊지 않고 계속 끌 수 있다.
-    if (address.sheet === sheets - 1 && address.slot === layout.count - 1) patch({ comboSheets: sheets + 1 });
   }
   function moveFill(e: React.PointerEvent<HTMLSpanElement>) {
     const current = dragRef.current;
@@ -97,6 +99,13 @@ export function SlotAssign({
     const current = dragRef.current;
     if (!current || current.pointerId !== e.pointerId) return;
     assignSheetSlotRange(current.source, current.current, layout.count, current.templateId);
+    dragRef.current = null;
+    setDrag(null);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+  }
+
+  function cancelFill(e: React.PointerEvent<HTMLSpanElement>) {
+    if (dragRef.current?.pointerId !== e.pointerId) return;
     dragRef.current = null;
     setDrag(null);
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
@@ -117,15 +126,15 @@ export function SlotAssign({
         ))}
       </div>
       <div className="slot-sheets">
-        {Array.from({ length: sheets }, (_, sheet) => (
+        {Array.from({ length: visibleSheets }, (_, sheet) => (
           <section className="slot-sheet" key={sheet}>
             <div className="slot-sheet-heading">
-              <div className="slot-sheet-title">시트 {sheet + 1}</div>
+              <div className="slot-sheet-title">시트 {sheet + 1}{sheet >= sheets && ' · 끌어서 추가'}</div>
               <div className="slot-sheet-actions">
-                <button onClick={() => { beforeSheetChange?.(); setOpenSlot(null); duplicateComboSheet(sheet); }} title={`시트 ${sheet + 1} 복사`} aria-label={`시트 ${sheet + 1} 복사`}>
+                <button disabled={!!drag} onClick={() => { beforeSheetChange?.(); setOpenSlot(null); duplicateComboSheet(sheet); }} title={`시트 ${sheet + 1} 복사`} aria-label={`시트 ${sheet + 1} 복사`}>
                   <CopyIcon />
                 </button>
-                <button onClick={() => { beforeSheetChange?.(); setOpenSlot(null); removeComboSheet(sheet); }} disabled={sheets <= 1} title={sheets <= 1 ? '마지막 시트는 지울 수 없습니다' : `시트 ${sheet + 1} 삭제`} aria-label={`시트 ${sheet + 1} 삭제`}>
+                <button onClick={() => { beforeSheetChange?.(); setOpenSlot(null); removeComboSheet(sheet); }} disabled={sheets <= 1 || !!drag} title={sheets <= 1 ? '마지막 시트는 지울 수 없습니다' : `시트 ${sheet + 1} 삭제`} aria-label={`시트 ${sheet + 1} 삭제`}>
                   <TrashIcon />
                 </button>
               </div>
@@ -141,7 +150,7 @@ export function SlotAssign({
                     <button className="slot-card" style={{ background: colorOf(template.id) }} onClick={() => setOpenSlot((current) => current?.sheet === sheet && current.slot === slot ? null : address)} aria-expanded={isOpen} aria-haspopup="listbox">
                       <span className="slot-card-location">{locationOf(slot)}</span><span className="slot-card-name">{template.name}</span>
                     </button>
-                    <span className="slot-fill-handle" onPointerDown={(e) => beginFill(address, idAt(sheet, slot), e)} onPointerMove={moveFill} onPointerUp={finishFill} onPointerCancel={finishFill} title="끌어서 연속 채우기" />
+                    <span className="slot-fill-handle" onPointerDown={(e) => beginFill(address, idAt(sheet, slot), e)} onPointerMove={moveFill} onPointerUp={finishFill} onPointerCancel={cancelFill} onLostPointerCapture={cancelFill} title="끌어서 연속 채우기" />
                     {isOpen && <div className="slot-options" role="listbox" aria-label={`${locationOf(slot)} 칸 양식 선택`}>
                       {group.map((option) => <button key={option.id} className={option.id === template.id ? 'on' : undefined} role="option" aria-selected={option.id === template.id} onClick={() => { assignSheetSlot(sheet, slot, option.id === activeId ? null : option.id); setOpenSlot(null); }}><span style={{ background: colorOf(option.id) }} />{option.name}{option.id === activeId && <small>기본</small>}</button>)}
                     </div>}

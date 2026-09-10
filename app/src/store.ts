@@ -201,6 +201,9 @@ interface Settings {
   allowRotate: boolean;
   align: Align;
   cropMark: CropMode;
+  /** 이번 실행에서 직접 선택한 양식. 자동 저장에서는 복원하지 않는다. */
+  editorSelectionId: string | null;
+  cropFrontOnly: boolean;
   showRuler: boolean;
   /**
    * 양면 인쇄. 켜면 장마다 뒷면도 함께 뽑는다.
@@ -238,6 +241,14 @@ interface Settings {
    * 나온다(자투리 칸이 생기지 않는다).
    */
   comboSheets: number;
+  /** 시트 재배열 후 이전 복원 대상이 재사용되지 않게 하는 세션 번호. */
+  sheetRevision: number;
+  /** 칸 수가 불명확한 옛 배정은 선택할 때까지 원형 그대로 보존한다. */
+  pendingLegacySlots: {
+    assignment: Record<number, string>;
+    front: Record<number, DiaryObject[]>;
+    back: Record<number, DiaryObject[]>;
+  } | null;
   /**
    * 겹치기 배치 — 세트형(데이터셋) 인쇄에서 쪽 순서를 칸별로 재배열할지.
    *
@@ -310,6 +321,7 @@ interface Settings {
 }
 
 interface Store extends Settings {
+  restoreLegacySlots: (count: number) => void;
   setPaperPreset: (id: string) => void;
   setInsertPreset: (id: string) => void;
   patchPaper: (p: Partial<PaperState>) => void;
@@ -556,6 +568,7 @@ interface Store extends Settings {
         | 'allowRotate'
         | 'align'
         | 'cropMark'
+        | 'cropFrontOnly'
         | 'showRuler'
         | 'duplex'
         | 'backTurn180'
@@ -621,11 +634,13 @@ export function projectOf(s: Store, templates: Template[]): SavedProject {
       allowRotate: s.allowRotate,
       align: s.align,
       cropMark: s.cropMark,
+      cropFrontOnly: s.cropFrontOnly,
       showRuler: s.showRuler,
       duplex: s.duplex,
       backTurn180: s.backTurn180,
       fillEmptyBack: s.fillEmptyBack,
       comboSheets: s.comboSheets,
+      pendingLegacySlots: s.pendingLegacySlots,
       cutStack: s.cutStack,
       cutStackGroup: s.cutStackGroup,
       unprintable: s.unprintable,
@@ -1005,6 +1020,8 @@ export const useStore = create<Store>((set) => ({
   // 프린터가 가장자리를 못 찍어서 한쪽으로 몰면 재단 표시가 잘려나간다.
   align: 'center',
   cropMark: 'mark',
+  editorSelectionId: null,
+  cropFrontOnly: false,
   // 인쇄 정확도는 이미 검증됐다(50mm가 정확히 나오는 것을 확인함). 매번 다시
   // 잴 필요는 없으니 기본은 꺼둔다. 필요하면 배치 설정에서 언제든 켤 수 있다.
   showRuler: false,
@@ -1014,6 +1031,18 @@ export const useStore = create<Store>((set) => ({
   backTurn180: false,
   fillEmptyBack: false,
   comboSheets: 1,
+  sheetRevision: 0,
+  pendingLegacySlots: null,
+  restoreLegacySlots: (count) => set((s) => {
+    if (!s.pendingLegacySlots || !Number.isSafeInteger(count) || count < 1) return {};
+    return {
+      sheetSlotAssignment: migrateFlatSheetSlots(s.pendingLegacySlots.assignment, count),
+      comboSheetSlotOverrides: overlaySheetSlots(s.comboSheetSlotOverrides, migrateFlatSheetSlots(s.pendingLegacySlots.front, count)),
+      comboSheetSlotBackOverrides: overlaySheetSlots(s.comboSheetSlotBackOverrides, migrateFlatSheetSlots(s.pendingLegacySlots.back, count)),
+      pendingLegacySlots: null,
+      sheetRevision: s.sheetRevision + 1,
+    };
+  }),
   cutStack: false,
   cutStackGroup: 0,
   unprintable: { show: true, width: 3 },
@@ -1131,7 +1160,7 @@ export const useStore = create<Store>((set) => ({
 
   // 양식을 바꾸면 앞면으로 돌아간다. 방금 만진 양식의 뒷면 탭에 남아 있다가
   // 뒷면 없는 다른 양식으로 넘어가면 헷갈린다.
-  selectTemplate: (activeId) => set({ activeId, side: 'front', selectedIds: [] }),
+  selectTemplate: (activeId) => set({ activeId, editorSelectionId: activeId, side: 'front', selectedIds: [] }),
 
   addTemplate: (insert, name, grid, kind) =>
     set((s) => {
@@ -1145,7 +1174,7 @@ export const useStore = create<Store>((set) => ({
         kind,
       );
       if (grid) made.dotGrid = { ...grid };
-      return { templates: [...s.templates, made], activeId: made.id, side: 'front', selectedIds: [] };
+      return { templates: [...s.templates, made], activeId: made.id, editorSelectionId: made.id, side: 'front', selectedIds: [] };
     }),
 
   setNotebookHalf: (target, half) =>
@@ -1193,7 +1222,7 @@ export const useStore = create<Store>((set) => ({
       // 원본 바로 뒤에 넣는다. 목록 끝으로 보내면 어디 갔는지 찾게 된다.
       const at = s.templates.indexOf(source) + 1;
       const templates = [...s.templates.slice(0, at), made, ...s.templates.slice(at)];
-      return { templates, activeId: made.id, side: 'front', selectedIds: [] };
+      return { templates, activeId: made.id, editorSelectionId: made.id, side: 'front', selectedIds: [] };
     }),
 
   renameTemplate: (id, name) =>
@@ -1242,7 +1271,10 @@ export const useStore = create<Store>((set) => ({
       for (let i = Math.min(fromGlobal, toGlobal); i <= Math.max(fromGlobal, toGlobal); i++) {
         next = setSheetSlotValue(next, Math.floor(i / slotsPerSheet), i % slotsPerSheet, templateId ?? '');
       }
-      return { sheetSlotAssignment: next };
+      return {
+        sheetSlotAssignment: next,
+        comboSheets: Math.max(s.comboSheets, from.sheet + 1, to.sheet + 1),
+      };
     }),
 
   duplicateComboSheet: (sheet) =>
@@ -1252,6 +1284,7 @@ export const useStore = create<Store>((set) => ({
       const back = overlaySheetSlots(repeatLegacySlots(s.comboSlotBackOverrides, s.comboSheets), s.comboSheetSlotBackOverrides);
       return {
         comboSheets: s.comboSheets + 1,
+        sheetRevision: s.sheetRevision + 1,
         sheetSlotAssignment: duplicateSheetSlots(s.sheetSlotAssignment, sheet),
         comboSlotOverrides: {},
         comboSlotBackOverrides: {},
@@ -1267,6 +1300,7 @@ export const useStore = create<Store>((set) => ({
       const back = overlaySheetSlots(repeatLegacySlots(s.comboSlotBackOverrides, s.comboSheets), s.comboSheetSlotBackOverrides);
       return {
         comboSheets: s.comboSheets - 1,
+        sheetRevision: s.sheetRevision + 1,
         sheetSlotAssignment: removeSheetSlots(s.sheetSlotAssignment, sheet),
         comboSlotOverrides: {},
         comboSlotBackOverrides: {},
@@ -1728,8 +1762,22 @@ export const useStore = create<Store>((set) => ({
       const deduped = dedupeTemplateIds(templates);
       const print = p.print as Partial<Settings>;
       const paper = { ...s.paper, ...((p.print as { paper?: PaperState }).paper ?? {}) };
-      const restored = { ...s, ...print, templates: deduped, paper } as Settings;
-      const slotsPerSheet = Math.max(1, selectLayout(restored).count);
+      const restored = { ...s, ...print, templates: deduped, activeId: deduped[0]?.id ?? '', paper } as Settings;
+      const counts = new Set(deduped.map((t) => selectLayout({ ...restored, activeId: t.id }).count));
+      const slotsPerSheet = counts.size === 1 ? [...counts][0] : 0;
+      const flat = <T,>(raw: unknown): Record<number, T> => {
+        if (!raw || typeof raw !== 'object') return {};
+        const value = Object.values(raw)[0];
+        return value !== undefined && (typeof value !== 'object' || Array.isArray(value))
+          ? raw as Record<number, T> : {};
+      };
+      const legacy = {
+        assignment: flat<string>(print.sheetSlotAssignment),
+        front: flat<DiaryObject[]>(print.comboSheetSlotOverrides),
+        back: flat<DiaryObject[]>(print.comboSheetSlotBackOverrides),
+      };
+      const pendingLegacySlots = print.pendingLegacySlots ?? (slotsPerSheet === 0 &&
+        Object.values(legacy).some((record) => Object.keys(record).length > 0) ? legacy : null);
       const comboSheets = Math.max(1, Number(print.comboSheets ?? s.comboSheets));
       const assignedBySheet = readSheetSlots<string>(print.sheetSlotAssignment, slotsPerSheet);
       // 예전 한-시트 override는 모든 시트에 반복 적용되던 값이었다. 불러오는
@@ -1752,6 +1800,10 @@ export const useStore = create<Store>((set) => ({
         ...print,
         paper,
         comboSheets,
+        cropFrontOnly: print.cropFrontOnly ?? false,
+        editorSelectionId: null,
+        sheetRevision: s.sheetRevision + 1,
+        pendingLegacySlots,
         // 칸 배정도 저장돼 있으면 함께 돌아온다. id는 양식과 함께 저장되므로
         // 대개 그대로 맞지만, 혹시 어긋난 것이 있으면 걷어낸다.
         slotAssignment: pruneSlotAssignment(deduped, print.slotAssignment ?? {}),
@@ -1781,6 +1833,7 @@ export const useStore = create<Store>((set) => ({
       return {
         templates: pool,
         activeId: added[added.length - 1].id,
+        editorSelectionId: added[added.length - 1].id,
         selectedIds: [],
         side: 'front' as const,
       };
@@ -2027,6 +2080,7 @@ export const useStore = create<Store>((set) => ({
       return {
         ...p,
         comboSheets,
+        sheetRevision: s.sheetRevision + 1,
         sheetSlotAssignment: trimSheetSlots(s.sheetSlotAssignment, comboSheets),
         comboSlotOverrides: {},
         comboSlotBackOverrides: {},

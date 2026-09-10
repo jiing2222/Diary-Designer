@@ -54,6 +54,7 @@ import type { DiaryObject, ImageObject, TextObject } from '../core/objects';
 import { InsertGroup } from './SettingsPanel';
 import { DownloadIcon, MenuIcon, RingsLogo } from './icons';
 import { sheetSlotKey, sheetSlotValue } from '../core/sheetSlots';
+import { cropModeForSide } from '../core/crop';
 
 /**
  * `start`는 다른 셋과 성격이 다르다 — 앱 화면이 아니라 소개 화면이라
@@ -82,6 +83,7 @@ type EditingSession = {
 
 /** "되돌리기"가 막 지운 override — "되돌리기 취소"로 한 번 되살릴 수 있게 잠깐 기억해둔다. */
 type LastReverted = {
+  revision: number;
   sheet: number;
   index: number;
   side: Side;
@@ -209,7 +211,7 @@ function Breadcrumb({
 }) {
   const steps: { id: Tab; label: string; enabled: boolean }[] = [
     { id: 'gallery', label: 'Template', enabled: true },
-    { id: 'edit', label: 'Insert', enabled: !!active },
+    { id: 'edit', label: 'Insert', enabled: true },
     { id: 'print', label: 'Print', enabled: !!active },
   ];
 
@@ -290,9 +292,9 @@ function NavMenu({ tab, setTab, active }: { tab: Tab; setTab: (t: Tab) => void; 
             Template
           </button>
           <button
-            className={tab === 'edit' && active?.kind === 'insert' ? 'tab on' : 'tab'}
+            className={tab === 'edit' && (!active || active.kind === 'insert') ? 'tab on' : 'tab'}
             onClick={() => go('edit')}
-            disabled={!active || active.kind !== 'insert'}
+            disabled={!!active && active.kind !== 'insert'}
           >
             Inserts
           </button>
@@ -405,25 +407,19 @@ export function App() {
   /**
    * 처음 열면 소개 화면이다.
    *
-   * 다만 하던 작업이 있으면 소개를 볼 이유가 없다 — 되살리기가 끝난 뒤
-   * 양식이 있으면 곧장 갤러리로 보낸다(아래 effect). 되살리기 전에 미리
-   * 정할 수 없는 이유는 그 시점에 store가 아직 비어 있어서다.
+   * 저장된 양식이 있어도 시작 위치는 메인화면으로 유지한다.
    *
    * 다시 이 화면으로 오는 길은 머리줄의 로고다.
    */
   const [tab, setTab] = useState<Tab>('start');
+  const [galleryDestination, setGalleryDestination] = useState<'edit' | 'print'>('edit');
 
-  /**
-   * 되살린 작업이 있으면 소개 화면을 건너뛴다.
-   *
-   * `tab`을 의존성에 넣지 않는다 — 되살리기가 끝나는 순간 한 번만 판단하고,
-   * 그 뒤에 사용자가 로고를 눌러 소개 화면으로 돌아오면 그대로 둬야 한다.
-   */
-  useEffect(() => {
-    if (!restored) return;
-    if (useStore.getState().templates.length > 0) setTab('gallery');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [restored]);
+  function navigateFromHome(page: 'gallery' | 'edit' | 'print') {
+    const needsTemplate = page === 'print' && !activeTemplate(useStore.getState());
+    setGalleryDestination(needsTemplate ? 'print' : 'edit');
+    setTab(needsTemplate ? 'gallery' : page);
+  }
+
   /**
    * 인쇄하기 탭 전용. 켜면 지금 켜둔 도트·타공 화면 설정과 무관하게 **실제로
    * 인쇄될 모습만** 보여준다. 원래 설정은 그대로 두고 보는 방식만 잠깐 바꾸는
@@ -476,7 +472,8 @@ export function App() {
 
   const { width, height } = paperSize(s.paper);
   const layout = selectLayout(s);
-  const active = activeTemplate(s);
+  const storedActive = activeTemplate(s);
+  const active = tab === 'edit' && s.editorSelectionId !== storedActive?.id ? null : storedActive;
 
   /*
    * 낱장 조합·반복 인쇄(만년형)·세트형은 설계문서 8장의 원칙대로 한 인쇄에
@@ -533,6 +530,7 @@ export function App() {
   /** 다른 칸·페이지를 손보기 시작한다 — 손보던 것이 있으면 먼저 그 결과부터 저장한다. */
   function beginEdit(session: EditingSession, content: PreviewSlotContent) {
     commitEdit();
+    setLastReverted(null);
     useStore.getState().beginShadowEdit(content.insert, content.dotGrid, content.objects, session.side);
     setEditingSession(session);
   }
@@ -581,7 +579,7 @@ export function App() {
           ? (sheetSlotValue(store.comboSheetSlotOverrides, editingSession.sheet, editingSession.index) ?? store.comboSlotOverrides[editingSession.index])
           : (sheetSlotValue(store.comboSheetSlotBackOverrides, editingSession.sheet, editingSession.index) ?? store.comboSlotBackOverrides[editingSession.index]);
       if (existing) {
-        setLastReverted({ kind: 'combo', sheet: editingSession.sheet, index: editingSession.index, side: editingSession.side, objects: existing });
+        setLastReverted({ kind: 'combo', revision: store.sheetRevision, sheet: editingSession.sheet, index: editingSession.index, side: editingSession.side, objects: existing });
       }
       store.clearComboSheetSlotOverride(editingSession.sheet, editingSession.index, editingSession.side);
     } else {
@@ -593,6 +591,7 @@ export function App() {
       if (existing) {
         setLastReverted({
           kind: 'dataset',
+          revision: store.sheetRevision,
           sheet: editingSession.sheet,
           index: editingSession.index,
           side: editingSession.side,
@@ -611,6 +610,10 @@ export function App() {
     if (!lastReverted) return;
     const store = useStore.getState();
     if (lastReverted.kind === 'combo') {
+      if (lastReverted.revision !== store.sheetRevision) {
+        setLastReverted(null);
+        return;
+      }
       store.setComboSheetSlotOverride(lastReverted.sheet, lastReverted.index, lastReverted.side, lastReverted.objects);
     } else {
       store.setPageOverride(lastReverted.page, lastReverted.side, lastReverted.objects);
@@ -623,6 +626,10 @@ export function App() {
   useEffect(() => {
     setLastReverted(null);
   }, [active?.id]);
+
+  useEffect(() => {
+    setLastReverted(null);
+  }, [s.sheetRevision]);
 
   // 인쇄하기 탭을 벗어나면(양식 만들기 등으로) 손보던 것을 저장하고 끝낸다.
   // 그림자 양식이 남아 있으면 그 사이 EditorTab의 그리기도 엉뚱하게 그림자를
@@ -887,7 +894,7 @@ export function App() {
   const scale = zoom === 'fit' ? fitScale : (zoom / 100) * PX_PER_MM_AT_100;
 
   async function exportPdf() {
-    if (!active) return;
+    if (!active || s.pendingLegacySlots) return;
     setBusy(true);
     try {
       // 반복 인쇄·세트형이면 이 양식 하나의 글자만 본다. 낱장 조합이면 배정된
@@ -1012,6 +1019,7 @@ export function App() {
         userImages,
         safeZoneWidth: active.insert.punch.safeZoneWidth,
         cropMark: s.cropMark,
+        cropFrontOnly: s.cropFrontOnly,
         showRuler: s.showRuler,
         duplex: s.duplex,
         backTurn180: s.backTurn180,
@@ -1029,7 +1037,7 @@ export function App() {
   }
 
   // 소개 화면은 자기 머리줄을 따로 갖고 있어서 앱 껍데기 밖에서 그린다.
-  if (tab === 'start') return <StartScreen onStart={() => setTab('gallery')} />;
+  if (tab === 'start') return <StartScreen onStart={() => navigateFromHome('gallery')} onNavigate={navigateFromHome} />;
 
   return (
     <div className="app">
@@ -1071,7 +1079,7 @@ export function App() {
         <button
           className="export-btn"
           onClick={exportPdf}
-          disabled={busy || !active || layout.count === 0}
+          disabled={busy || !active || layout.count === 0 || !!s.pendingLegacySlots}
         >
           {tab === 'print' && <DownloadIcon />}
           <span>{busy ? 'Preparing…' : tab === 'print' ? 'PDF Export' : 'Download'}</span>
@@ -1116,14 +1124,34 @@ export function App() {
           </div>
         )}
 
-        {tab === 'gallery' || !active ? (
-          <GalleryTab onEdit={() => setTab('edit')} />
+        {tab === 'edit' && !active ? (
+          <div className="insert-empty">
+            <p>선택한 속지가 없습니다.</p>
+            <button onClick={() => { setGalleryDestination('edit'); setTab('gallery'); }}>템플릿 선택하기</button>
+          </div>
+        ) : tab === 'gallery' || !active ? (
+          <GalleryTab onEdit={() => {
+            setTab(galleryDestination);
+            setGalleryDestination('edit');
+          }} />
         ) : tab === 'edit' ? (
           active.kind === 'notebook' ? (
             <NotebookEditorTab stylePanelSlot={stylePanelSlot} />
           ) : (
             <EditorTab stylePanelSlot={stylePanelSlot} />
           )
+        ) : s.pendingLegacySlots ? (
+          <div className="print-tab">
+            <p>이전 저장 파일의 시트 배정을 복원하려면 원래 한 장에 들어가던 칸 수가 필요합니다. 배정 내용은 그대로 보관하고 있습니다.</p>
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget);
+              s.restoreLegacySlots(Number(data.get('count')));
+            }}>
+              <label>원래 한 장의 칸 수 <input name="count" type="number" min="1" step="1" required /></label>
+              <button type="submit">배정 복원</button>
+            </form>
+          </div>
         ) : (
           <div className="print-tab">
             {/*
@@ -1240,7 +1268,7 @@ export function App() {
                         objects={active.objects.present}
                         slotOverrides={front.size > 0 ? front : undefined}
                         layout={layout}
-                        cropMark={s.cropMark}
+                        cropMark={cropModeForSide(s.cropMark, s.cropFrontOnly, false)}
                         showRuler={s.showRuler}
                         unprintable={s.unprintable}
                         mode={printPreview ? 'print' : 'edit'}
@@ -1278,7 +1306,7 @@ export function App() {
                         objects={active.back?.objects.present ?? []}
                         slotOverrides={back.size > 0 ? back : undefined}
                         layout={backLayout}
-                        cropMark={s.cropMark}
+                        cropMark={cropModeForSide(s.cropMark, s.cropFrontOnly, true)}
                         showRuler={s.showRuler}
                         unprintable={s.unprintable}
                         mode={printPreview ? 'print' : 'edit'}

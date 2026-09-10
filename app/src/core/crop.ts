@@ -16,6 +16,11 @@ import { CROP_ALL_ARM, CROP_MARK_GAP, CROP_MARK_LENGTH } from './style';
  */
 export type CropMode = 'none' | 'mark' | 'markAll' | 'line';
 
+/** 화면과 PDF에서 앞·뒷면 절취선 적용 규칙을 함께 쓴다. */
+export function cropModeForSide(mode: CropMode, frontOnly: boolean, back: boolean): CropMode {
+  return frontOnly && back ? 'none' : mode;
+}
+
 export interface Segment {
   x1: Mm;
   y1: Mm;

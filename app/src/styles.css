@@ -955,6 +955,16 @@ main {
   min-height: 0;
 }
 
+.insert-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--muted);
+}
+
 /* ─────────────────────────── 도구 막대 ─────────────────────────── */
 
 /*
@@ -963,6 +973,7 @@ main {
  * .rail-wrap 둘이 각자 그리면 이어지는 자리에 테두리가 겹친다.
  */
 .left-column {
+  min-height: 0;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -998,6 +1009,7 @@ main {
  * 않는다.
  */
 .rail-wrap-tool {
+  min-height: 0;
   flex: 1 1 auto;
   display: flex;
   flex-direction: row;
@@ -1221,6 +1233,8 @@ main {
  * 없이 위아래로 아이콘 줄과 나란한 사각형으로 그린다.
  */
 .tool-panel {
+  min-height: 0;
+  overscroll-behavior-y: contain;
   flex-shrink: 0;
   /* 디자인의 설정 패널 폭. 150px에서는 "mm spacing" 같은 두 칸짜리 줄이 접혔다. */
   width: 220px;

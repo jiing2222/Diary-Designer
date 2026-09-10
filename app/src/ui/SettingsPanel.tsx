@@ -656,6 +656,13 @@ export function LayoutGroup() {
           <option value="none">없음</option>
         </select>
       </Row>
+      <Row label="출력 면">
+        <label className="check">
+          <input type="checkbox" checked={s.cropFrontOnly} disabled={s.cropMark === 'none'}
+            onChange={(e) => s.patch({ cropFrontOnly: e.target.checked })} />
+          절취선 앞면에만 인쇄
+        </label>
+      </Row>
       <Row label="눈금자">
         <Check
           checked={s.showRuler}

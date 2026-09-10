@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { activeTemplate, resolveSlotTemplates, useStore } from './store';
+import { activeTemplate, projectOf, resolveSlotTemplates, useStore } from './store';
 import { insertFromPreset } from './core/template';
 import { DEFAULT_DOT_GRID } from './core/grid';
 import type { UserImage } from './images/registry';
@@ -523,6 +523,60 @@ describe('객체 그룹화', () => {
 });
 
 describe('저장 파일 불러오기', () => {
+  it('저장된 양식을 복원해도 직접 선택하기 전에는 편집 대상으로 정하지 않는다', () => {
+    s().addTemplate();
+    const saved = projectOf(s(), s().templates);
+    s().loadProject(saved);
+    expect(s().templates).toHaveLength(1);
+    expect(s().editorSelectionId).toBeNull();
+    expect(saved.print.editorSelectionId).toBeUndefined();
+    s().selectTemplate(s().templates[0].id);
+    expect(s().editorSelectionId).toBe(s().activeId);
+  });
+  it('앞면 전용 절취선 설정은 저장되고 옛 파일은 양면 표시로 읽는다', () => {
+    s().addTemplate();
+    s().patch({ cropFrontOnly: true });
+    const saved = projectOf(s(), s().templates);
+    s().loadProject(saved);
+    expect(s().cropFrontOnly).toBe(true);
+    delete saved.print.cropFrontOnly;
+    s().loadProject(saved);
+    expect(s().cropFrontOnly).toBe(false);
+  });
+  it('규격이 섞인 옛 파일은 배정을 보존하고 선택한 칸 수로만 복원한다', () => {
+    const front: DiaryObject[] = [{ id: 'legacy-line', type: 'line', x1: 0, y1: 0, x2: 10, y2: 0 }];
+    s().loadProject({
+      version: 1, savedAt: '', fonts: [],
+      templates: [
+        { id: 'a5', name: 'A5', insert: insertFromPreset('A5'), dotGrid: DEFAULT_DOT_GRID, objects: [] },
+        { id: 'm6', name: 'M6', insert: insertFromPreset('M6'), dotGrid: DEFAULT_DOT_GRID, objects: [] },
+      ],
+      print: { comboSheets: 2, sheetSlotAssignment: { 4: 'm6' }, comboSheetSlotOverrides: { 4: front } },
+    });
+    expect(s().sheetSlotAssignment).toEqual({});
+    expect(s().pendingLegacySlots?.assignment).toEqual({ 4: 'm6' });
+    // 선택 전에 다시 열어도 원래 배정을 잃지 않는다.
+    const saved = projectOf(s(), s().templates);
+    s().loadProject(saved);
+    expect(s().pendingLegacySlots?.front).toEqual({ 4: front });
+    s().restoreLegacySlots(4);
+    expect(s().sheetSlotAssignment).toEqual({ 1: { 0: 'm6' } });
+    expect(s().comboSheetSlotOverrides[1]?.[0]).toEqual(front);
+    expect(s().pendingLegacySlots).toBeNull();
+  });
+
+  it('복사·삭제·매수 축소는 이전 되돌리기 취소의 세션을 만료시킨다', () => {
+    let revision = s().sheetRevision;
+    s().duplicateComboSheet(0);
+    expect(s().sheetRevision).toBeGreaterThan(revision);
+    revision = s().sheetRevision;
+    s().removeComboSheet(0);
+    expect(s().sheetRevision).toBeGreaterThan(revision);
+    s().patch({ comboSheets: 3 });
+    revision = s().sheetRevision;
+    s().patch({ comboSheets: 1 });
+    expect(s().sheetRevision).toBeGreaterThan(revision);
+  });
   it('양식이 통째로 갈아끼워진다', () => {
     s().addTemplate();
     s().drawLines([{ x1: 10, y1: 10, x2: 70, y2: 10 }]);
@@ -826,6 +880,13 @@ describe('양식 하나짜리 파일을 더해 불러오기', () => {
 });
 
 describe('낱장 조합 — 칸 배정', () => {
+  it('드래그를 마지막 칸에 놓아도 장수를 늘리지 않고 다음 시트에 놓을 때만 늘린다', () => {
+    s().assignSheetSlotRange({ sheet: 0, slot: 0 }, { sheet: 0, slot: 3 }, 4, null);
+    expect(s().comboSheets).toBe(1);
+    s().assignSheetSlotRange({ sheet: 0, slot: 0 }, { sheet: 1, slot: 0 }, 4, null);
+    expect(s().comboSheets).toBe(2);
+    expect(s().sheetSlotAssignment[2]).toBeUndefined();
+  });
   it('배정이 없으면 모든 칸이 지금 양식이다', () => {
     s().addTemplate(insertFromPreset('M6'));
     expect(resolveSlotTemplates(s(), 3).every((t) => t.id === s().activeId)).toBe(true);

@@ -8,9 +8,8 @@ import { RingsLogo } from './icons';
  * 않고 자기 것을 따로 그린다(App.tsx가 이 화면일 때는 앱 껍데기를 아예
  * 그리지 않는다) — 폭도 앱처럼 화면 끝까지 가지 않고 1120px에서 멈춘다.
  *
- * 만든 양식이 있으면 여기 머물 이유가 없다. App이 되살리기를 마친 뒤
- * 양식이 있으면 곧장 갤러리로 보낸다 — 이 화면으로 돌아오는 길은 앱
- * 머리줄의 로고다.
+ * 저장된 양식이 있어도 새로고침하면 여기서 시작한다. 앱 머리줄의 로고로도
+ * 이 화면에 돌아올 수 있다.
  */
 
 /**
@@ -39,9 +38,11 @@ const MOCK_LABEL: Record<MockScreen, string> = {
   print: 'A4 · 4 per sheet (2 × 2)',
 };
 
-export function StartScreen({ onStart }: { onStart: () => void }) {
-  // 머리줄의 이름과 아래 미리보기가 같은 화면을 가리킨다 — 그래서 상태를
-  // 여기서 들고 둘에 나눠준다(디자인의 navBg/pillStyle이 같은 값을 본다).
+export function StartScreen({ onStart, onNavigate }: {
+  onStart: () => void;
+  onNavigate: (page: 'gallery' | 'edit' | 'print') => void;
+}) {
+  // 자동 전환 상태는 중앙 소개 미리보기에서만 사용한다.
   const [screen, setScreen] = useState<MockScreen>('insert');
   const [pinnedAt, setPinnedAt] = useState(0);
 
@@ -60,7 +61,7 @@ export function StartScreen({ onStart }: { onStart: () => void }) {
 
   return (
     <div className="start">
-      <StartHeader screen={screen} onPick={pick} onStart={onStart} />
+      <StartHeader onNavigate={onNavigate} onStart={onStart} />
       <main className="start-main">
         <Hero onStart={onStart} />
         <ProductMock screen={screen} onPick={pick} />
@@ -71,12 +72,10 @@ export function StartScreen({ onStart }: { onStart: () => void }) {
 }
 
 function StartHeader({
-  screen,
-  onPick,
+  onNavigate,
   onStart,
 }: {
-  screen: MockScreen;
-  onPick: (s: MockScreen) => void;
+  onNavigate: (page: 'gallery' | 'edit' | 'print') => void;
   onStart: () => void;
 }) {
   return (
@@ -87,20 +86,16 @@ function StartHeader({
           <span>Rings</span>
         </div>
 
-        {/*
-          이 이름들은 앱으로 들어가는 문이 아니라 **아래 미리보기를 고르는
-          것**이다(디자인). 지금 보고 있는 것에 옅은 바탕이 깔린다.
-          Notebooks는 보류 중인 기능이라 꺼져 있다.
-        */}
-        <nav className="start-nav">
-          <button className={screen === 'template' ? 'on' : ''} onClick={() => onPick('template')}>
+        {/* 홈에서는 목적지 페이지가 열려 있지 않으므로 선택 표시를 하지 않는다. */}
+        <nav className="start-nav" aria-label="주 메뉴">
+          <button onClick={() => onNavigate('gallery')}>
             Template
           </button>
-          <button className={screen === 'insert' ? 'on' : ''} onClick={() => onPick('insert')}>
+          <button onClick={() => onNavigate('edit')}>
             Inserts
           </button>
-          <button className="off">Notebooks</button>
-          <button className={screen === 'print' ? 'on' : ''} onClick={() => onPick('print')}>
+          <button className="off" disabled title="전용 페이지 준비 중">Notebooks</button>
+          <button onClick={() => onNavigate('print')}>
             Print
           </button>
         </nav>
