@@ -76,16 +76,24 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
   const activeId = useStore((s) => s.activeId);
   const addTemplate = useStore((s) => s.addTemplate);
   const [view, setView] = useState<GalleryView>({ kind: 'templates', family: 'all' });
+  // "새 양식"에 들어가기 직전에 보던 곳. 취소·만들기 뒤에 여기로 돌아간다 —
+  // 그러지 않으면 ETC를 보다가 새 양식을 만들었을 뿐인데 전체로 튕겨나간다.
+  const [returnView, setReturnView] = useState<GalleryView>({ kind: 'templates', family: 'all' });
 
   const sections = sizeSections(templates, view.kind === 'templates' ? view.family : 'all');
   const latest = newestFirst(templates);
+
+  function goToNew() {
+    if (view.kind !== 'new') setReturnView(view);
+    setView({ kind: 'new' });
+  }
 
   function newFrom(section: SizeSection) {
     // 프리셋 칸은 그 규격으로 바로 만든다 — 규격을 이미 골라서 누른 것이라
     // 화면을 한 번 더 거치면 같은 것을 두 번 고르게 된다. 프리셋이 없는
     // custom 칸만 "새 양식" 화면으로 보낸다(크기를 물어봐야 하므로).
     if (!section.preset) {
-      setView({ kind: 'new' });
+      goToNew();
       return;
     }
     addTemplate(insertFromPreset(section.preset.id), undefined, undefined, 'insert');
@@ -94,7 +102,7 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
 
   return (
     <div className="gallery">
-      <GalleryRail view={view} setView={setView} />
+      <GalleryRail view={view} setView={setView} onNew={goToNew} />
 
       <div className="gallery-body">
         {view.kind === 'images' ? (
@@ -103,10 +111,10 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
           <FontManagePanel />
         ) : view.kind === 'new' ? (
           <NewTemplateView
-            onCancel={() => setView({ kind: 'templates', family: 'all' })}
+            onCancel={() => setView(returnView)}
             onCreate={(insert, name, grid, kind) => {
               addTemplate(insert, name, grid, kind);
-              setView({ kind: 'templates', family: 'all' });
+              setView(returnView);
               onEdit();
             }}
           />
@@ -121,7 +129,7 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
               {latest.map((t) => (
                 <Card key={t.id} template={t} active={t.id === activeId} onEdit={onEdit} />
               ))}
-              <button className="card-add" onClick={() => setView({ kind: 'new' })} title="새 양식">
+              <button className="card-add" onClick={goToNew} title="새 양식">
                 <span className="card-add-plus">+</span>
                 <span>새 양식</span>
               </button>
@@ -214,9 +222,11 @@ function sizeSections(templates: Template[], family: SizeFamilyId | 'all'): Size
 function GalleryRail({
   view,
   setView,
+  onNew,
 }: {
   view: GalleryView;
   setView: (v: GalleryView) => void;
+  onNew: () => void;
 }) {
   const isTemplates = view.kind === 'templates';
 
@@ -238,7 +248,7 @@ function GalleryRail({
       <RailBtn on={view.kind === 'fonts'} label="글꼴" onClick={() => setView({ kind: 'fonts' })}>
         <span className="rail-aa">Aa</span>
       </RailBtn>
-      <RailBtn on={view.kind === 'new'} label="새 양식" onClick={() => setView({ kind: 'new' })}>
+      <RailBtn on={view.kind === 'new'} label="새 양식" onClick={onNew}>
         <PlusIcon />
       </RailBtn>
 
@@ -421,7 +431,9 @@ function NewTemplateView({
   }
 
   function pickFamily(f: SizeFamily) {
-    pickPreset(f.presetIds.length > 0 ? f.presetIds[0] : 'custom');
+    // 이미 고른 갈래를 또 눌렀다고 그 안에서 고른 구체 규격을 되돌리지 않는다.
+    if (f.id === family) return;
+    pickPreset(f.id === 'custom' ? 'custom' : f.presetIds[0]);
   }
 
   function create() {
