@@ -9,19 +9,20 @@ import {
 } from '../core/template';
 import {
   familyOf,
+  findInsertPreset,
   SIZE_FAMILIES,
   type InsertPreset,
+  type SizeFamily,
   type SizeFamilyId,
 } from '../core/presets';
 import { notebookInsertSize } from '../core/notebook';
-import { INSERT_PRESETS, PAPER_PRESETS, useInsert, useStore } from '../store';
+import { INSERT_PRESETS, useInsert, useStore } from '../store';
 import {
   DEFAULT_DOT_GRID,
   gridArea,
   gridLattice,
   spacingForCells,
   type DotGrid,
-  type GridStyle,
 } from '../core/grid';
 import { roundMm } from '../core/units';
 import { InsertView } from './InsertView';
@@ -37,7 +38,8 @@ type GalleryView =
   | { kind: 'templates'; family: SizeFamilyId | 'all' }
   | { kind: 'latest' }
   | { kind: 'images' }
-  | { kind: 'fonts' };
+  | { kind: 'fonts' }
+  | { kind: 'new' };
 
 /**
  * 규격 한 칸 — 화면에 실제로 그려지는 한 덩어리.
@@ -73,7 +75,6 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
   const templates = useStore((s) => s.templates);
   const activeId = useStore((s) => s.activeId);
   const addTemplate = useStore((s) => s.addTemplate);
-  const [creating, setCreating] = useState(false);
   const [view, setView] = useState<GalleryView>({ kind: 'templates', family: 'all' });
 
   const sections = sizeSections(templates, view.kind === 'templates' ? view.family : 'all');
@@ -81,10 +82,10 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
 
   function newFrom(section: SizeSection) {
     // 프리셋 칸은 그 규격으로 바로 만든다 — 규격을 이미 골라서 누른 것이라
-    // 창을 한 번 더 띄우면 같은 것을 두 번 고르게 된다. 프리셋이 없는
-    // custom 칸만 창을 띄운다(크기를 물어봐야 하므로).
+    // 화면을 한 번 더 거치면 같은 것을 두 번 고르게 된다. 프리셋이 없는
+    // custom 칸만 "새 양식" 화면으로 보낸다(크기를 물어봐야 하므로).
     if (!section.preset) {
-      setCreating(true);
+      setView({ kind: 'new' });
       return;
     }
     addTemplate(insertFromPreset(section.preset.id), undefined, undefined, 'insert');
@@ -93,13 +94,22 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
 
   return (
     <div className="gallery">
-      <GalleryRail view={view} setView={setView} onNew={() => setCreating(true)} />
+      <GalleryRail view={view} setView={setView} />
 
       <div className="gallery-body">
         {view.kind === 'images' ? (
           <ImageManagePanel />
         ) : view.kind === 'fonts' ? (
           <FontManagePanel />
+        ) : view.kind === 'new' ? (
+          <NewTemplateView
+            onCancel={() => setView({ kind: 'templates', family: 'all' })}
+            onCreate={(insert, name, grid, kind) => {
+              addTemplate(insert, name, grid, kind);
+              setView({ kind: 'templates', family: 'all' });
+              onEdit();
+            }}
+          />
         ) : view.kind === 'latest' ? (
           <section className="gallery-group">
             <h2>
@@ -111,7 +121,7 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
               {latest.map((t) => (
                 <Card key={t.id} template={t} active={t.id === activeId} onEdit={onEdit} />
               ))}
-              <button className="card-add" onClick={() => setCreating(true)} title="새 양식">
+              <button className="card-add" onClick={() => setView({ kind: 'new' })} title="새 양식">
                 <span className="card-add-plus">+</span>
                 <span>새 양식</span>
               </button>
@@ -137,17 +147,6 @@ export function GalleryTab({ onEdit }: { onEdit: () => void }) {
           ))
         )}
       </div>
-
-      {creating && (
-        <NewTemplateDialog
-          onClose={() => setCreating(false)}
-          onCreate={(insert, name, grid, kind) => {
-            addTemplate(insert, name, grid, kind);
-            setCreating(false);
-            onEdit();
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -215,11 +214,9 @@ function sizeSections(templates: Template[], family: SizeFamilyId | 'all'): Size
 function GalleryRail({
   view,
   setView,
-  onNew,
 }: {
   view: GalleryView;
   setView: (v: GalleryView) => void;
-  onNew: () => void;
 }) {
   const isTemplates = view.kind === 'templates';
 
@@ -241,11 +238,7 @@ function GalleryRail({
       <RailBtn on={view.kind === 'fonts'} label="글꼴" onClick={() => setView({ kind: 'fonts' })}>
         <span className="rail-aa">Aa</span>
       </RailBtn>
-      {/*
-        이것만 화면을 바꾸지 않고 창을 띄운다 — 규격을 고르는 일이라
-        "무엇을 볼지"와 성격이 다르다. 그래서 눌러도 켜진 채로 남지 않는다.
-      */}
-      <RailBtn on={false} label="새 양식" onClick={onNew}>
+      <RailBtn on={view.kind === 'new'} label="새 양식" onClick={() => setView({ kind: 'new' })}>
         <PlusIcon />
       </RailBtn>
 
@@ -353,23 +346,32 @@ function PlusIcon() {
 /**
  * 새 양식 — 규격을 고르고 만든다.
  *
+ * 팝업이 아니라 갤러리의 다른 탭(전체·최신·이미지·글꼴)과 같은 자리에
+ * 그려지는 화면이다 — 왼쪽 레일의 "새 양식"도 그 탭들처럼 켜진 채로 남는다.
+ *
+ * **규격은 갈래(사용자 지정·A5/A6·M6/M5·ETC)를 먼저 고르고, 그 안에서 구체
+ * 규격을 고르는 2단계다.** 갈래는 왼쪽 레일이 양식을 묶는 것과 같은
+ * `SIZE_FAMILIES`를 쓴다 — 두 군데가 다르게 묶이면 같은 규격을 찾는 길이
+ * 화면마다 달라진다.
+ *
  * **처음부터 하나가 골라져 있다.** 지금 보던 양식의 규격이다. 대부분 한 규격으로
- * 계속 작업하므로, 그대로 `만들기`를 누르면 예전과 같은 결과가 된다. 규격을
- * 바꾸고 싶을 때만 손이 더 간다.
+ * 계속 작업하므로, 그대로 `만들기`를 누르면 예전과 같은 결과가 된다.
  *
  * 이름도 미리 채워둔다. 비워두면 자동 이름이 붙으므로 그냥 Enter를 쳐도 된다.
+ *
+ * 용지 프리셋·격자 스타일(도트/그리드/가로줄/세로줄)·여백 설정은 여기 없다 —
+ * 만든 뒤 편집 화면의 설정 패널에서 언제든 바꿀 수 있어서, 처음 만들 때부터
+ * 물을 필요가 없다.
  */
-function NewTemplateDialog({
-  onClose,
+function NewTemplateView({
+  onCancel,
   onCreate,
 }: {
-  onClose: () => void;
+  onCancel: () => void;
   onCreate: (insert: InsertSetting, name: string, grid: DotGrid, kind: TemplateKind) => void;
 }) {
   // 양식이 없으면(처음 열었을 때) 기본 규격에서 시작한다.
   const current = useInsert();
-  const paper = useStore((s) => s.paper);
-  const setPaperPreset = useStore((s) => s.setPaperPreset);
 
   const [kind, setKind] = useState<TemplateKind>('insert');
   const [presetId, setPresetId] = useState(current.presetId);
@@ -408,6 +410,8 @@ function NewTemplateDialog({
   const area = gridArea(insert, grid, insert.punch.safeZoneWidth);
   const preview = gridLattice(area, spacing, grid.minMargin, grid.toEdge);
 
+  const family = familyOf(presetId);
+
   function pickPreset(id: string) {
     setPresetId(id);
     if (id === 'custom') return;
@@ -416,13 +420,31 @@ function NewTemplateDialog({
     setHeight(next.height);
   }
 
+  function pickFamily(f: SizeFamily) {
+    pickPreset(f.presetIds.length > 0 ? f.presetIds[0] : 'custom');
+  }
+
   function create() {
     if (width <= 0 || height <= 0 || spacing <= 0) return;
     onCreate(insert, name, { ...grid, spacing }, kind);
   }
 
   return (
-    <Modal title="새 양식" onClose={onClose}>
+    <section className="gallery-group new-template">
+      <h2>새 양식</h2>
+
+      <label className="modal-field">
+        이름
+        <input
+          value={name}
+          placeholder="비워두면 자동으로 붙습니다"
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && create()}
+        />
+      </label>
+
+      <div className="modal-divider" />
+
       <div className="modal-row">
         <label className="modal-check">
           <input type="radio" checked={kind === 'insert'} onChange={() => setKind('insert')} />
@@ -435,32 +457,22 @@ function NewTemplateDialog({
       </div>
 
       {kind === 'insert' ? (
-        <>
+        <div className="new-template-section">
           <p className="modal-note">어떤 규격의 속지를 만들까요?</p>
 
-          <div className="preset-list">
-            {INSERT_PRESETS.map((p) => (
+          <div className="family-tabs">
+            {SIZE_FAMILIES.map((f) => (
               <button
-                key={p.id}
-                className={`preset ${presetId === p.id ? 'on' : ''}`}
-                onClick={() => pickPreset(p.id)}
+                key={f.id}
+                className={`family-tab ${family === f.id ? 'on' : ''}`}
+                onClick={() => pickFamily(f)}
               >
-                <b>{p.name}</b>
-                <span>
-                  {p.width} × {p.height}mm
-                </span>
+                {f.label}
               </button>
             ))}
-            <button
-              className={`preset ${presetId === 'custom' ? 'on' : ''}`}
-              onClick={() => pickPreset('custom')}
-            >
-              <b>사용자 지정</b>
-              <span>직접 입력</span>
-            </button>
           </div>
 
-          {presetId === 'custom' && (
+          {family === 'custom' ? (
             <div className="card-dialog-size">
               <input
                 type="number"
@@ -479,10 +491,29 @@ function NewTemplateDialog({
               />
               <span>mm</span>
             </div>
+          ) : (
+            <div className="preset-list">
+              {SIZE_FAMILIES.find((f) => f.id === family)?.presetIds.map((id) => {
+                const p = findInsertPreset(id);
+                if (!p) return null;
+                return (
+                  <button
+                    key={p.id}
+                    className={`preset ${presetId === p.id ? 'on' : ''}`}
+                    onClick={() => pickPreset(p.id)}
+                  >
+                    <b>{p.name}</b>
+                    <span>
+                      {p.width} × {p.height}mm
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           )}
-        </>
+        </div>
       ) : (
-        <>
+        <div className="new-template-section">
           <p className="modal-note">완성됐을 때 페이지 한 쪽의 크기입니다. 타공은 없습니다.</p>
           <div className="card-dialog-size">
             <input
@@ -509,123 +540,81 @@ function NewTemplateDialog({
             </b>
             .
           </p>
-        </>
-      )}
-
-      <div className="modal-divider" />
-      <p className="modal-note">용지 — 인쇄할 종이. 작업 전체에 적용됩니다.</p>
-      <div className="modal-row">
-        <select value={paper.presetId} onChange={(e) => setPaperPreset(e.target.value)}>
-          {PAPER_PRESETS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name} · {p.width} × {p.height}mm
-            </option>
-          ))}
-          <option value="custom">사용자 지정</option>
-        </select>
-      </div>
-
-      <div className="modal-divider" />
-      <p className="modal-note">도트 격자</p>
-
-      <div className="modal-row">
-        <select
-          value={grid.style}
-          onChange={(e) => setGrid({ ...grid, style: e.target.value as GridStyle })}
-        >
-          <option value="dot">도트</option>
-          <option value="grid">그리드</option>
-          <option value="horizontal">가로줄</option>
-          <option value="vertical">세로줄</option>
-        </select>
-
-        <label className="modal-check">
-          <input
-            type="checkbox"
-            checked={grid.toEdge}
-            onChange={(e) => setGrid({ ...grid, toEdge: e.target.checked })}
-          />
-          여백 없이 끝까지
-        </label>
-      </div>
-
-      <div className="modal-row">
-        <label className="modal-check">
-          <input type="radio" checked={!byCells} onChange={() => setByCells(false)} />
-          간격으로
-        </label>
-        <label className="modal-check">
-          <input type="radio" checked={byCells} onChange={() => setByCells(true)} />
-          칸 수로
-        </label>
-      </div>
-
-      {byCells ? (
-        <div className="modal-row">
-          <select value={cellAxis} onChange={(e) => setCellAxis(e.target.value as 'x' | 'y')}>
-            <option value="x">가로</option>
-            <option value="y">세로</option>
-          </select>
-          <input
-            type="number"
-            className="modal-num"
-            value={cells}
-            min={1}
-            step={1}
-            onChange={(e) => setCells(Math.max(1, Math.round(Number(e.target.value))))}
-          />
-          <span className="modal-unit">칸</span>
-        </div>
-      ) : (
-        <div className="modal-row">
-          <input
-            type="number"
-            className="modal-num"
-            value={grid.spacing}
-            min={0.5}
-            step={0.5}
-            onChange={(e) => setGrid({ ...grid, spacing: Number(e.target.value) })}
-          />
-          <span className="modal-unit">mm</span>
         </div>
       )}
 
-      {/* 지금 값으로 만들면 어떻게 되는지. 잘린 띠는 칸으로 세지 않는다. */}
-      <p className="modal-result">
-        {preview.cols > 0 && preview.rows > 0 ? (
-          <>
-            <b>
-              {preview.cols} × {preview.rows}칸
-            </b>
-            {' · 간격 '}
-            {roundMm(spacing, 2)}mm
-            {grid.toEdge ? '' : ` · 여백 ${roundMm(preview.marginX, 1)}mm`}
-          </>
+      <div className="modal-divider" />
+
+      <div className="new-template-section">
+        <p className="modal-note">도트 격자</p>
+
+        {/* 지금 값으로 만들면 어떻게 되는지. 잘린 띠는 칸으로 세지 않는다. */}
+        <p className="modal-result">
+          {preview.cols > 0 && preview.rows > 0 ? (
+            <>
+              <b>
+                {preview.cols} × {preview.rows}칸
+              </b>
+              {' · 간격 '}
+              {roundMm(spacing, 2)}mm
+              {grid.toEdge ? '' : ` · 여백 ${roundMm(preview.marginX, 1)}mm`}
+            </>
+          ) : (
+            <span className="warn">간격이 속지보다 넓어 격자가 들어가지 않습니다.</span>
+          )}
+        </p>
+
+        <div className="modal-row">
+          <label className="modal-check">
+            <input type="radio" checked={!byCells} onChange={() => setByCells(false)} />
+            간격으로
+          </label>
+          <label className="modal-check">
+            <input type="radio" checked={byCells} onChange={() => setByCells(true)} />
+            칸 수로
+          </label>
+        </div>
+
+        {byCells ? (
+          <div className="modal-row">
+            <select value={cellAxis} onChange={(e) => setCellAxis(e.target.value as 'x' | 'y')}>
+              <option value="x">가로</option>
+              <option value="y">세로</option>
+            </select>
+            <input
+              type="number"
+              className="modal-num"
+              value={cells}
+              min={1}
+              step={1}
+              onChange={(e) => setCells(Math.max(1, Math.round(Number(e.target.value))))}
+            />
+            <span className="modal-unit">칸</span>
+          </div>
         ) : (
-          <span className="warn">간격이 속지보다 넓어 격자가 들어가지 않습니다.</span>
+          <div className="modal-row">
+            <input
+              type="number"
+              className="modal-num"
+              value={grid.spacing}
+              min={0.5}
+              step={0.5}
+              onChange={(e) => setGrid({ ...grid, spacing: Number(e.target.value) })}
+            />
+            <span className="modal-unit">mm</span>
+          </div>
         )}
-      </p>
-
-      <div className="modal-divider" />
-      <label className="modal-field">
-        이름
-        <input
-          value={name}
-          placeholder="비워두면 자동으로 붙습니다"
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && create()}
-        />
-      </label>
+      </div>
 
       <div className="card-dialog-actions">
-        <button className="ghost" onClick={onClose}>
+        <button className="ghost" onClick={onCancel}>
           취소
         </button>
         <button className="primary" onClick={create}>
           만들기
         </button>
       </div>
-    </Modal>
+    </section>
   );
 }
 

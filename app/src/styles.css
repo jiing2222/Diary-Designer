@@ -2982,6 +2982,48 @@ footer b {
   font-size: 12px;
 }
 
+/*
+  새 양식 — 갤러리의 다른 탭(전체·최신·이미지·글꼴)과 같은 자리에 그려지는
+  화면이다(GalleryTab의 NewTemplateView 주석). 팝업이 아니라서 폭만 좁혀 둔다.
+*/
+.new-template {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 480px;
+}
+
+.new-template-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 규격 갈래(사용자 지정·A5/A6·M6/M5·ETC) — 왼쪽 레일과 같은 갈래를 쓴다. */
+.family-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.family-tab {
+  padding: 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.family-tab.on {
+  border: 2px solid var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
 /* 새 양식 창 안의 줄들. 설정 패널보다 촘촘하게 둔다. */
 .modal-divider {
   height: 1px;
