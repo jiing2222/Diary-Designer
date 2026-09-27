@@ -383,7 +383,8 @@ function NewTemplateView({
   // 양식이 없으면(처음 열었을 때) 기본 규격에서 시작한다.
   const current = useInsert();
 
-  const [kind, setKind] = useState<TemplateKind>('insert');
+  // 노트 만들기는 리뉴얼 때까지 숨겨서 늘 속지다. 노트 분기 코드는 남겨둔다.
+  const [kind] = useState<TemplateKind>('insert');
   const [presetId, setPresetId] = useState(current.presetId);
   // 노트일 때는 이 width·height가 "완성 페이지" 크기다 — 실제로 그리는
   // 양식의 가로는 이 값의 두 배다(notebookInsertSize).
@@ -456,17 +457,6 @@ function NewTemplateView({
       </label>
 
       <div className="modal-divider" />
-
-      <div className="modal-row">
-        <label className="modal-check">
-          <input type="radio" checked={kind === 'insert'} onChange={() => setKind('insert')} />
-          속지 — 링 바인더에 끼운다
-        </label>
-        <label className="modal-check">
-          <input type="radio" checked={kind === 'notebook'} onChange={() => setKind('notebook')} />
-          노트 — 스테이플러·바느질로 맨다
-        </label>
-      </div>
 
       {kind === 'insert' ? (
         <div className="new-template-section">

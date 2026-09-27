@@ -298,13 +298,7 @@ function NavMenu({ tab, setTab, active }: { tab: Tab; setTab: (t: Tab) => void; 
           >
             Inserts
           </button>
-          <button
-            className={tab === 'edit' && active?.kind === 'notebook' ? 'tab on' : 'tab'}
-            onClick={() => go('edit')}
-            disabled={!active || active.kind !== 'notebook'}
-          >
-            Notebooks
-          </button>
+          {/* Notebooks는 리뉴얼 때까지 숨긴다 — 코드는 남아 있다. */}
           <button className={tab === 'print' ? 'tab on' : 'tab'} onClick={() => go('print')} disabled={!active}>
             Print
           </button>

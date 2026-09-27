@@ -94,7 +94,6 @@ function StartHeader({
           <button onClick={() => onNavigate('edit')}>
             Inserts
           </button>
-          <button className="off" disabled title="전용 페이지 준비 중">Notebooks</button>
           <button onClick={() => onNavigate('print')}>
             Print
           </button>
