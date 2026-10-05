@@ -62,6 +62,11 @@ ssh -L 8090:127.0.0.1:8090 <사용자>@<서버IP>
 
 ## 4. `projects` 컬렉션 만들기
 
+> **빠른 길:** `pb_migrations/1_projects.js`가 아래 내용을 전부 자동으로 만든다.
+> `pocketbase serve --migrationsDir=<이 폴더>/pb_migrations`로 띄우면 처음
+> 시작할 때 한 번 적용된다(로컬 개발도 같은 방법). 손으로 만들 때만 아래를 따른다.
+
+
 관리자 화면 → **Collections → New collection** → 이름 `projects` (Base 타입).
 
 필드 두 개를 만든다:
