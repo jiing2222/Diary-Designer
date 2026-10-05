@@ -4200,3 +4200,12 @@ footer b {
   width: 13px;
   height: 13px;
 }
+
+/* 되돌릴 수 없는 동작(탈퇴). */
+.cloud button.danger:not(.ghost) {
+  background: var(--warn);
+}
+
+.cloud button.ghost.danger {
+  color: var(--warn);
+}

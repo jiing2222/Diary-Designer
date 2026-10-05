@@ -13,8 +13,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
+  changePassword,
   cloudEnabled,
   cloudErrorText,
+  deleteAccount,
   currentUser,
   onAuthChange,
   signIn,
@@ -137,10 +139,99 @@ function SignedIn({
         합니다.
       </p>
       {sync.kind === 'error' && <p className="cloud-error">{sync.text}</p>}
+      <AccountForm onDeleted={onSignOut} />
       <button className="ghost" onClick={onSignOut}>
         로그아웃
       </button>
     </div>
+  );
+}
+
+/** 계정 관리 — 비밀번호 바꾸기와 탈퇴. 평소엔 접혀 있다. */
+function AccountForm({ onDeleted }: { onDeleted: () => void }) {
+  const [mode, setMode] = useState<'closed' | 'password' | 'delete'>('closed');
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  function open(m: typeof mode) {
+    setMode(m);
+    setCurrent('');
+    setNext('');
+    setMsg(null);
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (mode === 'delete' && !confirm('계정과 서버에 저장된 작업이 모두 지워집니다. 탈퇴할까요?')) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      if (mode === 'password') {
+        await changePassword(current, next);
+        setMsg({ ok: true, text: '비밀번호를 바꿨습니다.' });
+        setMode('closed');
+      } else {
+        await deleteAccount(current);
+        onDeleted();
+      }
+    } catch (err) {
+      setMsg({ ok: false, text: cloudErrorText(err) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (mode === 'closed') {
+    return (
+      <div className="cloud-actions">
+        <button className="ghost" onClick={() => open('password')}>
+          비밀번호 변경
+        </button>
+        <button className="ghost danger" onClick={() => open('delete')}>
+          탈퇴
+        </button>
+        {msg && <p className={msg.ok ? 'note' : 'cloud-error'}>{msg.text}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <form className="cloud-form" onSubmit={(e) => void submit(e)}>
+      <label className="cloud-field">
+        <span>현재 비밀번호</span>
+        <input
+          type="password"
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+          autoComplete="current-password"
+          required
+        />
+      </label>
+      {mode === 'password' && (
+        <label className="cloud-field">
+          <span>새 비밀번호</span>
+          <input
+            type="password"
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
+        </label>
+      )}
+      {msg && <p className="cloud-error">{msg.text}</p>}
+      <div className="cloud-actions">
+        <button type="submit" disabled={busy} className={mode === 'delete' ? 'danger' : undefined}>
+          {busy ? '잠시만요…' : mode === 'password' ? '바꾸기' : '탈퇴하기'}
+        </button>
+        <button type="button" className="ghost" onClick={() => open('closed')}>
+          취소
+        </button>
+      </div>
+    </form>
   );
 }
 

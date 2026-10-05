@@ -69,6 +69,30 @@ export async function signUp(email: string, password: string): Promise<CloudUser
   return signIn(email, password);
 }
 
+/**
+ * 비밀번호 바꾸기. PocketBase는 바꾸는 순간 지금 토큰을 무효로 하므로
+ * 새 비밀번호로 곧바로 다시 로그인시킨다 — 안 그러면 바꾸자마자 로그아웃된다.
+ */
+export async function changePassword(oldPassword: string, password: string): Promise<void> {
+  const user = currentUser();
+  if (!pb || !user) throw new Error('로그인이 필요합니다.');
+  await pb.collection('users').update(user.id, { oldPassword, password, passwordConfirm: password });
+  await signIn(user.email, password);
+}
+
+/**
+ * 탈퇴. 서버의 작업도 함께 지워진다(projects.user가 Cascade delete —
+ * server/README 4절). 지우기 전에 비밀번호로 한 번 더 확인한다: 열어둔
+ * 남의 컴퓨터에서 누가 눌러버리는 일을 막는다.
+ */
+export async function deleteAccount(password: string): Promise<void> {
+  const user = currentUser();
+  if (!pb || !user) throw new Error('로그인이 필요합니다.');
+  await pb.collection('users').authWithPassword(user.email, password);
+  await pb.collection('users').delete(user.id);
+  pb.authStore.clear();
+}
+
 export function signOut(): void {
   pb?.authStore.clear();
 }
