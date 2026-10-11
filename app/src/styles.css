@@ -5343,3 +5343,19 @@ button.danger:hover {
   font-weight: 500;
   color: var(--muted);
 }
+
+/* 옛 머리줄(header)·옛 메뉴(.tab) 규칙이 새 틀에 섞여 들던 것을 끊는다 — 옛 .tab의
+   `width: 100%` 때문에 탭 하나가 탭 줄 폭을 통째로 차지해 나머지 탭이 밖으로 밀려 숨었다. */
+.frame-top {
+  height: 48px;
+  padding: 0 12px 0 0;
+  border-bottom: none;
+  background: transparent;
+}
+.tab-bar {
+  flex: 1 1 auto;
+}
+.tab-bar .tab {
+  width: auto;
+  text-align: left;
+}
