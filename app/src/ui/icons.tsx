@@ -230,11 +230,20 @@ export function MenuIcon() {
 }
 
 /** 로고 — 반지 두 개가 겹친 모양. 강조색·잉크색 고리 하나씩, 색은 고정이라 currentColor를 안 쓴다. */
+/** 토성 — 버터색 행성에 기울어진 링 하나(리뉴얼, design/리뉴얼/디자인.md). */
 export function RingsLogo() {
   return (
-    <svg viewBox="0 0 20 20" width={20} height={20} fill="none">
-      <circle cx={7.3} cy={10} r={4.9} style={{ stroke: 'var(--accent)' }} strokeWidth={1.6} />
-      <circle cx={12.7} cy={10} r={4.9} style={{ stroke: 'var(--ink)' }} strokeWidth={1.6} />
+    <svg viewBox="0 0 40 40" width={22} height={22} fill="none" aria-hidden="true">
+      <circle cx={20} cy={20} r={9} style={{ fill: 'var(--butter)', stroke: 'var(--accent)' }} strokeWidth={1.4} />
+      <ellipse
+        cx={20}
+        cy={21}
+        rx={17}
+        ry={5.5}
+        style={{ stroke: 'var(--accent)' }}
+        strokeWidth={1.4}
+        transform="rotate(-18 20 21)"
+      />
     </svg>
   );
 }

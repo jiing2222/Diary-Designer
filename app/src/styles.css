@@ -30,18 +30,28 @@
 }
 
 :root {
-  --bg: #f4f4f2;
-  --panel: #ffffff;
-  --ink: #1c1c1a;
-  --muted: #6e6e68;
-  --line: #dededa;
-  --accent: #2f6f4f;
-  --accent-subtle: #e3ede7;
+  /* 리뉴얼 색 — design/리뉴얼/디자인.md ‘색과 선 (3차)’. 바탕은 거의 흰 아이보리, 면은 그레이지. */
+  --bg: #fbfaf7;
+  --panel: #f2f0eb;
+  --ink: #2e2723;
+  --muted: #8b827a;
+  --line: #e3dfd7;
+  /* 주 버튼·고른 것의 진한 알약은 브라운이다. */
+  --accent: #6b4e3d;
+  --accent-hover: #5a4133;
+  --accent-subtle: #eee5dd;
+  /* 선택 표시·옅은 하위 선택·링크. */
+  --blue: #8ea8c6;
+  --blue-subtle: #e2e9f1;
+  --blue-deep: #4f6e94;
+  --butter: #edd99a;
   --warn: #b04a2f;
   /* 위험한 동작(삭제)의 옅은 배경. --accent-subtle과 같은 자리의 짝이다. */
   --danger-subtle: #f5e6e0;
-  --placeholder: #b6b6b0;
-  --hover-bg: #eaeae6;
+  --placeholder: #b9b4ab;
+  --hover-bg: #e7e3db;
+  /* 로고·메뉴 이름에만 쓰는 제목용 글꼴. 받아오지 못하면 본문 글꼴로 그린다. */
+  --font-display: 'Jost', 'Pretendard Variable', 'Pretendard', sans-serif;
   /*
     화면용은 가변 Pretendard가 먼저다(index.html) — 600 같은 중간 굵기가
     실제로 있어야 디자인대로 나온다. 뒤의 'Pretendard'는 CDN이 막혔을 때
@@ -113,8 +123,10 @@ header {
 
 header h1 {
   margin: 0;
+  font-family: var(--font-display);
   font-size: 15px;
-  font-weight: 600;
+  /* Jost는 400·500만 받는다. 600을 부르면 브라우저가 가짜 굵게를 그린다. */
+  font-weight: 500;
   letter-spacing: -0.2px;
 }
 
@@ -1671,7 +1683,7 @@ select,
   margin-top: 8px;
   padding: 8px 10px;
   border-radius: 5px;
-  background: #f0f2ef;
+  background: var(--hover-bg);
   font-size: 11.5px;
   line-height: 1.5;
 }
@@ -2564,6 +2576,7 @@ footer b {
   지금 있는 곳은 눌리지 않고 바탕만 옅게 깔린다.
 */
 .crumbs {
+  font-family: var(--font-display);
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -3057,7 +3070,7 @@ footer b {
 
 .preset.on {
   border-color: var(--accent);
-  background: #eef3ef;
+  background: var(--accent-subtle);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
@@ -3208,7 +3221,7 @@ footer b {
   margin: 0;
   padding: 7px 9px;
   border-radius: 5px;
-  background: #f0f2ef;
+  background: var(--hover-bg);
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
@@ -3349,7 +3362,7 @@ footer b {
 }
 
 .design-tabs button.on {
-  background: #f0f2ef;
+  background: var(--hover-bg);
   color: var(--ink);
   font-weight: 600;
 }
@@ -3566,12 +3579,13 @@ footer b {
 }
 
 .start-logo {
+  font-family: var(--font-display);
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.2px;
 }
 
@@ -3583,6 +3597,7 @@ footer b {
 }
 
 .start-nav button {
+  font-family: var(--font-display);
   padding: 6px 10px;
   border: none;
   border-radius: 4px;
@@ -3638,7 +3653,7 @@ footer b {
 }
 
 .start-header-cta:hover {
-  background: #275d42;
+  background: var(--accent-hover);
 }
 
 .start-header-right {
@@ -3757,7 +3772,7 @@ footer b {
 }
 
 .start-cta:hover {
-  background: #275d42;
+  background: var(--accent-hover);
 }
 
 .start-meta {
@@ -4006,7 +4021,7 @@ footer b {
 
 /* 같은 배치에서 칸이 갈리는 것을 보여주려는 옅은 짝 색이다. */
 .start-mock-slots .b {
-  background: #8fb39e;
+  background: var(--blue);
 }
 
 /* ── 할 수 있는 일 ── */
@@ -4042,7 +4057,7 @@ footer b {
 
 .start-feature:hover {
   border-color: var(--accent);
-  background: #f9fbfa;
+  background: var(--bg);
 }
 
 .start-feature-icon {
@@ -4059,7 +4074,7 @@ footer b {
 }
 
 .start-feature-icon.soft {
-  background: #8fb39e;
+  background: var(--blue);
 }
 
 .start-feature-icon.ink {
