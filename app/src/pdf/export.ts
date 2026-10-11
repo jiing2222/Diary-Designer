@@ -89,6 +89,7 @@ import {
   weekStartOf,
 } from '../core/calendar';
 import { calendarCellAt, isInMonth } from '../core/dataset';
+import { dateColorOf, weekdayHeaderColorOf, type ColorRules } from '../core/colorRules';
 import { sheetSlotKey } from '../core/sheetSlots';
 
 /**
@@ -217,6 +218,11 @@ interface ExportInput {
    * 달력형 데이터셋일 때만 정해진다.
    */
   calendarYear?: number;
+  /**
+   * 작업의 색 규칙(실제 색으로 푼 것) — 달력의 일·토·공휴일 칸 색. 칸마다 어느 색인지는
+   * 화면과 같이 core/colorRules의 `dateColorOf`가 정한다. 없으면 달력 색 하나로.
+   */
+  colorRules?: ColorRules;
   /**
    * 겹치기 배치 — 세트형에서 칸마다 연속된 구간을 담당하도록 쪽 순서를
    * 재배열할지(core/template의 `cutStackPage`). 꺼져 있으면(기본) 지금까지처럼
@@ -405,7 +411,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
       };
       drawTexts(page, layout, resolveForSheet, fonts, flipY);
       if (pageFor && input.calendarYear !== undefined) {
-        drawCalendars(page, layout, resolveForSheet, pageFor, input.calendarYear, fonts, flipY);
+        drawCalendars(page, layout, resolveForSheet, pageFor, input.calendarYear, fonts, flipY, input.colorRules);
       }
     }
 
@@ -686,6 +692,7 @@ function drawCalendars(
   year: number,
   fonts: Fonts,
   flipY: (y: Mm) => Mm,
+  rules?: ColorRules,
 ) {
   layout.slots.forEach((slot, i) => {
     const calendars = resolveSlot(i).objects.filter(isCalendar);
@@ -728,8 +735,9 @@ function drawCalendars(
        * 없으므로 글자를 하나씩 떼어 그린다 — 폭을 하나씩 재서 더한 값 +
        * 사이 간격(글자 수 − 1개)이 전체 폭이다.
        */
-      const drawCentered = (text: string, localCx: Mm, localBaseline: Mm, opacity = 1) => {
+      const drawCentered = (text: string, localCx: Mm, localBaseline: Mm, opacity = 1, hex?: string) => {
         if (text === '') return;
+        const fill = hex ? color(hex) : textColor;
         if (spacing === 0) {
           const width = ptToMm(font.widthOfTextAtSize(text, mmToPt(geo.fontSize)));
           const p = place.map(o.x + localCx - width / 2, o.y + localBaseline);
@@ -738,7 +746,7 @@ function drawCalendars(
             y: mmToPt(flipY(p.y)),
             size: mmToPt(geo.fontSize),
             font,
-            color: textColor,
+            color: fill,
             opacity,
             rotate: degrees(layoutRotateDeg(layout)),
           });
@@ -756,7 +764,7 @@ function drawCalendars(
             y: mmToPt(flipY(p.y)),
             size: mmToPt(geo.fontSize),
             font,
-            color: textColor,
+            color: fill,
             opacity,
             rotate: degrees(layoutRotateDeg(layout)),
           });
@@ -765,12 +773,14 @@ function drawCalendars(
       };
 
       drawCentered(title, geo.title.cx, geo.title.baseline);
-      labels.forEach((label, li) => drawCentered(label, geo.weekdays[li].cx, geo.weekdays[li].baseline));
+      labels.forEach((label, li) =>
+        drawCentered(label, geo.weekdays[li].cx, geo.weekdays[li].baseline, 1, weekdayHeaderColorOf(li, weekStart, rules)),
+      );
       geo.days.forEach((pos, di) => {
         const date = calendarCellAt(year, datasetPage, di, weekStart, showAdjacentOf(o));
         if (!date) return;
         const opacity = isInMonth(date, year, datasetPage) ? 1 : CALENDAR_ADJACENT_OPACITY;
-        drawCentered(String(date.day), pos.cx, pos.baseline, opacity);
+        drawCentered(String(date.day), pos.cx, pos.baseline, opacity, dateColorOf(date, rules));
       });
     }
 

@@ -43,6 +43,7 @@ import {
 } from '../store';
 import { resolveObjectColors } from '../core/colors';
 import { changedIds, faceLabel, type ResolvedFace } from '../core/work';
+import { resolveRuleColors, type ColorRules } from '../core/colorRules';
 import type { DotGrid } from '../core/grid';
 import type { InsertSetting } from '../core/template';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
@@ -124,6 +125,7 @@ export function Editor() {
   const activeFace = useDisplayFace(activeSide);
   const inactiveFace = useDisplayFace(inactiveSide);
   const palette = usePalette();
+  const calendarRules = useCalendarRules(palette);
   const activeDisplay = useDisplayObjects(activeFace, palette);
   const inactiveDisplay = useDisplayObjects(inactiveFace, palette);
   const setSide = useStore((s) => s.setSide);
@@ -993,7 +995,7 @@ export function Editor() {
           objects={inactiveDisplay}
           safeZoneWidth={insert.punch.safeZoneWidth}
           mirror={inactiveSide === 'back'}
-          calendarContext={calendarContextOf(inactiveFace)}
+          calendarContext={calendarContextOf(inactiveFace, calendarRules)}
         />
         <PunchGuide
           width={insert.width}
@@ -1162,7 +1164,7 @@ export function Editor() {
                 grid={grid}
                 objects={activeDisplay}
                 safeZoneWidth={insert.punch.safeZoneWidth}
-                calendarContext={calendarContextOf(activeFace)}
+                calendarContext={calendarContextOf(activeFace, calendarRules)}
                 // 뒷면이면 항상 뒤집는다. 뒤집는 축(좌우/상하)은 인쇄 화면에서
                 // core/layout의 mirrorLayout이 정한다 — 편집 화면은 칸 하나만
                 // 보여줄 뿐 용지 배치를 모르므로, 속지 자신의 가로축(구멍이 있는
@@ -1814,9 +1816,18 @@ function useDisplayObjects(face: ResolvedFace | null, palette: ReturnType<typeof
 }
 const NO_OBJECTS: DiaryObject[] = [];
 
-/** 달력 객체가 그릴 달 — InsertView는 연도와 0부터 센 달을 받는다. */
-function calendarContextOf(face: ResolvedFace | null): { year: number; page: number } | undefined {
-  return face ? { year: face.month.year, page: face.month.month - 1 } : undefined;
+/** 달력 객체가 그릴 달과 색 규칙 — InsertView는 연도와 0부터 센 달을 받는다. */
+function calendarContextOf(
+  face: ResolvedFace | null,
+  rules: ColorRules | undefined,
+): { year: number; page: number; rules?: ColorRules } | undefined {
+  return face ? { year: face.month.year, page: face.month.month - 1, rules } : undefined;
+}
+
+/** 작업의 색 규칙을 실제 색으로 푼 것(달력 칸이 쓴다). 날짜 칸은 core/work가 이미 칠해 둔다. */
+function useCalendarRules(palette: ReturnType<typeof usePalette>): ColorRules | undefined {
+  const rules = useActiveWork()?.colorRules;
+  return useMemo(() => (palette ? resolveRuleColors(rules, palette) : rules), [rules, palette]);
 }
 
 /**
@@ -1889,6 +1900,7 @@ function StaticFace({
   onPick: () => void;
 }) {
   const palette = usePalette();
+  const calendarRules = useCalendarRules(palette);
   const objects = useDisplayObjects(face, palette);
   return (
     <svg
@@ -1909,7 +1921,7 @@ function StaticFace({
         objects={objects}
         safeZoneWidth={insert.punch.safeZoneWidth}
         mirror={mirror}
-        calendarContext={calendarContextOf(face)}
+        calendarContext={calendarContextOf(face, calendarRules)}
       />
       <PunchGuide width={insert.width} height={insert.height} punch={insert.punch} mirror={mirror} />
     </svg>
@@ -2111,6 +2123,7 @@ function Overview({ onClose }: { onClose: () => void }) {
   const spreads = useSpreads();
   const insert = useInsert();
   const palette = usePalette();
+  const calendarRules = useCalendarRules(palette);
   const goTo = useStore((s) => s.goTo);
   const scale = 140 / insert.height;
   return (
@@ -2136,7 +2149,7 @@ function Overview({ onClose }: { onClose: () => void }) {
                   objects={palette ? resolveObjectColors(face.objects, palette) : face.objects}
                   safeZoneWidth={insert.punch.safeZoneWidth}
                   mode="print"
-                  calendarContext={calendarContextOf(face)}
+                  calendarContext={calendarContextOf(face, calendarRules)}
                 />
               </svg>
               <span>{faceLabel(face, i)}</span>

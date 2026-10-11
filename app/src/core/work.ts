@@ -3,6 +3,7 @@ import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import type { CalendarDate, Dataset, DateDataset } from './dataset';
 import { resolveFieldsWithDates } from './format';
 import { formatPageNo } from './fieldFormat';
+import type { ColorRules } from './colorRules';
 import { defaultWorkPalette, type WorkPalette } from './colors';
 import {
   applyOverride,
@@ -71,6 +72,8 @@ export interface Work {
   folderId?: string;
   /** 휴지통에 넣은 시각. 30일 뒤 완전히 지운다(세부계획 B). */
   trashedAt?: string;
+  /** 색 규칙 — 일·토·공휴일의 날짜 칸·달력 칸 색(core/colorRules). 작업마다 한 벌. */
+  colorRules?: ColorRules;
 }
 
 /* ────────────────────────── 만들기 ────────────────────────── */
@@ -211,7 +214,8 @@ function datedEditable(source: Face, dates: (CalendarDate | null)[], override: F
  * `today`는 날짜 묶음이 아닌 페이지의 자동 필드가 보여줄 날짜다(기간을 정하기 전엔
  * 오늘 날짜로 보인다). 함수를 순수하게 두려고 바깥에서 받는다.
  */
-export function expandWork(work: Pick<Work, 'items'>, today: CalendarDate): ResolvedFace[] {
+export function expandWork(work: Pick<Work, 'items'> & Partial<Pick<Work, 'colorRules'>>, today: CalendarDate): ResolvedFace[] {
+  const rules = work.colorRules;
   const out: ResolvedFace[] = [];
   for (const item of work.items) {
     if (item.kind === 'page') {
@@ -221,7 +225,7 @@ export function expandWork(work: Pick<Work, 'items'>, today: CalendarDate): Reso
         itemId: item.id,
         faceId: item.face.id,
         background: item.face.background,
-        objects: resolveFieldsWithDates(item.face.objects, period.dates),
+        objects: resolveFieldsWithDates(item.face.objects, period.dates, undefined, rules),
         fieldIds: fieldIdsOf(item.face.objects),
         month: period.month,
       });
@@ -236,8 +240,16 @@ export function expandWork(work: Pick<Work, 'items'>, today: CalendarDate): Reso
           faceId: face.id,
           period: { key: period.key, faceIndex, dates: period.dates },
           background: face.background,
-          // 그 날짜에만 더한 자동 필드도 그 날짜로 채운다(원본 쪽은 이미 채워져 field가 없다).
-          objects: resolveFieldsWithDates(datedEditable(face, period.dates, override), period.dates),
+          // 원본에 날짜(와 색 규칙)를 채우고 → 그 날짜의 수정을 얹고(직접 바꾼 색이 규칙을 이긴다)
+          // → 그 날짜에만 더한 자동 필드도 채운다(원본 쪽은 이미 채워져 field가 없다).
+          // 고칠 객체(`datedEditable`)에는 규칙 색을 넣지 않는다 — 넣으면 무엇을 고치든 규칙
+          // 색이 그 날짜의 수정으로 저장된다.
+          objects: resolveFieldsWithDates(
+            applyOverride(resolveFieldsWithDates(face.objects, period.dates, undefined, rules), override),
+            period.dates,
+            undefined,
+            rules,
+          ),
           fieldIds: fieldIdsOf(face.objects, override),
           month: period.month,
         });
@@ -435,7 +447,7 @@ export function writeBackground(work: Pick<Work, 'items'>, target: FaceTarget, p
  * 원본 편집 화면에 보여줄 객체 — 날짜는 기간의 첫 쪽으로 채운다(세부계획 A4.6:
  * 기간을 정하면 첫 날짜로 보인다). 고치는 것은 `editableObjects`(필드가 살아 있는 원본)다.
  */
-export function sourcePreview(item: DatedItem, faceIndex: number): ResolvedFace | null {
+export function sourcePreview(item: DatedItem, faceIndex: number, rules?: ColorRules): ResolvedFace | null {
   const face = item.faces[faceIndex];
   if (!face) return null;
   const first = periodsOf(item.dataset, item.boundary)[0];
@@ -445,7 +457,7 @@ export function sourcePreview(item: DatedItem, faceIndex: number): ResolvedFace 
     itemId: item.id,
     faceId: face.id,
     background: face.background,
-    objects: resolveFieldsWithDates(face.objects, dates),
+    objects: resolveFieldsWithDates(face.objects, dates, undefined, rules),
     fieldIds: fieldIdsOf(face.objects),
     month: first?.month ?? { year: 1970, month: 1 },
   };

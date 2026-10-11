@@ -5546,3 +5546,40 @@ button.danger:hover {
   font-weight: 400;
   color: var(--muted);
 }
+
+/* Colors 패널의 색 규칙 — 칸 색 견본 + 팔레트 이름 목록(세부계획 A13 스케치 `일요일 → [ B ▾ ]`). */
+.color-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+.color-rules .colors-label {
+  margin: 0;
+}
+.color-rules select {
+  box-sizing: border-box;
+  width: 96px;
+  height: 28px;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+}
+.rule-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.color-rules .tool-panel-note {
+  margin: 0;
+}
+
+/* 앱 틀(grid)의 본문 칸이 안쪽 내용의 최소 폭(한 줄로 고정한 하단 치수 막대 등)만큼
+   넓어져 화면 밖으로 밀려나던 것 — 레일 패널을 열면 상단 바 오른쪽(다이어리 칩·Print)이 잘렸다. */
+.frame-body {
+  min-width: 0;
+}

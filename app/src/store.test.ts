@@ -254,6 +254,26 @@ describe('작업 색상', () => {
   });
 });
 
+describe('색 규칙', () => {
+  beforeEach(() => {
+    s().createWork();
+  });
+
+  it('규칙을 켜고 끈다', () => {
+    s().setColorRule('sunday', '@A');
+    expect(active().colorRules).toEqual({ sunday: '@A' });
+    s().setColorRule('sunday', undefined);
+    expect(active().colorRules).toEqual({});
+  });
+
+  it('규칙이 쓰던 포인트를 지우면 규칙도 지금 색으로 고정', () => {
+    s().addPaletteColor('#8ea8c6');
+    s().setColorRule('holiday', '@A');
+    s().removePaletteColor('A', '#8ea8c6');
+    expect(active().colorRules).toEqual({ holiday: '#8ea8c6' });
+  });
+});
+
 describe('hydrate', () => {
   it('불러온 id보다 카운터를 올려 새로 만드는 것과 겹치지 않는다', () => {
     s().createWork();

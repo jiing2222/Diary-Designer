@@ -35,6 +35,7 @@ import {
   showAdjacentOf,
 } from '../core/calendar';
 import { calendarCellAt, isInMonth } from '../core/dataset';
+import { dateColorOf, weekdayHeaderColorOf, type ColorRules } from '../core/colorRules';
 import { sanitizeForFont } from '../core/fontCoverage';
 import { familyOf } from '../fonts/registry';
 import { cachedCoverageFont, ensureCoverageFont } from '../fonts/coverage';
@@ -124,7 +125,8 @@ export function InsertView({
    * 넘긴다 — 없으면(편집 화면 등) `CalendarLayer`가 오늘이 속한 달을
    * 자리표시로 보여준다(자동 필드의 `⟨+0⟩`과 같은 이유).
    */
-  calendarContext?: { year: number; page: number };
+  /** 달력이 그릴 달과, 작업의 색 규칙(실제 색으로 푼 것 — 일·토·공휴일 칸, core/colorRules). */
+  calendarContext?: { year: number; page: number; rules?: ColorRules };
 }) {
   const clipId = useId();
   // 'print' 모드는 인쇄 여부(grid.print)를 따르고, 'edit'는 작업 중 표시 여부(grid.showOnScreen)를 따른다.
@@ -386,7 +388,7 @@ function CalendarLayer({
   context,
 }: {
   objects: CalendarObject[];
-  context?: { year: number; page: number };
+  context?: { year: number; page: number; rules?: ColorRules };
 }) {
   const now = new Date();
   const previewYear = context?.year ?? now.getFullYear();
@@ -417,7 +419,12 @@ function CalendarLayer({
               </text>
             )}
             {labels.map((label, i) => (
-              <text key={`w${i}`} x={layout.weekdays[i].cx} y={layout.weekdays[i].baseline}>
+              <text
+                key={`w${i}`}
+                x={layout.weekdays[i].cx}
+                y={layout.weekdays[i].baseline}
+                fill={weekdayHeaderColorOf(i, weekStart, context?.rules)}
+              >
                 {spacedChars(label, spacing)}
               </text>
             ))}
@@ -430,6 +437,7 @@ function CalendarLayer({
                   key={`d${i}`}
                   x={pos.cx}
                   y={pos.baseline}
+                  fill={dateColorOf(date, context?.rules)}
                   fillOpacity={inMonth ? undefined : CALENDAR_ADJACENT_OPACITY}
                 >
                   {spacedChars(String(date.day), spacing)}

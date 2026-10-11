@@ -1,5 +1,6 @@
 import { dateAtOffset, majorityMonthDate, type CalendarDate, type Dataset } from './dataset';
 import { fieldValue, formatDate, isMonthLevel } from './fieldFormat';
+import { dateColorOf, ruleAppliesTo, type ColorRules } from './colorRules';
 import { isText, type DiaryObject } from './objects';
 import { FIELD_PATTERN } from './text';
 
@@ -45,6 +46,9 @@ export function resolveObjectsForPage(
  * 날짜를 어떻게 나눌지만 다르고 글자로 바꾸는 규칙은 하나다. 날짜가 없는 오프셋
  * (null — 마지막 쪽의 남는 칸, 달이 바뀌어 비운 칸)은 빈 글자가 된다.
  *
+ * `rules`는 작업의 색 규칙(core/colorRules) — 보여줄 때만 준다. 고칠 객체를 만들 때는
+ * 주지 않는다(규칙 색이 날짜별 수정으로 잘못 저장되지 않게, core/work).
+ *
  * `monthDate`는 "몇 월"만 보여주는 서식이 쓸 대표 날짜다. 안 주면 `dates`에서
  * 가장 많이 걸친 달을 고른다(같으면 앞 달).
  */
@@ -52,6 +56,7 @@ export function resolveFieldsWithDates(
   objects: DiaryObject[],
   dates: (CalendarDate | null)[],
   monthDate: CalendarDate | null = majorityMonth(dates),
+  rules?: ColorRules,
 ): DiaryObject[] {
   return objects.map((o) => {
     // 페이지 번호는 면 순서를 알아야 해서 여기서 채우지 않는다(core/work가 채운다).
@@ -64,7 +69,9 @@ export function resolveFieldsWithDates(
     // 패턴이 없으면(체크박스로 켠 필드) text 전체를 값으로 통째로 바꾼다.
     const { field: _field, ...rest } = o;
     const text = FIELD_PATTERN.test(o.text) ? o.text.replace(FIELD_PATTERN, value) : value;
-    return { ...rest, text };
+    // 색 규칙(일·토·공휴일) — 하루를 보여주는 칸만. 날짜별로 바꾼 색은 이 뒤에 얹혀 이긴다.
+    const ruleColor = date && ruleAppliesTo(o.field) ? dateColorOf(date, rules) : undefined;
+    return ruleColor ? { ...rest, text, color: ruleColor } : { ...rest, text };
   });
 }
 

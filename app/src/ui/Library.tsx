@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { facesOf } from '../store';
 import { daysLeft, isTrashed } from '../core/library';
 import { diarySizeLabel } from '../core/diary';
+import { resolveRuleColors } from '../core/colorRules';
 import { resolveObjectColors } from '../core/colors';
 import { InsertView } from './InsertView';
 import { FontManagePanel, ImageManagePanel } from './DesignLibraryDialog';
@@ -96,7 +97,7 @@ function WorkCard({ work }: { work: Work }) {
                 objects={resolveObjectColors(f.objects, work.palette)}
                 safeZoneWidth={diary.punch.safeZoneWidth}
                 mode="print"
-                calendarContext={{ year: f.month.year, page: f.month.month - 1 }}
+                calendarContext={{ year: f.month.year, page: f.month.month - 1, rules: resolveRuleColors(work.colorRules, work.palette) }}
               />
             </svg>
           ))}

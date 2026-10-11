@@ -71,6 +71,7 @@ import {
 } from './core/work';
 import { diaryFromPreset, nextDiaryColor, type Diary } from './core/diary';
 import { addPoint, mapColors, refOf, setKeyColor, type WorkPalette } from './core/colors';
+import { mapRuleColors, type RuleKey } from './core/colorRules';
 import { isTrashed, restoreWork, trashWork, removeFolderFrom, type Folder } from './core/library';
 import { activate, closeTab, emptyTabs, keepExisting, openTab, LIBRARY_TAB, type Tabs } from './core/workspace';
 import { todayFrom, type Boundary } from './core/dated';
@@ -250,6 +251,8 @@ interface Store extends Settings {
   setPaletteColor: (key: string, color: string) => void;
   /** 포인트 칸을 지운다. 그 칸을 쓰던 객체는 `replaceWith`(이름표나 색)로 옮긴다. */
   removePaletteColor: (key: string, replaceWith: string) => void;
+  /** 색 규칙 하나를 정한다(값은 팔레트 이름표). undefined면 그 규칙을 끈다. 팔레트처럼 되돌리기 대상이 아니다. */
+  setColorRule: (key: RuleKey, color: string | undefined) => void;
 
   /* ── 편집 ── */
   setTool: (t: Tool) => void;
@@ -381,7 +384,7 @@ export function displayFaceOf(s: Pick<Settings, 'works' | 'tabs' | 'cursors' | '
   if (!work || !target) return null;
   if (target.kind === 'face') return target.face;
   const item = work.items.find((i) => i.id === target.itemId);
-  return item?.kind === 'dated' ? sourcePreview(item, target.faceIndex) : null;
+  return item?.kind === 'dated' ? sourcePreview(item, target.faceIndex, work.colorRules) : null;
 }
 
 function faceKeyOf(t: FaceTarget): string {
@@ -847,8 +850,19 @@ export const useStore = create<Store>((set, get) => ({
         };
       });
       const palette: WorkPalette = { ...work.palette, points: work.palette.points.filter((p) => p.key !== key) };
-      return patchWork(s, work.id, () => ({ items, palette }));
+      // 색 규칙이 이 이름표를 쓰고 있었으면 객체와 같이 지금 색으로 고정한다.
+      const colorRules = mapRuleColors(work.colorRules, (v) => (v === ref ? replaceWith : v));
+      return patchWork(s, work.id, () => ({ items, palette, colorRules }));
     }),
+
+  setColorRule: (key, color) =>
+    set((s) =>
+      patchActiveWork(s, (w) => {
+        const next = { ...w.colorRules, [key]: color };
+        if (color === undefined) delete next[key];
+        return { colorRules: next };
+      }),
+    ),
 
   // 도구를 바꾸면 고른 것을 놓는다. 그리기 중에 선택 테두리가 남아 있으면 헷갈린다.
   setTool: (tool) => set({ tool, selectedIds: [] }),

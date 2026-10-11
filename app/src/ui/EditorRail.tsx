@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useHasBack, useSide, useStore, type Tool } from '../store';
+import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useFaces, useHasBack, useSide, useStore, type Tool } from '../store';
 import { isCalendar, isCheckbox, isText } from '../core/objects';
 import { chipPatch, FIELD_CHIPS, tileOf } from '../core/fieldFormat';
 import { AutoFieldTiles, FieldSettings, type AutoTile } from './AutoFieldPanel';
 import { CalendarPanelControls, CheckboxIconGrid, FieldToggle } from './ObjectControls';
-import { BASE_KEYS, keyLabel, nextPointKey, refOf } from '../core/colors';
+import { BASE_KEYS, colorOfKey, keyLabel, keyOfRef, nextPointKey, refOf } from '../core/colors';
+import type { RuleKey } from '../core/colorRules';
+import { HOLIDAY_YEARS, holidayCovered } from '../core/holidays';
+import { PopRow } from './Popover';
 import { colorRefUsage } from '../core/work';
 import { todayFrom } from '../core/dated';
 import { PagePanel } from './PagePanel';
@@ -239,6 +242,8 @@ function ColorsPanel() {
         </button>
       </div>
 
+      <ColorRulesSection />
+
       {editing && (
         <div className="color-editor">
           <div className="color-editor-head">
@@ -285,6 +290,63 @@ function ColorsPanel() {
     </div>
   );
 }
+
+/**
+ * 색 규칙 — 일요일·토요일·공휴일의 날짜 칸·달력 칸 색(세부계획 A13 결정, 작업마다 한 벌).
+ * 색은 팔레트 칸 중에서 고른다(이름표라 칸 색을 바꾸면 따라온다). 직접 바꾼 색이 이긴다.
+ */
+function ColorRulesSection() {
+  const work = useActiveWork();
+  const setColorRule = useStore((s) => s.setColorRule);
+  const faces = useFaces();
+  if (!work) return null;
+  const palette = work.palette;
+  const keys = [...BASE_KEYS, ...palette.points.map((p) => p.key)];
+  const swatch = (ref: string | undefined) => {
+    if (!ref) return undefined;
+    const key = keyOfRef(ref);
+    return key === null ? ref : colorOfKey(palette, key);
+  };
+  // 이 작업의 날짜 중 공휴일 목록이 없는 해 — 그 해에는 공휴일 색이 들지 않는다고 알린다.
+  const years = new Set<number>();
+  for (const f of faces) for (const d of f.period?.dates ?? []) if (d) years.add(d.year);
+  const uncovered = [...years].filter((y) => !holidayCovered(y)).sort();
+
+  return (
+    <div className="color-rules">
+      <div className="colors-label">색 규칙</div>
+      {RULES.map(({ key, label }) => {
+        const value = work.colorRules?.[key];
+        const known = value === undefined || keys.some((k) => refOf(k) === value);
+        return (
+          <PopRow key={key} label={label}>
+            <span className="rule-swatch" style={{ background: swatch(value) ?? 'transparent' }} />
+            <select value={value ?? ''} onChange={(e) => setColorRule(key, e.target.value || undefined)}>
+              <option value="">없음</option>
+              {keys.map((k) => (
+                <option key={k} value={refOf(k)}>
+                  {keyLabel(k)}
+                </option>
+              ))}
+              {!known && <option value={value}>직접 고른 색</option>}
+            </select>
+          </PopRow>
+        );
+      })}
+      <p className="tool-panel-note">
+        날짜 칸(Day·Weekday)과 달력에 들어요. 한 날짜에서 직접 바꾼 색이 규칙보다 먼저예요. 공휴일 목록은{' '}
+        {HOLIDAY_YEARS.join('·')}년이에요.
+        {uncovered.length > 0 && ` ${uncovered.join('·')}년 날짜에는 공휴일 색이 들지 않아요.`}
+      </p>
+    </div>
+  );
+}
+
+const RULES: { key: RuleKey; label: string }[] = [
+  { key: 'sunday', label: '일요일' },
+  { key: 'saturday', label: '토요일' },
+  { key: 'holiday', label: '공휴일' },
+];
 
 /** 지금 고른 객체들(편집 화면 본체와 같은 쪽 규칙). */
 function usePicked() {

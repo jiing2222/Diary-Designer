@@ -349,3 +349,40 @@ describe('페이지 번호', () => {
     expect((editable[0] as TextObject).field?.kind).toBe('page');
   });
 });
+
+describe('색 규칙', () => {
+  const rules = { sunday: '@B' };
+  // 10/4(일) ~ 10/6
+  const item = (over: Partial<DatedItem> = {}) =>
+    dated({ dataset: { kind: 'date', perPage: 1, start: '2026-10-04', end: '2026-10-06', step: 'day' }, ...over });
+  const colors = (items: WorkItem[]) =>
+    expandWork({ items, colorRules: rules }, today).map((f) => (f.objects[0] as TextObject).color);
+
+  it('일요일 날짜 칸만 규칙 색', () => {
+    expect(colors([item()])).toEqual(['@B', undefined, undefined]);
+  });
+
+  it('그 날짜에서 직접 바꾼 색이 규칙보다 우선', () => {
+    const it2 = item({ overrides: { '2026-10-04/0': { ...emptyOverride(), props: { t1: { color: '@A' } } } } });
+    expect(colors([it2])).toEqual(['@A', undefined, undefined]);
+  });
+
+  it('달·주차 칸은 칠하지 않는다', () => {
+    expect(colors([item({ faces: [face([dayField('t1', 0, 'MMMM')])] })])).toEqual([undefined, undefined, undefined]);
+  });
+
+  it('고칠 객체에는 규칙 색이 없어서, 다른 걸 고쳐도 규칙 색이 날짜별 수정으로 저장되지 않는다', () => {
+    const work = { items: [item()] as WorkItem[], colorRules: rules };
+    const faces = expandWork(work, today);
+    const target = { kind: 'face' as const, face: faces[0] };
+    const editable = editableObjects(work, target);
+    expect((editable[0] as TextObject).color).toBeUndefined();
+    const moved = editable.map((o) => ({ ...o, x: 5 }));
+    const items = writeObjects(work, target, moved);
+    expect((items[0] as DatedItem).overrides['2026-10-04/0'].props.t1).toEqual({ x: 5 });
+  });
+
+  it('보통 페이지도 오늘이 일요일이면 규칙 색', () => {
+    expect(colors([{ kind: 'page', id: 'p1', face: face([dayField('t1')]) }])).toEqual(['@B']); // 오늘 10/11(일)
+  });
+});
