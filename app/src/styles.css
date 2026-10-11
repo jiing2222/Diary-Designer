@@ -5449,3 +5449,100 @@ button.danger:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* AutoField 종류 타일 3×3 — 아이콘 대신 그 종류의 예시 글자(2026·OCT·D-7…)를 보여준다. */
+.auto-tiles .tool-tile {
+  padding: 8px 4px;
+}
+.auto-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+}
+.auto-tiles .tool-tile:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 표시 형식 칩 — 오늘 날짜로 그린 실제 값. 고른 것은 블루 옅게(디자인.md: 하위 항목 선택 알약). */
+.field-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.field-settings .panel-sub {
+  margin: 4px 0 0;
+}
+.field-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.field-chip {
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.field-chip:hover {
+  background: var(--hover-bg);
+}
+.field-chip.on {
+  background: var(--blue-subtle);
+  color: var(--blue-deep);
+  font-weight: 600;
+}
+.field-settings .pop-row-field input {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+}
+.field-settings .pop-row-field input[type='text'],
+.field-settings .pop-row-field input[type='date'] {
+  width: 128px;
+}
+.field-settings .pop-row-field input[type='number'] {
+  width: 56px;
+}
+.field-settings .numfield {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.code-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.code-preview {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue-deep);
+  text-align: right;
+}
+.code-hint {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.chip-code {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}

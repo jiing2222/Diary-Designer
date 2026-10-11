@@ -143,17 +143,6 @@ export function TableIcon() {
   );
 }
 
-/** 자동 필드 — 시계 모양. 클로드 디자인 handoff의 AutoField 아이콘과 같다. */
-export function FieldIcon() {
-  return (
-    <svg {...box24}>
-      <circle cx={12} cy={12} r={8} />
-      <line x1={12} y1={12} x2={12} y2={7.5} />
-      <line x1={12} y1={12} x2={15.2} y2={14} />
-    </svg>
-  );
-}
-
 /** 이미지 — 액자 안에 해와 산. 클로드 디자인 handoff와 같은 모양. */
 export function ImageIcon() {
   return (

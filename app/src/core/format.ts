@@ -1,70 +1,13 @@
-import { dateAtOffset, dayOfWeek, majorityMonthDate, weekOfYear, type CalendarDate, type Dataset } from './dataset';
+import { dateAtOffset, majorityMonthDate, type CalendarDate, type Dataset } from './dataset';
+import { fieldValue, formatDate, isMonthLevel } from './fieldFormat';
 import { isText, type DiaryObject } from './objects';
 import { FIELD_PATTERN } from './text';
 
 /**
- * "몇 월"만 보여주는 서식 — 오프셋 하나의 날짜 대신 그 쪽을 대표하는 달
- * (majorityMonthDate)을 쓴다. `resolveObjectsForPage`에서만 쓴다.
+ * 날짜를 서식으로 바꾸는 규칙은 core/fieldFormat에 있다(형식 코드). 옛 이름으로 부르던
+ * 곳(달력 제목 등)을 위해 여기서도 내보낸다.
  */
-const MONTH_ONLY_FORMATS = new Set(['M', 'M월', 'MMM', 'MMMM']);
-
-// 일요일(0)부터. 월간 달력 오브젝트(core/calendar.ts)의 요일 이름과는 별도로
-// 둔다 — 그쪽은 달력 그리드 머리글에 쓰는 짧은 이름만 필요하지만, 여기는
-// 글자 서식이라 길고 짧은 이름·영어까지 다 필요하다.
-const WEEKDAY_KR = ['일', '월', '화', '수', '목', '금', '토'];
-const WEEKDAY_KR_LONG = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
-const WEEKDAY_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const WEEKDAY_EN_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTH_EN = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-const MONTH_EN_LONG = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-/**
- * 날짜를 서식 문자열로.
- *
- * 서식 id는 core/text의 `FIELD_FORMATS`가 낸다 — 편집 화면의 드롭다운과
- * 여기 계산이 같은 목록을 봐야 고른 것과 인쇄되는 것이 어긋나지 않는다.
- */
-export function formatDate(d: CalendarDate, formatId: string): string {
-  const pad2 = (n: number) => String(n).padStart(2, '0');
-  switch (formatId) {
-    case 'D':
-      return String(d.day);
-    case 'M월 D일':
-      return `${d.month}월 ${d.day}일`;
-    case 'YYYY-MM-DD':
-      return `${d.year}-${pad2(d.month)}-${pad2(d.day)}`;
-    case 'YYYY년 M월':
-      return `${d.year}년 ${d.month}월`;
-    case 'ddd':
-      return WEEKDAY_KR[dayOfWeek(d)];
-    case 'dddd':
-      return WEEKDAY_KR_LONG[dayOfWeek(d)];
-    case 'ddd-en':
-      return WEEKDAY_EN[dayOfWeek(d)];
-    case 'dddd-en':
-      return WEEKDAY_EN_LONG[dayOfWeek(d)];
-    case 'M':
-      return String(d.month);
-    case 'M월':
-      return `${d.month}월`;
-    case 'MMM':
-      return MONTH_EN[d.month - 1];
-    case 'MMMM':
-      return MONTH_EN_LONG[d.month - 1];
-    case '주차':
-      return `${weekOfYear(d)}주차`;
-    case 'W':
-      return `W${weekOfYear(d)}`;
-    case 'Week':
-      return `Week ${weekOfYear(d)}`;
-    case 'M/D':
-    default:
-      return `${d.month}/${d.day}`;
-  }
-}
+export { formatDate };
 
 /**
  * 데이터셋의 이 쪽(page, 0부터)에 맞춰 자동 필드를 실제 값으로 바꾼다.
@@ -111,9 +54,11 @@ export function resolveFieldsWithDates(
   monthDate: CalendarDate | null = majorityMonth(dates),
 ): DiaryObject[] {
   return objects.map((o) => {
-    if (!isText(o) || !o.field) return o;
-    const date = MONTH_ONLY_FORMATS.has(o.field.format) ? monthDate : (dates[o.field.offset] ?? null);
-    const value = date ? formatDate(date, o.field.format) : '';
+    // 페이지 번호는 면 순서를 알아야 해서 여기서 채우지 않는다(core/work가 채운다).
+    if (!isText(o) || !o.field || o.field.kind === 'page') return o;
+    const monthLevel = !o.field.kind && isMonthLevel(o.field.format);
+    const date = monthLevel ? monthDate : (dates[o.field.offset] ?? null);
+    const value = fieldValue(o.field, date);
     // 자리표시가 있던 자리만 진짜 값으로 바꿔 끼운다 — core/text의 displayText와
     // 같은 이유다. 앞뒤에 손으로 붙인 글자(예: "입니다")는 그대로 남는다.
     // 패턴이 없으면(체크박스로 켠 필드) text 전체를 값으로 통째로 바꾼다.

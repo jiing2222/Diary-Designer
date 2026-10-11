@@ -1,4 +1,5 @@
 import { roundMm, type Mm } from './units';
+import type { FieldSpec } from './fieldFormat';
 
 /**
  * 속지 위에 놓이는 객체들.
@@ -116,7 +117,7 @@ export interface TextObject {
    * core/text의 `displayText`가 정한다: 편집 화면은 언제나 `⟨+오프셋⟩` 자리표시,
    * 인쇄 미리보기·PDF는 데이터셋에서 뽑은 진짜 값(8c에서 붙는다).
    */
-  field?: { offset: number; format: string };
+  field?: FieldSpec;
   /**
    * 90도 단위 회전 — 0(정하지 않았으면 이 값)·90(시계 방향)·270(반시계 방향).
    *

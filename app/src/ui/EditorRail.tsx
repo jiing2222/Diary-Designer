@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useHasBack, useSide, useStore, type Tool } from '../store';
 import { isCalendar, isCheckbox, isText } from '../core/objects';
-import { FIELD_FORMATS } from '../core/text';
-import { CalendarPanelControls, CheckboxIconGrid, FieldControls } from './ObjectControls';
-import { PopRow } from './Popover';
+import { chipPatch, FIELD_CHIPS, tileOf } from '../core/fieldFormat';
+import { AutoFieldTiles, FieldSettings, type AutoTile } from './AutoFieldPanel';
+import { CalendarPanelControls, CheckboxIconGrid, FieldToggle } from './ObjectControls';
 import { BASE_KEYS, keyLabel, nextPointKey, refOf } from '../core/colors';
 import { colorRefUsage } from '../core/work';
 import { todayFrom } from '../core/dated';
@@ -13,9 +13,7 @@ import { ImageCategoryBody } from './Editor';
 import { ColorDefiner } from './ColorControls';
 import {
   BracesIcon,
-  CalendarIcon,
   CheckboxIcon,
-  FieldIcon,
   ImageIcon,
   InsertIcon,
   LineIcon,
@@ -38,11 +36,6 @@ const DRAW_TOOLS: { tool: Tool; label: string; icon: React.ReactNode }[] = [
   { tool: 'draw', label: 'Line · Shape (D)', icon: <LineIcon /> },
   { tool: 'table', label: 'Table (G)', icon: <TableIcon /> },
   { tool: 'checkbox', label: 'Checkbox (X)', icon: <CheckboxIcon /> },
-];
-
-const AUTO_TOOLS: { tool: Tool; label: string; icon: React.ReactNode }[] = [
-  { tool: 'field', label: 'Date (F)', icon: <FieldIcon /> },
-  { tool: 'calendar', label: 'Calendar (C)', icon: <CalendarIcon /> },
 ];
 
 /** 도구가 바뀌면 그 도구의 패널이 저절로 열린다 — 단축키로 바꿔도 패널이 따라온다. */
@@ -125,7 +118,6 @@ export function EditorRail() {
           {open === 'text' && <TextPanel />}
           {open === 'auto' && (
             <>
-              <ToolTiles items={AUTO_TOOLS} />
               <AutoFieldPanel />
               <PeriodPanel />
             </>
@@ -316,13 +308,15 @@ function usePickedFieldIds(): string[] {
 }
 
 /**
- * AutoField 패널 — 고민해서 정하는 값(날짜 형식·몇 번째 날짜, 달력 구성)은 여기,
- * 글꼴·색·크기는 위쪽 막대(사용자 요청 2026-10-11).
+ * AutoField 패널 — 고민해서 정하는 값(종류·형식·몇째 날짜, 달력 구성)은 여기,
+ * 글꼴·색·크기는 위쪽 막대(사용자 요청 2026-10-11). 맨 위는 종류 타일 3×3(세부계획 A4.2).
  */
 function AutoFieldPanel() {
   const tool = useStore((s) => s.tool);
-  const fieldDraftFormat = useStore((s) => s.fieldDraftFormat);
-  const setFieldDraftFormat = useStore((s) => s.setFieldDraftFormat);
+  const setTool = useStore((s) => s.setTool);
+  const fieldDraft = useStore((s) => s.fieldDraft);
+  const setFieldDraft = useStore((s) => s.setFieldDraft);
+  const setField = useStore((s) => s.setField);
   const calendarDraftStyle = useStore((s) => s.calendarDraftStyle);
   const setCalendarDraftStyle = useStore((s) => s.setCalendarDraftStyle);
   const styleCalendar = useStore((s) => s.styleCalendar);
@@ -333,52 +327,82 @@ function AutoFieldPanel() {
   const side = useSide();
   const hasBack = useHasBack();
   const face = useDisplayFace(hasBack ? side : 'front');
+  // 날짜 페이지에서 원본의 날짜 칸을 고른 것 — 날짜가 채워져 field가 없다. 형식은 원본에 있다.
+  const sourceFieldOnDatePage = fields.length === 0 && fieldIds.length > 0 && !!face?.period;
 
+  const first = fields[0]?.field;
+  const active: AutoTile | null =
+    calendars.length > 0
+      ? 'calendar'
+      : first
+        ? tileOf(first)
+        : sourceFieldOnDatePage
+          ? null
+          : tool === 'calendar'
+            ? 'calendar'
+            : tool === 'field'
+              ? tileOf(fieldDraft)
+              : null;
+
+  function pick(tile: AutoTile) {
+    if (tile === 'moon') return;
+    if (tile === 'calendar') {
+      setTool('calendar');
+      return;
+    }
+    const patch = chipPatch(FIELD_CHIPS[tile][0]);
+    // 고른 칸이 있으면 그 칸의 종류를 바꾼다. 없으면 다음에 찍을 칸을 정하고 도구를 든다.
+    if (fields.length > 0) {
+      setField(patch);
+      return;
+    }
+    setFieldDraft(patch);
+    if (tool !== 'field') setTool('field');
+  }
+
+  let body: React.ReactNode = null;
   if (calendars.length > 0) {
-    return (
+    body = (
       <>
         <h3 className="panel-sub">달력</h3>
         <CalendarPanelControls items={calendars} apply={styleCalendar} />
       </>
     );
-  }
-  if (fields.length > 0) {
-    return (
-      <>
-        <h3 className="panel-sub">날짜</h3>
-        <FieldControls texts={fields} />
-      </>
+  } else if (first) {
+    body = (
+      <FieldSettings
+        tile={tileOf(first)}
+        spec={first}
+        apply={setField}
+        picked
+        offsetMixed={!fields.every((t) => t.field?.offset === first.offset)}
+        formatMixed={!fields.every((t) => t.field?.format === first.format && t.field?.kind === first.kind)}
+      />
     );
-  }
-  // 날짜 페이지에서 원본의 날짜 칸을 고른 것 — 형식·몇째 날짜는 원본에 있어 여기서 못 바꾼다.
-  if (fieldIds.length > 0 && face?.period) {
-    return (
+  } else if (sourceFieldOnDatePage) {
+    body = (
       <>
         <h3 className="panel-sub">날짜</h3>
         <p className="tool-panel-note">날짜 칸의 형식과 몇째 날짜인지는 원본 편집에서 정해요. 색·글꼴은 이 날짜만 바꿀 수 있어요.</p>
       </>
     );
-  }
-  if (tool === 'calendar') {
-    return (
+  } else if (tool === 'calendar') {
+    body = (
       <>
         <p className="tool-panel-note">페이지에서 끌어 달력 상자를 그려요. 아래 설정으로 그려져요.</p>
         <CalendarPanelControls items={[calendarDraftStyle]} apply={setCalendarDraftStyle} />
       </>
     );
+  } else if (tool === 'field') {
+    body = <FieldSettings tile={tileOf(fieldDraft)} spec={fieldDraft} apply={setFieldDraft} picked={false} />;
+  } else {
+    body = <p className="tool-panel-note">종류를 고르고 페이지를 눌러 칸을 놓아요.</p>;
   }
+
   return (
     <>
-      <p className="tool-panel-note">칸을 차례로 누르면 날짜가 하나씩 이어져요(첫째 날짜, 둘째 날짜…).</p>
-      <PopRow label="형식">
-        <select value={fieldDraftFormat} onChange={(e) => setFieldDraftFormat(e.target.value)}>
-          {FIELD_FORMATS.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      </PopRow>
+      <AutoFieldTiles active={active} onPick={pick} />
+      {body}
     </>
   );
 }
@@ -405,7 +429,7 @@ function TextPanel() {
   return (
     <>
       <p className="tool-panel-note">페이지를 눌러 그 칸에 글자를 놓아요. 끌면 여러 칸에 걸친 상자가 돼요. 글꼴·크기·색은 위쪽 막대에서 바꿔요.</p>
-      {texts.length > 0 && <FieldControls texts={texts} />}
+      {texts.length > 0 && <FieldToggle texts={texts} />}
     </>
   );
 }

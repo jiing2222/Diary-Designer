@@ -2,6 +2,7 @@ import { cloneObject, newId, type DiaryObject } from './objects';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import type { CalendarDate, Dataset, DateDataset } from './dataset';
 import { resolveFieldsWithDates } from './format';
+import { formatPageNo } from './fieldFormat';
 import { defaultWorkPalette, type WorkPalette } from './colors';
 import {
   applyOverride,
@@ -243,7 +244,27 @@ export function expandWork(work: Pick<Work, 'items'>, today: CalendarDate): Reso
       });
     }
   }
+  fillPageNumbers(out);
   return out;
+}
+
+/**
+ * 페이지 번호 칸을 채운다(세부계획 A4.7 결정 2026-10-11). **번호 칸이 있는 면만 센다** —
+ * 표지에서 번호 칸을 지우면 다음 면이 첫 번호가 된다. 따로 ‘세지 않기’ 설정이 없다.
+ */
+function fillPageNumbers(faces: ResolvedFace[]): void {
+  const numbered = faces.filter((f) => f.objects.some(isPageField));
+  numbered.forEach((f, i) => {
+    f.objects = f.objects.map((o) => {
+      if (!isPageField(o)) return o;
+      const { field, ...rest } = o;
+      return { ...rest, text: formatPageNo(field!, i, numbered.length) } as DiaryObject;
+    });
+  });
+}
+
+function isPageField(o: DiaryObject): o is DiaryObject & { type: 'text'; field: { kind: 'page' } } {
+  return o.type === 'text' && o.field?.kind === 'page';
 }
 
 /** 면 개수 — 날짜 묶음은 펼친 개수. 객체를 채우지 않고 센다. */
@@ -419,7 +440,7 @@ export function sourcePreview(item: DatedItem, faceIndex: number): ResolvedFace 
   if (!face) return null;
   const first = periodsOf(item.dataset, item.boundary)[0];
   const dates = first?.dates ?? [];
-  return {
+  const preview: ResolvedFace = {
     key: `${item.id}:source:${faceIndex}`,
     itemId: item.id,
     faceId: face.id,
@@ -428,6 +449,9 @@ export function sourcePreview(item: DatedItem, faceIndex: number): ResolvedFace 
     fieldIds: fieldIdsOf(face.objects),
     month: first?.month ?? { year: 1970, month: 1 },
   };
+  // 원본에는 순서가 없다 — 번호 칸은 시작 번호로 보인다.
+  fillPageNumbers([preview]);
+  return preview;
 }
 
 /** 작업 안의 모든 id(항목·면·객체·그룹). 불러온 뒤 id 카운터를 이것들보다 위로 올린다. */

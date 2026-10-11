@@ -329,3 +329,23 @@ describe('원본으로 되돌리기', () => {
     expect((items[0] as DatedItem).overrides).toEqual({});
   });
 });
+
+describe('페이지 번호', () => {
+  const pageNo = (id: string): TextObject => ({ ...dayField(id), field: { offset: 0, format: 'n / N', kind: 'page' } });
+  const pg = (id: string, objects: Face['objects']): WorkItem => ({ kind: 'page', id, face: { ...face(objects), id: `f${id}` } });
+
+  it('번호 칸이 있는 면만 센다 — 표지에 없으면 다음 면이 1', () => {
+    const items = [pg('cover', []), pg('a', [pageNo('n1')]), pg('b', [pageNo('n2')])];
+    const out = expandWork({ items }, today).map((f) => (f.objects[0] as TextObject | undefined)?.text);
+    expect(out).toEqual([undefined, '1 / 2', '2 / 2']);
+  });
+
+  it('날짜 묶음의 면도 차례로 세고, 고칠 때는 번호 칸으로 남는다', () => {
+    const item = dated({ faces: [face([pageNo('n1')])] });
+    const faces = expandWork({ items: [item] }, today);
+    expect(faces.map((f) => (f.objects[0] as TextObject).text)).toEqual(['1 / 3', '2 / 3', '3 / 3']);
+    expect(faces[1].fieldIds).toEqual(['n1']);
+    const editable = editableObjects({ items: [item] }, { kind: 'face', face: faces[1] });
+    expect((editable[0] as TextObject).field?.kind).toBe('page');
+  });
+});

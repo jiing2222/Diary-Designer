@@ -22,7 +22,8 @@ import {
   TEXT_COLOR,
   TEXT_SIZE,
 } from '../core/style';
-import { boldOf, canBold, DEFAULT_FIELD_FORMAT, FIELD_FORMATS, naturalLineHeight } from '../core/text';
+import { boldOf, canBold, naturalLineHeight } from '../core/text';
+import { DEFAULT_FIELD_DRAFT } from '../core/fieldFormat';
 import {
   letterSpacingOf,
   rowScaleOf,
@@ -754,20 +755,13 @@ export function ImageControls({ images }: { images: ImageObject[] }) {
 const ADD_IMAGE = '__add_image__';
 
 /**
- * 자동 필드로 바꾸기.
- *
- * 켜면 오프셋(이 쪽의 몇 번째 값인지)과 서식을 고르는 칸이 뜬다. 편집 화면에는
- * `⟨+0⟩` 같은 자리표시만 보인다 — 실제 값은 데이터셋을 붙이는 8c에서 채워진다.
+ * Text 패널의 ‘날짜가 자동으로 채워지는 글자’ 체크 — 고른 글자를 날짜 칸으로 바꾸거나 되돌린다.
+ * 형식·몇째 날짜는 AutoField 패널에서 정한다(날짜 칸을 고르면 그 패널이 열린다).
  *
  * 여러 개를 골랐는데 일부만 필드면 체크박스를 어중간한(indeterminate) 상태로
  * 보여준다. 그 상태에서 누르면 전부 켠다.
- *
- * **오프셋과 서식은 따로 "섞임"을 본다.** 여러 글자를 골랐을 때 서식이 같아도
- * 오프셋은 저마다 다른 것이 흔하다(같은 쪽의 서로 다른 요일 칸 등) — 서식만
- * 고쳐도 각자의 오프셋이 살아남아야 한다. `setField`가 준 키만 바꾸므로,
- * 여기서도 실제로 바뀐 키만 넘긴다.
  */
-export function FieldControls({ texts }: { texts: TextObject[] }) {
+export function FieldToggle({ texts }: { texts: TextObject[] }) {
   const setField = useStore((s) => s.setField);
   const checkRef = useRef<HTMLInputElement>(null);
 
@@ -779,11 +773,6 @@ export function FieldControls({ texts }: { texts: TextObject[] }) {
     if (checkRef.current) checkRef.current.indeterminate = onMixed;
   }, [onMixed]);
 
-  const first = texts[0].field;
-  const offsetMixed = allOn && !texts.every((t) => t.field?.offset === first?.offset);
-  const formatMixed = allOn && !texts.every((t) => t.field?.format === first?.format);
-
-  // 왼쪽 AutoField 패널에 라벨과 함께 둔다. ‘0번째’ 대신 ‘첫째 날짜’로 보여준다(세부계획 A4.3).
   return (
     <div className="panel-controls">
       <label className="field-toggle">
@@ -791,42 +780,10 @@ export function FieldControls({ texts }: { texts: TextObject[] }) {
           ref={checkRef}
           type="checkbox"
           checked={allOn}
-          onChange={(e) => setField(e.target.checked ? { offset: 0, format: DEFAULT_FIELD_FORMAT } : null)}
+          onChange={(e) => setField(e.target.checked ? { offset: 0, ...DEFAULT_FIELD_DRAFT } : null)}
         />
         날짜가 자동으로 채워지는 글자
       </label>
-
-      {allOn && (
-        <>
-          <PopRow label="형식">
-            <select value={formatMixed ? '' : (first?.format ?? DEFAULT_FIELD_FORMAT)} onChange={(e) => setField({ format: e.target.value })}>
-              {formatMixed && <option value="">—</option>}
-              {FIELD_FORMATS.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </PopRow>
-          <PopRow label="날짜">
-            <label className="numfield" title="이 페이지에서 몇 번째 날짜를 쓸지">
-              <span>이 페이지의</span>
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={offsetMixed ? '' : (first?.offset ?? 0) + 1}
-                placeholder={offsetMixed ? '—' : undefined}
-                onChange={(e) => {
-                  const nth = Math.max(1, Math.round(Number(e.target.value) || 1));
-                  setField({ offset: nth - 1 });
-                }}
-              />
-              <span>번째 날짜</span>
-            </label>
-          </PopRow>
-        </>
-      )}
     </div>
   );
 }

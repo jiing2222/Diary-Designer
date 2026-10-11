@@ -5,7 +5,7 @@ import { INSERT_PRESETS, PAPER_PRESETS, findPaperPreset } from './core/presets';
 import type { PunchSetting } from './core/punch';
 import type { Align } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
-import { DEFAULT_FIELD_FORMAT } from './core/text';
+import { DEFAULT_FIELD_DRAFT, patchField, type FieldDraft, type FieldSpec } from './core/fieldFormat';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import type { InsertSetting } from './core/template';
 import { persistFontLabel } from './fonts/registry';
@@ -159,7 +159,14 @@ interface Settings {
   checkboxDraftStyle: CheckboxStyle;
   calendarDraftStyle: CalendarStyle;
   textDraftStyle: TextStyle;
-  fieldDraftFormat: string;
+  /** AutoField 도구로 다음에 찍을 칸의 설정(종류·형식·기준일·시작 번호). */
+  fieldDraft: FieldDraft;
+  /**
+   * 다음에 찍을 칸이 이 페이지의 몇째 날짜인지(0부터)와, 찍을 때마다 다음 날짜로 넘길지.
+   * 넘기기는 기본이 꺼짐 — 같은 날의 월·일·요일 칸을 따로 놓을 때 모두 같은 날짜여야 한다
+   * (세부계획 A4.3). 위클리처럼 칸마다 다른 날짜면 켠다.
+   */
+  fieldNext: { offset: number; advance: boolean };
   userFonts: UserFont[];
   userImages: UserImage[];
   pickImageFor: string | null;
@@ -265,9 +272,10 @@ interface Store extends Settings {
   showToast: (message: string) => void;
   dismissToast: (key: number) => void;
   styleText: (patch: TextStyle) => void;
-  setField: (patch: Partial<{ offset: number; format: string }> | null) => void;
+  setField: (patch: Partial<FieldSpec> | null) => void;
   setTextDraftStyle: (patch: TextStyle) => void;
-  setFieldDraftFormat: (format: string) => void;
+  setFieldDraft: (patch: Partial<FieldDraft>) => void;
+  setFieldNext: (patch: Partial<{ offset: number; advance: boolean }>) => void;
   commitCalendar: (box: Box) => void;
   resizeObject: (id: string, box: Box, extra?: Partial<TextObject>) => void;
   styleCalendar: (patch: CalendarStyle) => void;
@@ -503,7 +511,8 @@ export const useStore = create<Store>((set, get) => ({
   checkboxDraftStyle: {},
   calendarDraftStyle: {},
   textDraftStyle: {},
-  fieldDraftFormat: DEFAULT_FIELD_FORMAT,
+  fieldDraft: DEFAULT_FIELD_DRAFT,
+  fieldNext: { offset: 0, advance: false },
   userFonts: [],
   userImages: [],
   pickImageFor: null,
@@ -925,15 +934,17 @@ export const useStore = create<Store>((set, get) => ({
           delete merged.field;
           return merged;
         }
-        const base = o.field ?? { offset: 0, format: DEFAULT_FIELD_FORMAT };
-        return { ...o, field: { ...base, ...patch } };
+        const base = o.field ?? { offset: 0, ...DEFAULT_FIELD_DRAFT };
+        return { ...o, field: patchField(base, patch) };
       });
       return commitObjects(s, next);
     }),
 
   setTextDraftStyle: (patch) => set((s) => ({ textDraftStyle: { ...s.textDraftStyle, ...patch } })),
 
-  setFieldDraftFormat: (format) => set({ fieldDraftFormat: format }),
+  setFieldDraft: (patch) => set((s) => ({ fieldDraft: patchField(s.fieldDraft, patch) })),
+
+  setFieldNext: (patch) => set((s) => ({ fieldNext: { ...s.fieldNext, ...patch } })),
 
   commitCalendar: (box) =>
     set((s) => {

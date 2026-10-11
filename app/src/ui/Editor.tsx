@@ -151,7 +151,7 @@ export function Editor() {
   const commitCheckboxes = useStore((s) => s.commitCheckboxes);
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
-  const fieldDraftFormat = useStore((s) => s.fieldDraftFormat);
+  const fieldDraft = useStore((s) => s.fieldDraft);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const [zoom, setZoom] = useState(100);
@@ -161,12 +161,9 @@ export function Editor() {
   const [hover, setHover] = useState<Point | null>(null);
   /** 선의 첫 점을 찍어둔 상태. 다음 클릭에서 선이 완성된다. */
   const [pending, setPending] = useState<Point | null>(null);
-  /**
-   * 자동 필드 도구에서 다음에 찍을 오프셋. 찍을 때마다 하나씩 늘어난다 —
-   * 위클리 한 쪽의 7칸을 순서대로 찍으면 저절로 0~6이 매겨진다. 도구로
-   * 새로 들어올 때마다 0부터 다시 센다.
-   */
-  const [nextFieldOffset, setNextFieldOffset] = useState(0);
+  // 자동 필드 도구로 다음에 찍을 순번과 ‘찍을 때마다 다음 날짜로’ — AutoField 패널과 같이 쓴다.
+  const fieldNext = useStore((s) => s.fieldNext);
+  const setFieldNext = useStore((s) => s.setFieldNext);
   /** 지금 끌고 있는 몸짓. 판단은 ref로, 미리보기는 state로 한다. */
   const dragRef = useRef<Drag | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -279,8 +276,8 @@ export function Editor() {
     setPending(null);
     setDragBoth(null);
     finishEditing();
-    // 자동 필드 도구로 들어올 때마다 0부터 다시 센다.
-    if (tool === 'field') setNextFieldOffset(0);
+    // 자동 필드 도구로 들어올 때마다 첫째 날짜부터 다시 센다.
+    if (tool === 'field') setFieldNext({ offset: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool]);
 
@@ -739,14 +736,14 @@ export function Editor() {
       if (!box) return;
 
       if (tool === 'field') {
-        // 타이핑 없이 바로 확정한다. 오프셋은 자동으로 매겨지고 찍을 때마다
-        // 하나씩 늘어난다 — 칸을 순서대로 찍으면 위클리 7칸이 저절로 0~6이 된다.
-        // 서식은 속성 막대에서 미리 골라둔 것(fieldDraftFormat)을 쓴다.
-        const field = { offset: nextFieldOffset, format: fieldDraftFormat };
+        // 타이핑 없이 바로 확정한다. 순번은 패널의 ‘이 페이지의 n번째’, ‘찍을 때마다 다음
+        // 날짜로’를 켜 두면 하나씩 늘어난다 — 위클리 7칸을 차례로 찍으면 저절로 0~6이 된다.
+        // 종류·형식은 AutoField 패널에서 미리 골라둔 것(fieldDraft)을 쓴다.
+        const field = { offset: fieldNext.offset, ...fieldDraft };
         // 글자는 비워 둔다 — 보이는 값은 언제나 날짜를 채워서 그린다(core/work). 예전처럼
         // 자리표시(⟨+D0⟩)를 넣으면 기본 글꼴에 없는 ⟨⟩ 때문에 ‘안 보이는 글자’ 안내가 잘못 떴다.
         commitText({ ...box, text: '', field, ...draftStyle });
-        setNextFieldOffset((n) => n + 1);
+        if (fieldNext.advance) setFieldNext({ offset: fieldNext.offset + 1 });
         return;
       }
 
