@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSplit } from '../core/grid';
 import { holeCenterX } from '../core/punch';
@@ -8,8 +8,6 @@ import {
   cleanStyle,
   groupIdOf,
   isBoxResizable,
-  isCalendar,
-  isCheckbox,
   isImage,
   isLine,
   isLocked,
@@ -25,53 +23,33 @@ import {
   type TextStyle,
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
-import { groupBySize } from '../core/template';
 import { roundMm, type Mm } from '../core/units';
 import { fieldPlaceholder, newTextStyle, parseFieldText, rotateOf } from '../core/text';
 import {
-  activeTemplate,
-  useActiveInsertSize,
+  useActiveWork,
+  useCursor,
+  useDisplayFace,
   useDotGrid,
+  useEditObjects,
+  useFaces,
   useHasBack,
   useInsert,
-  useObjects,
+  usePalette,
   useSide,
+  useSpreads,
   useStore,
-  useViewRotation,
   type Side,
-  type Tool,
 } from '../store';
+import { resolveObjectColors } from '../core/colors';
+import { faceLabel, type ResolvedFace } from '../core/work';
+import type { DotGrid } from '../core/grid';
+import type { InsertSetting } from '../core/template';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
 import { InsertView } from './InsertView';
 import { ImageThumbGrid } from './ImagePickerDialog';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
-import {
-  PaperGroup,
-  GridGroup,
-  InsertGroup,
-  PunchGroup,
-  RepeatGroup,
-  LayoutGroup,
-  ViewGroup,
-  type PrintViewState,
-} from './SettingsPanel';
-import {
-  CalendarIcon,
-  CheckboxIcon,
-  ChevronIcon,
-  CursorIcon,
-  EyeIcon,
-  EyeOffIcon,
-  FieldIcon,
-  ImageIcon,
-  InsertIcon,
-  LineIcon,
-  PaperIcon,
-  TableIcon,
-  TemplateIcon,
-  TextIcon,
-} from './icons';
+import { Modal } from './Modal';
 import { measureTextBox } from './measureText';
 import { familyOf } from '../fonts/registry';
 import { PX_PER_MM_AT_100, ZOOMS } from './pixels';
@@ -123,7 +101,9 @@ export const IMAGE_RESIZE_SNAP_DIST: Mm = 2;
  *   점에서 끌기          면 (선 네 개)
  * 둘 다 같은 자리에 이미 있으면 지워진다.
  */
-export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement | null }) {
+export function Editor() {
+  // 속성 막대(StyleBar)는 캔버스 위 상황별 막대 자리로 portal한다(세부계획 A0 결정: 꾸미기는 위쪽).
+  const [stylePanelSlot, setStylePanelSlot] = useState<HTMLDivElement | null>(null);
   // 속지·격자·그린 것은 지금 고르고 있는 양식의, 지금 보는 쪽(앞/뒤)의 것이다.
   const insert = useInsert();
   const side = useSide();
@@ -133,19 +113,19 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
   // 지금 화면에서, "지금 그리기·선택이 실제로 향하는 쪽"이 activeSide다.
   const activeSide: Side = hasBack ? side : 'front';
   const inactiveSide: Side = activeSide === 'back' ? 'front' : 'back';
-  // 격자는 앞뒤가 공유하는 값이라 side 없이 하나뿐이다 — 양쪽 다 이걸 쓴다.
-  const grid = useDotGrid();
-  const history = useObjects(activeSide);
-  // 활성이 아닌 쪽은 그린 것만 따로다. 정적으로만 그린다(손댈 수 없다) —
-  // 클릭하면 그쪽이 활성이 된다. 뒷면이 없으면 hasBack이 false라 이 값은
-  // 애초에 안 쓰인다.
-  const inactiveHistory = useObjects(inactiveSide);
+  // 리뉴얼: 펼침면의 두 면은 서로 다른 페이지라 격자도 면마다 따로다.
+  const grid = useDotGrid(activeSide);
+  const inactiveGrid = useDotGrid(inactiveSide);
+  // 고르기·옮기기·지우기는 **고칠 객체**(원본 — 자동 필드가 살아 있는 것)로 판단하고,
+  // 그리기는 **보일 면**(날짜가 채워지고 팔레트 이름표가 풀린 것)으로 한다. 둘은
+  // 자리·크기가 같고 글자만 다르다(core/work의 editableObjects·expandWork).
+  const objects = useEditObjects(activeSide);
+  const activeFace = useDisplayFace(activeSide);
+  const inactiveFace = useDisplayFace(inactiveSide);
+  const palette = usePalette();
+  const activeDisplay = useDisplayObjects(activeFace, palette);
+  const inactiveDisplay = useDisplayObjects(inactiveFace, palette);
   const setSide = useStore((s) => s.setSide);
-  const addBack = useStore((s) => s.addBack);
-  const removeBack = useStore((s) => s.removeBack);
-  const copyFrontToBack = useStore((s) => s.copyFrontToBack);
-  const viewRotation = useViewRotation();
-  const rotateView = useStore((s) => s.rotateView);
   const tool = useStore((s) => s.tool);
   const selectedIds = useStore((s) => s.selectedIds);
   const setTool = useStore((s) => s.setTool);
@@ -207,7 +187,6 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
    */
   const skipToolResetRef = useRef(false);
 
-  const objects = history.present;
   const lockedCount = objects.filter(isLocked).length;
   const canUngroup = objects.some((o) => selectedIds.includes(o.id) && groupIdOf(o));
   const lattice = gridLattice(
@@ -219,10 +198,10 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
   // 비활성 쪽의 격자 — 경계를 넘어 잇는 선의 둘째 점을 그 쪽 격자에 앉히려고
   // 있다. 없으면(빈 뒷면 등) 그 점은 안 붙는다.
   const inactiveLattice = gridLattice(
-    gridArea(insert, grid, insert.punch.safeZoneWidth, inactiveSide === 'back'),
-    grid.spacing,
-    grid.minMargin,
-    grid.toEdge,
+    gridArea(insert, inactiveGrid, insert.punch.safeZoneWidth, inactiveSide === 'back'),
+    inactiveGrid.spacing,
+    inactiveGrid.minMargin,
+    inactiveGrid.toEdge,
   );
   const scale = (zoom / 100) * PX_PER_MM_AT_100;
   const noGrid = lattice.xs.length === 0 || lattice.ys.length === 0;
@@ -555,7 +534,9 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
       const hit = hitAt(svgRef.current, objects, raw);
       if (hit && isText(hit)) {
         finishEditing();
-        setEditing(editingFor(hit));
+        // 자동 필드는 칠 글자가 없다 — 고르기만 하고 속성 막대에서 만진다.
+        if (hit.field) select([hit.id]);
+        else setEditing(editingFor(hit));
         return;
       }
       // 입력 중이었다면 먼저 확정한다. 그래야 빈 상자가 남지 않는다.
@@ -885,6 +866,10 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
     setPending(null);
     setDragBoth(null);
 
+    if (hit && isText(hit) && hit.field) {
+      select([hit.id]);
+      return;
+    }
     if (hit && isText(hit)) {
       if (tool !== 'text') {
         skipToolResetRef.current = true;
@@ -998,10 +983,11 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
         <rect x={0} y={0} width={insert.width} height={insert.height} className="sheet-bg" />
         <InsertView
           insert={insert}
-          grid={grid}
-          objects={inactiveHistory.present}
+          grid={inactiveGrid}
+          objects={inactiveDisplay}
           safeZoneWidth={insert.punch.safeZoneWidth}
           mirror={inactiveSide === 'back'}
+          calendarContext={calendarContextOf(inactiveFace)}
         />
         <PunchGuide
           width={insert.width}
@@ -1078,12 +1064,6 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
    * 돌면 된다. 0·180도는 자리가 그대로라 굳이 크기를 지정하지 않는다
    * (기존처럼 내용에 맞춰 저절로 정해지게 둔다).
    */
-  const sheetsWidthPx = insert.width * scale * (hasBack ? 2 : 1);
-  const sheetsHeightPx = insert.height * scale;
-  const rotateFrameStyle =
-    viewRotation === 90 || viewRotation === 270
-      ? { width: sheetsHeightPx, height: sheetsWidthPx }
-      : undefined;
 
   return (
     <div className="editor">
@@ -1127,25 +1107,8 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
               Ungroup
             </button>
           )}
-          {/* 참고 디자인처럼 지우기·잠그기·그룹화와 앞면/뒷면·회전을
-              세로 구분선 하나로 나눠 한 줄에 둔다 — 예전엔 SideBar가
-              따로 한 줄(.side-bar)을 차지했다. */}
-          <div className="divider-v" />
-          <SideBar
-            activeSide={activeSide}
-            hasBack={hasBack}
-            addBack={addBack}
-            removeBack={removeBack}
-            copyFrontToBack={copyFrontToBack}
-            switchSide={switchSide}
-          />
-          <button
-            className="ghost"
-            onClick={() => rotateView()}
-            title="Turn the on-screen view only, 90° clockwise each click — coordinates and the print output aren't affected"
-          >
-            Turn ↻
-          </button>
+          <ScopeNote />
+          <div className="style-bar-slot" ref={setStylePanelSlot} />
         </div>
 
         {/*
@@ -1172,8 +1135,10 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
         onPointerMove={onMove}
         onPointerUp={onUp}
       >
-        <div className="canvas-rotate-frame" style={rotateFrameStyle}>
-        <div className="insert-sheets" style={viewRotation ? { transform: `rotate(${viewRotation}deg)` } : undefined}>
+        <SpreadPreviews where="before" insert={insert} scale={scale} />
+        <SpreadHeader />
+        <div className="canvas-rotate-frame">
+        <div className="insert-sheets">
         {(() => {
           /*
            * 칸 안에 실제로 그려지는 것 전부 — "속지" 모드에서는 이것이 곧
@@ -1189,8 +1154,9 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
               <InsertView
                 insert={insert}
                 grid={grid}
-                objects={objects}
+                objects={activeDisplay}
                 safeZoneWidth={insert.punch.safeZoneWidth}
+                calendarContext={calendarContextOf(activeFace)}
                 // 뒷면이면 항상 뒤집는다. 뒤집는 축(좌우/상하)은 인쇄 화면에서
                 // core/layout의 mirrorLayout이 정한다 — 편집 화면은 칸 하나만
                 // 보여줄 뿐 용지 배치를 모르므로, 속지 자신의 가로축(구멍이 있는
@@ -1437,6 +1403,8 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
         )}
         </div>
         </div>
+        <SpreadPreviews where="after" insert={insert} scale={scale} />
+        <AddPageButton />
       </div>
 
       <div className="editor-foot">
@@ -1444,8 +1412,9 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
           속지 {insert.width} × {insert.height}mm
         </span>
         <span>
-          칸 {noGrid ? '없음' : `${cellCols} × ${cellRows}개`}
+          {grid.style === 'dot' ? '도트' : '칸'} {noGrid ? '없음' : `${cellCols} × ${cellRows}개`}
         </span>
+        <MarginReadout lattice={lattice} insert={insert} />
         <span>그린 것 {objects.length}개</span>
         {selectedIds.length > 0 && <span>고른 것 {selectedIds.length}개</span>}
         {/*
@@ -1482,6 +1451,7 @@ export function EditorTab({ stylePanelSlot }: { stylePanelSlot: HTMLDivElement |
             </span>
           )
         )}
+        <ViewToggles />
         <ZoomStepper zoom={zoom} onChange={setZoom} />
       </div>
     </div>
@@ -1654,539 +1624,6 @@ export function TextInput({
   return textarea;
 }
 
-/** 요소·텍스트 카테고리 안에 들어가는 도구 하나. */
-type SubTool = { tool: Tool; label: string; shortcut: string; icon: React.ReactNode };
-
-const ELEMENT_TOOLS: SubTool[] = [
-  { tool: 'draw', label: 'Draw', shortcut: 'D', icon: <LineIcon /> },
-  { tool: 'table', label: 'Sheet', shortcut: 'G', icon: <TableIcon /> },
-  { tool: 'checkbox', label: 'Check box', shortcut: 'X', icon: <CheckboxIcon /> },
-];
-
-/**
- * 자동 필드 — 날짜·달력처럼 **내용을 사람이 안 치는** 글자다. 손으로 치는
- * 글자(Text 탭)와 갈라 둔 이유가 이것이다(디자인의 AutoField 탭) — 둘 다
- * 결국 글자지만, 고를 것이 "무슨 글자를 칠까"와 "무엇을 자동으로 채울까"로
- * 전혀 다르다.
- */
-const AUTO_TOOLS: SubTool[] = [
-  { tool: 'calendar', label: 'Calendar', shortcut: 'C', icon: <CalendarIcon /> },
-  { tool: 'field', label: 'Field', shortcut: 'F', icon: <FieldIcon /> },
-];
-
-export type ToolCategory =
-  | 'select'
-  | 'elements'
-  | 'text'
-  | 'auto'
-  | 'image'
-  | 'view'
-  | 'paper'
-  | 'insert'
-  | 'template';
-
-/**
- * 그리는 도구 탭인지(고르기·요소·글자·자동필드·이미지), 아니면 "무엇을 어떤
- * 종이에 어떻게 뽑는가"를 정하는 설정 탭인지(보기·용지·속지·양식).
- *
- * 설정 탭에는 고른 것의 속성막대를 붙이지 않는다 — 지금 고른 도형과 아무
- * 상관이 없는 값들이다.
- */
-function isSettingsCategory(cat: ToolCategory): boolean {
-  return cat === 'view' || cat === 'paper' || cat === 'insert' || cat === 'template';
-}
-
-/**
- * 지금 도구·고른 것으로 봤을 때 왼쪽 탭이 저절로 어디에 열려야 하는가.
- *
- * `ui/StyleBar.tsx`가 "무엇을 보여줄지" 고르는 우선순위와 **정확히 같은
- * 순서**다 — StyleBar는 그 판단을 종류별 조작칸으로 연결하고, 이건 같은
- * 판단을 카테고리(탭)로 연결한다. 하나만 바뀌고 다른 하나를 안 고치면
- * 언젠가 어긋난다.
- *
- * **`null`을 돌려주지 않는다.** 고르기 도구인데 아무것도 안 골랐을 때가
- * 유일하게 남는 경우인데, 예전엔 이때 null을 줘서 탭이 통째로 닫혔다 —
- * 고르던 탭이 손 밑에서 갑자기 사라진다는 피드백으로, 그 대신 '고른 것'
- * 탭을 그대로 보여준다(내용은 아직 비워둔다, StyleBar 참고).
- */
-export function categoryFor(tool: Tool, picked: DiaryObject[]): ToolCategory {
-  const pickedLines = picked.filter(isLine);
-  const pickedTexts = picked.filter(isText);
-  const pickedCalendars = picked.filter(isCalendar);
-  const pickedImages = picked.filter(isImage);
-  const pickedShapes = picked.filter(isShape);
-  const pickedCheckboxes = picked.filter(isCheckbox);
-
-  if (tool === 'calendar' || pickedCalendars.length > 0) return 'auto';
-  if (tool === 'image' || pickedImages.length > 0) return 'image';
-  if (pickedTexts.length > 0 && (pickedLines.length > 0 || pickedShapes.length > 0)) return 'select';
-  if (pickedShapes.length > 0) return 'elements'; // 표(선+도형)든 도형 단독이든
-  if (tool === 'checkbox' || pickedCheckboxes.length > 0) return 'elements';
-  if (tool === 'field') return 'auto';
-  if (tool === 'text' || (pickedTexts.length > 0 && pickedLines.length === 0)) return 'text';
-  if (tool === 'draw' || tool === 'table' || picked.length > 0) return 'elements';
-  return 'select';
-}
-
-/**
- * 그리기 도구 왼쪽 세로줄 — 속지 제작·노트 제작·인쇄하기(칸 직접 손보기)가
- * 모두 이걸 쓴다. `tool`은 store에 있는 전역값이라(store.ts의 `Tool`) 이
- * 컴포넌트는 화면이 셋 중 뭔지 몰라도 된다 — 그리기 자체는 각 화면이 자기
- * 몸짓(pointer 핸들러)에서 그 값을 본다.
- *
- * **고르기는 카테고리 밖의 독립 버튼이다.** 다른 도구를 쓰는 중이 아니면
- * 늘 이게 기본이라는 뜻으로, 요소·텍스트 묶음 안에 넣지 않는다 — 다만 서로
- * 다른 종류를 함께 골랐을 때(색만 함께 조절 가능)는 고르기 자리에 그 결과가
- * 뜬다(`categoryFor`의 'select' 갈래).
- *
- * 탭 안의 속성 칸(StyleBar)은 이 컴포넌트가 모른다 — 화면마다 "지금 쓰는
- * 중인 글자" 같은 자기만의 상태가 있어서, 그 화면이 `onStylePanelSlot`으로
- * 받은 자리에 `createPortal`로 직접 그린다(PrintSlotEditor의 `editBarSlot`과
- * 같은 방식). 여기서는 그 자리(빈 div)만 마련해준다.
- */
-export function ToolRail({
-  onStylePanelSlot,
-  showPaper,
-  printView,
-  onManageTemplates,
-}: {
-  onStylePanelSlot: (el: HTMLDivElement | null) => void;
-  /** 용지 크기는 인쇄에서만 뜻이 있는 값이라, 인쇄하기 화면일 때만 보여준다. */
-  showPaper: boolean;
-  /**
-   * 인쇄하기 화면일 때만 준다. 주면 맨 위에 "보기" 탭이 생긴다 —
-   * 예전에 화면 위쪽 한 줄로 늘어서 있던 토글들이 그 안으로 들어왔다.
-   * store가 아니라 인쇄하기 화면이 들고 있는 값이라(탭을 나가면 잊혀도
-   * 되는 값) 여기로 받아 넘긴다.
-   */
-  printView?: PrintViewState;
-  /**
-   * "양식 관리" 링크를 눌렀을 때 갈 곳. 안 주면 링크를 안 보여준다 —
-   * 인쇄하기·노트 제작처럼 갤러리로 곧장 나가는 게 어색한 화면도 있다.
-   */
-  onManageTemplates?: () => void;
-}) {
-  const tool = useStore((s) => s.tool);
-  const setTool = useStore((s) => s.setTool);
-  const selectedIds = useStore((s) => s.selectedIds);
-  const objects = useObjects().present;
-  const [open, setOpen] = useState<ToolCategory | null>(null);
-  /** 화살표로 닫기 직전에 열려 있던 탭 — 같은 화살표로 다시 열면 이걸 돌려준다. */
-  const lastOpenRef = useRef<ToolCategory | null>(null);
-  const railRef = useRef<HTMLDivElement>(null);
-  const patchDotGrid = useStore((s) => s.patchDotGrid);
-  const patchPunch = useStore((s) => s.patchPunch);
-
-  const picked = objects.filter((o) => selectedIds.includes(o.id));
-  const selectedKey = selectedIds.join(',');
-  const insert = useInsert();
-  const grid = useDotGrid();
-  const unprintableShow = useStore((s) => s.unprintable.show);
-
-  // 도구나 고른 것이 바뀔 때마다 저절로 맞는 탭으로 — 수동으로 닫아둔 것도
-  // 여기서 다시 계산된다(선택이 그대로면 이 효과가 다시 안 돌아 그대로 있다).
-  // 고르기 도구인데 아무것도 안 골랐으면(idle) categoryFor가 '고른 것'을
-  // 주지만, 그대로 늘 열어버리진 않는다:
-  //   - 지금 아예 닫혀 있었으면(cur가 null — 화면을 막 열었을 때가 대표적
-  //     경우다) 그냥 닫힌 채로 둔다. 시작 화면부터 빈 '고른 것' 탭이 저절로
-  //     열려 있으면 어색하다(사용자 요청).
-  //   - 용지·도트격자·타공(paper·grid·punch)이 열려 있었으면 그건 도구·
-  //     선택과 무관하게 손으로만 여닫는 것들이라 밀어내지 않는다.
-  //   - 그 밖(요소·텍스트·이미지 탭을 보다가 다 골랐던 걸 풀었을 때)은
-  //     '고른 것'으로 바꿔 그대로 열어둔다 — 탭이 갑자기 사라지면 불편하다는
-  //     피드백이었다.
-  useEffect(() => {
-    const cat = categoryFor(tool, picked);
-    const idle = tool === 'select' && picked.length === 0;
-    setOpen((cur) => {
-      if (!idle) return cat;
-      if (cur === null || isSettingsCategory(cur)) return cur;
-      return cat;
-    });
-    // picked는 objects·selectedIds에서 매 렌더 새로 계산되므로 selectedKey로 충분하다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tool, selectedKey]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      // 입력칸·드롭다운에 포커스가 있으면 그 안의 값을 취소하려는
-      // Escape다 — 탭 전체를 닫아 안에 입력 중이던 값을 날리면 안 된다.
-      const t = e.target as HTMLElement;
-      if (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
-      if (e.key === 'Escape') setOpen(null);
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
-
-  // 용지 탭을 열어둔 채로(도구·선택은 안 건드리고) 인쇄하기에서 속지·노트
-  // 제작으로 넘어가면 showPaper만 false가 되고 위 이펙트는 tool·selectedKey가
-  // 안 바뀌어 다시 안 돈다 — 아이콘은 사라졌는데 용지 탭은 열린 채로 남는다.
-  useEffect(() => {
-    if (!showPaper) setOpen((cur) => (cur === 'paper' ? null : cur));
-  }, [showPaper]);
-
-  // 용지·도트격자·타공은 예전 SettingsPanel의 말풍선처럼 바깥을 눌러도
-  // 닫힌다 — 도구 카테고리(요소·텍스트·이미지)는 도구·선택이 바뀔 때
-  // 저절로 여닫히므로 안 건드린다.
-  useEffect(() => {
-    if (!open || !isSettingsCategory(open)) return;
-    function onDown(e: PointerEvent) {
-      if (!railRef.current?.contains(e.target as Node)) setOpen(null);
-    }
-    document.addEventListener('pointerdown', onDown);
-    return () => document.removeEventListener('pointerdown', onDown);
-  }, [open]);
-
-  const inElements = ELEMENT_TOOLS.some((t) => t.tool === tool);
-  const inAuto = AUTO_TOOLS.some((t) => t.tool === tool);
-
-  function toggle(cat: ToolCategory) {
-    const opening = open !== cat;
-    // 요소·텍스트 탭을 여는데 그 전에 다른 카테고리 도구(예: 이미지)를
-    // 쓰던 중이었다면, open만 바꾸고 tool을 안 건드릴 경우 StyleBar가
-    // (open이 아니라 tool을 보고 뭘 보여줄지 정하므로) 지금 안 보이는
-    // 탭의 안내를 계속 보여주는 채로 남는다("요소" 탭인데 "이미지"라고
-    // 뜨던 버그가 이거였다). 그 카테고리의 대표 도구로 직접 바꿔서
-    // tool·open이 늘 같은 카테고리를 가리키게 한다 — setOpen을 따로
-    // 부르지 않는 이유는 이미지 도구 버튼과 같다: setTool이 바뀌면 위
-    // useEffect가 스스로 열어주므로, 여기서 먼저 열면 그 효과가 뒤늦게
-    // 다시 계산하며 잠깐 닫혔다 열리는 게 보인다.
-    if (opening && cat === 'elements' && !inElements) {
-      setTool('draw');
-      return;
-    }
-    if (opening && cat === 'auto' && !inAuto) {
-      setTool('calendar');
-      return;
-    }
-    setOpen(opening ? cat : null);
-  }
-
-  function pick(t: Tool) {
-    setTool(t);
-  }
-
-  const items = open === 'elements' ? ELEMENT_TOOLS : open === 'auto' ? AUTO_TOOLS : null;
-
-  const TITLE: Record<ToolCategory, string> = {
-    view: 'View',
-    paper: 'Paper',
-    insert: 'Insert',
-    template: 'Template',
-    image: 'Image',
-    select: 'Select',
-    elements: 'Draw',
-    text: 'Text',
-    auto: 'AutoField',
-  };
-
-  return (
-    <div className="rail-wrap rail-wrap-tool" ref={railRef}>
-      <div className="rail">
-        {/*
-          차례는 클로드 디자인 그대로다 — 보기 · 용지 · 속지 | 양식 · 이미지 |
-          고르기 · 그리기 · 글자 · 자동필드. "무엇을 어떤 종이에 어떻게 뽑는가"를
-          먼저 정하고, 어떤 양식·그림을 쓸지 고른 다음, 마지막에 그린다.
-          가로줄은 그 세 묶음을 가른다.
-        */}
-        {printView && (
-          <button
-            className={`rail-btn ${open === 'view' ? 'on' : ''}`}
-            onClick={() => toggle('view')}
-            title="View"
-          >
-            <EyeIcon />
-            <span>View</span>
-          </button>
-        )}
-
-        {showPaper && (
-          <button
-            className={`rail-btn ${open === 'paper' ? 'on' : ''}`}
-            onClick={() => toggle('paper')}
-            title="Paper"
-          >
-            <PaperIcon />
-            <span>Paper</span>
-            {unprintableShow && <span className="rail-mark" />}
-          </button>
-        )}
-
-        {/*
-          속지 — 도트 격자와 타공 안내가 한 탭에 들어 있다(디자인의 Insert 탭).
-          둘 다 "이 속지 한 장이 어떻게 생겼는가"를 정하는 값이라 따로 떼어
-          두면 같은 것을 두 군데서 찾아야 했다. 오른쪽 위 점은 그 안내가 지금
-          화면에 실제로 보이는 중이라는 표시다.
-        */}
-        <button
-          className={`rail-btn ${open === 'insert' ? 'on' : ''}`}
-          onClick={() => toggle('insert')}
-          title="Insert — Dot grid · Punch guide"
-        >
-          <InsertIcon />
-          <span>Insert</span>
-          {(grid.showOnScreen || insert.punch.show) && <span className="rail-mark" />}
-        </button>
-
-        <div className="rail-divider" />
-
-        <button
-          className={`rail-btn ${open === 'template' ? 'on' : ''}`}
-          onClick={() => toggle('template')}
-          title="Template"
-        >
-          <TemplateIcon />
-          <span>Template</span>
-        </button>
-
-        <button
-          className={`rail-btn ${tool === 'image' ? 'on' : ''}`}
-          onClick={() => {
-            // 이미 이미지 도구인 채로 다시 누르면 그건 닫으려는 뜻이다.
-            // 다른 도구에서 넘어오는 클릭은 setTool만으로 충분하다 —
-            // 도구가 'image'로 바뀌면 아래 useEffect가 저절로 열어준다.
-            // 두 곳에서 한꺼번에 열려고 하면(toggle이 먼저 닫고 useEffect가
-            // 다시 열며) 잠깐 닫혔다 열리는 게 보였다.
-            if (tool === 'image') toggle('image');
-            else setTool('image');
-          }}
-          title="Image (I)"
-        >
-          <ImageIcon />
-          <span>Image</span>
-        </button>
-
-        <div className="rail-divider" />
-
-        <button
-          className={`rail-btn ${tool === 'select' ? 'on' : ''}`}
-          onClick={() => setTool('select')}
-          title="Select (V)"
-        >
-          <CursorIcon />
-          <span>Select</span>
-        </button>
-
-        <button
-          className={`rail-btn ${open === 'elements' || inElements ? 'on' : ''}`}
-          onClick={() => toggle('elements')}
-          title="Draw — Line · Sheet · Check box"
-        >
-          <LineIcon />
-          <span>Draw</span>
-        </button>
-
-        <button
-          className={`rail-btn ${open === 'text' || tool === 'text' ? 'on' : ''}`}
-          onClick={() => {
-            if (tool === 'text') toggle('text');
-            else setTool('text');
-          }}
-          title="Text (T)"
-        >
-          <TextIcon />
-          <span>Text</span>
-        </button>
-
-        {/*
-          자동 필드 — 달력·필드. 손으로 치는 글자와 갈라 둔 까닭은
-          AUTO_TOOLS 주석에 있다.
-        */}
-        <button
-          className={`rail-btn ${open === 'auto' || inAuto ? 'on' : ''}`}
-          onClick={() => toggle('auto')}
-          title="AutoField — Calendar · Field"
-        >
-          <FieldIcon />
-          <span>AutoField</span>
-        </button>
-      </div>
-
-      {/*
-        탭을 손으로 열고 닫는 동그란 단추 — 세로줄 오른쪽 가장자리에 반쯤
-        걸쳐 앉는다(디자인). 세로줄 **안**이 아니라 `.rail-wrap` 기준으로
-        띄우는 이유가 이것이다: 걸쳐 있으려면 세로줄 밖으로 나가야 한다.
-
-        '고르기 도구 + 아무것도 안 고름'일 때 categoryFor가 null 대신
-        'select'를 주므로 자동으로는 안 닫히는데, 그래도 사용자가 손으로
-        접어두고 싶을 수 있어 만들었다(사용자 요청). 닫을 때 지금 열려
-        있던 탭을 lastOpenRef에 기억해뒀다가 다시 열 때 그대로 돌려준다 —
-        categoryFor로 새로 계산하면 용지·속지·양식처럼 그 함수가 절대
-        안 돌려주는 탭은 닫았다 다시 열었을 때 엉뚱한(고른 것) 탭으로
-        바뀌어버린다.
-      */}
-      <button
-        className="panel-toggle panel-toggle-left"
-        onClick={() => {
-          if (open) {
-            lastOpenRef.current = open;
-            setOpen(null);
-          } else {
-            setOpen(lastOpenRef.current ?? categoryFor(tool, picked));
-          }
-        }}
-        title={open ? '탭 닫기' : '탭 열기'}
-        aria-expanded={!!open}
-      >
-        <ChevronIcon />
-      </button>
-
-      {open && (
-        <div className="tool-panel">
-          <div className="tool-panel-head">
-            <h2>{TITLE[open]}</h2>
-            {/*
-              도트 격자·타공 안내는 "화면에 보이는 중"이라는 뜻과 "지금 그
-              설정을 만지는 중"이라는 뜻이 같은 켬/끔 하나로 통한다 — 포토샵의
-              눈알처럼, 이 단추 하나가 그 체크박스 줄을 대신한다(사용자 요청).
-            */}
-
-          </div>
-          {items && (
-            <div className="tool-subgrid">
-              {items.map((it) => (
-                <button
-                  key={it.tool}
-                  className={`tool-sub-btn ${tool === it.tool ? 'on' : ''}`}
-                  onClick={() => pick(it.tool)}
-                  title={`${it.label} (${it.shortcut})`}
-                >
-                  {it.icon}
-                  <span>{it.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {open === 'image' && <ImageCategoryBody />}
-          {open === 'view' && printView && <ViewGroup view={printView} />}
-
-          {/*
-            용지 탭에는 "몇 장을 어떻게 뽑는가"까지 함께 둔다 — 반복·배치·
-            절취선은 전부 종이 한 장을 어떻게 쓰는지에 대한 답이라 같은
-            자리에 있는 편이 찾기 쉽다. 예전에는 인쇄하기 화면 오른쪽에
-            따로 넓은 칸을 차지하고 있었다.
-
-            속지 제작 화면에는 용지 탭 자체가 없으므로(showPaper) 이 둘도
-            함께 안 보인다 — 거기서는 뜻이 없는 값들이다.
-          */}
-          {open === 'paper' && (
-            <>
-              <PaperGroup />
-              <div className="divider" />
-              <h3 className="rail-panel-title">반복</h3>
-              <RepeatGroup />
-              <div className="divider" />
-              <h3 className="rail-panel-title">배치 · 절취선</h3>
-              <LayoutGroup />
-            </>
-          )}
-          {/*
-            속지 탭 — 도트 격자와 타공 안내를 한 칸에 잇대어 둔다(디자인의
-            Insert 탭). 각 묶음의 눈알 단추는 "화면에 보이는 중"이라는 뜻과
-            "지금 그 설정을 만지는 중"이라는 뜻을 하나로 합친 것이다.
-          */}
-          {open === 'insert' && (
-            <>
-              {/*
-                속지 크기. 예전엔 머리줄 가운데 "80 × 125mm ▾"에 딸린
-                말풍선이었는데, 디자인의 머리줄에는 그런 게 없다 — 크기는
-                "이 속지 한 장이 어떻게 생겼는가"라서 도트 격자·타공과 같은
-                탭이 제자리다.
-              */}
-              <h3 className="rail-panel-title">Size</h3>
-              <InsertGroup />
-              <div className="divider" />
-              <div className="rail-panel-head-row">
-                <h3 className="rail-panel-title">Dot grid</h3>
-                <button
-                  className="eye-toggle"
-                  onClick={() => patchDotGrid({ showOnScreen: !grid.showOnScreen })}
-                  title={grid.showOnScreen ? '화면에서 숨기기' : '화면에 보이기'}
-                >
-                  {grid.showOnScreen ? <EyeIcon /> : <EyeOffIcon />}
-                </button>
-              </div>
-              <GridGroup />
-              <div className="divider" />
-              <div className="rail-panel-head-row">
-                <h3 className="rail-panel-title">Punch guide</h3>
-                <button
-                  className="eye-toggle"
-                  onClick={() => patchPunch({ show: !insert.punch.show })}
-                  title={insert.punch.show ? '화면에서 숨기기' : '화면에 보이기'}
-                >
-                  {insert.punch.show ? <EyeIcon /> : <EyeOffIcon />}
-                </button>
-              </div>
-              <PunchGroup />
-            </>
-          )}
-          {open === 'template' && <TemplateCategoryBody onManageAll={onManageTemplates} />}
-          {/*
-            지금 화면(속지 제작·노트 제작·인쇄하기 칸 손보기)이 자기 StyleBar를
-            여기로 portal한다 — "쓰는 중인 글자" 같은 화면별 상태를 이 컴포넌트가
-            몰라도 되게 하려는 것이다. 용지·도트격자·타공 탭에는 고른 것의
-            속성과 무관하므로 자리를 만들지 않는다.
-          */}
-          {!isSettingsCategory(open) && <div className="style-panel-slot" ref={onStylePanelSlot} />}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * "양식" 탭 안 — 규격별로 묶은 양식 목록. 누르면 그 양식으로 바로 갈아탄다.
- *
- * 갤러리 화면(GalleryTab)을 대신하려는 게 아니다. 작업 도중 같은 규격의
- * 다른 양식을 잠깐 보거나 앞뒤를 맞춰볼 때 화면을 통째로 떠나지 않으려는
- * 것이라, 썸네일 없이 이름과 크기만 한 줄씩 늘어놓는다. 전부 손보려면
- * 맨 아래 "양식 관리"로 나간다.
- *
- * **노트는 뺀다.** 노트는 반쪽(cover/pages)을 따로 여는 자기 화면이 있어서
- * 여기서 골라봐야 이 화면이 그릴 수 있는 게 없다.
- */
-function TemplateCategoryBody({ onManageAll }: { onManageAll?: () => void }) {
-  const templates = useStore((s) => s.templates);
-  const activeId = useStore((s) => s.activeId);
-  const selectTemplate = useStore((s) => s.selectTemplate);
-  const groups = groupBySize(templates.filter((t) => t.kind !== 'notebook'));
-
-  return (
-    <div className="tpl-list">
-      {groups.map((g) => (
-        <div key={g.label} className="tpl-group">
-          <div className="tpl-group-label">{g.label}</div>
-          {g.templates.map((t) => (
-            <button
-              key={t.id}
-              className={`tpl-row ${t.id === activeId ? 'on' : ''}`}
-              onClick={() => selectTemplate(t.id)}
-              title={t.name}
-            >
-              <span className="tpl-row-thumb" />
-              <span className="tpl-row-text">
-                <span className="tpl-row-name">{t.name}</span>
-                <span className="tpl-row-size">
-                  {t.insert.width} × {t.insert.height}mm
-                </span>
-              </span>
-            </button>
-          ))}
-        </div>
-      ))}
-      {onManageAll && (
-        <button className="tpl-manage" onClick={onManageAll}>
-          <span className="tpl-manage-plus">+</span>
-          <span>양식 관리</span>
-        </button>
-      )}
-    </div>
-  );
-}
-
 /** 이미지 파일의 원본 가로세로(px). 못 읽으면(깨진 파일 등) null. */
 function naturalSizeOf(url: string | undefined): Promise<{ width: number; height: number } | null> {
   return new Promise((resolve) => {
@@ -2209,31 +1646,17 @@ function naturalSizeOf(url: string | undefined): Promise<{ width: number; height
  * 기존 방식(ObjectControls의 ImageControls)도 그대로 남아 있다 — 도구
  * 자체는 여전히 'image'라 캔버스에 바로 끌 수 있다.
  */
-function ImageCategoryBody() {
+export function ImageCategoryBody() {
   const userImages = useStore((s) => s.userImages);
   const addUserImage = useStore((s) => s.addUserImage);
   const commitImage = useStore((s) => s.commitImage);
   const styleImage = useStore((s) => s.styleImage);
-  const insert = useActiveInsertSize();
-  const grid = useDotGrid();
-  // 노트는 반쪽마다 따로 objects를 갖고(cover/pages), 양식 자체의 objects는
-  // 아무도 그리지 않는 죽은 자리다. 그림자(반쪽을 실제로 펴서 손보는 중)
-  // 없이 노트에서 이 자리에 놓으면 화면엔 아무 변화도 없이 그 죽은 자리에만
-  // 계속 쌓인다 — 반쪽을 먼저 열어야 한다.
-  const canPlace = useStore((s) => activeTemplate(s)?.kind !== 'notebook' || s.shadowTemplate !== null);
+  const insert = useInsert();
   const side = useSide();
   const hasBack = useHasBack();
-  const shadowTemplate = useStore((s) => s.shadowTemplate);
-  const shadowSide = useStore((s) => s.shadowSide);
-  /**
-   * 이 ToolRail은 속지 제작(EditorTab)·노트 제작·인쇄하기 칸 손보기 셋 다
-   * 공유한다 — 그림자가 있으면(노트·칸 손보기) 그림자의 쪽(`shadowSide`)이
-   * 진짜 지금 그리는 쪽이고, 없으면(속지 제작) EditorTab 본체와 같은 규칙
-   * (`hasBack ? side : 'front'`)을 쓴다. 안 그러면 뒷면인데 앞면 기준
-   * 안전영역으로 계산해 놓는 자리가 어긋난다(safeZoneWidth를 피하는
-   * 설정을 켠 양식의 뒷면에서).
-   */
-  const activeSide: Side = shadowTemplate ? shadowSide : hasBack ? side : 'front';
+  // 편집 화면 본체와 같은 규칙 — 뒷면 자리에 면이 없으면 앞면이 지금 그리는 쪽이다.
+  const activeSide: Side = hasBack ? side : 'front';
+  const grid = useDotGrid(activeSide);
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -2293,10 +1716,6 @@ function ImageCategoryBody() {
     }
   }
 
-  if (!canPlace) {
-    return <p className="tool-panel-note">먼저 손볼 반쪽을 열어야 이미지를 놓을 수 있습니다.</p>;
-  }
-
   return (
     <>
       {usable.length === 0 ? (
@@ -2317,65 +1736,6 @@ function ImageCategoryBody() {
       <button className="ghost tool-panel-add-file" onClick={() => fileRef.current?.click()} title={error ?? undefined}>
         Upload
       </button>
-    </>
-  );
-}
-
-/**
- * 앞면/뒷면 탭 + 뒷면 관련 버튼.
- *
- * 탭을 눌러도 전환되고, 비활성 쪽 캔버스를 직접 눌러도 전환된다(EditorTab의
- * onInactivePointerDown) — 둘 다 같은 switchSide로 모인다.
- */
-function SideBar({
-  activeSide,
-  hasBack,
-  addBack,
-  removeBack,
-  copyFrontToBack,
-  switchSide,
-}: {
-  activeSide: Side;
-  hasBack: boolean;
-  addBack: () => void;
-  removeBack: () => void;
-  copyFrontToBack: () => void;
-  switchSide: (side: Side) => void;
-}) {
-  return (
-    <>
-      <div className="side-tabs">
-        <button
-          className={`side-tab ${activeSide === 'front' ? 'on' : ''}`}
-          onClick={() => switchSide('front')}
-        >
-          Front
-        </button>
-        <button
-          className={`side-tab ${activeSide === 'back' ? 'on' : ''}`}
-          onClick={() => {
-            if (!hasBack) addBack();
-            switchSide('back');
-          }}
-          title={hasBack ? undefined : 'Click to create a back side'}
-        >
-          Back
-        </button>
-      </div>
-      {activeSide === 'back' && (
-        <button
-          className="ghost"
-          onClick={copyFrontToBack}
-          title="Clear the back and make it match the front"
-        >
-          Copy front
-        </button>
-      )}
-      {activeSide === 'back' && hasBack && (
-        <button className="ghost" onClick={removeBack} title="Remove the back side">
-          Remove back
-        </button>
-      )}
     </>
   );
 }
@@ -2428,5 +1788,341 @@ export function ToolBtn({
     <button className={`tool-btn ${on ? 'on' : ''}`} onClick={onClick} title={title}>
       {children}
     </button>
+  );
+}
+
+/* ────────────────────────── 리뉴얼: 여러 페이지 편집 ────────────────────────── */
+
+/** 보일 면의 객체 — 팔레트 이름표를 실제 색으로 푼다(core/colors). 같은 면·같은 팔레트면 같은 참조. */
+function useDisplayObjects(face: ResolvedFace | null, palette: ReturnType<typeof usePalette>): DiaryObject[] {
+  return useMemo(
+    () => (face ? (palette ? resolveObjectColors(face.objects, palette) : face.objects) : NO_OBJECTS),
+    [face, palette],
+  );
+}
+const NO_OBJECTS: DiaryObject[] = [];
+
+/** 달력 객체가 그릴 달 — InsertView는 연도와 0부터 센 달을 받는다. */
+function calendarContextOf(face: ResolvedFace | null): { year: number; page: number } | undefined {
+  return face ? { year: face.month.year, page: face.month.month - 1 } : undefined;
+}
+
+/**
+ * 지금 무엇을 고치는 중인지 — 날짜 페이지에서는 ‘이 날짜만’, 원본 편집 중이면 전체에
+ * 걸린다는 띠(세부계획 A4.6 2-1). 보통 페이지면 아무것도 안 보인다.
+ */
+function ScopeNote() {
+  const work = useActiveWork();
+  const cursor = useCursor();
+  const face = useDisplayFace('front');
+  const back = useDisplayFace('back');
+  const side = useSide();
+  const enterSourceEdit = useStore((s) => s.enterSourceEdit);
+  const exitSourceEdit = useStore((s) => s.exitSourceEdit);
+  const faces = useFaces();
+  if (!work || !cursor) return null;
+
+  if (cursor.source) {
+    const count = faces.filter((f) => f.itemId === cursor.source?.itemId).length;
+    const own = faces.filter((f) => f.itemId === cursor.source?.itemId && f.period);
+    const first = own[0]?.period?.key;
+    const last = own[own.length - 1]?.period?.key;
+    return (
+      <div className="scope-note source">
+        <span>
+          ✎ 원본 편집 중 — {count}장{first ? ` (${first} ~ ${last})` : ''} 모두 바뀌어요
+        </span>
+        <button onClick={exitSourceEdit}>완료</button>
+      </div>
+    );
+  }
+
+  const current = side === 'back' ? back : face;
+  if (!current?.period) return null;
+  const label = faceLabel(current, faces.indexOf(current)).split(' · ')[1];
+  return (
+    <div className="scope-note">
+      <span>{label} · 이 날짜만 고치는 중</span>
+      <button className="ghost" onClick={() => enterSourceEdit(current.itemId, current.period!.faceIndex)}>
+        원본 편집
+      </button>
+    </div>
+  );
+}
+
+/** 면 하나를 정적으로 그린다 — 지금 고르지 않은 펼침면의 미리보기. */
+function StaticFace({
+  face,
+  insert,
+  scale,
+  mirror,
+  onPick,
+}: {
+  face: ResolvedFace;
+  insert: InsertSetting;
+  scale: number;
+  mirror: boolean;
+  onPick: () => void;
+}) {
+  const palette = usePalette();
+  const objects = useDisplayObjects(face, palette);
+  return (
+    <svg
+      className="insert-sheet static-face"
+      viewBox={`0 0 ${insert.width} ${insert.height}`}
+      width={insert.width * scale}
+      height={insert.height * scale}
+      onPointerDown={(e) => {
+        // 편집 영역 바깥 감싸기(onOutsideDown)로 번지지 않게 한다.
+        e.stopPropagation();
+        onPick();
+      }}
+    >
+      <rect x={0} y={0} width={insert.width} height={insert.height} className="sheet-bg" />
+      <InsertView
+        insert={insert}
+        grid={face.background as DotGrid}
+        objects={objects}
+        safeZoneWidth={insert.punch.safeZoneWidth}
+        mirror={mirror}
+        calendarContext={calendarContextOf(face)}
+      />
+      <PunchGuide width={insert.width} height={insert.height} punch={insert.punch} mirror={mirror} />
+    </svg>
+  );
+}
+
+/**
+ * 지금 펼침면 앞(before)·뒤(after)의 다른 펼침면들. 누르면 그 펼침면으로 간다 —
+ * 세로로 이어진 페이지들 중 하나만 손이 닿고 나머지는 그림이다. 원본 편집 중에는
+ * 원본 하나만 보이므로 그리지 않는다.
+ */
+function SpreadPreviews({ where, insert, scale }: { where: 'before' | 'after'; insert: InsertSetting; scale: number }) {
+  const cursor = useCursor();
+  const spreads = useSpreads();
+  const faces = useFaces();
+  const goTo = useStore((s) => s.goTo);
+  if (!cursor || cursor.source) return null;
+  const list = spreads
+    .map((sp, i) => ({ sp, i }))
+    .filter(({ i }) => (where === 'before' ? i < cursor.spread : i > cursor.spread));
+  return (
+    <>
+      {list.map(({ sp, i }) => (
+        <div key={i} className="spread-row">
+          <FaceLabels spread={sp} faces={faces} />
+          <div className="spread-sheets">
+            {sp.map((faceIndex, k) => {
+              const face = faceIndex === null ? null : faces[faceIndex];
+              const side: Side = k === 0 ? 'back' : 'front';
+              return face ? (
+                <StaticFace
+                  key={face.key}
+                  face={face}
+                  insert={insert}
+                  scale={scale}
+                  mirror={side === 'back'}
+                  onPick={() => goTo(i, side)}
+                />
+              ) : (
+                <div key={k} className="spread-gap" style={{ width: insert.width * scale }} />
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+/** 펼침면 위의 이름표 줄 — 면마다 이름과 페이지 버튼. */
+function FaceLabels({ spread, faces }: { spread: [number | null, number | null]; faces: ResolvedFace[] }) {
+  return (
+    <div className="spread-labels">
+      {spread.map((faceIndex, k) =>
+        faceIndex === null ? (
+          <span key={k} className="face-label empty" />
+        ) : (
+          <FaceActions key={k} face={faces[faceIndex]} index={faceIndex} />
+        ),
+      )}
+    </div>
+  );
+}
+
+/** 지금 펼침면의 이름표 줄. */
+function SpreadHeader() {
+  const cursor = useCursor();
+  const spreads = useSpreads();
+  const faces = useFaces();
+  if (!cursor) return null;
+  if (cursor.source) return <div className="spread-labels"><span className="face-label">원본</span></div>;
+  const sp = spreads[cursor.spread];
+  return sp ? <FaceLabels spread={sp} faces={faces} /> : null;
+}
+
+/**
+ * 면 하나의 이름과 페이지 버튼(세부계획 A11: 페이지 가까이에 복제·이동·삭제).
+ * 날짜 묶음의 면이면 버튼은 묶음 전체에 걸린다 — 그래서 이름에 몇 장짜리인지 적는다.
+ */
+function FaceActions({ face, index }: { face: ResolvedFace; index: number }) {
+  const work = useActiveWork();
+  const faces = useFaces();
+  const duplicateItemAt = useStore((s) => s.duplicateItemAt);
+  const removeItemAt = useStore((s) => s.removeItemAt);
+  const moveItemTo = useStore((s) => s.moveItemTo);
+  const enterSourceEdit = useStore((s) => s.enterSourceEdit);
+  if (!work) return null;
+  const itemIndex = work.items.findIndex((i) => i.id === face.itemId);
+  const item = work.items[itemIndex];
+  const dated = item?.kind === 'dated';
+  const groupSize = dated ? faces.filter((f) => f.itemId === face.itemId).length : 1;
+  return (
+    <span className="face-label">
+      <span className="face-label-name">{faceLabel(face, index)}</span>
+      <span className="face-label-actions">
+        {dated && face.period && (
+          <button className="ghost" title="원본 편집 — 이 묶음의 모든 날짜가 바뀝니다" onClick={() => enterSourceEdit(face.itemId, face.period!.faceIndex)}>
+            원본
+          </button>
+        )}
+        <button className="ghost" title={dated ? `묶음(${groupSize}장) 복제` : '복제'} onClick={() => duplicateItemAt(itemIndex)}>
+          ⧉
+        </button>
+        <button className="ghost" title="앞으로" disabled={itemIndex <= 0} onClick={() => moveItemTo(itemIndex, itemIndex - 1)}>
+          ↑
+        </button>
+        <button
+          className="ghost"
+          title="뒤로"
+          disabled={itemIndex >= work.items.length - 1}
+          onClick={() => moveItemTo(itemIndex, itemIndex + 1)}
+        >
+          ↓
+        </button>
+        <button
+          className="ghost danger"
+          title={dated ? `묶음(${groupSize}장) 지우기` : '지우기'}
+          onClick={() => {
+            if (dated && !window.confirm(`날짜 묶음 ${groupSize}장이 모두 지워져요. 지울까요?`)) return;
+            removeItemAt(itemIndex);
+          }}
+        >
+          ×
+        </button>
+      </span>
+    </span>
+  );
+}
+
+/** 맨 아래 ‘+ 페이지 추가’. 지금 보는 면 바로 뒤에 빈 페이지가 생긴다. */
+function AddPageButton() {
+  const cursor = useCursor();
+  const addPageAfterCurrent = useStore((s) => s.addPageAfterCurrent);
+  if (!cursor || cursor.source) return null;
+  return (
+    <button
+      className="add-page"
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={addPageAfterCurrent}
+    >
+      + 페이지 추가
+    </button>
+  );
+}
+
+/** 하단 상태 막대의 계산된 여백(세부계획 A5: 늘 보이게). 격자의 첫 점까지가 여백이다. */
+function MarginReadout({ lattice, insert }: { lattice: ReturnType<typeof gridLattice>; insert: InsertSetting }) {
+  if (lattice.xs.length === 0 || lattice.ys.length === 0) return null;
+  const left = lattice.xs[0];
+  const right = insert.width - lattice.xs[lattice.xs.length - 1];
+  const top = lattice.ys[0];
+  const bottom = insert.height - lattice.ys[lattice.ys.length - 1];
+  const r = (v: Mm) => roundMm(v, 1);
+  return (
+    <span title="격자의 첫 점·끝 점까지의 거리">
+      여백 ←{r(left)} →{r(right)} ↑{r(top)} ↓{r(bottom)}mm
+    </span>
+  );
+}
+
+/**
+ * 하단 상태 막대의 보기 전환 — 양면/단면(작업의 값), 펼침면/일렬(탭마다 보기, 기능후보 8),
+ * 한눈에 보기(세부계획 A11).
+ */
+function ViewToggles() {
+  const work = useActiveWork();
+  const cursor = useCursor();
+  const setView = useStore((s) => s.setView);
+  const setDuplex = useStore((s) => s.setDuplex);
+  const [overview, setOverview] = useState(false);
+  if (!work || !cursor) return null;
+  return (
+    <>
+      <label className="check foot-check" title="양면이면 면이 앞·뒤로 짝지어 인쇄돼요">
+        <input type="checkbox" checked={work.duplex} onChange={(e) => setDuplex(e.target.checked)} />
+        양면
+      </label>
+      {work.duplex && (
+        <span className="seg">
+          <button className={cursor.view === 'spread' ? 'on' : ''} onClick={() => setView('spread')} title="다이어리를 펼친 모습">
+            펼침면
+          </button>
+          <button className={cursor.view === 'single' ? 'on' : ''} onClick={() => setView('single')} title="한 면씩 아래로">
+            일렬
+          </button>
+        </span>
+      )}
+      <button className="ghost" onClick={() => setOverview(true)} title="모든 페이지 한눈에 보기">
+        ⊞
+      </button>
+      {overview && <Overview onClose={() => setOverview(false)} />}
+    </>
+  );
+}
+
+/**
+ * 한눈에 보기 — 모든 면을 작게 늘어놓고, 누르면 그 면으로 간다(세부계획 A11).
+ * 순서 바꾸기·여러 장 고르기는 페이지 이름표의 버튼으로 한다(끌어 옮기기는 나중에).
+ */
+function Overview({ onClose }: { onClose: () => void }) {
+  const faces = useFaces();
+  const spreads = useSpreads();
+  const insert = useInsert();
+  const palette = usePalette();
+  const goTo = useStore((s) => s.goTo);
+  const scale = 140 / insert.height;
+  return (
+    <Modal title={`모든 페이지 · ${faces.length}면`} onClose={onClose} size="large">
+      <div className="overview-grid">
+        {faces.map((face, i) => {
+          const spread = spreads.findIndex((sp) => sp.includes(i));
+          const side: Side = spreads[spread]?.[0] === i ? 'back' : 'front';
+          return (
+            <button
+              key={face.key}
+              className="overview-item"
+              onClick={() => {
+                goTo(Math.max(0, spread), side);
+                onClose();
+              }}
+            >
+              <svg viewBox={`0 0 ${insert.width} ${insert.height}`} width={insert.width * scale} height={insert.height * scale}>
+                <rect width={insert.width} height={insert.height} className="sheet-bg" />
+                <InsertView
+                  insert={insert}
+                  grid={face.background as DotGrid}
+                  objects={palette ? resolveObjectColors(face.objects, palette) : face.objects}
+                  safeZoneWidth={insert.punch.safeZoneWidth}
+                  mode="print"
+                  calendarContext={calendarContextOf(face)}
+                />
+              </svg>
+              <span>{faceLabel(face, i)}</span>
+            </button>
+          );
+        })}
+      </div>
+    </Modal>
   );
 }

@@ -13,7 +13,7 @@ import {
 import { iconSizeOf } from '../core/checkbox';
 import { FIELD_FORMATS } from '../core/text';
 import { roundMm } from '../core/units';
-import { useObjects, useStore } from '../store';
+import { useEditObjects, useHasBack, useSide, useStore } from '../store';
 import type { Editing } from './gestures';
 import { MixedColorControls } from './ColorControls';
 import {
@@ -51,7 +51,10 @@ export function StyleBar({
   draftStyle: TextStyle;
   refocusText: () => void;
 }) {
-  const objects = useObjects().present;
+  // 편집 화면 본체와 같은 규칙 — 뒷면 자리에 면이 없으면 앞면이 지금 고치는 쪽이다.
+  const side = useSide();
+  const hasBack = useHasBack();
+  const objects = useEditObjects(hasBack ? side : 'front');
   const selectedIds = useStore((s) => s.selectedIds);
   const styleSelected = useStore((s) => s.styleSelected);
   const styleText = useStore((s) => s.styleText);

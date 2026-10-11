@@ -5,6 +5,8 @@ import { resolveFieldsWithDates } from './format';
 import { defaultWorkPalette, type WorkPalette } from './colors';
 import {
   applyOverride,
+  diffOverride,
+  isEmptyOverride,
   overrideKey,
   periodsOf,
   todayPeriod,
@@ -164,8 +166,8 @@ export interface ResolvedFace {
   itemId: string;
   /** 원본 면(Face)의 id. 이 면을 고치면 어디를 고쳐야 하는지 알려준다. */
   faceId: string;
-  /** 날짜 묶음일 때만: 쪽 이름과 그 쪽 안의 면 번호 — 개별 수정을 붙일 자리. */
-  period?: { key: string; faceIndex: number };
+  /** 날짜 묶음일 때만: 쪽 이름·그 쪽 안의 면 번호·그 쪽의 날짜들 — 개별 수정을 붙일 자리. */
+  period?: { key: string; faceIndex: number; dates: (CalendarDate | null)[] };
   background: DotGrid;
   objects: DiaryObject[];
   /**
@@ -215,7 +217,7 @@ export function expandWork(work: Pick<Work, 'items'>, today: CalendarDate): Reso
           key: `${item.id}:${period.key}:${faceIndex}`,
           itemId: item.id,
           faceId: face.id,
-          period: { key: period.key, faceIndex },
+          period: { key: period.key, faceIndex, dates: period.dates },
           background: face.background,
           objects: applyOverride(filled, override),
           fieldIds: fieldIdsOf(face.objects, override),
@@ -256,4 +258,176 @@ export function spreadsOf(count: number): [number | null, number | null][] {
   const out: [number | null, number | null][] = [[null, 0]];
   for (let left = 1; left < count; left += 2) out.push([left, left + 1 < count ? left + 1 : null]);
   return out;
+}
+
+/* ────────────────────────── 고치기 ────────────────────────── */
+
+/**
+ * 편집 화면이 지금 고치는 자리.
+ * - `face` — 펼친 면 하나(보통 페이지, 또는 날짜 묶음의 한 날짜).
+ * - `source` — 날짜 묶음의 원본 면(‘원본 편집’ 모드, 세부계획 A4.6 2-1).
+ */
+export type FaceTarget =
+  | { kind: 'face'; face: ResolvedFace }
+  | { kind: 'source'; itemId: string; faceIndex: number };
+
+function findItem(work: Pick<Work, 'items'>, itemId: string): WorkItem | undefined {
+  return work.items.find((i) => i.id === itemId);
+}
+
+function targetItemId(t: FaceTarget): string {
+  return t.kind === 'face' ? t.face.itemId : t.itemId;
+}
+
+/**
+ * 고칠 객체 목록 — 편집 화면의 그리기·고르기·옮기기가 전부 이걸 고친다.
+ *
+ * - 보통 페이지: 면의 객체 **원본**(자동 필드가 `field`를 지닌 채). 날짜를 채운 것을
+ *   고치면 `field`가 빠진 채 저장되어 자동 필드가 평범한 글자로 굳는다.
+ * - 원본 편집: 날짜 묶음 원본 면의 객체.
+ * - 날짜 페이지: 날짜를 채우고 그 날짜의 수정을 얹은 것 — 보이는 그대로다.
+ *   고친 결과는 원본과의 **차이**로 저장된다(`writeObjects`).
+ */
+export function editableObjects(work: Pick<Work, 'items'>, target: FaceTarget): DiaryObject[] {
+  const item = findItem(work, targetItemId(target));
+  if (!item) return [];
+  if (item.kind === 'page') return item.face.objects;
+  if (target.kind === 'source') return item.faces[target.faceIndex]?.objects ?? [];
+  return target.face.objects;
+}
+
+/** 고칠 면의 바탕. 날짜 페이지는 바탕을 따로 갖지 않으므로 원본 면의 바탕이다. */
+export function editableBackground(work: Pick<Work, 'items'>, target: FaceTarget): DotGrid | null {
+  const item = findItem(work, targetItemId(target));
+  if (!item) return null;
+  if (item.kind === 'page') return item.face.background;
+  const faceIndex = target.kind === 'source' ? target.faceIndex : (target.face.period?.faceIndex ?? 0);
+  return item.faces[faceIndex]?.background ?? null;
+}
+
+/**
+ * 고친 객체 목록을 작업에 되돌려 넣는다. 새 `items`를 돌려준다.
+ *
+ * - 보통 페이지·원본 편집: 면의 객체를 갈아 끼운다. 원본에서 객체를 지우면 그 객체에
+ *   붙어 있던 날짜별 수정도 함께 지운다 — 가리킬 것이 없는 수정이 남지 않게.
+ * - 날짜 페이지: 날짜만 채운 원본과 견줘 **달라진 것만** 그 날짜의 수정으로 남긴다.
+ *   달라진 게 없으면 수정을 지운다(원본으로 되돌아간다).
+ */
+export function writeObjects(work: Pick<Work, 'items'>, target: FaceTarget, next: DiaryObject[]): WorkItem[] {
+  const itemId = targetItemId(target);
+  return work.items.map((item) => {
+    if (item.id !== itemId) return item;
+    if (item.kind === 'page') return { ...item, face: { ...item.face, objects: next } };
+
+    if (target.kind === 'source') {
+      const faces = item.faces.map((f, i) => (i === target.faceIndex ? { ...f, objects: next } : f));
+      const alive = new Set(next.map((o) => o.id));
+      return { ...item, faces, overrides: pruneOverrides(item.overrides, alive) };
+    }
+
+    const period = target.face.period;
+    const source = period && item.faces[period.faceIndex];
+    if (!period || !source) return item;
+    const filled = resolveFieldsWithDates(source.objects, period.dates);
+    const diff = diffOverride(filled, next);
+    const key = overrideKey(period.key, period.faceIndex);
+    const { [key]: _old, ...rest } = item.overrides;
+    return { ...item, overrides: isEmptyOverride(diff) ? rest : { ...rest, [key]: diff } };
+  });
+}
+
+/** 원본에서 사라진 객체를 가리키는 수정을 걷어낸다. */
+function pruneOverrides(overrides: Record<string, FaceOverride>, alive: Set<string>): Record<string, FaceOverride> {
+  const out: Record<string, FaceOverride> = {};
+  for (const [key, ov] of Object.entries(overrides)) {
+    const pruned: FaceOverride = {
+      props: Object.fromEntries(Object.entries(ov.props).filter(([id]) => alive.has(id))),
+      added: ov.added,
+      removed: ov.removed.filter((id) => alive.has(id)),
+    };
+    if (!isEmptyOverride(pruned)) out[key] = pruned;
+  }
+  return out;
+}
+
+/** 고칠 면의 바탕을 바꾼다. 날짜 페이지에서 바꾸면 원본 면의 바탕이 바뀐다(모든 날짜에). */
+export function writeBackground(work: Pick<Work, 'items'>, target: FaceTarget, patch: Partial<DotGrid>): WorkItem[] {
+  const itemId = targetItemId(target);
+  return work.items.map((item) => {
+    if (item.id !== itemId) return item;
+    if (item.kind === 'page') return { ...item, face: { ...item.face, background: { ...item.face.background, ...patch } } };
+    const faceIndex = target.kind === 'source' ? target.faceIndex : (target.face.period?.faceIndex ?? 0);
+    return {
+      ...item,
+      faces: item.faces.map((f, i) => (i === faceIndex ? { ...f, background: { ...f.background, ...patch } } : f)),
+    };
+  });
+}
+
+/**
+ * 원본 편집 화면에 보여줄 객체 — 날짜는 기간의 첫 쪽으로 채운다(세부계획 A4.6:
+ * 기간을 정하면 첫 날짜로 보인다). 고치는 것은 `editableObjects`(필드가 살아 있는 원본)다.
+ */
+export function sourcePreview(item: DatedItem, faceIndex: number): ResolvedFace | null {
+  const face = item.faces[faceIndex];
+  if (!face) return null;
+  const first = periodsOf(item.dataset, item.boundary)[0];
+  const dates = first?.dates ?? [];
+  return {
+    key: `${item.id}:source:${faceIndex}`,
+    itemId: item.id,
+    faceId: face.id,
+    background: face.background,
+    objects: resolveFieldsWithDates(face.objects, dates),
+    fieldIds: fieldIdsOf(face.objects),
+    month: first?.month ?? { year: 1970, month: 1 },
+  };
+}
+
+/** 작업 안의 모든 id(항목·면·객체·그룹). 불러온 뒤 id 카운터를 이것들보다 위로 올린다. */
+export function allIdsOf(work: Work): string[] {
+  const ids: string[] = [work.id];
+  const objs = (list: DiaryObject[]) => {
+    for (const o of list) {
+      ids.push(o.id);
+      if (o.groupId) ids.push(o.groupId);
+    }
+  };
+  for (const item of work.items) {
+    ids.push(item.id);
+    if (item.kind === 'page') {
+      ids.push(item.face.id);
+      objs(item.face.objects);
+    } else {
+      for (const f of item.faces) {
+        ids.push(f.id);
+        objs(f.objects);
+      }
+      for (const ov of Object.values(item.overrides)) objs(ov.added);
+    }
+  }
+  return ids;
+}
+
+/**
+ * 이 색 이름표(`@A` 등)를 쓰는 객체가 몇 개고 몇 면에 걸쳐 있는지 — Colors 탭이
+ * ‘A · 요소 48개, 31페이지’처럼 바꾸기 전에 영향 범위를 보여준다(세부계획 A13).
+ */
+export function colorRefUsage(work: Pick<Work, 'items'>, ref: string, today: CalendarDate): { objects: number; faces: number } {
+  let objects = 0;
+  let faces = 0;
+  for (const face of expandWork(work, today)) {
+    const n = face.objects.filter((o) => (o as { color?: string }).color === ref || (o as { fillColor?: string }).fillColor === ref).length;
+    objects += n;
+    if (n > 0) faces += 1;
+  }
+  return { objects, faces };
+}
+
+/** 면 이름표 — `p.3`, 날짜 페이지면 `p.3 · 10/5`, 달력형이면 `p.3 · 2027.03`. */
+export function faceLabel(face: Pick<ResolvedFace, 'period'>, index: number): string {
+  const p = face.period?.key;
+  if (!p) return `p.${index + 1}`;
+  const [y, m, d] = p.split('-').map(Number);
+  return d ? `p.${index + 1} · ${m}/${d}` : `p.${index + 1} · ${y}.${String(m).padStart(2, '0')}`;
 }

@@ -6,7 +6,8 @@ import { InsertView, type ViewMode } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import type { DiaryObject } from '../core/objects';
 import type { Layout } from '../core/layout';
-import type { InsertSetting, PaperState, UnprintableSetting } from '../store';
+import type { PaperState, UnprintableSetting } from '../store';
+import type { InsertSetting } from '../core/template';
 import type { Mm } from '../core/units';
 
 /** 칸 하나에 실제로 들어가는 내용. PDF의 SlotContent와 같은 역할이다. */

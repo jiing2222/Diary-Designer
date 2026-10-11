@@ -12,7 +12,7 @@
  * 실패는 조용히 삼킨다(storage/idb와 같은 원칙). 쓰기가 안 됐다고 앱이 멈추면 안 된다.
  */
 import { idbEntries, idbGet } from './idb';
-import { readProject, toTemplates } from '../core/project';
+import { readProject, toTemplates, type SavedFont, type SavedImage } from '../core/project';
 import { migrateTemplates, type Migrated } from '../core/migrate';
 import type { Work } from '../core/work';
 import type { Diary } from '../core/diary';
@@ -97,6 +97,15 @@ export interface V2Meta {
   /** 옮기지 않은 노트 이름 — 처음 한 번 알려준다. */
   skippedNotebooks?: string[];
   tabs?: Tabs;
+  /**
+   * 등록한 글꼴·이미지의 id와 파일 이름. 객체는 글꼴·이미지를 id(`f1`, `img1`)로 가리키는데,
+   * 파일 캐시는 이름으로 남는다 — 다시 열 때 이 표로 같은 이름에 같은 id를 돌려준다
+   * (fonts/registry의 restoreCachedFonts 주석 참고).
+   */
+  fonts?: SavedFont[];
+  images?: SavedImage[];
+  /** 새 작업을 만들 때 쓰는 다이어리. */
+  defaultDiaryId?: string | null;
 }
 
 const META_KEY = 'meta';
@@ -138,12 +147,19 @@ export async function loadAll(): Promise<V2Data> {
  * 옛 자동 저장 JSON을 새 구조로. IndexedDB를 모르는 순수 함수라 테스트한다.
  * 읽을 수 없는 판이면 null — 옮길 것이 없는 것으로 친다.
  */
-export function migrateSnapshot(raw: string | null, now: string): Migrated | null {
+export function migrateSnapshot(
+  raw: string | null,
+  now: string,
+): (Migrated & { fonts: SavedFont[]; images: SavedImage[] }) | null {
   if (raw === null) return null;
   try {
     const parsed = readProject(JSON.parse(raw));
     if ('error' in parsed) return null;
-    return migrateTemplates(toTemplates(parsed.ok), now);
+    return {
+      ...migrateTemplates(toTemplates(parsed.ok), now),
+      fonts: parsed.ok.fonts ?? [],
+      images: parsed.ok.images ?? [],
+    };
   } catch {
     return null;
   }
@@ -171,7 +187,13 @@ export async function migrateFromV1(now: string): Promise<void> {
     [
       'meta',
       META_KEY,
-      { ...meta, migratedAt: now, skippedNotebooks: migrated?.skippedNotebooks ?? [] } satisfies V2Meta,
+      {
+        ...meta,
+        migratedAt: now,
+        skippedNotebooks: migrated?.skippedNotebooks ?? [],
+        fonts: migrated?.fonts ?? [],
+        images: migrated?.images ?? [],
+      } satisfies V2Meta,
     ],
   ];
   await putMany(entries);

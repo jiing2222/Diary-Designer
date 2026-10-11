@@ -1,1480 +1,243 @@
-import { useEffect, useRef, useState } from 'react';
-import {
-  activeTemplate,
-  paperSize,
-  projectOf,
-  resolveSlotTemplates,
-  selectLayout,
-  useObjects,
-  useStore,
-  type Side,
-} from '../store';
-import { canRedo, canUndo } from '../core/history';
-import { loadSnapshot, saveNow, scheduleSave } from '../storage/autosave';
-import { cloudErrorText, currentUser, onAuthChange, type CloudUser } from '../cloud/client';
-import { pullProject, pushProject, remoteIsNewer } from '../cloud/projects';
-import { CloudPanel, type SyncState } from './CloudPanel';
-import {
-  capacityPerSheet,
-  cutStackPage,
-  filledSlots,
-  frontBackFilled,
-  printModeOf,
-  sheetsNeeded,
-  type Template,
-} from '../core/template';
-import { mirrorLayout, turnLayout180 } from '../core/layout';
-import { datasetPages } from '../core/dataset';
-import { resolvePageObjects } from '../core/format';
-import {
-  allNotebookObjects,
-  notebookImposition,
-  notebookPageWidth,
-  notebookPrintUnit,
-  notebookPrintUnitCount,
-  paddedPageCount,
-} from '../core/notebook';
-import { DEFAULT_DOT_GRID, type DotGrid } from '../core/grid';
-import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
-import { PrintSlotEditor } from './PrintSlotEditor';
-import { EditorTab, ToolRail, ZoomStepper } from './EditorTab';
-import { NotebookEditorTab } from './NotebookEditorTab';
-import { GalleryTab } from './GalleryTab';
-import { StartScreen } from './StartScreen';
+import { useEffect, useState } from 'react';
+import { LIBRARY_TAB } from '../core/workspace';
+import { diarySizeLabel } from '../core/diary';
+import { useActiveDiary, useActiveWork, useStore } from '../store';
+import { boot, startAutosave } from './persist';
+import { Home } from './Home';
+import { Editor } from './Editor';
+import { EditorRail } from './EditorRail';
+import { LIBRARY_RAIL, LibraryMain, type LibrarySection } from './Library';
+import { Modal } from './Modal';
 import { Toast } from './Toast';
-import { SlotPanel } from './SlotPanel';
-import { RepeatPrint } from './RepeatPrint';
-import { PX_PER_MM_AT_100 } from './pixels';
-import { buildPdf, downloadPdf, type SlotContent } from '../pdf/export';
-import { loadBodyFont, loadBoldFont } from '../fonts/load';
-import { fontBytes as fontBytes_, restoreCachedFonts } from '../fonts/registry';
-import {
-  imageBytes as imageBytes_,
-  imageKind as imageKind_,
-  restoreCachedImages,
-} from '../images/registry';
-import type { DiaryObject, ImageObject, TextObject } from '../core/objects';
-import { InsertGroup } from './SettingsPanel';
-import { DownloadIcon, MenuIcon, RingsLogo } from './icons';
-import { sheetSlotKey, sheetSlotValue } from '../core/sheetSlots';
-import { cropModeForSide } from '../core/crop';
+import { RingsLogo } from './icons';
 
 /**
- * `start`는 다른 셋과 성격이 다르다 — 앱 화면이 아니라 소개 화면이라
- * 머리줄·도구줄을 함께 그리지 않고 화면 전체를 혼자 쓴다(아래 렌더 참고).
- */
-type Tab = 'start' | 'gallery' | 'edit' | 'print';
-
-/**
- * 인쇄하기에서 지금 칸(낱장 조합)·페이지(세트형)를 직접 손보는 중이면 그
- * 자리 정보. `store.ts`의 `shadowTemplate`이 실제 그리는 데이터를 들고
- * 있고, 여기는 "그 결과를 어디(칸 번호 또는 페이지 번호, 앞/뒤)로 옮겨
- * 담을지"만 기억한다 — 그림자 자체는 그 대상을 몰라도 되게 하려는
- * 것이다(PrintSlotEditor는 store만 보고 그린다).
- */
-type EditingSession = {
-  sheet: number;
-  index: number;
-  side: Side;
-  /** 손보기 시작할 때의 내용 — 끝날 때 하나도 안 고쳤으면(참조가 그대로면)
-   * override를 아예 만들지 않는다. 그냥 열어보기만 했는데 "손봤다"로
-   * 남아 원본 양식 변경을 더는 안 따라가면 놀란다. */
-  seed: DiaryObject[];
-  /** 손보기 시작할 때 이미 override가 있었는가 — "되돌리기" 버튼을 보일지 정한다. */
-  hadOverride: boolean;
-} & ({ kind: 'combo' } | { kind: 'dataset'; page: number });
-
-/** "되돌리기"가 막 지운 override — "되돌리기 취소"로 한 번 되살릴 수 있게 잠깐 기억해둔다. */
-type LastReverted = {
-  revision: number;
-  sheet: number;
-  index: number;
-  side: Side;
-  objects: DiaryObject[];
-} & ({ kind: 'combo' } | { kind: 'dataset'; page: number });
-
-/**
- * 반복 인쇄에서 마지막 장의 남는 칸. 화면에서는 완전히 비워 보여준다.
- * pdf/export.ts의 `BLANK_SLOT`과 같은 생각이다 — 인쇄물과 미리보기가 같아야 한다.
- */
-const BLANK_PREVIEW_GRID: DotGrid = { ...DEFAULT_DOT_GRID, showOnScreen: false, print: false };
-
-/**
- * 서버에 올리기 전에 기다리는 시간.
+ * 앱 틀(리뉴얼, design/리뉴얼/디자인.md ‘앱 틀’·‘탭’).
  *
- * 브라우저 저장(storage/autosave의 1.2초)보다 훨씬 느긋하다. 로컬 쓰기는
- * 거의 공짜지만 서버는 요청마다 네트워크라, 같은 박자로 올리면 느린
- * 연결에서 요청이 밀린다. 작업을 잃을 걱정은 브라우저 저장이 이미 맡고
- * 있으므로 여기서는 서두를 이유가 없다.
- */
-const CLOUD_PUSH_DELAY_MS = 6000;
-
-/**
- * 길찾기 줄의 "속지" 칸 안 — 양식 이름(클릭해서 바로 고치기)과 속지 크기.
+ * 상단 바와 왼쪽 레일이 같은 그레이지로 이어진 ㄱ자 틀이 모든 화면을 감싸고, 그 안에
+ * 아이보리 작업 공간이 들어간다. 상단 바의 이름 자리가 탭 줄이다 — 맨 앞에 닫을 수 없는
+ * Library 탭, 그 뒤로 연 작업 탭들. 레일은 지금 탭에 맞는 메뉴만 보인다.
  *
- * 디자인에서 이것들은 머리줄에 따로 떠 있는 게 아니라 **지금 있는 단계
- * 안**에 들어 있다 — 지금 고치고 있는 속지가 무엇인지 말해주는 값이라
- * "속지" 단계에 붙는 게 맞고, 인쇄하기 화면으로 가면 저절로 사라진다.
- *
- * 규격을 정하는 곳은 하나뿐이어야 하므로, 크기 말풍선은 SettingsPanel의
- * `InsertGroup`을 그대로 가져다 쓴다 — 왼쪽 "속지" 탭이 쓰는 것과 같은
- * 컴포넌트다.
+ * 홈(토성)은 탭이 아니다 — 앱을 처음 열 때 보이고 로고를 누르면 간다.
  */
-function TemplateInfo({ template }: { template: Template }) {
-  const renameTemplate = useStore((s) => s.renameTemplate);
-  const [renaming, setRenaming] = useState(false);
-  const [sizeOpen, setSizeOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!sizeOpen) return;
-    function onDown(e: PointerEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) setSizeOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setSizeOpen(false);
-    }
-    document.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [sizeOpen]);
-
-  return (
-    <div className="template-info" ref={wrapRef}>
-      {renaming ? (
-        <input
-          className="template-name-input"
-          defaultValue={template.name}
-          autoFocus
-          onFocus={(e) => e.currentTarget.select()}
-          onBlur={(e) => {
-            renameTemplate(template.id, e.target.value);
-            setRenaming(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur();
-            if (e.key === 'Escape') setRenaming(false);
-          }}
-        />
-      ) : (
-        <button className="template-name" onClick={() => setRenaming(true)} title="클릭해서 이름 바꾸기">
-          {template.name}
-        </button>
-      )}
-
-      <button className="size-trigger" onClick={() => setSizeOpen((v) => !v)} title="속지 크기">
-        {template.insert.width} × {template.insert.height}mm ▾
-      </button>
-
-      {sizeOpen && (
-        <div className="popover popover-below">
-          <h2>속지</h2>
-          <div className="popover-body">
-            <InsertGroup />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * 실행취소 / 다시실행 — 속지 제작·노트 제작·인쇄하기(칸 손보기) 셋이 저마다
- * 들고 있던 버튼을 여기 하나로 모았다. `s.undo`·`s.redo`는 이미 그림자
- * (반쪽·칸을 직접 손보는 중)가 있으면 그쪽만, 없으면 활성 양식의 지금 쪽만
- * 되돌린다 — `useObjects()`도 같은 우선순위라(store.ts) 버튼을 켜고 끄는
- * 기준이 실제로 눌렀을 때 되돌아가는 대상과 늘 같다.
- */
-function UndoRedo() {
-  const undo = useStore((s) => s.undo);
-  const redo = useStore((s) => s.redo);
-  const history = useObjects();
-  return (
-    <div className="undo-redo">
-      <button className="ghost" onClick={undo} disabled={!canUndo(history)} title="실행취소 (⌘Z)">
-        ↶
-      </button>
-      <button className="ghost" onClick={redo} disabled={!canRedo(history)} title="다시실행 (⇧⌘Z)">
-        ↷
-      </button>
-    </div>
-  );
-}
-
-/**
- * 지금 어느 단계에 있는지 — 양식 → 속지 → 인쇄.
- *
- * 햄버거 메뉴에도 같은 네 곳이 있지만 그건 **열어봐야** 보인다. 이건 늘
- * 떠 있어서, 누르지 않아도 지금 위치를 알려주는 것이 먼저다.
- *
- * 갈 수 없는 곳은 눌리지 않는다 — 양식을 하나도 안 골랐으면 속지·인쇄에는
- * 보여줄 것이 없다.
- */
-function Breadcrumb({
-  tab,
-  setTab,
-  active,
-}: {
-  tab: Tab;
-  setTab: (t: Tab) => void;
-  active: Template | null;
-}) {
-  const steps: { id: Tab; label: string; enabled: boolean }[] = [
-    { id: 'gallery', label: 'Template', enabled: true },
-    { id: 'edit', label: 'Insert', enabled: true },
-    { id: 'print', label: 'Print', enabled: !!active },
-  ];
-
-  return (
-    <nav className="crumbs">
-      {steps.map((s, i) => {
-        /*
-          지금 있는 곳이 "속지"면, 그 칸이 테두리 있는 상자로 부풀어 지금
-          고치는 양식의 이름·크기·되돌리기를 품는다(디자인). 그 값들은
-          "무슨 속지를 고치는 중인가"에 대한 답이라 이 단계 밖에서는 뜻이
-          없다 — 인쇄하기로 옮기면 저절로 사라진다.
-        */
-        const detailed = s.id === 'edit' && tab === 'edit' && !!active;
-        return (
-          <span key={s.id} className="crumb-item">
-            {i > 0 && <span className="crumb-sep">›</span>}
-            {detailed ? (
-              <span className="crumb-active-group">
-                <span className="crumb-active-label">{s.label}</span>
-                <TemplateInfo template={active} />
-                <UndoRedo />
-              </span>
-            ) : (
-              <button
-                className={`crumb ${tab === s.id ? 'on' : ''}`}
-                onClick={() => setTab(s.id)}
-                disabled={!s.enabled || tab === s.id}
-              >
-                {s.label}
-              </button>
-            )}
-          </span>
-        );
-      })}
-    </nav>
-  );
-}
-
-/**
- * 화면 탭 4개(양식 관리·속지 제작·노트 제작·인쇄하기) — 예전엔 헤더에 늘
- * 늘어서 있었는데, 햄버거 메뉴 뒤로 옮겨 헤더를 조용하게 뒀다. 버튼
- * 자체(끄고 켜는 조건·disabled)는 그대로다, 담는 자리만 바뀌었다.
- */
-function NavMenu({ tab, setTab, active }: { tab: Tab; setTab: (t: Tab) => void; active: Template | null }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: PointerEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  function go(t: Tab) {
-    setTab(t);
-    setOpen(false);
-  }
-
-  return (
-    <div className="nav-menu" ref={wrapRef}>
-      <button className="menu-btn" onClick={() => setOpen((v) => !v)} title="Menu">
-        <MenuIcon />
-      </button>
-
-      {open && (
-        <div className="menu-dropdown">
-          <button className={tab === 'gallery' ? 'tab on' : 'tab'} onClick={() => go('gallery')}>
-            Template
-          </button>
-          <button
-            className={tab === 'edit' && (!active || active.kind === 'insert') ? 'tab on' : 'tab'}
-            onClick={() => go('edit')}
-            disabled={!!active && active.kind !== 'insert'}
-          >
-            Inserts
-          </button>
-          {/* Notebooks는 리뉴얼 때까지 숨긴다 — 코드는 남아 있다. */}
-          <button className={tab === 'print' ? 'tab on' : 'tab'} onClick={() => go('print')} disabled={!active}>
-            Print
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+type Screen = 'home' | 'tabs' | 'learn';
 
 export function App() {
-  const s = useStore();
-  const [busy, setBusy] = useState(false);
+  const [screen, setScreen] = useState<Screen>('home');
+  const [section, setSection] = useState<LibrarySection>('projects');
+  const [notice, setNotice] = useState<string | null>(null);
+  const ready = useStore((s) => s.ready);
+  const tabs = useStore((s) => s.tabs);
+  const createWork = useStore((s) => s.createWork);
+  const activateTab = useStore((s) => s.activateTab);
 
-  /**
-   * 자동 저장 — 되살리기, 그리고 그 위에 글꼴·이미지 캐시 되살리기.
-   *
-   * 새로고침하거나 실수로 탭을 닫아도 하던 자리로 돌아온다. 이 프로그램은
-   * 서버가 없어서 이게 없으면 작업이 통째로 사라진다(storage/autosave).
-   *
-   * **되살리기가 끝나기 전에는 저장하지 않는다.** 켜자마자 store는 빈
-   * 상태인데, 그걸 먼저 써버리면 되살릴 것을 스스로 지운다. 그래서 아래
-   * 저장 쪽 effect가 이 상태(`restored`)를 기다린다.
-   *
-   * 이미 양식이 있으면 건드리지 않는다 — 되살리기가 늦게 끝나는 사이
-   * 사용자가 벌써 새 양식을 만들었을 수 있고, 그 경우 방금 만든 것을
-   * 덮어쓰는 쪽이 훨씬 나쁘다.
-   *
-   * **글꼴·이미지 캐시는 반드시 이 되살리기 뒤에 되살린다.** 예전엔 이걸
-   * 따로 도는 effect로 뒀는데, 되살아난 글자·이미지가 들고 있는 예전
-   * id(f1 등) 위로 `loadProject`의 `reserveIds`가 카운터를 이미 밀어놓은
-   * 뒤라, 캐시에서 되살아나는 파일이 새 id(f3 등)를 받아 서로 어긋났다 —
-   * 파일은 멀쩡히 캐시에 있는데도 "파일 없음"으로 보이는 버그가 이래서
-   * 났다(2026-08-29). 그래서 되살린 양식의 userFonts·userImages에서 같은
-   * 이름을 찾아 그 id를 물려받는다 — 수동으로 파일을 다시 등록할 때 쓰는
-   * orphan 매칭(ObjectControls.tsx)과 같은 방식이다.
-   */
-  const [restored, setRestored] = useState(false);
   useEffect(() => {
+    let stop: (() => void) | null = null;
     let alive = true;
-    (async () => {
-      const snapshot = await loadSnapshot();
-      if (alive && snapshot && snapshot.templates.length > 0 && useStore.getState().templates.length === 0) {
-        useStore.getState().loadProject(snapshot);
+    void boot().then(({ skippedNotebooks }) => {
+      if (!alive) return;
+      stop = startAutosave();
+      if (skippedNotebooks.length > 0) {
+        setNotice(`노트 ${skippedNotebooks.length}개(${skippedNotebooks.join(', ')})는 새 버전으로 옮기지 않았어요. 옛 버전에는 그대로 있어요.`);
       }
-      if (!alive) return;
-      setRestored(true);
-
-      const resolveFontId = (name: string) => useStore.getState().userFonts.find((f) => f.name === name)?.id;
-      const resolveImageId = (name: string) => useStore.getState().userImages.find((i) => i.name === name)?.id;
-      const [fonts, images] = await Promise.all([
-        restoreCachedFonts(resolveFontId),
-        restoreCachedImages(resolveImageId),
-      ]);
-      if (!alive) return;
-      fonts.forEach((f) => useStore.getState().addUserFont(f));
-      images.forEach((i) => useStore.getState().addUserImage(i));
-    })();
+    });
     return () => {
       alive = false;
+      stop?.();
     };
   }, []);
 
-  /**
-   * 자동 저장 — 쓰기.
-   *
-   * store가 바뀔 때마다 시계를 다시 맞추고, 손을 멈추면 그때 한 번 쓴다.
-   * 탭을 숨기거나 닫을 때는 미루지 않고 바로 쓴다 — 그 순간이 사용자가
-   * 작업을 잃는 가장 흔한 자리다.
-   *
-   * `pagehide`를 쓰는 이유는 `beforeunload`가 모바일 사파리에서 안 불리기
-   * 때문이고, `visibilitychange`를 함께 보는 이유는 탭을 옮기거나 앱을
-   * 내려두는 것만으로도(그 뒤 브라우저가 탭을 접을 수 있다) 저장할 값어치가
-   * 있어서다.
-   */
+  // 탭을 고르면(작업을 열면) 홈에서 탭 화면으로 넘어간다.
   useEffect(() => {
-    if (!restored) return;
+    if (ready && tabs.active !== LIBRARY_TAB) setScreen('tabs');
+  }, [ready, tabs.active, tabs.open.length]);
 
-    const build = () => {
-      const state = useStore.getState();
-      return state.templates.length > 0 ? projectOf(state, state.templates) : null;
-    };
-    const flush = () => saveNow(build);
-    const onVisibility = () => {
-      if (document.hidden) flush();
-    };
+  if (!ready) return <div className="app-loading">Rings</div>;
 
-    const unsubscribe = useStore.subscribe(() => scheduleSave(build));
-    window.addEventListener('pagehide', flush);
-    document.addEventListener('visibilitychange', onVisibility);
-
-    return () => {
-      unsubscribe();
-      window.removeEventListener('pagehide', flush);
-      document.removeEventListener('visibilitychange', onVisibility);
-      // 화면을 떠나기 전에 마지막 모습을 남긴다.
-      flush();
-    };
-  }, [restored]);
-
-  /**
-   * 클라우드 — 서버에서 내려받기.
-   *
-   * 로그인해 있으면 서버 것을 확인해서, **확실히 새것일 때만** 가져온다
-   * (cloud/projects의 `remoteIsNewer`). 무조건 서버를 따르면 방금 이
-   * 컴퓨터에서 한 작업이 지워지고, 무조건 로컬을 따르면 서버에 올려둔
-   * 의미가 없다.
-   *
-   * 브라우저 되살리기(`restored`)가 끝난 뒤에 본다 — 비교 대상인 "지금
-   * 것"이 아직 안 올라와 있으면 무엇이 새것인지 가릴 수가 없다.
-   */
-  const [cloudUser, setCloudUser] = useState<CloudUser | null>(() => currentUser());
-  const [sync, setSync] = useState<SyncState>({ kind: 'idle' });
-
-  useEffect(() => onAuthChange(setCloudUser), []);
-
-  useEffect(() => {
-    if (!restored || !cloudUser) return;
-    let alive = true;
-
-    pullProject()
-      .then((remote) => {
-        if (!alive || !remote) return;
-        const state = useStore.getState();
-        const local = state.templates.length > 0 ? projectOf(state, state.templates) : null;
-        if (remoteIsNewer(remote.project, local)) {
-          state.loadProject(remote.project);
-          setSync({ kind: 'saved', at: new Date(remote.updated) });
-        }
-      })
-      .catch((err) => {
-        if (alive) setSync({ kind: 'error', text: cloudErrorText(err) });
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, [restored, cloudUser]);
-
-  /**
-   * 클라우드 — 서버에 올리기.
-   *
-   * 브라우저 저장(1.2초)보다 느긋하게 미룬다. 로컬은 실패할 일이 거의
-   * 없지만 서버는 요청 하나하나가 네트워크라, 선 하나 그을 때마다 올리면
-   * 느린 연결에서 밀린다. 손을 멈추고 몇 초 지나야 올린다.
-   *
-   * 탭을 닫을 때는 올리지 않는다 — 그 순간의 요청은 끝까지 간다는 보장이
-   * 없고, 무엇보다 **브라우저 저장이 이미 그 자리를 지키고 있다.** 잃는
-   * 것은 마지막 몇 초의 서버 사본뿐이고 다음에 열면 곧 다시 올라간다.
-   */
-  useEffect(() => {
-    if (!restored || !cloudUser) return;
-
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const unsubscribe = useStore.subscribe(() => {
-      if (timer !== null) clearTimeout(timer);
-      timer = setTimeout(() => {
-        timer = null;
-        const state = useStore.getState();
-        if (state.templates.length === 0) return;
-        setSync({ kind: 'syncing' });
-        pushProject(projectOf(state, state.templates))
-          .then(() => setSync({ kind: 'saved', at: new Date() }))
-          .catch((err) => setSync({ kind: 'error', text: cloudErrorText(err) }));
-      }, CLOUD_PUSH_DELAY_MS);
-    });
-
-    return () => {
-      if (timer !== null) clearTimeout(timer);
-      unsubscribe();
-    };
-  }, [restored, cloudUser]);
-
-  /**
-   * 처음 열면 소개 화면이다.
-   *
-   * 저장된 양식이 있어도 시작 위치는 메인화면으로 유지한다.
-   *
-   * 다시 이 화면으로 오는 길은 머리줄의 로고다.
-   */
-  const [tab, setTab] = useState<Tab>('start');
-  const [galleryDestination, setGalleryDestination] = useState<'edit' | 'print'>('edit');
-
-  function navigateFromHome(page: 'gallery' | 'edit' | 'print') {
-    const needsTemplate = page === 'print' && !activeTemplate(useStore.getState());
-    setGalleryDestination(needsTemplate ? 'print' : 'edit');
-    setTab(needsTemplate ? 'gallery' : page);
-  }
-
-  /**
-   * 인쇄하기 탭 전용. 켜면 지금 켜둔 도트·타공 화면 설정과 무관하게 **실제로
-   * 인쇄될 모습만** 보여준다. 원래 설정은 그대로 두고 보는 방식만 잠깐 바꾸는
-   * 것이라 store에 넣지 않는다 — 탭을 나가면 잊혀도 되는 값이다.
-   */
-  const [printPreview, setPrintPreview] = useState(true);
-  /**
-   * 인쇄하기 탭의 확대 배율. 숫자면 양식 만들기(EditorTab)의 zoom과 같은
-   * 값(%)이고, `'fit'`이면 지금 화면 폭에 맞춰(양면이면 두 쪽이 다 보이게)
-   * 자동으로 계산한다 — 기본값이다. 첫 화면부터 잘려 보이는 것보다 다
-   * 보이는 편이 낫다. store에 넣지 않는 이유는 printPreview와 같다.
-   */
-  const [zoom, setZoom] = useState<number | 'fit'>('fit');
-  /**
-   * 양면일 때 뒷면을 왼쪽에 둘지 오른쪽에 둘지. 실제 인쇄되는 페이지 순서와는
-   * 무관하다 — 화면에서 나란히 볼 때 어느 쪽에 두고 볼지 정하는 값이라 이것도
-   * store에 넣지 않는다.
-   */
-  const [backOnLeft, setBackOnLeft] = useState(true);
-  /**
-   * 칸·페이지를 손보는 도구막대(PrintSlotEditor 안)가 자리 잡을 DOM 자리.
-   * 손보는 칸이 어디 있든(`.stage-area`를 얼마나 스크롤했든) 이 자리는
-   * 그 위, `.print-bar` 바로 아래에 고정돼 있다 — EditorTab의 `.editor-bar`와
-   * 같은 위치 원칙이다. PrintSlotEditor가 `createPortal`로 도구막대를 실제로는
-   * 여기(칸이 있는 자리가 아니라)에 그린다. state로 두는 이유는 ref만으로는
-   * PrintSlotEditor의 첫 렌더 시점에 아직 이 <div>가 커밋되지 않아 null이기
-   * 때문 — 콜백 ref로 실제 DOM 노드가 생기면 그때 다시 그려지게 한다.
-   */
-  const [editBarSlot, setEditBarSlot] = useState<HTMLDivElement | null>(null);
-  /**
-   * 속성 칸(StyleBar)을 실제로 그릴 자리 — ToolRail의 탭 안(콜백 ref로
-   * 받는 이유는 editBarSlot과 같다). 속지 제작·노트 제작·인쇄하기 칸
-   * 손보기 셋 다 이 자리 하나로 portal한다.
-   */
-  const [stylePanelSlot, setStylePanelSlot] = useState<HTMLDivElement | null>(null);
-  /** `zoom === 'fit'`일 때 배율 계산의 기준이 되는, 지금 미리보기 영역의 실제 폭(px). */
-  const stageRef = useRef<HTMLDivElement>(null);
-  const [stageWidth, setStageWidth] = useState(0);
-  useEffect(() => {
-    const el = stageRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setStageWidth(entry.contentRect.width));
-    ro.observe(el);
-    return () => ro.disconnect();
-    // tab에 의존한다 — 처음 열었을 땐 기본 탭이 "양식 관리"라 .stage-area가
-    // 아직 DOM에 없다(stageRef.current가 null). 빈 배열([])로 마운트 때
-    // 한 번만 시도하면 그 순간엔 항상 실패하고 다시는 안 붙는다 — "인쇄하기"
-    // 탭에 처음 들어올 때(탭이 바뀔 때) 다시 시도해야 그때는 진짜 DOM이 있다.
-  }, [tab]);
-
-  const { width, height } = paperSize(s.paper);
-  const layout = selectLayout(s);
-  const storedActive = activeTemplate(s);
-  const active = tab === 'edit' && s.editorSelectionId !== storedActive?.id ? null : storedActive;
-
-  /*
-   * 낱장 조합·반복 인쇄(만년형)·세트형은 설계문서 8장의 원칙대로 한 인쇄에
-   * 섞이지 않는다. `active.repeat.mode`가 어느 쪽인지 정한다 — 사용자가 따로
-   * 고르지 않는다.
-   */
-  const printMode = printModeOf(active);
-  const totalSlots = active?.repeat.mode === 'repeat' ? active.repeat.count : 0;
-  const dataset = active?.repeat.mode === 'dataset' ? active.repeat.dataset : null;
-  const totalPages = dataset ? datasetPages(dataset) : 0;
-  /**
-   * 노트 — 표지 1장 + `notebookImposition`이 정한 내지 장 수. 세트형의
-   * "쪽"과 같은 자리(장 하나 = 인쇄 단위 하나)에서 쓰인다.
-   */
-  const notebookImp =
-    printMode === 'notebook' && active?.pages ? notebookImposition(paddedPageCount(active.pageCount ?? active.pages.length)) : null;
-  const totalNotebookUnits = notebookImp ? notebookPrintUnitCount(notebookImp) : 0;
-  const notebookPageW = active ? notebookPageWidth(active.insert.width) : 0;
-
-  const [editingSession, setEditingSession] = useState<EditingSession | null>(null);
-
-  /**
-   * 지금 손보던 것이 있으면 그 결과를 override로 옮기고 그림자를 지운다.
-   *
-   * **`s` 대신 `useStore.getState()`로 읽는다.** "완료" 버튼은 진행 중인
-   * 글자 입력을 먼저 커밋(`finishEditing` → `commitText`)한 바로 뒤에 이
-   * 함수를 부르는데, 그 커밋은 store를 그 자리에서 바로 바꾸지만 App.tsx의
-   * `s`(컴포넌트 렌더 시점의 스냅샷)는 리액트가 다시 그릴 때까지 그 변화를
-   * 모른다 — `getState()`로 읽어야 방금 커밋한 글자까지 포함해서 정확히
-   * 옮겨 담는다.
-   */
-  function commitEdit() {
-    const store = useStore.getState();
-    if (!editingSession || !store.shadowTemplate) return;
-    const data = store.shadowSide === 'front' ? store.shadowTemplate.objects : store.shadowTemplate.back?.objects;
-    const objects = data?.present ?? [];
-    // 하나도 안 고쳤으면(참조가 씨앗 그대로면) override를 만들지 않는다 —
-    // 그냥 열어만 봤는데 원본 양식을 더는 안 따라가게 되면 놀란다.
-    if (objects !== editingSession.seed) {
-      if (editingSession.kind === 'combo') {
-        store.setComboSheetSlotOverride(
-          editingSession.sheet,
-          editingSession.index,
-          editingSession.side,
-          objects,
-        );
-      } else {
-        store.setPageOverride(editingSession.page, editingSession.side, objects);
-      }
-    }
-    store.endShadowEdit();
-  }
-
-  /** 다른 칸·페이지를 손보기 시작한다 — 손보던 것이 있으면 먼저 그 결과부터 저장한다. */
-  function beginEdit(session: EditingSession, content: PreviewSlotContent) {
-    commitEdit();
-    setLastReverted(null);
-    useStore.getState().beginShadowEdit(content.insert, content.dotGrid, content.objects, session.side);
-    setEditingSession(session);
-  }
-
-  /** "완료" — 저장하고 손보기를 마친다. */
-  function finishEdit() {
-    commitEdit();
-    setEditingSession(null);
-  }
-
-  /**
-   * 손보는 중에 그 칸이 아닌 바깥을 더블클릭하면 완료한다(Esc는 그대로 둔다,
-   * 사용자 피드백). `.print-slot-editor-canvas`(지금 손보는 칸 자신)나
-   * `.paper-slot-clickable`(다른 칸 — 그쪽은 이미 자기 onClick으로 옮겨가는
-   * 중이다)에서 난 더블클릭은 지나친다. 진짜 빈 여백(용지 사이 간격,
-   * .stage-area의 남는 자리)을 더블클릭했을 때만 완료한다.
-   */
-  function onStageDoubleClick(e: React.MouseEvent) {
-    if (!editingSession) return;
-    const target = e.target as Element;
-    if (target.closest('.print-slot-editor-canvas') || target.closest('.paper-slot-clickable')) return;
-    finishEdit();
-  }
-
-  /**
-   * "되돌리기" 바로 직전의 override 내용 — "되돌리기 취소"로 한 번만
-   * 되살릴 수 있다. 되돌린 슬롯이 없으면(새로 손보던 중이었으면) 없다.
-   * 다시 손대기 시작하거나(activeId가 바뀌면 — pageOverrides는 양식에
-   * 속하므로 다른 양식으로 넘어간 뒤 되살리면 엉뚱한 양식을 고치게 된다)
-   * 인쇄하기 탭을 벗어나면 비운다.
-   */
-  const [lastReverted, setLastReverted] = useState<LastReverted | null>(null);
-
-  /**
-   * "되돌리기" — 지금 세션에서 그린 것은(이미 저장된 override든) 전부 버리고
-   * 원본 양식을 다시 따르게 한다. `commitEdit`과 달리 그림자의 지금 내용을
-   * override로 옮기지 않는다 — 정반대로, 있던 override를 지운다. 지우기
-   * 전의 내용은 `lastReverted`에 담아 "되돌리기 취소"로 되살릴 수 있게 한다.
-   */
-  function revertEdit() {
-    if (!editingSession) return;
-    const store = useStore.getState();
-    if (editingSession.kind === 'combo') {
-      const existing =
-        editingSession.side === 'front'
-          ? (sheetSlotValue(store.comboSheetSlotOverrides, editingSession.sheet, editingSession.index) ?? store.comboSlotOverrides[editingSession.index])
-          : (sheetSlotValue(store.comboSheetSlotBackOverrides, editingSession.sheet, editingSession.index) ?? store.comboSlotBackOverrides[editingSession.index]);
-      if (existing) {
-        setLastReverted({ kind: 'combo', revision: store.sheetRevision, sheet: editingSession.sheet, index: editingSession.index, side: editingSession.side, objects: existing });
-      }
-      store.clearComboSheetSlotOverride(editingSession.sheet, editingSession.index, editingSession.side);
-    } else {
-      const activeNow = store.templates.find((t) => t.id === store.activeId);
-      const existing =
-        editingSession.side === 'front'
-          ? activeNow?.pageOverrides?.[editingSession.page]
-          : activeNow?.pageBackOverrides?.[editingSession.page];
-      if (existing) {
-        setLastReverted({
-          kind: 'dataset',
-          revision: store.sheetRevision,
-          sheet: editingSession.sheet,
-          index: editingSession.index,
-          side: editingSession.side,
-          page: editingSession.page,
-          objects: existing,
-        });
-      }
-      store.clearPageOverride(editingSession.page, editingSession.side);
-    }
-    store.endShadowEdit();
-    setEditingSession(null);
-  }
-
-  /** "되돌리기 취소" — 방금 되돌리기로 지운 override를 그대로 되살린다. */
-  function undoRevert() {
-    if (!lastReverted) return;
-    const store = useStore.getState();
-    if (lastReverted.kind === 'combo') {
-      if (lastReverted.revision !== store.sheetRevision) {
-        setLastReverted(null);
-        return;
-      }
-      store.setComboSheetSlotOverride(lastReverted.sheet, lastReverted.index, lastReverted.side, lastReverted.objects);
-    } else {
-      store.setPageOverride(lastReverted.page, lastReverted.side, lastReverted.objects);
-    }
-    setLastReverted(null);
-  }
-
-  // pageOverrides는 양식에 속한 값이라, 다른 양식으로 넘어가면 되살릴 자리가
-  // 없어진다(엉뚱한 양식을 고치게 두지 않는다) — 활성 양식이 바뀌면 비운다.
-  useEffect(() => {
-    setLastReverted(null);
-  }, [active?.id]);
-
-  useEffect(() => {
-    setLastReverted(null);
-  }, [s.sheetRevision]);
-
-  // 인쇄하기 탭을 벗어나면(양식 만들기 등으로) 손보던 것을 저장하고 끝낸다.
-  // 그림자 양식이 남아 있으면 그 사이 EditorTab의 그리기도 엉뚱하게 그림자를
-  // 향하게 된다(store.ts의 patchActiveSide가 shadowTemplate을 먼저 본다).
-  useEffect(() => {
-    if (tab !== 'print') setLastReverted(null);
-    if (tab !== 'print' && editingSession) {
-      commitEdit();
-      setEditingSession(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
-
-  // 숫자 입력으로 장수를 줄이면 버튼 경로(beforeSheetChange)를 거치지 않는다.
-  // 편집하던 시트 자체가 잘렸다면 그림자도 버리고, 남아 있는 시트라면 먼저
-  // 저장한다. 칸 수가 줄어 편집 칸이 잠시 안 보이는 경우도 같은 주소에 저장해
-  // 다른 시트로 섞이지 않게 한다.
-  useEffect(() => {
-    if (editingSession?.kind !== 'combo') return;
-    if (editingSession.sheet >= s.comboSheets) {
-      useStore.getState().endShadowEdit();
-      setEditingSession(null);
-    } else if (editingSession.index >= layout.count) {
-      commitEdit();
-      setEditingSession(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.comboSheets, layout.count]);
-
-  const previewOverrides = new Map<string, PreviewSlotContent>();
-  const pdfOverrides = new Map<string, SlotContent>();
-  /** 뒷면 쪽 override. 앞면과 같은 인덱스, 같은 채우는 규칙을 쓴다. */
-  const previewBackOverrides = new Map<string, PreviewSlotContent>();
-  const pdfBackOverrides = new Map<string, SlotContent | null>();
-  /** 반복 인쇄가 아닐 때만 쓰인다. 글꼴을 모을 때 어느 양식들이 관여했는지 알아야 한다. */
-  let slotTemplates: ReturnType<typeof resolveSlotTemplates> = [];
-
-  /**
-   * 뒷면이 없는 칸에 쓸 내용.
-   *
-   * 기본은 완전히 빈 칸(`undefined`)이다. `fillEmptyBack`을 켜면 대신 그 양식의
-   * **앞면과 같은 도트·그리드**를 쓰되 그린 것은 넣지 않는다 — 뒷면을 따로
-   * 디자인하지 않았어도 백지가 아니라 쓸 수 있는 면으로 찍고 싶을 때다.
-   */
-  const backFallback = (t: { dotGrid: DotGrid; insert: { punch: { safeZoneWidth: number } } }): SlotContent | undefined =>
-    s.fillEmptyBack
-      ? { dotGrid: t.dotGrid, objects: [], safeZoneWidth: t.insert.punch.safeZoneWidth }
-      : undefined;
-
-  /** 지금 양식의 뒷면. 없으면 backFallback(또는 완전히 빈 칸)을 쓴다. */
-  const defaultBack: SlotContent | undefined = active?.back
-    ? {
-        dotGrid: active.dotGrid,
-        objects: active.back.objects.present,
-        safeZoneWidth: active.insert.punch.safeZoneWidth,
-      }
-    : active
-      ? backFallback(active)
-      : undefined;
-
-  if (active && printMode === 'combo') {
-    /*
-     * 낱장 조합 — 칸마다 다른 양식.
-     *
-     * `resolveSlotTemplates`가 칸마다 실제로 쓸 양식을 정해준다(배정이 없거나
-     * 규격이 다르면 지금 양식으로 대신한다). 화면 미리보기와 PDF가 **같은 배열을
-     * 함께 본다** — 둘이 따로 계산하면 언젠가 어긋난다.
-     *
-     * 지금 양식과 같은 칸은 굳이 override에 넣지 않는다. 대부분의 칸이 지금
-     * 양식을 그대로 쓰므로, 다른 칸만 골라내는 편이 다루기 쉽다.
-     *
-     * 시트와 슬롯 번호를 따로 주소로 쓴다. 용지 설정이 바뀌어 한 장의 칸 수가
-     * 달라져도 다른 시트의 내용으로 해석되지 않는다.
-     */
-    for (let sheet = 0; sheet < Math.max(1, s.comboSheets); sheet++) {
-      const templatesForSheet = resolveSlotTemplates(s, layout.count, sheet);
-      slotTemplates.push(...templatesForSheet);
-      templatesForSheet.forEach((t, i) => {
-      const key = sheetSlotKey(sheet, i);
-      // "인쇄하기"에서 그 칸을 직접 손봤으면(comboSlotOverrides) 배정된 양식이
-      // 무엇이든 그 내용을 그대로 쓴다 — 지금 양식과 같은 칸이라도 손봤으면
-      // 건너뛰지 않는다.
-      const frontOverride = sheetSlotValue(s.comboSheetSlotOverrides, sheet, i) ?? s.comboSlotOverrides[i];
-      const backOverride = sheetSlotValue(s.comboSheetSlotBackOverrides, sheet, i) ?? s.comboSlotBackOverrides[i];
-      if (t.id === active.id && !frontOverride && !backOverride) return;
-
-      const frontObjects = frontOverride ?? t.objects.present;
-      previewOverrides.set(key, {
-        insert: t.insert,
-        dotGrid: t.dotGrid,
-        objects: frontObjects,
-        overridden: frontOverride !== undefined,
-      });
-      pdfOverrides.set(key, {
-        dotGrid: t.dotGrid,
-        objects: frontObjects,
-        safeZoneWidth: t.insert.punch.safeZoneWidth,
-      });
-      // 배정된 양식에 뒷면이 없으면 지금 양식의 뒷면(defaultBack)이 아니라
-      // 이 칸만의 backFallback을 쓴다 — fillEmptyBack이 꺼져 있으면 완전히 빈다.
-      // 뒷면을 직접 손봤으면(backOverride) 원본에 뒷면이 없어도 그 내용을 쓴다.
-      const backObjects = backOverride ?? (t.back ? t.back.objects.present : null);
-      previewBackOverrides.set(
-        key,
-        backObjects
-          ? { insert: t.insert, dotGrid: t.dotGrid, objects: backObjects, overridden: backOverride !== undefined }
-          : { insert: t.insert, dotGrid: s.fillEmptyBack ? t.dotGrid : BLANK_PREVIEW_GRID, objects: [] },
-      );
-      pdfBackOverrides.set(
-        key,
-        backObjects
-          ? { dotGrid: t.dotGrid, objects: backObjects, safeZoneWidth: t.insert.punch.safeZoneWidth }
-          : (backFallback(t) ?? null),
-      );
-    });
-    }
-  }
-
-  /**
-   * 인쇄하기 탭은 이제 장을 하나씩 넘겨보지 않고 전부 쌓아 스크롤로 본다 —
-   * 그래서 "지금 보는 장"(previewPage) 하나가 아니라 장 번호를 인자로 받아
-   * 그 장의 칸 내용을 낸다.
-   *
-   * 낱장 조합은 위에서 시트별 내용을 모두 계산해둔 previewOverrides·
-   * previewBackOverrides에서 해당 장의 주소만 꺼낸다.
-   * 반복 인쇄·세트형은 장마다 달라서 그때그때 계산한다 — 세트형은 쪽수가
-   * 아주 많으면(수백 쪽) 장마다 새로 계산하는 비용이 쌓일 수 있다. 지금은
-   * "화면에 없는 장까지 다 그린다"는 단순한 방식을 쓴다 — 느려지면 그때
-   * 화면에 보이는 장만 그리는 가상화로 개선한다.
-   */
-  function overridesForSheet(sheet: number): {
-    previewOverrides: Map<number, PreviewSlotContent>;
-    previewBackOverrides: Map<number, PreviewSlotContent>;
-  } {
-    if (!active) return { previewOverrides: new Map(), previewBackOverrides: new Map() };
-
-    if (printMode === 'combo') {
-      const front = new Map<number, PreviewSlotContent>();
-      const back = new Map<number, PreviewSlotContent>();
-      for (let i = 0; i < layout.count; i++) {
-        const key = sheetSlotKey(sheet, i);
-        const frontContent = previewOverrides.get(key);
-        const backContent = previewBackOverrides.get(key);
-        if (frontContent) front.set(i, frontContent);
-        if (backContent) back.set(i, backContent);
-      }
-      return { previewOverrides: front, previewBackOverrides: back };
-    }
-
-    if (printMode === 'repeat') {
-      const front = new Map<number, PreviewSlotContent>();
-      const back = new Map<number, PreviewSlotContent>();
-      const { front: frontFilled, back: backFilled } = frontBackFilled(sheet, totalSlots, layout.count, s.duplex);
-      for (let i = frontFilled; i < layout.count; i++) {
-        front.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
-      }
-      for (let i = backFilled; i < layout.count; i++) {
-        back.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
-      }
-      return { previewOverrides: front, previewBackOverrides: back };
-    }
-
-    if (printMode === 'dataset' && dataset) {
-      const front = new Map<number, PreviewSlotContent>();
-      const back = new Map<number, PreviewSlotContent>();
-      const filled = filledSlots(sheet, totalPages, layout.count);
-      for (let i = 0; i < layout.count; i++) {
-        const page = s.cutStack
-          ? cutStackPage(sheet, i, totalPages, layout.count, s.cutStackGroup || undefined)
-          : i < filled
-            ? sheet * layout.count + i
-            : null;
-
-        if (page === null) {
-          front.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
-          back.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
-          continue;
-        }
-        front.set(i, {
-          insert: active.insert,
-          dotGrid: active.dotGrid,
-          objects: resolvePageObjects(active.objects.present, dataset, page, active.pageOverrides),
-          calendarPage: page,
-          overridden: active.pageOverrides?.[page] !== undefined,
-        });
-        // 뒷면을 직접 손봤으면(pageBackOverrides) 원본 양식에 뒷면이 없어도
-        // 그 내용을 쓴다 — 낱장 조합의 comboSlotOverrides와 같은 원리다.
-        const backOverride = active.pageBackOverrides?.[page];
-        back.set(
-          i,
-          active.back || backOverride
-            ? {
-                insert: active.insert,
-                dotGrid: active.dotGrid,
-                objects: active.back
-                  ? resolvePageObjects(active.back.objects.present, dataset, page, active.pageBackOverrides)
-                  : backOverride!,
-                calendarPage: page,
-                overridden: backOverride !== undefined,
-              }
-            : {
-                insert: active.insert,
-                dotGrid: s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID,
-                objects: [],
-              },
-        );
-      }
-      return { previewOverrides: front, previewBackOverrides: back };
-    }
-
-    if (printMode === 'notebook' && notebookImp && active.cover && active.pages) {
-      const front = new Map<number, PreviewSlotContent>();
-      const back = new Map<number, PreviewSlotContent>();
-      const filled = filledSlots(sheet, totalNotebookUnits, layout.count);
-      for (let i = 0; i < layout.count; i++) {
-        const unit = i < filled ? sheet * layout.count + i : null;
-        if (unit === null) {
-          front.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
-          back.set(i, { insert: active.insert, dotGrid: BLANK_PREVIEW_GRID, objects: [] });
-          continue;
-        }
-        const content = notebookPrintUnit(active.cover, active.pages, notebookImp, notebookPageW, unit);
-        front.set(i, { insert: active.insert, dotGrid: content.front.dotGrid, objects: content.front.objects });
-        back.set(
-          i,
-          content.back
-            ? { insert: active.insert, dotGrid: content.back.dotGrid, objects: content.back.objects }
-            : {
-                insert: active.insert,
-                dotGrid: s.fillEmptyBack ? content.front.dotGrid : BLANK_PREVIEW_GRID,
-                objects: [],
-              },
-        );
-      }
-      return { previewOverrides: front, previewBackOverrides: back };
-    }
-
-    return { previewOverrides: new Map(), previewBackOverrides: new Map() };
-  }
-
-  const sheets =
-    printMode === 'repeat'
-      ? sheetsNeeded(totalSlots, capacityPerSheet(layout.count, s.duplex))
-      : printMode === 'dataset'
-        ? sheetsNeeded(totalPages, layout.count)
-        : printMode === 'notebook'
-          ? sheetsNeeded(totalNotebookUnits, layout.count)
-          : Math.max(1, s.comboSheets);
-
-  /*
-   * 인쇄하기 탭의 px/mm 배율. 'fit'이면 지금 미리보기 영역 폭(stageWidth)에
-   * 맞춰 계산한다 — 양면이면 두 쪽이 나란히 다 들어가야 하므로 폭을 둘로
-   * 나눈다. .stage-area의 padding(28px 양쪽)·.print-sheet의 gap(16px)을
-   * 빼야 실제로 그릴 수 있는 폭이 나온다 — CSS 값이 바뀌면 여기도 맞춰야 한다.
-   * 아직 폭을 못 쟀으면(첫 렌더) 100%로 잠깐 대신한다.
-   */
-  const pagesPerRow = s.duplex ? 2 : 1;
-  const fitScale =
-    stageWidth > 0
-      ? Math.max(0.15, (stageWidth - 56 - (pagesPerRow - 1) * 16) / (width * pagesPerRow))
-      : PX_PER_MM_AT_100;
-  const scale = zoom === 'fit' ? fitScale : (zoom / 100) * PX_PER_MM_AT_100;
-
-  async function exportPdf() {
-    if (!active || s.pendingLegacySlots) return;
-    setBusy(true);
-    try {
-      // 반복 인쇄·세트형이면 이 양식 하나의 글자만 본다. 낱장 조합이면 배정된
-      // 모든 칸의 글자를 함께 본다 — 어느 칸에 글꼴이 필요한지는 core/pdf의
-      // slotOverrides가 알아서 합쳐 보지만, 어떤 글꼴 파일을 받아와야 하는지는
-      // 여기서 먼저 정한다.
-      const uniqueTemplates =
-        printMode !== 'combo'
-          ? [active]
-          : [...new Map(slotTemplates.map((t) => [t.id, t])).values()];
-      const isText = (o: { type: string }): o is TextObject => o.type === 'text';
-      // 뒷면 글자도 함께 본다 — 앞면만 보면 뒷면에만 있는 글꼴이 빠진다.
-      // 노트는 objects·back이 아니라 표지·쪽에 실제로 그린 것이 있다
-      // (core/notebook의 NotebookHalf) — 그래서 소스를 완전히 갈아 낀다.
-      const allSourceObjects: DiaryObject[] =
-        printMode === 'notebook' && active.cover && active.pages
-          ? allNotebookObjects(active.cover, active.pages)
-          : uniqueTemplates.flatMap((t) => [...t.objects.present, ...(t.back?.objects.present ?? [])]);
-      const allTexts: TextObject[] = allSourceObjects.filter(isText);
-
-      // 글자가 있을 때만 글꼴을 받는다. 하나에 2.7MB짜리라 괜히 받을 이유가 없다.
-      // 굵기마다 파일이 따로라 Bold도 굵은 글자가 실제로 있을 때만 받는다.
-      const fontBytes = allTexts.length > 0 ? await loadBodyFont() : undefined;
-      const boldFontBytes = allTexts.some((t) => t.bold) ? await loadBoldFont() : undefined;
-
-      // 등록 글꼴은 실제로 쓰이는 것만 모은다. 등록소에 없는 id(새로고침 뒤에
-      // 남은 글자)는 그냥 빠지고, PDF에서도 기본 글꼴로 그려진다.
-      const userFonts = new Map<string, ArrayBuffer>();
-      for (const t of allTexts) {
-        const b = t.font ? fontBytes_(t.font) : undefined;
-        if (t.font && b) userFonts.set(t.font, b);
-      }
-
-      // 이미지도 같은 방식이다 — 등록소에 없는 id(새로고침 뒤 다시 등록하지
-      // 않은 이미지)는 빠지고, PDF에서도 화면처럼 그 자리만 비게 된다.
-      const isImageObj = (o: { type: string }): o is ImageObject => o.type === 'image';
-      const allImages: ImageObject[] = allSourceObjects.filter(isImageObj);
-      const userImages = new Map<string, { bytes: ArrayBuffer; kind: 'png' | 'jpg' }>();
-      for (const o of allImages) {
-        if (!o.imageId) continue; // 아직 사진을 안 고른 빈 상자.
-        const bytes = imageBytes_(o.imageId);
-        const kind = imageKind_(o.imageId);
-        if (bytes && kind) userImages.set(o.imageId, { bytes, kind });
-      }
-
-      /*
-       * 세트형 — 모든 쪽의 자동 필드를 실제 값으로 채운다.
-       *
-       * 미리보기(overridesForSheet)는 장마다 그때그때 계산하지만, 여기서는
-       * PDF 한 번에 전체 쪽을 한꺼번에 계산해 넣는다 — 장별로 나눠 계산할
-       * 이유가 없고, pdf/export.ts가 장·칸 번호로 이 안에서 골라 쓴다.
-       */
-      let datasetOverrides: Map<number, SlotContent> | undefined;
-      let datasetBackOverrides: Map<number, SlotContent> | undefined;
-      if (printMode === 'dataset' && dataset) {
-        datasetOverrides = new Map();
-        datasetBackOverrides = new Map();
-        for (let page = 0; page < totalPages; page++) {
-          datasetOverrides.set(page, {
-            dotGrid: active.dotGrid,
-            objects: resolvePageObjects(active.objects.present, dataset, page, active.pageOverrides),
-            safeZoneWidth: active.insert.punch.safeZoneWidth,
-          });
-          // 미리보기(overridesForSheet)와 같은 원리 — 뒷면을 직접 손봤으면
-          // 원본 양식에 뒷면이 없어도 그 내용을 쓴다.
-          const backOverride = active.pageBackOverrides?.[page];
-          if (active.back || backOverride) {
-            datasetBackOverrides.set(page, {
-              dotGrid: active.dotGrid,
-              objects: active.back
-                ? resolvePageObjects(active.back.objects.present, dataset, page, active.pageBackOverrides)
-                : backOverride!,
-              safeZoneWidth: active.insert.punch.safeZoneWidth,
-            });
-          }
-        }
-      }
-
-      // 노트 — 표지 1장 + notebookImp가 정한 내지 장 수, 세트형과 같은 자리
-      // (datasetOverrides/datasetBackOverrides)에 담는다. 표지 뒷면(안쪽)은
-      // 아직 디자인할 자리가 없어 fillEmptyBack일 때만 빈 면으로 채운다.
-      if (printMode === 'notebook' && notebookImp && active.cover && active.pages) {
-        datasetOverrides = new Map();
-        datasetBackOverrides = new Map();
-        for (let unit = 0; unit < totalNotebookUnits; unit++) {
-          const content = notebookPrintUnit(active.cover, active.pages, notebookImp, notebookPageW, unit);
-          datasetOverrides.set(unit, { dotGrid: content.front.dotGrid, objects: content.front.objects, safeZoneWidth: 0 });
-          if (content.back) {
-            datasetBackOverrides.set(unit, { dotGrid: content.back.dotGrid, objects: content.back.objects, safeZoneWidth: 0 });
-          } else if (s.fillEmptyBack) {
-            datasetBackOverrides.set(unit, { dotGrid: content.front.dotGrid, objects: [], safeZoneWidth: 0 });
-          }
-        }
-      }
-
-      const bytes = await buildPdf({
-        paperWidth: width,
-        paperHeight: height,
-        layout,
-        dotGrid: active.dotGrid,
-        objects: active.objects.present,
-        // 낱장 조합(칸마다 다른 양식)·반복 인쇄(여러 장)·세트형(쪽마다 다른
-        // 내용)은 섞이지 않는다.
-        slotOverrides: printMode === 'combo' && pdfOverrides.size > 0 ? pdfOverrides : undefined,
-        totalSlots: printMode === 'repeat' ? totalSlots : undefined,
-        // 낱장 조합에서만 쓴다 — 반복 인쇄·세트형은 각자의 값이 우선이다(pdf/export.ts).
-        sheets: printMode === 'combo' ? s.comboSheets : undefined,
-        datasetOverrides,
-        datasetBackOverrides,
-        datasetPages:
-          printMode === 'dataset' ? totalPages : printMode === 'notebook' ? totalNotebookUnits : undefined,
-        calendarYear: dataset?.kind === 'calendar' ? dataset.year : undefined,
-        // 겹치기 배치는 세트형에서만 고를 수 있다 — 노트는 자기만의 배치
-        // (notebookImp)를 이미 따로 계산해 datasetOverrides에 담았으니, 여기
-        // 순서를 또 바꾸면 안 된다. 반복 인쇄·낱장 조합도 모든 칸의 내용이
-        // 같아 순서가 결과에 영향을 주지 않는다.
-        cutStack: printMode === 'dataset' ? s.cutStack : undefined,
-        cutStackGroup: printMode === 'dataset' ? s.cutStackGroup || undefined : undefined,
-        fontBytes,
-        boldFontBytes,
-        userFonts,
-        userImages,
-        safeZoneWidth: active.insert.punch.safeZoneWidth,
-        cropMark: s.cropMark,
-        cropFrontOnly: s.cropFrontOnly,
-        showRuler: s.showRuler,
-        duplex: s.duplex,
-        backTurn180: s.backTurn180,
-        defaultBack,
-        backSlotOverrides: printMode === 'combo' && pdfBackOverrides.size > 0 ? pdfBackOverrides : undefined,
-      });
-      const filePrefix = printMode === 'notebook' ? '노트' : '속지';
-      // 규격만으로는 어느 양식인지 못 알아본다 — 같은 M5로 여러 개를
-      // 만들면 파일 이름이 전부 똑같아진다. 양식 이름을 끝에 붙인다
-      // (ui/ProjectFile의 파일 저장과 같은 방식 — 이름을 따로 다듬지 않는다).
-      downloadPdf(bytes, `${filePrefix}_${active.insert.presetId}_${s.paper.presetId}_${active.name}.pdf`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // 소개 화면은 자기 머리줄을 따로 갖고 있어서 앱 껍데기 밖에서 그린다.
-  if (tab === 'start') return <StartScreen onStart={() => navigateFromHome('gallery')} onNavigate={navigateFromHome} />;
+  const onLibrary = screen === 'tabs' && tabs.active === LIBRARY_TAB;
 
   return (
-    <div className="app">
-      <header>
-        {/* 고르고 → 그리고 → 인쇄한다. 예전엔 여기 늘 늘어서 있던 탭
-            4개를 햄버거 메뉴 뒤로 옮겼다 — 버튼 자체(순서·disabled
-            조건)는 NavMenu 안에 그대로다. 디자인에서는 이 메뉴가 로고보다
-            **앞**이다. */}
-        <NavMenu tab={tab} setTab={setTab} active={active} />
-
-        {/* 로고를 누르면 소개 화면으로 — 디자인의 갤러리 머리줄과 같다. */}
-        <button className="logo" onClick={() => setTab('start')} title="Rings home">
+    <div className="app-frame">
+      <header className="frame-top">
+        <button className="frame-logo" onClick={() => setScreen('home')} title="Home">
           <RingsLogo />
-          <h1>Rings</h1>
         </button>
-
-        <div className="header-spacer" />
-
-        {/*
-          지금 어디쯤 와 있는지. 양식을 고르고 → 그리고 → 인쇄한다는 순서가
-          그대로 길이 된다 — 앞 단계는 눌러서 돌아갈 수 있고, 지금 있는
-          곳은 눌리지 않는다.
-
-          **양옆의 빈 칸이 같아서 이 줄이 화면 한가운데에 온다.** 예전엔
-          오른쪽에 양식 이름·크기·되돌리기가 더 붙어 있어 길이 왼쪽으로
-          밀려 있었다 — 그것들은 디자인에 없다(이름은 갤러리에서, 크기는
-          왼쪽 "속지" 탭에서, 되돌리기는 ⌘Z로 그대로 쓴다).
-        */}
-        <Breadcrumb tab={tab} setTab={setTab} active={active} />
-
-        <div className="header-spacer" />
-
-        <CloudPanel sync={sync} />
-
-        {/*
-          인쇄하기 화면에서만 "PDF Export"에 아이콘이 붙는다 — 거기서는
-          이게 그 화면의 결론이라 눈에 띄어야 하고, 속지 제작 중에는
-          그냥 언제든 받아둘 수 있는 "Download"다(디자인의 두 화면이 실제로
-          그렇게 다르다).
-        */}
-        <button
-          className="export-btn"
-          onClick={exportPdf}
-          disabled={busy || !active || layout.count === 0 || !!s.pendingLegacySlots}
-        >
-          {tab === 'print' && <DownloadIcon />}
-          <span>{busy ? 'Preparing…' : tab === 'print' ? 'PDF Export' : 'Download'}</span>
-        </button>
-      </header>
-
-      <main>
-        {/* 갤러리는 양식 하나를 고치는 화면이 아니라서 설정 패널이 필요 없다. */}
-        {tab !== 'gallery' && active && (
-          <div className="left-column">
-            {/*
-              그리기 도구는 실제로 그릴 캔버스가 떠 있을 때만 보여준다 —
-              속지·노트 제작 화면은 늘 그렇지만, 인쇄하기는 칸을 직접
-              손보는 중(editingSession)일 때만 그릴 자리가 있다.
-              그 상태에서는 용지·도트 격자·타공 안내도 ToolRail 안으로
-              합쳐져 있으므로(같은 탭으로), SettingsPanel은 ToolRail이
-              없을 때만 따로 보여준다 — 인쇄하기에서 칸을 직접 손보고
-              있지 않을 때는 도구줄 자체가 없어 합칠 자리가 없기 때문이다.
-            */}
-            {/*
-              인쇄하기에서도 늘 같은 도구줄을 쓴다. 예전에는 칸을 직접
-              손보는 중일 때만 이걸 띄우고 아닐 때는 SettingsPanel(말풍선)로
-              갈렸는데, 그래서 인쇄하기 화면의 왼쪽이 화면마다 달라 보였다.
-              보기·용지·속지 탭은 인쇄하기에서만 뜻이 있으므로 그때만 켠다.
-            */}
-            <ToolRail
-              onStylePanelSlot={setStylePanelSlot}
-              showPaper={tab === 'print'}
-              printView={
-                tab === 'print'
-                  ? { printPreview, setPrintPreview, backOnLeft, setBackOnLeft }
-                  : undefined
-              }
-              onManageTemplates={() => setTab('gallery')}
-            />
-
-            {/*
-              예전 말풍선(SettingsPanel)은 더 이상 쓰지 않는다 — 위 도구줄이
-              같은 설정을 탭으로 들고 있다. 파일은 남겨둔다: 도트 격자·타공
-              묶음(GridGroup·PunchGroup)을 그 도구줄이 그대로 가져다 쓴다.
-            */}
-          </div>
-        )}
-
-        {tab === 'edit' && !active ? (
-          <div className="insert-empty">
-            <p>선택한 속지가 없습니다.</p>
-            <button onClick={() => { setGalleryDestination('edit'); setTab('gallery'); }}>템플릿 선택하기</button>
-          </div>
-        ) : tab === 'gallery' || !active ? (
-          <GalleryTab onEdit={() => {
-            setTab(galleryDestination);
-            setGalleryDestination('edit');
-          }} />
-        ) : tab === 'edit' ? (
-          active.kind === 'notebook' ? (
-            <NotebookEditorTab stylePanelSlot={stylePanelSlot} />
-          ) : (
-            <EditorTab stylePanelSlot={stylePanelSlot} />
-          )
-        ) : s.pendingLegacySlots ? (
-          <div className="print-tab">
-            <p>이전 저장 파일의 시트 배정을 복원하려면 원래 한 장에 들어가던 칸 수가 필요합니다. 배정 내용은 그대로 보관하고 있습니다.</p>
-            <form onSubmit={(event) => {
-              event.preventDefault();
-              const data = new FormData(event.currentTarget);
-              s.restoreLegacySlots(Number(data.get('count')));
-            }}>
-              <label>원래 한 장의 칸 수 <input name="count" type="number" min="1" step="1" required /></label>
-              <button type="submit">배정 복원</button>
-            </form>
+        {screen === 'home' ? (
+          <div className="frame-brand">
+            <span className="brand-name">Rings</span>
+            <span className="brand-tag">make your own system</span>
           </div>
         ) : (
-          <div className="print-tab">
-            {/*
-              양식 만들기 화면의 상단 도구줄과 같은 자리.
-
-              **보기 토글들은 왼쪽 "보기" 탭으로 옮겼다.** 여기 한 줄로
-              늘어서 있을 때는 켤수록 줄이 길어져 용지 미리보기를 위에서
-              눌러 좁혔다. 지금 이 줄에는 매수·칸 배정처럼 인쇄 작업 자체를
-              정하는 것만 남는다.
-            */}
-            {/*
-              되돌릴 게 있을 때만 줄을 만든다. 늘 두면 아무것도 안 든 15px
-              짜리 빈 띠가 용지 위에 남아, 디자인에는 없는 줄이 하나 더 생긴다.
-            */}
-            {lastReverted && (
-              <div className="print-bar">
-                <button
-                  className="ghost"
-                  onClick={undoRevert}
-                  title="방금 되돌리기로 지운 내용을 다시 살립니다"
-                >
-                  되돌리기 취소
-                </button>
-              </div>
-            )}
-
-            {printMode === 'repeat' ? (
-              <RepeatPrint
-                layout={layout}
-                totalCount={totalSlots}
-                unit="칸"
-                sheets={sheets}
-                hint={s.duplex && <> (양면이라 앞뒤 {layout.count * 2}칸)</>}
-              />
-            ) : printMode === 'dataset' ? (
-              <RepeatPrint
-                layout={layout}
-                totalCount={totalPages}
-                unit="쪽"
-                sheets={sheets}
-                hint={s.cutStack && <> · 겹치기</>}
-              />
-            ) : printMode === 'notebook' ? (
-              <RepeatPrint
-                layout={layout}
-                totalCount={totalNotebookUnits}
-                unit="장"
-                sheets={sheets}
-                hint={!s.duplex && <> · 양면 인쇄를 켜야 뒤쪽 쪽들이 함께 찍힙니다</>}
-              />
-            ) : null}
-
-            <div className="editor-bar-slot" ref={setEditBarSlot} />
-
-            <div className="print-body">
-            <div className="stage-wrap">
-            <div className="stage-area" ref={stageRef} onDoubleClick={onStageDoubleClick}>
-              {layout.count === 0 ? (
-                <div className="empty">속지가 용지보다 큽니다. 용지를 키우거나 속지를 줄이세요.</div>
-              ) : (
-                // 필요한 장수가 0이어도(반복 매수 0, 빈 세트형 등) 빈 칸이라도
-                // 한 장은 보여준다 — 화면이 통째로 비어 있으면 뭘 봐야 할지 모른다.
-                Array.from({ length: Math.max(1, sheets) }, (_, sheet) => {
-                  const { previewOverrides: front, previewBackOverrides: back } = overridesForSheet(sheet);
-                  const pageStyle = { width: width * scale, height: height * scale };
-                  // 뒷면 배치. 짧은 변으로 넘기는 프린터면 반 바퀴 더 돌린다 —
-                  // PDF도 같은 두 줄을 쓴다(pdf/export의 backLayout).
-                  const mirrored = mirrorLayout(layout, width, height);
-                  const backLayout = s.backTurn180
-                    ? turnLayout180(mirrored, width, height)
-                    : mirrored;
-
-                  // 낱장 조합·세트형에서만 칸을 손볼 수 있다 — 반복 인쇄(만년형)는
-                  // 모든 칸이 완전히 같은 내용이라(같은 양식 반복) "이 칸만" 손본다는
-                  // 개념 자체가 없다.
-                  const editable = printMode === 'combo' || printMode === 'dataset';
-                  function onSlotClickFor(side: Side) {
-                    return (index: number, content: PreviewSlotContent) => {
-                      if (printMode === 'dataset') {
-                        if (content.calendarPage === undefined) return; // 빈 칸 — 손볼 페이지가 없다
-                        beginEdit(
-                          {
-                            kind: 'dataset',
-                            sheet,
-                            index,
-                            side,
-                            page: content.calendarPage,
-                            seed: content.objects,
-                            hadOverride: content.overridden ?? false,
-                          },
-                          content,
-                        );
-                      } else if (printMode === 'combo') {
-                        beginEdit(
-                          { kind: 'combo', sheet, index, side, seed: content.objects, hadOverride: content.overridden ?? false },
-                          content,
-                        );
-                      }
-                    };
-                  }
-
-                  const frontPage = (
-                    <div className="print-sheet-page" style={pageStyle}>
-                      {/*
-                        양면일 때만 앞뒤를 적는다. 한 면만 찍으면 헷갈릴
-                        것이 없는데 라벨만 붙으면 군더더기다(디자인도 양면
-                        미리보기에만 Back·Front가 붙어 있다).
-                      */}
-                      {s.duplex && <span className="sheet-label">앞면</span>}
-                      <PaperPreview
-                        paper={{ ...s.paper, width, height }}
-                        insert={active.insert}
-                        dotGrid={active.dotGrid}
-                        objects={active.objects.present}
-                        slotOverrides={front.size > 0 ? front : undefined}
-                        layout={layout}
-                        cropMark={cropModeForSide(s.cropMark, s.cropFrontOnly, false)}
-                        showRuler={s.showRuler}
-                        unprintable={s.unprintable}
-                        mode={printPreview ? 'print' : 'edit'}
-                        calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
-                        onSlotClick={editable ? onSlotClickFor('front') : undefined}
-                      />
-                      {editingSession?.sheet === sheet && editingSession.index < layout.count && editingSession.side === 'front' && (
-                        <PrintSlotEditor
-                          slot={layout.slots[editingSession.index]}
-                          rotated={layout.rotated}
-                          scale={scale}
-                          onFinish={finishEdit}
-                          hasOverride={editingSession.hadOverride}
-                          onRevert={revertEdit}
-                          editBarSlot={editBarSlot}
-                          stylePanelSlot={stylePanelSlot}
-                        />
-                      )}
-                    </div>
-                  );
-
-                  // 뒷면 — 칸 위치는 core/layout의 mirrorLayout으로 뒤집는다(회전
-                  // 배치가 아니면 좌우만, 회전 배치면 좌우·상하 둘 다). 칸 안의
-                  // 내용(도트·글자)은 뒤집지 않지만, 안전영역·타공 안내는 항상
-                  // mirror로 표시한다(설계문서 8장) — 이쪽은 회전과 무관하게
-                  // 항상 켠다.
-                  const backPage = s.duplex && (
-                    <div className="print-sheet-page" style={pageStyle}>
-                      <span className="sheet-label">뒷면</span>
-                      <PaperPreview
-                        paper={{ ...s.paper, width, height }}
-                        insert={active.insert}
-                        // 격자는 앞뒤 공유값이라, 뒷면이 없어도(fillEmptyBack일 때) 그대로 쓴다.
-                        dotGrid={active.back || s.fillEmptyBack ? active.dotGrid : BLANK_PREVIEW_GRID}
-                        objects={active.back?.objects.present ?? []}
-                        slotOverrides={back.size > 0 ? back : undefined}
-                        layout={backLayout}
-                        cropMark={cropModeForSide(s.cropMark, s.cropFrontOnly, true)}
-                        showRuler={s.showRuler}
-                        unprintable={s.unprintable}
-                        mode={printPreview ? 'print' : 'edit'}
-                        mirror
-                        calendarYear={dataset?.kind === 'calendar' ? dataset.year : undefined}
-                        onSlotClick={editable ? onSlotClickFor('back') : undefined}
-                      />
-                      {editingSession?.sheet === sheet && editingSession.index < layout.count && editingSession.side === 'back' && (
-                        <PrintSlotEditor
-                          slot={backLayout.slots[editingSession.index]}
-                          rotated={backLayout.rotated}
-                          turn180={backLayout.turn180}
-                          scale={scale}
-                          onFinish={finishEdit}
-                          hasOverride={editingSession.hadOverride}
-                          onRevert={revertEdit}
-                          editBarSlot={editBarSlot}
-                          stylePanelSlot={stylePanelSlot}
-                        />
-                      )}
-                    </div>
-                  );
-
-                  return (
-                    <div className="print-sheet" key={sheet}>
-                      {s.duplex ? (backOnLeft ? <>{backPage}{frontPage}</> : <>{frontPage}{backPage}</>) : frontPage}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            </div>
-            {/* 칸 배정 — 접었다 펼 수 있고 폭도 끌어서 바꾼다(ui/SlotPanel). */}
-            {printMode === 'combo' && <SlotPanel layout={layout} sheets={sheets} beforeSheetChange={finishEdit} />}
-            </div>
-          </div>
+          <TabBar
+            onLibrary={() => {
+              activateTab(LIBRARY_TAB);
+              setScreen('tabs');
+            }}
+            libraryOn={onLibrary}
+            onNew={() => {
+              createWork();
+              setScreen('tabs');
+            }}
+          />
         )}
-      </main>
-
-      {/*
-        상태줄 두 줄. 윗줄은 **지금 무엇을 보고 있는지**(속지 크기 · 확대),
-        아랫줄은 **뽑으면 어떻게 되는지**(용지 · 한 장에 몇 개 · 인쇄 안내)다.
-        확대 컨트롤은 예전에 캔버스 위에 떠 있었는데, 용지 오른쪽 아래를
-        가려서 그 자리의 재단 표시를 볼 수가 없었다.
-      */}
-      <footer className="status">
-        {/*
-          윗줄은 인쇄하기에서만 만든다. 양식 만들기 화면에는 이미 캔버스
-          바로 아래에 같은 값을 담은 줄(.editor-foot)이 있어서, 여기까지
-          만들면 "속지 80 × 125mm"가 한 화면에 두 번 뜬다 — 디자인도
-          화면마다 이 줄을 한 번씩만 둔다.
-        */}
-        {active && tab === 'print' && (
-          <div className="status-row">
-            <span>
-              속지 {active.insert.width} × {active.insert.height}mm
-            </span>
-            <span>
-              칸 {layout.cols} × {layout.rows}
-            </span>
-            <div className="status-gap" />
-            <ZoomStepper zoom={zoom} onChange={setZoom} />
-          </div>
-        )}
-
-        <div className="status-row">
-          <span>
-            용지 {width} × {height}mm
-          </span>
-          {active && (
-            <span>
-              한 장에 <b>{layout.count}개</b> ({layout.cols} × {layout.rows})
-              {layout.rotated && ' · 90도 회전'}
-            </span>
-          )}
-          <div className="status-gap" />
-          {/* 인쇄 안내는 인쇄하기 탭에서만 — 양식 만들기 중에는 상관없는 이야기다. */}
-          {tab === 'print' && (
-            <span className="print-hint">
-              인쇄 대화상자에서 <b>실제 크기 / 100%</b>를 고르세요 — “페이지에 맞춤”은 96~97%로
-              축소됩니다
-            </span>
-          )}
+        <div className="frame-right">
+          {screen === 'tabs' && tabs.active !== LIBRARY_TAB && <WorkStatus />}
+          <span className="account-dot" title="로그인은 8단계에서 붙어요">·</span>
         </div>
-      </footer>
+      </header>
+
+      <div className="frame-body">
+        {screen === 'tabs' && (
+          <nav className="frame-rail">
+            {onLibrary ? <LibraryRail section={section} setSection={setSection} /> : <EditorRail />}
+          </nav>
+        )}
+        <main className={`frame-main ${screen === 'home' ? 'is-home' : ''}`}>
+          {screen === 'home' && (
+            <Home
+              onCreate={() => {
+                createWork();
+                setScreen('tabs');
+              }}
+              onLibrary={() => {
+                activateTab(LIBRARY_TAB);
+                setSection('projects');
+                setScreen('tabs');
+              }}
+              onLearn={() => setScreen('learn')}
+            />
+          )}
+          {screen === 'learn' && <LibraryMain section="learn" />}
+          {screen === 'tabs' && (onLibrary ? <LibraryMain section={section} /> : <EditorArea />)}
+        </main>
+      </div>
+
+      <PendingOpen />
+      {notice && (
+        <Modal title="옮기기 안내" onClose={() => setNotice(null)}>
+          <p className="modal-note">{notice}</p>
+          <button className="primary" onClick={() => setNotice(null)}>
+            확인
+          </button>
+        </Modal>
+      )}
       <Toast />
     </div>
+  );
+}
+
+/** 작업 탭이 열려 있지만 그 작업이 사라졌으면(휴지통 등) 빈 안내를 보여준다. */
+function EditorArea() {
+  const work = useActiveWork();
+  if (!work) return <p className="muted center">열린 작업이 없어요.</p>;
+  return <Editor key={work.id} />;
+}
+
+function TabBar({ onLibrary, libraryOn, onNew }: { onLibrary: () => void; libraryOn: boolean; onNew: () => void }) {
+  const tabs = useStore((s) => s.tabs);
+  const works = useStore((s) => s.works);
+  const activateTab = useStore((s) => s.activateTab);
+  const closeWorkTab = useStore((s) => s.closeWorkTab);
+  return (
+    <div className="tab-bar">
+      <button className={`tab fixed ${libraryOn ? 'on' : ''}`} onClick={onLibrary}>
+        Library
+      </button>
+      {tabs.open.map((id) => {
+        const work = works.find((w) => w.id === id);
+        if (!work) return null;
+        return (
+          <span key={id} className={`tab ${tabs.active === id ? 'on' : ''}`}>
+            <button className="tab-name" onClick={() => activateTab(id)} title={work.name}>
+              {work.name}
+            </button>
+            <button className="tab-close" onClick={() => closeWorkTab(id)} title="탭 닫기" aria-label={`${work.name} 탭 닫기`}>
+              ×
+            </button>
+          </span>
+        );
+      })}
+      <button className="tab add" onClick={onNew} title="새 작업">
+        +
+      </button>
+    </div>
+  );
+}
+
+/** 고른 작업 탭의 저장 상태·다이어리 칩·Print(상단 바 오른쪽). */
+function WorkStatus() {
+  const work = useActiveWork();
+  const diary = useActiveDiary();
+  const renameWork = useStore((s) => s.renameWork);
+  if (!work) return null;
+  return (
+    <>
+      <button
+        className="ghost work-title"
+        title="이름 바꾸기"
+        onClick={() => {
+          const name = window.prompt('작업 이름', work.name);
+          if (name) renameWork(work.id, name);
+        }}
+      >
+        {work.name}
+      </button>
+      <span className="save-state" title="고칠 때마다 이 브라우저에 저장돼요">☁ 저장됨</span>
+      {diary && (
+        <span className="diary-chip" title={diarySizeLabel(diary)}>
+          <span className="diary-dot" style={{ background: diary.color }} />
+          {diary.name}
+        </span>
+      )}
+      <button className="primary print-btn" disabled title="새 Print 화면은 6단계에서 붙어요">
+        Print
+      </button>
+    </>
+  );
+}
+
+function LibraryRail({ section, setSection }: { section: LibrarySection; setSection: (s: LibrarySection) => void }) {
+  return (
+    <div className="rail-icons">
+      {LIBRARY_RAIL.map((it) => (
+        <button
+          key={it.id}
+          className={`rail-icon text ${section === it.id ? 'on' : ''}`}
+          onClick={() => setSection(it.id)}
+          title={it.label}
+          aria-label={it.label}
+        >
+          {it.icon}
+        </button>
+      ))}
+      <div className="rail-spacer" />
+      <button className={`rail-icon text ${section === 'learn' ? 'on' : ''}`} onClick={() => setSection('learn')} title="Learn" aria-label="Learn">
+        ?
+      </button>
+    </div>
+  );
+}
+
+/** 탭이 꽉 찼을 때 — 가장 오래 안 본 탭을 닫고 열지 묻는다(기능후보 11). */
+function PendingOpen() {
+  const pending = useStore((s) => s.pendingOpen);
+  const works = useStore((s) => s.works);
+  const resolve = useStore((s) => s.resolvePendingOpen);
+  if (!pending) return null;
+  const victim = works.find((w) => w.id === pending.victim);
+  return (
+    <Modal title="탭이 꽉 찼어요" onClose={() => resolve(false)}>
+      <p className="modal-note">
+        작업 탭은 10개까지 열 수 있어요. 가장 오래 안 본 ‘{victim?.name ?? ''}’ 탭을 닫고 열까요?
+      </p>
+      <div className="card-dialog-actions">
+        <button className="ghost" onClick={() => resolve(false)}>
+          취소
+        </button>
+        <button className="primary" onClick={() => resolve(true)}>
+          닫고 열기
+        </button>
+      </div>
+    </Modal>
   );
 }

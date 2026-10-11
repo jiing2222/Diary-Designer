@@ -153,3 +153,23 @@ export function linkExactColors<T extends object>(objects: T[], palette: WorkPal
     return slot ? refOf(slot.key) : value;
   });
 }
+
+/**
+ * 그리기 직전에 객체들의 이름표를 실제 색으로 바꾼다.
+ *
+ * 화면(InsertView)과 PDF(pdf/export)는 색 값만 안다. 이름표를 아는 쪽은 여기 하나로
+ * 두고, 두 뷰에는 바꾼 결과를 넘긴다 — 두 뷰가 각자 이름표를 풀면 언젠가 어긋난다.
+ * 가리키는 칸이 없는 이름표(지운 칸)는 검정으로 그린다.
+ */
+export function resolveObjectColors<T extends object>(objects: T[], palette: WorkPalette): T[] {
+  return mapColors(objects, (value) => {
+    const key = keyOfRef(value);
+    return key === null ? value : (colorOfKey(palette, key) ?? '#000000');
+  });
+}
+
+/** 칸 이름을 사람이 읽는 이름으로 — `base3` → `기본 3`, `A` → `A`. */
+export function keyLabel(key: string): string {
+  const i = (BASE_KEYS as readonly string[]).indexOf(key);
+  return i >= 0 ? `기본 ${i + 1}` : key;
+}

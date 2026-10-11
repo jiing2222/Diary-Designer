@@ -271,3 +271,34 @@ export function ChevronIcon() {
     </svg>
   );
 }
+
+/** 고르기 — 모서리가 둥근 화살표(리뉴얼, 디자인.md ‘아이콘’). */
+export function RoundCursorIcon() {
+  return (
+    <svg {...box24}>
+      <path d="M5.2 4.6c-.5-.3-1.1.2-.9.7l5.4 14.3c.2.6 1.1.6 1.3 0l1.9-5.1c.1-.3.3-.5.6-.6l5.1-1.9c.6-.2.6-1.1 0-1.3z" />
+    </svg>
+  );
+}
+
+/** AutoField — 채워지는 칸을 뜻하는 중괄호 `{ }`(리뉴얼, 디자인.md ‘아이콘’). */
+export function BracesIcon() {
+  return (
+    <svg {...box24}>
+      <path d="M9 4.5c-2 0-2.5 1-2.5 2.5v2.3c0 1.3-.7 2.2-2 2.7 1.3.5 2 1.4 2 2.7V17c0 1.5.5 2.5 2.5 2.5" />
+      <path d="M15 4.5c2 0 2.5 1 2.5 2.5v2.3c0 1.3.7 2.2 2 2.7-1.3.5-2 1.4-2 2.7V17c0 1.5-.5 2.5-2.5 2.5" />
+    </svg>
+  );
+}
+
+/** Colors — 팔레트. */
+export function PaletteIcon() {
+  return (
+    <svg {...box24}>
+      <path d="M12 4a8 8 0 1 0 0 16c1.1 0 1.6-.8 1.3-1.7-.4-1 .3-1.8 1.3-1.8H17a3 3 0 0 0 3-3C20 7.4 16.4 4 12 4z" />
+      <circle cx={8.2} cy={11} r={1} fill="currentColor" stroke="none" />
+      <circle cx={10.8} cy={7.8} r={1} fill="currentColor" stroke="none" />
+      <circle cx={14.6} cy={8.2} r={1} fill="currentColor" stroke="none" />
+    </svg>
+  );
+}

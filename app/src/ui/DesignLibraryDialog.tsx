@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { FONT_ACCEPT, fontLabelOf, hasFont, registerFont, type UserFont } from '../fonts/registry';
 import { IMAGE_ACCEPT, hasImage, imageLabelOf, registerImage } from '../images/registry';
 import { useStore } from '../store';
-import { Modal } from './GalleryTab';
+import { Modal } from './Modal';
 
 /** "최근 사용" 개수 제한. store.ts의 RECENT_IMAGE_CAP과 같은 값 — 화면 안내문에만 쓴다. */
 const RECENT_IMAGE_CAP = 10;

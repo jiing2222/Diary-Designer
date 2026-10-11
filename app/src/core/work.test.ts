@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  allIdsOf,
+  colorRefUsage,
   cloneItem,
+  editableBackground,
+  faceLabel,
+  editableObjects,
+  sourcePreview,
+  writeBackground,
+  writeObjects,
   duplicateItem,
   expandWork,
   faceCount,
@@ -88,7 +96,7 @@ describe('expandWork', () => {
     const out = expandWork({ items: [item] }, today);
     expect(out).toHaveLength(6);
     expect(out[1].objects).toEqual([]);
-    expect(out[0].period).toEqual({ key: '2026-10-01', faceIndex: 0 });
+    expect(out[0].period).toMatchObject({ key: '2026-10-01', faceIndex: 0 });
   });
 
   it('자동 필드 id를 알려준다 — 글자를 직접 바꾼 쪽은 빠진다', () => {
@@ -176,5 +184,106 @@ describe('newWork', () => {
     expect(w.items).toHaveLength(1);
     expect(w.duplex).toBe(true);
     expect(w.palette.points).toEqual([]);
+  });
+});
+
+describe('고치기 — 무엇을 고치고 어디에 저장하나', () => {
+  const field = dayField('t1');
+  const page = { kind: 'page' as const, id: 'p1', face: face([field]) };
+
+  it('보통 페이지는 field가 살아 있는 원본을 고친다', () => {
+    const resolved = expandWork({ items: [page] }, today)[0];
+    const objs = editableObjects({ items: [page] }, { kind: 'face', face: resolved });
+    expect((objs[0] as TextObject).field).toEqual({ offset: 0, format: 'M/D' });
+  });
+
+  it('보통 페이지에 쓰면 면이 바뀐다', () => {
+    const resolved = expandWork({ items: [page] }, today)[0];
+    const items = writeObjects({ items: [page] }, { kind: 'face', face: resolved }, []);
+    expect((items[0] as typeof page).face.objects).toEqual([]);
+  });
+
+  describe('날짜 페이지', () => {
+    const item = dated();
+    const work = { items: [item] as WorkItem[] };
+    const faces = expandWork(work, today);
+    const target = { kind: 'face' as const, face: faces[1] }; // 10/2
+
+    it('보이는 그대로(날짜가 채워진 것)를 고친다', () => {
+      expect((editableObjects(work, target)[0] as TextObject).text).toBe('10/2');
+    });
+
+    it('색만 바꾸면 그 날짜의 수정으로 — 원본은 그대로', () => {
+      const edited = editableObjects(work, target).map((o) => ({ ...o, color: '@A' }));
+      const items = writeObjects(work, target, edited);
+      const next = items[0] as DatedItem;
+      expect(next.faces).toBe(item.faces);
+      expect(next.overrides['2026-10-02/0'].props.t1).toEqual({ color: '@A' });
+      const out = expandWork({ items }, today);
+      expect(out.map((f) => (f.objects[0] as TextObject).color)).toEqual([undefined, '@A', undefined]);
+    });
+
+    it('다시 원본과 같게 고치면 수정이 사라진다', () => {
+      const withEdit = writeObjects(
+        work,
+        target,
+        editableObjects(work, target).map((o) => ({ ...o, color: '@A' })),
+      );
+      const faces2 = expandWork({ items: withEdit }, today);
+      const back = writeObjects({ items: withEdit }, { kind: 'face', face: faces2[1] }, editableObjects(work, target));
+      expect((back[0] as DatedItem).overrides).toEqual({});
+    });
+  });
+
+  describe('원본 편집', () => {
+    it('원본을 고치면 모든 날짜에', () => {
+      const item = dated();
+      const target = { kind: 'source' as const, itemId: 'dt1', faceIndex: 0 };
+      const edited = editableObjects({ items: [item] }, target).map((o) => ({ ...o, color: '@B' }));
+      const items = writeObjects({ items: [item] }, target, edited);
+      const out = expandWork({ items }, today);
+      expect(out.every((f) => (f.objects[0] as TextObject).color === '@B')).toBe(true);
+    });
+
+    it('원본에서 객체를 지우면 그 객체에 붙은 날짜별 수정도 지운다', () => {
+      const item = dated({ overrides: { '2026-10-02/0': { ...emptyOverride(), props: { t1: { color: '@A' } } } } });
+      const items = writeObjects({ items: [item] }, { kind: 'source', itemId: 'dt1', faceIndex: 0 }, []);
+      expect((items[0] as DatedItem).overrides).toEqual({});
+    });
+
+    it('원본 미리보기는 기간의 첫 날짜로 채운다', () => {
+      const preview = sourcePreview(dated(), 0);
+      expect((preview!.objects[0] as TextObject).text).toBe('10/1');
+      expect(preview?.fieldIds).toEqual(['t1']);
+    });
+  });
+
+  it('날짜 페이지에서 바탕을 바꾸면 원본 면의 바탕이 바뀐다', () => {
+    const item = dated();
+    const faces = expandWork({ items: [item] }, today);
+    const items = writeBackground({ items: [item] }, { kind: 'face', face: faces[2] }, { spacing: 7 });
+    expect((items[0] as DatedItem).faces[0].background.spacing).toBe(7);
+    expect(editableBackground({ items }, { kind: 'face', face: faces[0] })?.spacing).toBe(7);
+  });
+
+  it('allIdsOf는 항목·면·객체·그룹 id를 모두', () => {
+    const w = { ...newWork({ name: 'w', diaryId: 'd', now: '' }), items: [{ ...page, face: face([{ ...field, groupId: 'g9' }]) }] };
+    expect(allIdsOf(w)).toEqual(expect.arrayContaining(['p1', 'f1', 't1', 'g9', w.id]));
+  });
+});
+
+describe('colorRefUsage', () => {
+  it('이름표를 쓰는 객체 수와 면 수 — 날짜 묶음은 펼친 면마다 센다', () => {
+    const item = dated({ faces: [face([{ ...dayField('t1'), color: '@A' }])] });
+    expect(colorRefUsage({ items: [item] }, '@A', today)).toEqual({ objects: 3, faces: 3 });
+    expect(colorRefUsage({ items: [item] }, '@B', today)).toEqual({ objects: 0, faces: 0 });
+  });
+});
+
+describe('faceLabel', () => {
+  it('보통 페이지·날짜 페이지·달력형', () => {
+    expect(faceLabel({}, 2)).toBe('p.3');
+    expect(faceLabel({ period: { key: '2026-10-05', faceIndex: 0, dates: [] } }, 0)).toBe('p.1 · 10/5');
+    expect(faceLabel({ period: { key: '2027-03', faceIndex: 0, dates: [] } }, 4)).toBe('p.5 · 2027.03');
   });
 });

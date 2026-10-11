@@ -1,6 +1,6 @@
 import { imageLabelOf, type UserImage } from '../images/registry';
 import { useStore } from '../store';
-import { Modal } from './GalleryTab';
+import { Modal } from './Modal';
 
 /**
  * 이미지 썸네일 그리드 — 빈 이미지 상자를 더블클릭했을 때 뜨는 고르기

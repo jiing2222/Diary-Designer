@@ -7,6 +7,7 @@ import {
   mapColors,
   nextPointKey,
   refOf,
+  resolveObjectColors,
   resolveColor,
   setKeyColor,
 } from './colors';
@@ -107,5 +108,16 @@ describe('linkExactColors — 옛 양식 옮기기', () => {
       palette,
     );
     expect(out.map((o) => o.color)).toEqual(['@A', '@base5', '#8ea8c7']);
+  });
+});
+
+describe('resolveObjectColors — 그리기 직전에', () => {
+  it('이름표는 지금 색으로, 색 값은 그대로, 없는 칸은 검정', () => {
+    const palette = addPoint(defaultWorkPalette(), '#8ea8c6');
+    const out = resolveObjectColors(
+      [{ color: '@A' }, { color: '#123456', fillColor: '@base1' }, { color: '@Q' }],
+      palette,
+    );
+    expect(out).toEqual([{ color: '#8ea8c6' }, { color: '#123456', fillColor: '#cfcfcf' }, { color: '#000000' }]);
   });
 });
