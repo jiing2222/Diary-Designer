@@ -5225,3 +5225,44 @@ button.danger:hover {
 .overview-item svg {
   box-shadow: 0 0 0 1px var(--line);
 }
+
+/* 상황별 꾸미기 막대(세부계획 A0) — 옛 속성 칸을 캔버스 위 가로 한 줄로. 넘치면 다음 줄. */
+.style-bar-slot .stylebar {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.style-bar-slot select {
+  width: auto;
+  max-width: 180px;
+}
+.style-bar-slot .stylebar > * {
+  flex-shrink: 0;
+}
+.style-bar-slot .picked-count {
+  margin-right: 4px;
+}
+
+/* 둥근 카드 느낌(사용자 피드백 2026-10-11, 참고이미지/깔끔한-사이드메뉴.png) — 레일 옆 패널과
+   작업 공간을 그레이지 틀 위에 떠 있는 둥근 카드로. 사이를 틀 색 틈으로 띄운다. */
+.rail-panel {
+  margin: 0 8px 10px 0;
+  padding: 14px 14px 18px;
+  border-radius: 18px;
+  background: var(--bg);
+}
+.frame-main {
+  margin: 0 10px 10px 0;
+  border-radius: 18px;
+}
+.frame-main.is-home {
+  margin: 0;
+  border-radius: 0;
+}
+.rail-icons {
+  padding-top: 10px;
+}
+.rail-icon.on {
+  box-shadow: none;
+}

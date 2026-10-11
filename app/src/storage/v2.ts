@@ -12,7 +12,8 @@
  * 실패는 조용히 삼킨다(storage/idb와 같은 원칙). 쓰기가 안 됐다고 앱이 멈추면 안 된다.
  */
 import { idbEntries, idbGet } from './idb';
-import { readProject, toTemplates, type SavedFont, type SavedImage } from '../core/project';
+import { readProject, toTemplates, type SavedFont, type SavedImage, type SavedProject } from '../core/project';
+import { ensureIdCounterAbove, type DiaryObject } from '../core/objects';
 import { migrateTemplates, type Migrated } from '../core/migrate';
 import type { Work } from '../core/work';
 import type { Diary } from '../core/diary';
@@ -155,6 +156,9 @@ export function migrateSnapshot(
   try {
     const parsed = readProject(JSON.parse(raw));
     if ('error' in parsed) return null;
+    // 옮기는 동안 반복 양식을 복사하며 새 id를 매긴다. 카운터를 먼저 옛 id들보다 위로
+    // 올려야 새 id가 다른 양식의 객체와 겹치지 않는다(옛 판 loadProject와 같은 이유).
+    ensureIdCounterAbove(savedIds(parsed.ok));
     return {
       ...migrateTemplates(toTemplates(parsed.ok), now),
       fonts: parsed.ok.fonts ?? [],
@@ -163,6 +167,28 @@ export function migrateSnapshot(
   } catch {
     return null;
   }
+}
+
+/** 옛 저장 파일 안의 모든 객체·그룹 id(앞·뒤·고친 쪽·노트 반쪽). */
+function savedIds(p: SavedProject): string[] {
+  const ids: string[] = [];
+  const add = (objs: DiaryObject[] | undefined) => {
+    for (const o of objs ?? []) {
+      ids.push(o.id);
+      if (o.groupId) ids.push(o.groupId);
+    }
+  };
+  for (const t of p.templates) {
+    ids.push(t.id);
+    add(t.objects);
+    add(t.back?.objects);
+    for (const objs of Object.values(t.pageOverrides ?? {})) add(objs);
+    for (const objs of Object.values(t.pageBackOverrides ?? {})) add(objs);
+    add(t.cover?.front.objects);
+    add(t.cover?.back.objects);
+    for (const half of t.pages ?? []) add(half.objects);
+  }
+  return ids;
 }
 
 /**

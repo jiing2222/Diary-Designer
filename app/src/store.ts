@@ -209,6 +209,11 @@ interface Store extends Settings {
   /* ── 페이지 ── */
   /** 지금 보는 면이 속한 항목 바로 뒤에 빈 페이지. 면이 없으면 맨 뒤. */
   addPageAfterCurrent: () => void;
+  /**
+   * 맨 뒤에 빈 페이지 — 양면이면 앞·뒤 두 면(종이 한 장)을 함께. 새 페이지로 간다.
+   * 바탕은 지금 보던 면(없으면 마지막 면)을 물려받는다.
+   */
+  addPagesAtEnd: () => void;
   duplicateItemAt: (index: number, count?: number) => void;
   removeItemAt: (index: number) => void;
   moveItemTo: (from: number, to: number) => void;
@@ -302,6 +307,16 @@ export function cursorOf(s: Pick<Settings, 'cursors'>, work: Work): Cursor {
 }
 
 /**
+ * 커서를 지금 펼침면 개수 안으로 — 페이지를 지우거나 되돌리면 기억해 둔 펼침면 번호가
+ * 끝을 넘을 수 있다. 넘으면 마지막 펼침면을 본다(빈 화면이 되지 않게).
+ */
+export function clampCursor(work: Work, cursor: Cursor, faceCount: number): Cursor {
+  const count = spreadsFor(work, cursor, faceCount).length;
+  if (count === 0 || cursor.spread < count) return cursor;
+  return { ...cursor, spread: count - 1 };
+}
+
+/**
  * 작업의 펼친 면들. 같은 작업(참조)·같은 날이면 다시 계산하지 않는다 — 화면이 매번
  * 새 배열을 받으면 다시 그리기를 멈추지 못한다(zustand 선택자 규칙).
  */
@@ -328,13 +343,13 @@ export function spreadsFor(work: Work, cursor: Cursor, faceCount: number): [numb
 export function targetOf(s: Pick<Settings, 'works' | 'tabs' | 'cursors' | 'today'>, side?: Side): FaceTarget | null {
   const work = activeWork(s);
   if (!work) return null;
-  const cursor = cursorOf(s, work);
+  const faces = facesOf(work, s.today);
+  const cursor = clampCursor(work, cursorOf(s, work), faces.length);
   if (cursor.source) {
     // 원본 편집은 면 하나만 보여준다 — 오른쪽(앞면) 자리.
     if ((side ?? cursor.side) === 'back') return null;
     return { kind: 'source', itemId: cursor.source.itemId, faceIndex: cursor.source.faceIndex };
   }
-  const faces = facesOf(work, s.today);
   const spread = spreadsFor(work, cursor, faces.length)[cursor.spread];
   if (!spread) return null;
   const index = (side ?? cursor.side) === 'back' ? spread[0] : spread[1];
@@ -665,6 +680,33 @@ export const useStore = create<Store>((set, get) => ({
       return commitItems(s, work, items);
     }),
 
+  addPagesAtEnd: () =>
+    set((s) => {
+      const work = activeWork(s);
+      if (!work) return {};
+      const target = targetOf(s);
+      const faces = facesOf(work, s.today);
+      const background =
+        (target ? editableBackground(work, target) : null) ?? faces[faces.length - 1]?.background ?? undefined;
+      const added = Array.from({ length: work.duplex ? 2 : 1 }, () => newPage(background));
+      const items = [...work.items, ...added];
+      const next = commitItems(s, work, items);
+      // 새 면(첫 번째)이 든 펼침면으로 간다.
+      const nextWork = next.works.find((w) => w.id === work.id)!;
+      const cursor = cursorOf(s, nextWork);
+      const spreads = spreadsFor(nextWork, { ...cursor, source: null }, facesOf(nextWork, s.today).length);
+      const firstNew = faces.length;
+      const spread = spreads.findIndex((sp) => sp.includes(firstNew));
+      return {
+        ...next,
+        cursors: {
+          ...s.cursors,
+          [work.id]: { ...cursor, source: null, spread: Math.max(0, spread), side: spreads[spread]?.[0] === firstNew ? 'back' : 'front' },
+        },
+        selectedIds: [],
+      };
+    }),
+
   duplicateItemAt: (index, count = 1) =>
     set((s) => {
       const work = activeWork(s);
@@ -814,7 +856,8 @@ export const useStore = create<Store>((set, get) => ({
       }
       const next: TextObject = { id: id ?? newId('t'), type: 'text', ...box };
       // 이 글꼴로 안 그려지는 글자(주로 색깔 이모지)가 있으면 알린다. 비동기라 따로 확인한다.
-      ensureCoverageFont(box.font)
+      // 자동 필드는 사람이 친 글자가 없다 — 보이는 값은 날짜라 검사할 것이 없다.
+      if (!box.field) ensureCoverageFont(box.font)
         .then((font) => {
           if (font && hasUndrawableChar(box.text, font)) {
             useStore.getState().showToast('지금 글꼴로는 안 보이는 글자가 있어요 — 인쇄물에는 X로 나와요.');
@@ -1271,7 +1314,11 @@ export const useInsert = () =>
 export const useCursor = (): Cursor | null => {
   const work = useActiveWork();
   const stored = useStore((s) => (work ? s.cursors[work.id] : undefined));
-  return useMemo(() => (work ? (stored ?? defaultCursor(work)) : null), [work, stored]);
+  const today = useStore((s) => s.today);
+  return useMemo(
+    () => (work ? clampCursor(work, stored ?? defaultCursor(work), facesOf(work, today).length) : null),
+    [work, stored, today],
+  );
 };
 
 /** 지금 작업의 펼친 면들. */

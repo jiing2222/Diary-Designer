@@ -98,6 +98,29 @@ describe('편집 — 보통 페이지', () => {
     expect(active().items).toHaveLength(1);
   });
 
+  it('+ 페이지 추가는 맨 뒤에, 양면이면 앞·뒤 두 면, 새 페이지로 간다', () => {
+    s().addPagesAtEnd();
+    expect(active().items).toHaveLength(3);
+    // 면 0(오른쪽 혼자) | (1|2) — 새 첫 면 1은 펼침면 1의 왼쪽
+    expect(s().cursors[active().id]).toMatchObject({ spread: 1, side: 'back' });
+  });
+
+  it('단면이면 한 면만', () => {
+    s().setDuplex(false);
+    s().addPagesAtEnd();
+    expect(active().items).toHaveLength(2);
+    expect(s().cursors[active().id]).toMatchObject({ spread: 1, side: 'front' });
+  });
+
+  it('보던 펼침면이 지워지면 마지막 펼침면을 본다', () => {
+    s().duplicateItemAt(0, 4); // 면 5개 → 펼침면 3개
+    s().goTo(2, 'front');
+    s().removeItemAt(4);
+    s().removeItemAt(3);
+    s().removeItemAt(2); // 면 2개 → 펼침면 2개
+    expect(targetOf(s(), 'back')).not.toBeNull();
+  });
+
   it('여러 장 복제', () => {
     s().duplicateItemAt(0, 4);
     expect(active().items).toHaveLength(5);

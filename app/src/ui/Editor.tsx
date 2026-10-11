@@ -24,7 +24,7 @@ import {
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm, type Mm } from '../core/units';
-import { fieldPlaceholder, newTextStyle, parseFieldText, rotateOf } from '../core/text';
+import { newTextStyle, parseFieldText, rotateOf } from '../core/text';
 import {
   useActiveWork,
   useCursor,
@@ -742,7 +742,9 @@ export function Editor() {
         // 하나씩 늘어난다 — 칸을 순서대로 찍으면 위클리 7칸이 저절로 0~6이 된다.
         // 서식은 속성 막대에서 미리 골라둔 것(fieldDraftFormat)을 쓴다.
         const field = { offset: nextFieldOffset, format: fieldDraftFormat };
-        commitText({ ...box, text: fieldPlaceholder(field), field, ...draftStyle });
+        // 글자는 비워 둔다 — 보이는 값은 언제나 날짜를 채워서 그린다(core/work). 예전처럼
+        // 자리표시(⟨+D0⟩)를 넣으면 기본 글꼴에 없는 ⟨⟩ 때문에 ‘안 보이는 글자’ 안내가 잘못 떴다.
+        commitText({ ...box, text: '', field, ...draftStyle });
         setNextFieldOffset((n) => n + 1);
         return;
       }
@@ -1108,8 +1110,8 @@ export function Editor() {
             </button>
           )}
           <ScopeNote />
-          <div className="style-bar-slot" ref={setStylePanelSlot} />
         </div>
+        <div className="style-bar-slot" ref={setStylePanelSlot} />
 
         {/*
           속성 칸(StyleBar)은 더 이상 여기서 직접 그리지 않는다 — 왼쪽 ToolRail의
@@ -2015,18 +2017,15 @@ function FaceActions({ face, index }: { face: ResolvedFace; index: number }) {
   );
 }
 
-/** 맨 아래 ‘+ 페이지 추가’. 지금 보는 면 바로 뒤에 빈 페이지가 생긴다. */
+/** 맨 아래 ‘+ 페이지 추가’. 맨 뒤에 붙는다 — 양면이면 앞·뒤 두 면(종이 한 장)이 함께 생긴다. */
 function AddPageButton() {
   const cursor = useCursor();
-  const addPageAfterCurrent = useStore((s) => s.addPageAfterCurrent);
-  if (!cursor || cursor.source) return null;
+  const work = useActiveWork();
+  const addPagesAtEnd = useStore((s) => s.addPagesAtEnd);
+  if (!cursor || cursor.source || !work) return null;
   return (
-    <button
-      className="add-page"
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={addPageAfterCurrent}
-    >
-      + 페이지 추가
+    <button className="add-page" onPointerDown={(e) => e.stopPropagation()} onClick={addPagesAtEnd}>
+      + 페이지 추가{work.duplex ? ' (앞·뒤)' : ''}
     </button>
   );
 }
