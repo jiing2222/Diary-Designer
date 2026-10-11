@@ -1,0 +1,178 @@
+/**
+ * 리뉴얼의 브라우저 저장소 — `rings-v2`(기본계획 8-1).
+ *
+ * 옛 저장소(`diary-designer`, storage/idb)와 **이름이 다르다.** 같은 브라우저에서
+ * 옛 버전(main)과 새 버전을 번갈아 켜도 서로의 데이터를 망가뜨리지 않는다.
+ * 새 버전은 처음 열 때 옛 저장소를 **읽어서 복사만** 한다(`migrateFromV1`).
+ * 옮기다 문제가 생기면 `rings-v2`만 지우고 다시 열면 된다.
+ *
+ * 작업은 한 덩어리 JSON이 아니라 **작업마다 한 칸**에 넣는다 — 열린 작업 여러 개 중
+ * 바뀐 것만 쓰고, 나중에 클라우드도 작업 단위로 올린다(기본계획 8-2).
+ *
+ * 실패는 조용히 삼킨다(storage/idb와 같은 원칙). 쓰기가 안 됐다고 앱이 멈추면 안 된다.
+ */
+import { idbEntries, idbGet } from './idb';
+import { readProject, toTemplates } from '../core/project';
+import { migrateTemplates, type Migrated } from '../core/migrate';
+import type { Work } from '../core/work';
+import type { Diary } from '../core/diary';
+import type { Folder } from '../core/library';
+import type { Tabs } from '../core/workspace';
+
+const DB_NAME = 'rings-v2';
+const DB_VERSION = 1;
+
+export type V2Store = 'works' | 'diaries' | 'folders' | 'meta' | 'fonts' | 'images';
+const STORES: V2Store[] = ['works', 'diaries', 'folders', 'meta', 'fonts', 'images'];
+
+function openV2(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      for (const s of STORES) if (!db.objectStoreNames.contains(s)) db.createObjectStore(s);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function run<T>(store: V2Store, mode: IDBTransactionMode, body: (s: IDBObjectStore) => IDBRequest | void): Promise<T | null> {
+  try {
+    const db = await openV2();
+    return await new Promise<T | null>((resolve, reject) => {
+      const tx = db.transaction(store, mode);
+      const req = body(tx.objectStore(store));
+      tx.oncomplete = () => resolve(req ? ((req.result as T | undefined) ?? null) : null);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function v2Put(store: V2Store, key: string, value: unknown): Promise<void> {
+  await run(store, 'readwrite', (s) => {
+    s.put(value, key);
+  });
+}
+
+export async function v2Get<T>(store: V2Store, key: string): Promise<T | null> {
+  return run<T>(store, 'readonly', (s) => s.get(key));
+}
+
+export async function v2Delete(store: V2Store, key: string): Promise<void> {
+  await run(store, 'readwrite', (s) => {
+    s.delete(key);
+  });
+}
+
+export async function v2All<T>(store: V2Store): Promise<T[]> {
+  return (await run<T[]>(store, 'readonly', (s) => s.getAll())) ?? [];
+}
+
+/** 여러 칸을 한 번에 — 옮기기처럼 전부 들어가거나 하나도 안 들어가야 할 때. */
+async function putMany(entries: [V2Store, string, unknown][]): Promise<boolean> {
+  try {
+    const db = await openV2();
+    const stores = [...new Set(entries.map(([s]) => s))];
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(stores, 'readwrite');
+      for (const [store, key, value] of entries) tx.objectStore(store).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* ────────────────────────── 읽고 쓰기 ────────────────────────── */
+
+export interface V2Meta {
+  /** 옛 저장소에서 옮긴 시각. 있으면 다시 옮기지 않는다. */
+  migratedAt?: string;
+  /** 옮기지 않은 노트 이름 — 처음 한 번 알려준다. */
+  skippedNotebooks?: string[];
+  tabs?: Tabs;
+}
+
+const META_KEY = 'meta';
+
+export async function loadMeta(): Promise<V2Meta> {
+  return (await v2Get<V2Meta>('meta', META_KEY)) ?? {};
+}
+
+export async function saveMeta(meta: V2Meta): Promise<void> {
+  await v2Put('meta', META_KEY, meta);
+}
+
+export const saveWork = (w: Work) => v2Put('works', w.id, w);
+export const deleteWork = (id: string) => v2Delete('works', id);
+export const saveDiary = (d: Diary) => v2Put('diaries', d.id, d);
+export const saveFolder = (f: Folder) => v2Put('folders', f.id, f);
+export const deleteFolder = (id: string) => v2Delete('folders', id);
+
+export interface V2Data {
+  works: Work[];
+  diaries: Diary[];
+  folders: Folder[];
+  meta: V2Meta;
+}
+
+export async function loadAll(): Promise<V2Data> {
+  const [works, diaries, folders, meta] = await Promise.all([
+    v2All<Work>('works'),
+    v2All<Diary>('diaries'),
+    v2All<Folder>('folders'),
+    loadMeta(),
+  ]);
+  return { works, diaries, folders, meta };
+}
+
+/* ────────────────────────── 옛 저장소에서 옮기기 ────────────────────────── */
+
+/**
+ * 옛 자동 저장 JSON을 새 구조로. IndexedDB를 모르는 순수 함수라 테스트한다.
+ * 읽을 수 없는 판이면 null — 옮길 것이 없는 것으로 친다.
+ */
+export function migrateSnapshot(raw: string | null, now: string): Migrated | null {
+  if (raw === null) return null;
+  try {
+    const parsed = readProject(JSON.parse(raw));
+    if ('error' in parsed) return null;
+    return migrateTemplates(toTemplates(parsed.ok), now);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 처음 열 때 한 번 — 옛 저장소의 양식·글꼴·이미지를 복사한다.
+ *
+ * 이미 옮겼으면(`meta.migratedAt`) 아무것도 안 한다. 옛 저장소에 아무것도 없어도
+ * 옮긴 것으로 표시한다 — 다음에 옛 버전에서 만든 것이 새로 나타나는 일은 없다
+ * (옛 버전과 새 버전은 따로 산다).
+ */
+export async function migrateFromV1(now: string): Promise<void> {
+  const meta = await loadMeta();
+  if (meta.migratedAt) return;
+
+  const migrated = migrateSnapshot(await idbGet<string>('project', 'current'), now);
+  const [fonts, images] = await Promise.all([idbEntries<unknown>('fonts'), idbEntries<unknown>('images')]);
+
+  const entries: [V2Store, string, unknown][] = [
+    ...fonts.map(([key, value]): [V2Store, string, unknown] => ['fonts', key, value]),
+    ...images.map(([key, value]): [V2Store, string, unknown] => ['images', key, value]),
+    ...(migrated?.works ?? []).map((w): [V2Store, string, unknown] => ['works', w.id, w]),
+    ...(migrated?.diaries ?? []).map((d): [V2Store, string, unknown] => ['diaries', d.id, d]),
+    [
+      'meta',
+      META_KEY,
+      { ...meta, migratedAt: now, skippedNotebooks: migrated?.skippedNotebooks ?? [] } satisfies V2Meta,
+    ],
+  ];
+  await putMany(entries);
+}

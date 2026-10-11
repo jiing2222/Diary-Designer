@@ -90,14 +90,29 @@ export function resolveObjectsForPage(
   dataset: Dataset,
   page: number,
 ): DiaryObject[] {
+  if (dataset.kind !== 'date') return resolveFieldsWithDates(objects, []);
+  const dates = Array.from({ length: dataset.perPage }, (_, offset) => dateAtOffset(dataset, page, offset));
+  return resolveFieldsWithDates(objects, dates, majorityMonthDate(dataset, page));
+}
+
+/**
+ * 이 쪽의 날짜 목록(`dates[오프셋]`)으로 자동 필드를 실제 값으로 바꾼다.
+ *
+ * `resolveObjectsForPage`(옛 양식)와 리뉴얼의 날짜 묶음(core/dated)이 같이 쓴다 —
+ * 날짜를 어떻게 나눌지만 다르고 글자로 바꾸는 규칙은 하나다. 날짜가 없는 오프셋
+ * (null — 마지막 쪽의 남는 칸, 달이 바뀌어 비운 칸)은 빈 글자가 된다.
+ *
+ * `monthDate`는 "몇 월"만 보여주는 서식이 쓸 대표 날짜다. 안 주면 `dates`에서
+ * 가장 많이 걸친 달을 고른다(같으면 앞 달).
+ */
+export function resolveFieldsWithDates(
+  objects: DiaryObject[],
+  dates: (CalendarDate | null)[],
+  monthDate: CalendarDate | null = majorityMonth(dates),
+): DiaryObject[] {
   return objects.map((o) => {
     if (!isText(o) || !o.field) return o;
-    const date =
-      dataset.kind !== 'date'
-        ? null
-        : MONTH_ONLY_FORMATS.has(o.field.format)
-          ? majorityMonthDate(dataset, page)
-          : dateAtOffset(dataset, page, o.field.offset);
+    const date = MONTH_ONLY_FORMATS.has(o.field.format) ? monthDate : (dates[o.field.offset] ?? null);
     const value = date ? formatDate(date, o.field.format) : '';
     // 자리표시가 있던 자리만 진짜 값으로 바꿔 끼운다 — core/text의 displayText와
     // 같은 이유다. 앞뒤에 손으로 붙인 글자(예: "입니다")는 그대로 남는다.
@@ -106,6 +121,23 @@ export function resolveObjectsForPage(
     const text = FIELD_PATTERN.test(o.text) ? o.text.replace(FIELD_PATTERN, value) : value;
     return { ...rest, text };
   });
+}
+
+/** 날짜들 중 가장 많은 날이 속한 달의 날짜. 같으면 앞 달(core/dataset의 majorityMonthDate와 같은 규칙). */
+function majorityMonth(dates: (CalendarDate | null)[]): CalendarDate | null {
+  const counts = new Map<string, { date: CalendarDate; count: number }>();
+  for (const d of dates) {
+    if (!d) continue;
+    const key = `${d.year}-${d.month}`;
+    const entry = counts.get(key);
+    if (entry) entry.count++;
+    else counts.set(key, { date: d, count: 1 });
+  }
+  let best: { date: CalendarDate; count: number } | null = null;
+  for (const entry of counts.values()) {
+    if (!best || entry.count > best.count) best = entry;
+  }
+  return best?.date ?? null;
 }
 
 /**
