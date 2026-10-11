@@ -11,7 +11,6 @@ import {
   type TextStyle,
 } from '../core/objects';
 import { iconSizeOf } from '../core/checkbox';
-import { FIELD_FORMATS } from '../core/text';
 import { roundMm } from '../core/units';
 import { useEditObjects, useHasBack, useSide, useStore } from '../store';
 import type { Editing } from './gestures';
@@ -19,7 +18,6 @@ import { MixedColorControls } from './ColorControls';
 import {
   CalendarControls,
   CheckboxControls,
-  FieldControls,
   ImageControls,
   LineControls,
   NumField,
@@ -61,8 +59,6 @@ export function StyleBar({
   const drawStyle = useStore((s) => s.drawStyle);
   const setDrawStyle = useStore((s) => s.setDrawStyle);
   const setTextDraftStyle = useStore((s) => s.setTextDraftStyle);
-  const fieldDraftFormat = useStore((s) => s.fieldDraftFormat);
-  const setFieldDraftFormat = useStore((s) => s.setFieldDraftFormat);
   const checkboxDraftStyle = useStore((s) => s.checkboxDraftStyle);
   const setCheckboxDraftStyle = useStore((s) => s.setCheckboxDraftStyle);
   const styleCheckbox = useStore((s) => s.styleCheckbox);
@@ -214,26 +210,7 @@ export function StyleBar({
         />
       ) : showText ? (
         <>
-          {/* 이미 만든 글자를 골랐을 때만 자동 필드로 바꿀 수 있다. 아직 쓰는
-              중이거나 앞으로 쓸 글자의 기본값으로는 두지 않는다 — 매번 새 글자가
-              필드로 시작하면 놀란다. */}
-          {pickedTexts.length > 0 && <FieldControls texts={pickedTexts} />}
-          {/* 자동 필드 도구인데 아직 찍은 게 없으면 — 무엇을 찍을지(서식) 미리
-              고를 자리가 없었다. 찍고 나서 FieldControls로 고치는 것과 별개로,
-              찍기 전에도 고를 수 있게 한다. */}
-          {tool === 'field' && pickedTexts.length === 0 && (
-            <select
-              value={fieldDraftFormat}
-              onChange={(e) => setFieldDraftFormat(e.target.value)}
-              title="다음에 찍을 자동 필드의 서식"
-            >
-              {FIELD_FORMATS.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          )}
+          {/* 날짜 형식·몇 번째 날짜는 왼쪽 AutoField 패널(EditorRail)에 있다 — 막대에는 글자 모양만. */}
           <TextControls
             items={pickedTexts.length > 0 ? pickedTexts : [draftStyle]}
             apply={pickedTexts.length > 0 ? styleText : setTextDraftStyle}

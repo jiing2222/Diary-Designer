@@ -5266,3 +5266,80 @@ button.danger:hover {
 .rail-icon.on {
   box-shadow: none;
 }
+
+/* 탭 줄은 넘치면 가로로 밀리되 스크롤바는 숨긴다 — 48px 머리줄 안에 회색 막대가 끼어 보였다. */
+.tab-bar {
+  scrollbar-width: none;
+}
+.tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+/* 말풍선(세부계획 A0) */
+.pop {
+  position: relative;
+  display: inline-flex;
+}
+.pop-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pop-btn.on {
+  border-color: var(--blue);
+  background: var(--blue-subtle);
+}
+.pop-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 6px 24px rgba(46, 39, 35, 0.14);
+}
+.pop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+.pop-row-label {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.pop-row-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pop-row-field select {
+  width: auto;
+}
+.panel-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.panel-controls select {
+  width: auto;
+  max-width: 150px;
+}
+.panel-sub {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}

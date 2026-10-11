@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useActiveWork, useStore, type Tool } from '../store';
+import { useActiveWork, useEditObjects, useHasBack, useSide, useStore, type Tool } from '../store';
+import { isCalendar, isCheckbox, isText } from '../core/objects';
+import { FIELD_FORMATS } from '../core/text';
+import { CalendarPanelControls, CheckboxIconGrid, FieldControls } from './ObjectControls';
+import { PopRow } from './Popover';
 import { BASE_KEYS, keyLabel, nextPointKey, refOf } from '../core/colors';
 import { colorRefUsage } from '../core/work';
 import { todayFrom } from '../core/dated';
@@ -59,6 +63,16 @@ export function EditorRail() {
     if (cat) setOpen(cat);
   }, [tool]);
 
+  // 무엇을 고르면 그 설정이 있는 패널이 열린다 — 달력·날짜 필드는 AutoField, 체크박스는 Draw.
+  const picked = usePicked();
+  const pickedKey = picked.map((o) => o.id).join(',');
+  useEffect(() => {
+    if (picked.some(isCalendar) || picked.some((o) => isText(o) && o.field)) setOpen('auto');
+    else if (picked.length > 0 && picked.every(isCheckbox)) setOpen('draw');
+    // 고른 것이 바뀔 때만 본다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickedKey]);
+
   function toggle(cat: Category, defaultTool?: Tool) {
     if (open === cat) {
       setOpen(null);
@@ -94,14 +108,17 @@ export function EditorRail() {
         <aside className="rail-panel">
           <h2 className="rail-panel-title">{TITLES[open]}</h2>
           {open === 'page' && <PagePanel />}
-          {open === 'draw' && <ToolTiles items={DRAW_TOOLS} />}
-          {open === 'text' && (
-            <p className="tool-panel-note">페이지를 눌러 그 칸에 글자를 놓아요. 끌면 여러 칸에 걸친 상자가 돼요. 글꼴·크기·간격은 위쪽 막대에서 바꿔요.</p>
+          {open === 'draw' && (
+            <>
+              <ToolTiles items={DRAW_TOOLS} />
+              <CheckboxPanel />
+            </>
           )}
+          {open === 'text' && <TextPanel />}
           {open === 'auto' && (
             <>
               <ToolTiles items={AUTO_TOOLS} />
-              <p className="tool-panel-note">칸을 차례로 누르면 날짜가 하나씩 이어져요. 형식은 위쪽 막대에서 골라요.</p>
+              <AutoFieldPanel />
             </>
           )}
           {open === 'image' && <ImageCategoryBody />}
@@ -265,5 +282,96 @@ function ColorsPanel() {
         </div>
       )}
     </div>
+  );
+}
+
+/** 지금 고른 객체들(편집 화면 본체와 같은 쪽 규칙). */
+function usePicked() {
+  const side = useSide();
+  const hasBack = useHasBack();
+  const objects = useEditObjects(hasBack ? side : 'front');
+  const selectedIds = useStore((s) => s.selectedIds);
+  return objects.filter((o) => selectedIds.includes(o.id));
+}
+
+/**
+ * AutoField 패널 — 고민해서 정하는 값(날짜 형식·몇 번째 날짜, 달력 구성)은 여기,
+ * 글꼴·색·크기는 위쪽 막대(사용자 요청 2026-10-11).
+ */
+function AutoFieldPanel() {
+  const tool = useStore((s) => s.tool);
+  const fieldDraftFormat = useStore((s) => s.fieldDraftFormat);
+  const setFieldDraftFormat = useStore((s) => s.setFieldDraftFormat);
+  const calendarDraftStyle = useStore((s) => s.calendarDraftStyle);
+  const setCalendarDraftStyle = useStore((s) => s.setCalendarDraftStyle);
+  const styleCalendar = useStore((s) => s.styleCalendar);
+  const picked = usePicked();
+  const calendars = picked.filter(isCalendar);
+  const fields = picked.filter(isText).filter((t) => t.field);
+
+  if (calendars.length > 0) {
+    return (
+      <>
+        <h3 className="panel-sub">달력</h3>
+        <CalendarPanelControls items={calendars} apply={styleCalendar} />
+      </>
+    );
+  }
+  if (fields.length > 0) {
+    return (
+      <>
+        <h3 className="panel-sub">날짜</h3>
+        <FieldControls texts={fields} />
+      </>
+    );
+  }
+  if (tool === 'calendar') {
+    return (
+      <>
+        <p className="tool-panel-note">페이지에서 끌어 달력 상자를 그려요. 아래 설정으로 그려져요.</p>
+        <CalendarPanelControls items={[calendarDraftStyle]} apply={setCalendarDraftStyle} />
+      </>
+    );
+  }
+  return (
+    <>
+      <p className="tool-panel-note">칸을 차례로 누르면 날짜가 하나씩 이어져요(첫째 날짜, 둘째 날짜…).</p>
+      <PopRow label="형식">
+        <select value={fieldDraftFormat} onChange={(e) => setFieldDraftFormat(e.target.value)}>
+          {FIELD_FORMATS.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </PopRow>
+    </>
+  );
+}
+
+/** Draw 패널의 체크박스 아이콘 모양 — 고른 체크박스가 있으면 그것을, 없으면 다음에 찍을 모양. */
+function CheckboxPanel() {
+  const tool = useStore((s) => s.tool);
+  const draft = useStore((s) => s.checkboxDraftStyle);
+  const setDraft = useStore((s) => s.setCheckboxDraftStyle);
+  const styleCheckbox = useStore((s) => s.styleCheckbox);
+  const picked = usePicked().filter(isCheckbox);
+  if (picked.length === 0 && tool !== 'checkbox') return null;
+  return (
+    <>
+      <h3 className="panel-sub">체크박스 모양</h3>
+      <CheckboxIconGrid items={picked.length > 0 ? picked : [draft]} apply={picked.length > 0 ? styleCheckbox : setDraft} />
+    </>
+  );
+}
+
+/** Text 패널 — 고른 글자를 날짜가 채워지는 글자로 바꿀 수 있다. */
+function TextPanel() {
+  const texts = usePicked().filter(isText);
+  return (
+    <>
+      <p className="tool-panel-note">페이지를 눌러 그 칸에 글자를 놓아요. 끌면 여러 칸에 걸친 상자가 돼요. 글꼴·크기·색은 위쪽 막대에서 바꿔요.</p>
+      {texts.length > 0 && <FieldControls texts={texts} />}
+    </>
   );
 }
