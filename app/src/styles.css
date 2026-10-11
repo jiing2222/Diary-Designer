@@ -4970,16 +4970,6 @@ footer b {
   stroke: var(--accent);
   stroke-width: 1;
 }
-.home-planet .stripe {
-  fill: none;
-}
-.home-planet .stripe.dark {
-  stroke: #e2c978;
-  opacity: 0.55;
-}
-.home-planet .stripe.light {
-  stroke: #f4e6b6;
-}
 .home-planet .spin {
   animation: home-rot 16s linear infinite;
 }

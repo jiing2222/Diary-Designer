@@ -55,10 +55,11 @@ export function Home({ onCreate, onLibrary, onLearn }: { onCreate: () => void; o
             <circle cx="340" cy="205" r="92" />
           </clipPath>
           <g id="home-stripes">
-            <path d="M0 150 q46 -10 92 0 t92 0" className="stripe dark" strokeWidth="10" />
-            <path d="M0 188 q46 8 92 0 t92 0" className="stripe light" strokeWidth="7" />
-            <path d="M0 222 q46 -8 92 0 t92 0" className="stripe dark" strokeWidth="13" />
-            <path d="M0 258 q46 6 92 0 t92 0" className="stripe light" strokeWidth="6" />
+            {/* <use>로 복제되는 안쪽은 스타일시트가 닿지 않는다 — 색을 속성으로 직접 준다. */}
+            <path d="M0 150 q46 -10 92 0 t92 0" fill="none" stroke="#e2c978" strokeOpacity={0.55} strokeWidth="10" />
+            <path d="M0 188 q46 8 92 0 t92 0" fill="none" stroke="#f4e6b6" strokeWidth="7" />
+            <path d="M0 222 q46 -8 92 0 t92 0" fill="none" stroke="#e2c978" strokeOpacity={0.45} strokeWidth="13" />
+            <path d="M0 258 q46 6 92 0 t92 0" fill="none" stroke="#f4e6b6" strokeWidth="6" />
           </g>
         </defs>
         <g className="home-stars">
