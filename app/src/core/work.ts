@@ -356,6 +356,32 @@ export function writeObjects(work: Pick<Work, 'items'>, target: FaceTarget, next
   });
 }
 
+/**
+ * 날짜 페이지에서 원본과 달라진 객체의 id — 바꾼 속성이 있는 원본 객체만(그 날짜에만
+ * 더한 것은 원본이 없어 되돌릴 곳이 없다). 날짜 페이지가 아니면 빈 목록.
+ */
+export function changedIds(work: Pick<Work, 'items'>, target: FaceTarget): string[] {
+  if (target.kind !== 'face' || !target.face.period) return [];
+  const item = findItem(work, target.face.itemId);
+  if (item?.kind !== 'dated') return [];
+  const ov = item.overrides[overrideKey(target.face.period.key, target.face.period.faceIndex)];
+  return ov ? Object.keys(ov.props) : [];
+}
+
+/** 날짜 페이지에서 고른 객체를 원본으로 되돌린다 — 그 날짜에서 바꾼 속성을 지운다(세부계획 A4.6 2-1). */
+export function revertToSource(work: Pick<Work, 'items'>, target: FaceTarget, ids: string[]): WorkItem[] {
+  if (target.kind !== 'face' || !target.face.period) return work.items;
+  const { key: periodKey, faceIndex } = target.face.period;
+  const key = overrideKey(periodKey, faceIndex);
+  return work.items.map((item) => {
+    if (item.id !== target.face.itemId || item.kind !== 'dated' || !item.overrides[key]) return item;
+    const ov = item.overrides[key];
+    const next: FaceOverride = { ...ov, props: Object.fromEntries(Object.entries(ov.props).filter(([id]) => !ids.includes(id))) };
+    const { [key]: _old, ...rest } = item.overrides;
+    return { ...item, overrides: isEmptyOverride(next) ? rest : { ...rest, [key]: next } };
+  });
+}
+
 /** 원본에서 사라진 객체를 가리키는 수정을 걷어낸다. */
 function pruneOverrides(overrides: Record<string, FaceOverride>, alive: Set<string>): Record<string, FaceOverride> {
   const out: Record<string, FaceOverride> = {};

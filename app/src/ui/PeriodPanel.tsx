@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useActiveWork, useDisplayFace, useHasBack, useSide, useStore } from '../store';
+import { useActiveWork, useCursor, useDisplayFace, useHasBack, useSide, useStore } from '../store';
 import { dateKey, MAX_DATED_PAGES, periodSummary, suggestPerPage, todayFrom, type Boundary } from '../core/dated';
 import { addDays, addMonths, type DateDataset } from '../core/dataset';
 import type { DatedItem, PageItem } from '../core/work';
@@ -8,18 +8,36 @@ import { PopRow } from './Popover';
 /**
  * 날짜로 펼치기 / 기간 바꾸기(세부계획 A4.6 · A4.8). AutoField 패널 아래에 붙는다.
  *
- * 보통 페이지면 ‘이 페이지를 원본으로 기간만큼 펼치기’, 날짜 페이지(또는 원본 편집)면
- * 그 묶음의 기간을 고친다. 날짜별 수정은 날짜에 붙어 있어서 기간을 바꿔도 같은 날짜면 남는다.
+ * 보통 페이지면 ‘이 페이지를 원본으로 기간만큼 펼치기’. 기간을 고치는 것은 원본 편집
+ * 화면에서만 한다(세부계획 A4.6 2-1) — 날짜 페이지에서는 지금 기간과 [원본 편집]만 보인다.
+ * 날짜별 수정은 날짜에 붙어 있어서 기간을 바꿔도 같은 날짜면 남는다.
  */
 export function PeriodPanel() {
   const work = useActiveWork();
+  const cursor = useCursor();
   const side = useSide();
   const hasBack = useHasBack();
   const face = useDisplayFace(hasBack ? side : 'front');
+  const enterSourceEdit = useStore((s) => s.enterSourceEdit);
   const item = work?.items.find((i) => i.id === face?.itemId);
-  if (!item) return null;
+  if (!item || !face) return null;
   if (item.kind === 'dated' && item.dataset.kind !== 'date') {
     return <p className="tool-panel-note">옛 달력 양식에서 옮긴 묶음이라 여기서는 기간을 바꿀 수 없어요.</p>;
+  }
+  if (item.kind === 'dated' && !cursor?.source) {
+    const sum = periodSummary(item.dataset, item.boundary);
+    return (
+      <div className="period-panel">
+        <h3 className="panel-sub">기간</h3>
+        <div className="period-summary">
+          {sum.pages}장 · {short(sum.first)}~{short(sum.last)}
+        </div>
+        <p className="tool-panel-note">기간은 원본 편집에서 바꿔요. 바꿔도 날짜마다 고친 것은 그 날짜에 남아요.</p>
+        <button className="ghost" onClick={() => enterSourceEdit(item.id, face.period?.faceIndex ?? 0)}>
+          원본 편집
+        </button>
+      </div>
+    );
   }
   // 항목이 바뀌면(다른 페이지로 가면) 입력을 새로 채운다.
   return <PeriodForm key={item.id} item={item as PageItem | (DatedItem & { dataset: DateDataset })} />;

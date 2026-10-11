@@ -61,6 +61,7 @@ import {
   sourcePreview,
   spreadsOf,
   spreadByDates,
+  revertToSource,
   writeBackground,
   writeObjects,
   type FaceTarget,
@@ -229,6 +230,8 @@ interface Store extends Settings {
    * 날짜 묶음이면 기간만 바꾼다 — 날짜별 수정은 날짜에 붙어 있어 같은 날짜면 따라간다.
    */
   setDatedPeriod: (itemId: string, dataset: DateDataset, boundary: Boundary) => void;
+  /** 날짜 페이지에서 고른 객체를 원본으로 되돌린다(그 날짜에서 바꾼 속성을 지운다). */
+  revertSelectedToSource: () => void;
 
   /* ── 바탕·속지 ── */
   patchDotGrid: (p: Partial<DotGrid>) => void;
@@ -768,6 +771,15 @@ export const useStore = create<Store>((set, get) => ({
       return work ? setCursor(s, work, { source: null }) : {};
     }),
 
+  revertSelectedToSource: () =>
+    set((s) => {
+      const work = activeWork(s);
+      const target = targetOf(s);
+      if (!work || !target) return {};
+      const items = revertToSource(work, target, s.selectedIds);
+      return items === work.items ? {} : commitItems(s, work, items);
+    }),
+
   setDatedPeriod: (itemId, dataset, boundary) =>
     set((s) => {
       const work = activeWork(s);
@@ -867,7 +879,8 @@ export const useStore = create<Store>((set, get) => ({
       const cur = activeObjects(s);
       const rest = id ? cur.filter((o) => o.id !== id) : cur;
       // 빈 채로 나가면 남기지 않는다. 비었는지만 trim으로 보고 저장하는 글자는 손대지 않는다.
-      if (box.text.trim() === '') {
+      // 자동 필드는 예외 — 글자를 비워 두고 보이는 값은 날짜로 채운다(core/work).
+      if (box.text.trim() === '' && !box.field) {
         if (!id) return {};
         return { ...commitObjects(s, rest), selectedIds: prune(s.selectedIds, rest) };
       }

@@ -7,6 +7,7 @@ import {
   boxOf,
   cleanStyle,
   groupIdOf,
+  isCalendar,
   isBoxResizable,
   isImage,
   isLine,
@@ -41,7 +42,7 @@ import {
   type Side,
 } from '../store';
 import { resolveObjectColors } from '../core/colors';
-import { faceLabel, type ResolvedFace } from '../core/work';
+import { changedIds, faceLabel, type ResolvedFace } from '../core/work';
 import type { DotGrid } from '../core/grid';
 import type { InsertSetting } from '../core/template';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
@@ -1199,7 +1200,13 @@ export function Editor() {
                         y={b.y}
                         width={b.width}
                         height={b.height}
-                        className={isImage(o) ? 'image-picked' : undefined}
+                        className={
+                          isImage(o)
+                            ? 'image-picked'
+                            : isCalendar(o) || activeFace?.fieldIds.includes(o.id)
+                              ? 'auto-picked'
+                              : undefined
+                        }
                       />
                     );
                     if (rot === 0) return rect;
@@ -1426,7 +1433,7 @@ export function Editor() {
           속성 칸으로 바뀌면서 조용히 사라졌었다.
         */}
         {tool === 'select' && selectedIds.length === 0 && (
-          <span>
+          <span className="foot-hint">
             {noGrid
               ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
               : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
@@ -1821,18 +1828,20 @@ function ScopeNote() {
   const side = useSide();
   const enterSourceEdit = useStore((s) => s.enterSourceEdit);
   const exitSourceEdit = useStore((s) => s.exitSourceEdit);
+  const revertSelectedToSource = useStore((s) => s.revertSelectedToSource);
+  const selectedIds = useStore((s) => s.selectedIds);
   const faces = useFaces();
   if (!work || !cursor) return null;
 
   if (cursor.source) {
     const count = faces.filter((f) => f.itemId === cursor.source?.itemId).length;
     const own = faces.filter((f) => f.itemId === cursor.source?.itemId && f.period);
-    const first = own[0]?.period?.key;
-    const last = own[own.length - 1]?.period?.key;
+    const first = own[0] && faceLabel(own[0], 0).split(' · ')[1];
+    const last = own.length > 0 && faceLabel(own[own.length - 1], 0).split(' · ')[1];
     return (
       <div className="scope-note source">
         <span>
-          ✎ 원본 편집 중 — {count}장{first ? ` (${first} ~ ${last})` : ''} 모두 바뀌어요
+          ✎ 원본 편집 중 — {count}장{first ? `(${first}~${last})` : ''} 모두 바뀌어요
         </span>
         <button onClick={exitSourceEdit}>완료</button>
       </div>
@@ -1842,9 +1851,19 @@ function ScopeNote() {
   const current = side === 'back' ? back : face;
   if (!current?.period) return null;
   const label = faceLabel(current, faces.indexOf(current)).split(' · ')[1];
+  // 고른 것 중 이 날짜에서 바꾼 것 — 고른 것에만 표시한다(고르지 않으면 화면이 인쇄물과 같게).
+  const changed = changedIds(work, { kind: 'face', face: current }).filter((id) => selectedIds.includes(id));
   return (
     <div className="scope-note">
       <span>{label} · 이 날짜만 고치는 중</span>
+      {changed.length > 0 && (
+        <>
+          <span className="scope-changed">● 고른 것 중 {changed.length}개를 이 날짜에서 바꿨어요</span>
+          <button className="ghost" onClick={revertSelectedToSource}>
+            원본으로 되돌리기
+          </button>
+        </>
+      )}
       <button className="ghost" onClick={() => enterSourceEdit(current.itemId, current.period!.faceIndex)}>
         원본 편집
       </button>

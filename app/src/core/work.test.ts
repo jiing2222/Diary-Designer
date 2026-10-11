@@ -19,6 +19,8 @@ import {
   sheetSideOf,
   spreadsOf,
   spreadByDates,
+  changedIds,
+  revertToSource,
   type DatedItem,
   type Face,
   type WorkItem,
@@ -313,5 +315,17 @@ describe('날짜로 펼치기', () => {
     // 그대로 다시 써도 그 날짜에만 더한 자동 필드로 남는다
     const items = writeObjects({ items: [item] }, target, editable);
     expect((items[0] as DatedItem).overrides['2026-10-02/0'].added[0]).toMatchObject({ id: 't9', field: { offset: 0, format: 'D' } });
+  });
+});
+
+describe('원본으로 되돌리기', () => {
+  it('날짜 페이지에서 바꾼 객체를 알려주고, 되돌리면 그 날짜의 수정이 사라진다', () => {
+    const item = dated({ overrides: { '2026-10-02/0': { ...emptyOverride(), props: { t1: { color: '@A' } } } } });
+    const faces = expandWork({ items: [item] }, today);
+    const target = { kind: 'face' as const, face: faces[1] };
+    expect(changedIds({ items: [item] }, target)).toEqual(['t1']);
+    expect(changedIds({ items: [item] }, { kind: 'face' as const, face: faces[0] })).toEqual([]);
+    const items = revertToSource({ items: [item] }, target, ['t1']);
+    expect((items[0] as DatedItem).overrides).toEqual({});
   });
 });

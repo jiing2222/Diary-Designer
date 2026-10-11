@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useActiveWork, useEditObjects, useHasBack, useSide, useStore, type Tool } from '../store';
+import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useHasBack, useSide, useStore, type Tool } from '../store';
 import { isCalendar, isCheckbox, isText } from '../core/objects';
 import { FIELD_FORMATS } from '../core/text';
 import { CalendarPanelControls, CheckboxIconGrid, FieldControls } from './ObjectControls';
@@ -66,13 +66,20 @@ export function EditorRail() {
 
   // 무엇을 고르면 그 설정이 있는 패널이 열린다 — 달력·날짜 필드는 AutoField, 체크박스는 Draw.
   const picked = usePicked();
+  const fieldIds = usePickedFieldIds();
   const pickedKey = picked.map((o) => o.id).join(',');
   useEffect(() => {
-    if (picked.some(isCalendar) || picked.some((o) => isText(o) && o.field)) setOpen('auto');
+    if (picked.some(isCalendar) || fieldIds.length > 0) setOpen('auto');
     else if (picked.length > 0 && picked.every(isCheckbox)) setOpen('draw');
     // 고른 것이 바뀔 때만 본다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickedKey]);
+
+  // 원본 편집에 들어가면 기간을 고칠 수 있는 AutoField 패널이 열린다(세부계획 A4.6 2-1).
+  const sourceKey = useCursor()?.source?.itemId ?? null;
+  useEffect(() => {
+    if (sourceKey) setOpen('auto');
+  }, [sourceKey]);
 
   function toggle(cat: Category, defaultTool?: Tool) {
     if (open === cat) {
@@ -297,6 +304,18 @@ function usePicked() {
 }
 
 /**
+ * 고른 것 중 자동 필드의 id. 날짜 페이지의 칸은 날짜가 채워져 `field`가 떨어져 있어서
+ * 객체만 보고는 모른다 — 보일 면이 알려주는 `fieldIds`로 본다(core/work).
+ */
+function usePickedFieldIds(): string[] {
+  const side = useSide();
+  const hasBack = useHasBack();
+  const face = useDisplayFace(hasBack ? side : 'front');
+  const picked = usePicked();
+  return picked.filter((o) => face?.fieldIds.includes(o.id)).map((o) => o.id);
+}
+
+/**
  * AutoField 패널 — 고민해서 정하는 값(날짜 형식·몇 번째 날짜, 달력 구성)은 여기,
  * 글꼴·색·크기는 위쪽 막대(사용자 요청 2026-10-11).
  */
@@ -310,6 +329,10 @@ function AutoFieldPanel() {
   const picked = usePicked();
   const calendars = picked.filter(isCalendar);
   const fields = picked.filter(isText).filter((t) => t.field);
+  const fieldIds = usePickedFieldIds();
+  const side = useSide();
+  const hasBack = useHasBack();
+  const face = useDisplayFace(hasBack ? side : 'front');
 
   if (calendars.length > 0) {
     return (
@@ -324,6 +347,15 @@ function AutoFieldPanel() {
       <>
         <h3 className="panel-sub">날짜</h3>
         <FieldControls texts={fields} />
+      </>
+    );
+  }
+  // 날짜 페이지에서 원본의 날짜 칸을 고른 것 — 형식·몇째 날짜는 원본에 있어 여기서 못 바꾼다.
+  if (fieldIds.length > 0 && face?.period) {
+    return (
+      <>
+        <h3 className="panel-sub">날짜</h3>
+        <p className="tool-panel-note">날짜 칸의 형식과 몇째 날짜인지는 원본 편집에서 정해요. 색·글꼴은 이 날짜만 바꿀 수 있어요.</p>
       </>
     );
   }

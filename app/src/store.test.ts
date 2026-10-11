@@ -121,6 +121,11 @@ describe('편집 — 보통 페이지', () => {
     expect(targetOf(s(), 'back')).not.toBeNull();
   });
 
+  it('날짜 칸은 글자가 비어 있어도 놓인다(보이는 값은 날짜)', () => {
+    s().commitText({ x: 0, y: 0, width: 10, height: 5, text: '', field: { offset: 0, format: 'M/D' } });
+    expect((active().items[0] as PageItem).face.objects).toHaveLength(1);
+  });
+
   it('여러 장 복제', () => {
     s().duplicateItemAt(0, 4);
     expect(active().items).toHaveLength(5);
@@ -184,6 +189,16 @@ describe('편집 — 날짜 묶음', () => {
     const faces = facesOf(active(), s().today);
     expect(faces.map((f) => (f.objects[0] as TextObject).size)).toEqual([4, 4, 4]);
     expect(faces.map((f) => (f.objects[0] as TextObject).color)).toEqual([undefined, '@A', undefined]);
+  });
+
+  it('이 날짜에서 바꾼 것을 원본으로 되돌린다', () => {
+    s().goTo(1, 'back');
+    s().select(['t1']);
+    s().styleText({ color: '@A' });
+    s().revertSelectedToSource();
+    expect((active().items[0] as DatedItem).overrides).toEqual({});
+    s().undo();
+    expect(Object.keys((active().items[0] as DatedItem).overrides)).toEqual(['2026-10-02/0']);
   });
 
   it('원본 편집 중에는 왼쪽 면이 없다', () => {

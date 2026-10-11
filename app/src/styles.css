@@ -955,6 +955,14 @@ button.ghost:disabled {
   stroke: #8654c9;
 }
 
+/* AutoField(날짜 칸·달력)를 고르면 블루 실선 — 일반 글자의 초록 점선과 구별한다
+   (디자인.md: AutoField 선택 표시는 블루 테두리). 고르지 않으면 아무 표시도 없다. */
+.picked rect.auto-picked {
+  stroke: var(--blue);
+  stroke-width: 0.3;
+  stroke-dasharray: none;
+}
+
 /*
  * 글자 도구의 파란색 계열.
  * 그리기 도구는 초록(#2f6f4f)이라 커서만 보고도 지금 어느 도구인지 구분된다.
@@ -4941,6 +4949,9 @@ footer b {
   padding: 3px 10px;
   border-radius: 999px;
 }
+.scope-changed {
+  color: var(--accent);
+}
 
 /* 토성 홈 */
 .home {
@@ -5358,4 +5369,83 @@ button.danger:hover {
 .tab-bar .tab {
   width: auto;
   text-align: left;
+}
+
+/* 날짜로 펼치기 / 기간(AutoField 패널 아래). 패널의 다른 칸과 같은 높이·글자로 맞춘다
+   (디자인.md 4: 패널·막대·말풍선은 같은 라벨·입력 높이). 날짜 칸은 브라우저 기본 모양이
+   달라 직접 맞춘다. */
+.period-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+.period-panel .panel-sub {
+  margin: 0;
+}
+.period-panel .pop-row-field input,
+.period-panel .pop-row-field select {
+  box-sizing: border-box;
+  width: 128px;
+  height: 28px;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+}
+.period-panel .pop-row-field input[type='number'] {
+  width: 56px;
+}
+.period-panel .tool-panel-note {
+  margin: 0;
+}
+.period-summary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.period-panel > button {
+  align-self: flex-start;
+}
+/* 범위 띠·기간 패널의 단추는 글자만 있으면 단추로 안 보인다 — 옅은 알약을 깐다. */
+.scope-note button.ghost,
+.period-panel > button.ghost {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  font-weight: 500;
+}
+.period-panel > button.ghost {
+  background: var(--panel);
+}
+.scope-note button.ghost:hover:not(:disabled),
+.period-panel > button.ghost:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+/* 하단 치수 막대 — 레일 패널이 열려 폭이 좁아지면 글자가 여러 줄로 쪼개졌다(‘펼침면’이
+   세로로). 한 줄을 지키고, 모자라면 왼쪽 정보 글자부터(안내 문구가 먼저) 말줄임으로 줄인다 —
+   오른쪽의 보기·확대 단추는 줄이지 않는다. */
+.editor .editor-foot {
+  overflow: hidden;
+  white-space: nowrap;
+}
+.editor .editor-foot > * {
+  flex-shrink: 0;
+}
+.editor .editor-foot > span {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.editor .editor-foot > .foot-hint {
+  flex-shrink: 100;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
