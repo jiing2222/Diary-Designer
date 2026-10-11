@@ -152,6 +152,7 @@ export function Editor() {
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
   const fieldDraft = useStore((s) => s.fieldDraft);
+  const showToast = useStore((s) => s.showToast);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const [zoom, setZoom] = useState(100);
@@ -736,6 +737,11 @@ export function Editor() {
       if (!box) return;
 
       if (tool === 'field') {
+        // 기준일 없는 D-day는 값이 빈칸이라 놓으면 보이지 않는 칸이 된다 — 먼저 정하게 한다.
+        if (fieldDraft.kind === 'dday' && !fieldDraft.target) {
+          showToast('D-day 기준일을 먼저 정해 주세요(왼쪽 AutoField 패널).');
+          return;
+        }
         // 타이핑 없이 바로 확정한다. 순번은 패널의 ‘이 페이지의 n번째’, ‘찍을 때마다 다음
         // 날짜로’를 켜 두면 하나씩 늘어난다 — 위클리 7칸을 차례로 찍으면 저절로 0~6이 된다.
         // 종류·형식은 AutoField 패널에서 미리 골라둔 것(fieldDraft)을 쓴다.

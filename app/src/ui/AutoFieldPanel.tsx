@@ -114,6 +114,7 @@ export function FieldSettings({
             value={formatMixed ? '' : spec.format}
             preview={(code) => preview({ ...spec, format: code })}
             hint={tile === 'page' ? 'n·nn·nnn 자릿수 · N 전체 장 수' : 'YYYY MM DD · ddd 월 · eee Mon · w 주차 · 글자는 [ ]'}
+            placeholder={tile === 'page' ? 'n / N' : 'YYYY.MM.DD'}
             onCommit={(code) => apply({ format: code })}
           />
         </>
@@ -142,7 +143,11 @@ export function FieldSettings({
               ))}
             </span>
           </PopRow>
-          <div className="period-summary">{preview({ ...spec, kind: 'dday' })}</div>
+          {spec.target ? (
+            <div className="period-summary">{preview({ ...spec, kind: 'dday' })}</div>
+          ) : (
+            <p className="tool-panel-note">기준일을 정하면 칸을 놓을 수 있어요.</p>
+          )}
         </>
       )}
 
@@ -223,11 +228,13 @@ function CodeInput({
   value,
   preview,
   hint,
+  placeholder,
   onCommit,
 }: {
   value: string;
   preview: (code: string) => string;
   hint: string;
+  placeholder: string;
   onCommit: (code: string) => void;
 }) {
   const [draft, setDraft] = useState(value);
@@ -240,7 +247,7 @@ function CodeInput({
         <input
           type="text"
           value={draft}
-          placeholder="YYYY.MM.DD"
+          placeholder={placeholder}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {

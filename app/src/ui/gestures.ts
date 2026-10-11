@@ -399,7 +399,10 @@ export function hitAt(svg: SVGSVGElement | null, objects: DiaryObject[], p: Poin
   }
 
   for (const o of [...objects].reverse()) {
-    if (!isBoxShaped(o) || isLocked(o)) continue;
+    // 자동 필드와 빈 글자는 상자 안 아무 데나 눌러도 고른다 — 값이 빈칸이면(D-day를 비운 칸,
+    // 공백 처리된 날짜 칸) 그려진 글자가 없어 위의 글자 판정으로는 누를 곳이 없다.
+    const emptyOrField = isText(o) && (!!o.field || o.text.trim() === '');
+    if ((!isBoxShaped(o) && !emptyOrField) || isLocked(o)) continue;
     const b = boxOf(o);
     // 이미지는 돌아가 있을 수 있다 — 회전 전 좌표로 되돌려 상자와 견준다.
     const test = toLocal(o, p);
