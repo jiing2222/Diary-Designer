@@ -24,7 +24,7 @@ import {
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm, type Mm } from '../core/units';
-import { newTextStyle, parseFieldText, rotateOf } from '../core/text';
+import { newTextStyle, rotateOf } from '../core/text';
 import {
   useActiveWork,
   useCursor,
@@ -244,9 +244,9 @@ export function Editor() {
     const cur = editingRef.current;
     if (!cur) return;
     // 글자를 안 바꿨으면(자동 필드를 열어봤다가 그대로 닫은 경우 등) 있던
-    // 필드를 그대로 지킨다. 바뀌었으면 ⟨+D0⟩ 같은 패턴이 있는지 새로 본다
-    // — 있으면 자동 필드로, 없으면(지웠으면) 평범한 글자로 확정한다.
-    const field = cur.text === (cur.originalText ?? '') ? cur.field : (parseFieldText(cur.text) ?? undefined);
+    // 필드를 그대로 지킨다. 바뀌었으면 평범한 글자로 확정한다 — 글자에 `<+D0>`를
+    // 쳐서 필드를 만드는 길은 없앴다(세부계획 A4.6 결정 5). 필드는 AutoField 도구로만.
+    const field = cur.text === (cur.originalText ?? '') ? cur.field : undefined;
     commitText({ ...cur.box, text: cur.text, ...cur.style, ...(field ? { field } : {}) }, cur.id);
     setEditing(null);
     editingRef.current = null;

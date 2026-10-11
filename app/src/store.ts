@@ -60,6 +60,7 @@ import {
   removeItem,
   sourcePreview,
   spreadsOf,
+  spreadByDates,
   writeBackground,
   writeObjects,
   type FaceTarget,
@@ -71,8 +72,8 @@ import { diaryFromPreset, nextDiaryColor, type Diary } from './core/diary';
 import { addPoint, mapColors, refOf, setKeyColor, type WorkPalette } from './core/colors';
 import { isTrashed, restoreWork, trashWork, removeFolderFrom, type Folder } from './core/library';
 import { activate, closeTab, emptyTabs, keepExisting, openTab, LIBRARY_TAB, type Tabs } from './core/workspace';
-import { todayFrom } from './core/dated';
-import type { CalendarDate } from './core/dataset';
+import { todayFrom, type Boundary } from './core/dated';
+import type { CalendarDate, DateDataset } from './core/dataset';
 
 /**
  * 앱 상태 하나(CLAUDE.md: zustand 한 개) — 리뉴얼판.
@@ -223,6 +224,11 @@ interface Store extends Settings {
   setView: (view: ViewMode) => void;
   enterSourceEdit: (itemId: string, faceIndex: number) => void;
   exitSourceEdit: () => void;
+  /**
+   * 보통 페이지를 날짜 묶음으로 펼친다(‘날짜로 펼치기’, 세부계획 A4.6). 되돌리기 된다.
+   * 날짜 묶음이면 기간만 바꾼다 — 날짜별 수정은 날짜에 붙어 있어 같은 날짜면 따라간다.
+   */
+  setDatedPeriod: (itemId: string, dataset: DateDataset, boundary: Boundary) => void;
 
   /* ── 바탕·속지 ── */
   patchDotGrid: (p: Partial<DotGrid>) => void;
@@ -760,6 +766,17 @@ export const useStore = create<Store>((set, get) => ({
     set((s) => {
       const work = activeWork(s);
       return work ? setCursor(s, work, { source: null }) : {};
+    }),
+
+  setDatedPeriod: (itemId, dataset, boundary) =>
+    set((s) => {
+      const work = activeWork(s);
+      if (!work) return {};
+      const items = work.items.map((item): WorkItem => {
+        if (item.id !== itemId) return item;
+        return item.kind === 'page' ? spreadByDates(item, dataset, boundary) : { ...item, dataset, boundary };
+      });
+      return commitItems(s, work, items);
     }),
 
   // 바탕은 되돌리기 대상이 아니다(옛 판과 같다 — 고치면 바로 확정).

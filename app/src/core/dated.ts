@@ -81,12 +81,43 @@ export function periodsOf(dataset: Dataset, boundary: Boundary): Period[] {
  * 객체들이 쓰는 가장 큰 오프셋까지 만든다.
  */
 export function todayPeriod(today: CalendarDate, objects: DiaryObject[]): Period {
+  const dates = Array.from({ length: suggestPerPage(objects) }, (_, i) => addDays(today, i));
+  return { key: dateKey(today), dates, month: { year: today.year, month: today.month } };
+}
+
+/**
+ * 한 쪽에 며칠이 드는지 — 놓인 날짜 필드가 쓰는 가장 큰 순번 + 1. 필드가 없으면 1.
+ * 위클리 한 쪽에 7칸(0~6)을 찍었으면 7이다. ‘날짜로 펼치기’가 처음 제안하는 값이다.
+ */
+export function suggestPerPage(objects: DiaryObject[]): number {
   let maxOffset = 0;
   for (const o of objects) {
     if (o.type === 'text' && o.field) maxOffset = Math.max(maxOffset, o.field.offset);
   }
-  const dates = Array.from({ length: maxOffset + 1 }, (_, i) => addDays(today, i));
-  return { key: dateKey(today), dates, month: { year: today.year, month: today.month } };
+  return maxOffset + 1;
+}
+
+/**
+ * 한 번에 펼칠 수 있는 쪽 수의 끝. 편집 화면이 모든 쪽을 그리므로 너무 많으면 멈춘다 —
+ * 데일리 1년(366쪽)은 들어가게 잡았다.
+ */
+export const MAX_DATED_PAGES = 400;
+
+/** 기간 요약 — ‘31장 · 10/1~10/31’을 보여줄 값. 쪽이 없으면 first·last가 null. */
+export function periodSummary(
+  dataset: Dataset,
+  boundary: Boundary,
+): { pages: number; first: CalendarDate | null; last: CalendarDate | null } {
+  // 끝 날짜를 잘못 쳐서(9999년 등) 수백만 날을 세지 않게, 쪽이 넘칠 게 뻔하면 바로 돌려준다.
+  if (dataset.kind === 'date') {
+    const atLeast = Math.ceil(datasetLength(dataset) / Math.max(1, Math.floor(dataset.perPage)));
+    if (atLeast > MAX_DATED_PAGES) return { pages: atLeast, first: null, last: null };
+  }
+  const periods = periodsOf(dataset, boundary);
+  const first = periods[0]?.dates.find((d) => d) ?? null;
+  const lastDates = periods[periods.length - 1]?.dates ?? [];
+  const last = [...lastDates].reverse().find((d) => d) ?? null;
+  return { pages: periods.length, first, last };
 }
 
 /** 오늘 날짜 문자열(`2026-10-11`)을 CalendarDate로. 화면에서 `new Date()`로 만들어 넘긴다. */

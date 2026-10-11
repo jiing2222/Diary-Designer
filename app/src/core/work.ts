@@ -1,6 +1,6 @@
 import { cloneObject, newId, type DiaryObject } from './objects';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
-import type { CalendarDate, Dataset } from './dataset';
+import type { CalendarDate, Dataset, DateDataset } from './dataset';
 import { resolveFieldsWithDates } from './format';
 import { defaultWorkPalette, type WorkPalette } from './colors';
 import {
@@ -127,6 +127,14 @@ export function cloneItem(item: WorkItem): WorkItem {
 
 /* ────────────────────────── 페이지 다루기 ────────────────────────── */
 
+/**
+ * 보통 페이지를 날짜 묶음으로 — ‘날짜로 펼치기’(세부계획 A4.6). 그 페이지가 원본이 되고
+ * 기간의 쪽마다 펼쳐진다. 원본 면은 그대로 옮긴다(id도) — 지금 고른 것이 풀리지 않게.
+ */
+export function spreadByDates(page: PageItem, dataset: DateDataset, boundary: Boundary): DatedItem {
+  return { kind: 'dated', id: newId('dt'), faces: [page.face], dataset, boundary, overrides: {} };
+}
+
 /** `index` 뒤에 넣는다. `index`가 -1이면 맨 앞. */
 export function insertItems(items: WorkItem[], index: number, added: WorkItem[]): WorkItem[] {
   return [...items.slice(0, index + 1), ...added, ...items.slice(index + 1)];
@@ -181,10 +189,19 @@ export interface ResolvedFace {
 }
 
 function fieldIdsOf(objects: DiaryObject[], override?: FaceOverride): string[] {
-  return objects
+  return [...objects, ...(override?.added ?? [])]
     .filter((o) => o.type === 'text' && o.field && !(override && 'text' in (override.props[o.id] ?? {})))
     .filter((o) => !override?.removed.includes(o.id))
     .map((o) => o.id);
+}
+
+/**
+ * 날짜 페이지 하나의 고칠 객체 — 원본에 날짜를 채우고 그 날짜의 수정을 얹은 것.
+ * 그 날짜에만 더한 객체(`added`)는 날짜를 채우지 않은 채다 — 거기 자동 필드가 있으면
+ * `field`가 살아 있어야 고쳐도 자동 필드로 남는다. 보일 때는 `expandWork`가 채운다.
+ */
+function datedEditable(source: Face, dates: (CalendarDate | null)[], override: FaceOverride | undefined): DiaryObject[] {
+  return applyOverride(resolveFieldsWithDates(source.objects, dates), override);
 }
 
 /**
@@ -211,7 +228,6 @@ export function expandWork(work: Pick<Work, 'items'>, today: CalendarDate): Reso
     }
     for (const period of periodsOf(item.dataset, item.boundary)) {
       item.faces.forEach((face, faceIndex) => {
-        const filled = resolveFieldsWithDates(face.objects, period.dates);
         const override = item.overrides[overrideKey(period.key, faceIndex)];
         out.push({
           key: `${item.id}:${period.key}:${faceIndex}`,
@@ -219,7 +235,8 @@ export function expandWork(work: Pick<Work, 'items'>, today: CalendarDate): Reso
           faceId: face.id,
           period: { key: period.key, faceIndex, dates: period.dates },
           background: face.background,
-          objects: applyOverride(filled, override),
+          // 그 날짜에만 더한 자동 필드도 그 날짜로 채운다(원본 쪽은 이미 채워져 field가 없다).
+          objects: resolveFieldsWithDates(datedEditable(face, period.dates, override), period.dates),
           fieldIds: fieldIdsOf(face.objects, override),
           month: period.month,
         });
@@ -285,15 +302,18 @@ function targetItemId(t: FaceTarget): string {
  * - 보통 페이지: 면의 객체 **원본**(자동 필드가 `field`를 지닌 채). 날짜를 채운 것을
  *   고치면 `field`가 빠진 채 저장되어 자동 필드가 평범한 글자로 굳는다.
  * - 원본 편집: 날짜 묶음 원본 면의 객체.
- * - 날짜 페이지: 날짜를 채우고 그 날짜의 수정을 얹은 것 — 보이는 그대로다.
- *   고친 결과는 원본과의 **차이**로 저장된다(`writeObjects`).
+ * - 날짜 페이지: 날짜를 채우고 그 날짜의 수정을 얹은 것 — 보이는 그대로다(그 날짜에만
+ *   더한 자동 필드만 `field`를 지닌 채). 고친 결과는 원본과의 **차이**로 저장된다(`writeObjects`).
  */
 export function editableObjects(work: Pick<Work, 'items'>, target: FaceTarget): DiaryObject[] {
   const item = findItem(work, targetItemId(target));
   if (!item) return [];
   if (item.kind === 'page') return item.face.objects;
   if (target.kind === 'source') return item.faces[target.faceIndex]?.objects ?? [];
-  return target.face.objects;
+  const period = target.face.period;
+  const source = period && item.faces[period.faceIndex];
+  if (!period || !source) return target.face.objects;
+  return datedEditable(source, period.dates, item.overrides[overrideKey(period.key, period.faceIndex)]);
 }
 
 /** 고칠 면의 바탕. 날짜 페이지는 바탕을 따로 갖지 않으므로 원본 면의 바탕이다. */

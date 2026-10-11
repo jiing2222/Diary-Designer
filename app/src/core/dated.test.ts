@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { applyOverride, dateKey, diffOverride, emptyOverride, periodsOf, todayPeriod } from './dated';
+import {
+  applyOverride,
+  dateKey,
+  diffOverride,
+  emptyOverride,
+  MAX_DATED_PAGES,
+  periodsOf,
+  periodSummary,
+  suggestPerPage,
+  todayPeriod,
+} from './dated';
 import type { DateDataset } from './dataset';
 import type { DiaryObject, TextObject } from './objects';
 
@@ -132,5 +142,42 @@ describe('diffOverride — 옛 ‘인쇄하기에서 고친 쪽’ 옮기기', (
 
   it('같으면 빈 수정', () => {
     expect(diffOverride([day], [day])).toEqual(emptyOverride());
+  });
+});
+
+describe('날짜로 펼치기 — 제안과 요약', () => {
+  const field = (id: string, offset: number): TextObject => ({
+    id,
+    type: 'text',
+    x: 0,
+    y: 0,
+    width: 10,
+    height: 5,
+    text: '',
+    field: { offset, format: 'D' },
+  });
+
+  it('한 쪽에 며칠: 가장 큰 순번 + 1, 필드가 없으면 1', () => {
+    expect(suggestPerPage([])).toBe(1);
+    expect(suggestPerPage([field('a', 0), field('b', 6)])).toBe(7);
+  });
+
+  it('10월 데일리는 31장 · 10/1~10/31', () => {
+    const sum = periodSummary(daily('2026-10-01', '2026-10-31'), 'continue');
+    expect(sum.pages).toBe(31);
+    expect(sum.first && dateKey(sum.first)).toBe('2026-10-01');
+    expect(sum.last && dateKey(sum.last)).toBe('2026-10-31');
+  });
+
+  it('마지막 쪽이 덜 차면 마지막 날짜는 실제 날짜', () => {
+    const sum = periodSummary(daily('2026-10-01', '2026-10-09', 7), 'continue');
+    expect(sum.pages).toBe(2);
+    expect(sum.last && dateKey(sum.last)).toBe('2026-10-09');
+  });
+
+  it('끝 날짜를 잘못 쳐도 다 세지 않고 너무 많다고 알린다', () => {
+    const sum = periodSummary(daily('2026-01-01', '9999-12-31'), 'continue');
+    expect(sum.pages).toBeGreaterThan(MAX_DATED_PAGES);
+    expect(sum.first).toBeNull();
   });
 });

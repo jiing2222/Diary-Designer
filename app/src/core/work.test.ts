@@ -18,6 +18,7 @@ import {
   removeItem,
   sheetSideOf,
   spreadsOf,
+  spreadByDates,
   type DatedItem,
   type Face,
   type WorkItem,
@@ -285,5 +286,32 @@ describe('faceLabel', () => {
     expect(faceLabel({}, 2)).toBe('p.3');
     expect(faceLabel({ period: { key: '2026-10-05', faceIndex: 0, dates: [] } }, 0)).toBe('p.1 · 10/5');
     expect(faceLabel({ period: { key: '2027-03', faceIndex: 0, dates: [] } }, 4)).toBe('p.5 · 2027.03');
+  });
+});
+
+describe('날짜로 펼치기', () => {
+  it('보통 페이지가 원본이 되어 기간만큼 펼쳐진다', () => {
+    const page = { kind: 'page' as const, id: 'p1', face: face([dayField('t1')]) };
+    const item = spreadByDates(page, { kind: 'date', perPage: 1, start: '2026-10-01', end: '2026-10-31', step: 'day' }, 'continue');
+    expect(item.faces[0]).toBe(page.face);
+    const out = texts([item]);
+    expect(out).toHaveLength(31);
+    expect(out[4]).toBe('10/5');
+  });
+
+  it('날짜 페이지 하나에만 놓은 자동 필드도 그 날짜로 채워지고, 고칠 때는 자동 필드로 남는다', () => {
+    const added = dayField('t9', 0, 'D');
+    const item = dated({ overrides: { '2026-10-02/0': { ...emptyOverride(), added: [added] } } });
+    const faces = expandWork({ items: [item] }, today);
+    expect((faces[1].objects[1] as TextObject).text).toBe('2');
+    expect(faces[1].fieldIds).toContain('t9');
+    expect(faces[0].objects).toHaveLength(1);
+
+    const target = { kind: 'face' as const, face: faces[1] };
+    const editable = editableObjects({ items: [item] }, target);
+    expect((editable[1] as TextObject).field).toEqual({ offset: 0, format: 'D' });
+    // 그대로 다시 써도 그 날짜에만 더한 자동 필드로 남는다
+    const items = writeObjects({ items: [item] }, target, editable);
+    expect((items[0] as DatedItem).overrides['2026-10-02/0'].added[0]).toMatchObject({ id: 't9', field: { offset: 0, format: 'D' } });
   });
 });

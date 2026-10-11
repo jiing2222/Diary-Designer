@@ -98,14 +98,6 @@ export function fieldCategory(format: string): FieldCategory {
   return 'D';
 }
 
-/** 갈래 글자만 손으로 쳤을 때(예: `⟨+D0⟩`) 대신 쓸 서식. 갈래 안에서 가장 무난한 것을 골랐다. */
-const CATEGORY_DEFAULT_FORMAT: Record<FieldCategory, string> = {
-  D: 'M/D',
-  M: 'M',
-  W: 'W',
-  DW: 'dddd',
-};
-
 /**
  * 자동 필드가 편집 화면에서 보이는 자리표시(설계문서 7장). 진짜 값이 아니다.
  *
@@ -118,26 +110,14 @@ export function fieldPlaceholder(field: { offset: number; format: string }): str
 }
 
 /**
- * 글자 안에서 자동 필드 자리표시 패턴을 찾는다. `<+D0>`(치기 쉬운 홑화살괄호)와
+ * 글자 안에서 자동 필드 자리표시 패턴을 찾는다. 리뉴얼부터 글자에 쳐서 필드를 만들지는
+ * 않지만(세부계획 A4.6 결정 5), 옛 데이터의 `⟨+D0⟩입니다` 같은 글자가 남아 있어 읽기는 한다.
+ * `<+D0>`(치기 쉬운 홑화살괄호)와
  * `⟨+D0⟩`(자리표시가 실제로 쓰는 겹화살괄호) 둘 다 받는다. 긴 갈래(DW)를
  * 먼저 시도해야 한다 — 짧은 갈래(D)부터 보면 "DW0"에서 "D"만 걸리고 남는
  * "W0"가 닫는 괄호 앞의 숫자 자리와 안 맞아 통째로 실패한다.
  */
 export const FIELD_PATTERN = /[<⟨]\+(DW|D|M|W)(\d+)[>⟩]/;
-
-/**
- * 사용자가 손으로 친 자리표시 패턴을 찾아 필드로 되돌린다. 없으면 `null`.
- *
- * 갈래 글자만으로는 어느 서식인지 하나로 정할 수 없다(D 갈래에 서식이
- * 넷이다) — `CATEGORY_DEFAULT_FORMAT`에서 무난한 것 하나를 기본으로
- * 쓴다. 정확한 서식을 원하면 만든 뒤 속성 막대에서 다시 고른다.
- */
-export function parseFieldText(text: string): { offset: number; format: string } | null {
-  const m = text.match(FIELD_PATTERN);
-  if (!m) return null;
-  const category = m[1] as FieldCategory;
-  return { offset: Number(m[2]), format: CATEGORY_DEFAULT_FORMAT[category] };
-}
 
 /**
  * 이 글자에 실제로 보일 문자열.

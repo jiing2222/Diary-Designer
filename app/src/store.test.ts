@@ -193,6 +193,35 @@ describe('편집 — 날짜 묶음', () => {
   });
 });
 
+describe('날짜로 펼치기', () => {
+  beforeEach(() => {
+    s().createWork();
+  });
+  const october = { kind: 'date' as const, perPage: 1, start: '2026-10-01', end: '2026-10-31', step: 'day' as const };
+
+  it('보통 페이지를 펼치면 31장, 되돌리면 한 장', () => {
+    const page = active().items[0];
+    s().setDatedPeriod(page.id, october, 'continue');
+    expect(facesOf(active(), s().today)).toHaveLength(31);
+    s().undo();
+    expect(facesOf(active(), s().today)).toHaveLength(1);
+  });
+
+  it('기간을 바꿔도 10/5의 수정은 10/5에 남는다', () => {
+    setItems([datedItem()]);
+    useStore.setState({ cursors: {} });
+    s().setDatedPeriod('dt1', october, 'continue');
+    s().goTo(2, 'front'); // 펼침면 2 = (10/4 | 10/5)
+    s().select(['t1']);
+    s().styleText({ color: '@A' });
+    s().setDatedPeriod('dt1', { ...october, start: '2026-09-28' }, 'continue');
+    const item = active().items[0] as DatedItem;
+    expect(Object.keys(item.overrides)).toEqual(['2026-10-05/0']);
+    const faces = facesOf(active(), s().today);
+    expect(faces.findIndex((f) => (f.objects[0] as TextObject).color === '@A')).toBe(7); // 9/28부터 8번째
+  });
+});
+
 describe('작업 색상', () => {
   beforeEach(() => {
     s().createWork();

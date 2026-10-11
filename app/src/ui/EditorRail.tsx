@@ -8,6 +8,7 @@ import { BASE_KEYS, keyLabel, nextPointKey, refOf } from '../core/colors';
 import { colorRefUsage } from '../core/work';
 import { todayFrom } from '../core/dated';
 import { PagePanel } from './PagePanel';
+import { PeriodPanel } from './PeriodPanel';
 import { ImageCategoryBody } from './Editor';
 import { ColorDefiner } from './ColorControls';
 import {
@@ -119,6 +120,7 @@ export function EditorRail() {
             <>
               <ToolTiles items={AUTO_TOOLS} />
               <AutoFieldPanel />
+              <PeriodPanel />
             </>
           )}
           {open === 'image' && <ImageCategoryBody />}

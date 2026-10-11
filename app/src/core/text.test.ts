@@ -12,7 +12,6 @@ import {
   lineBaselines,
   lineHeightOf,
   newTextStyle,
-  parseFieldText,
   rotateOf,
   splitLines,
 } from './text';
@@ -144,30 +143,6 @@ describe('자동 필드 자리표시', () => {
   it('패턴이 글자 중간에 있어도 앞뒤 다 남는다', () => {
     const mixed = { ...base, text: '오늘은 ⟨+D0⟩ 입니다', field: { offset: 0, format: 'D' } };
     expect(displayText(mixed)).toBe('오늘은 ⟨+D0⟩ 입니다');
-  });
-});
-
-describe('손으로 친 자동 필드 패턴 인식', () => {
-  it('겹화살괄호·홑화살괄호 둘 다 인식한다', () => {
-    expect(parseFieldText('⟨+D0⟩')).toEqual({ offset: 0, format: 'M/D' });
-    expect(parseFieldText('<+D0>')).toEqual({ offset: 0, format: 'M/D' });
-  });
-
-  it('갈래마다 무난한 서식 하나를 기본으로 쓴다', () => {
-    expect(parseFieldText('<+D3>')).toEqual({ offset: 3, format: 'M/D' });
-    expect(parseFieldText('<+M1>')).toEqual({ offset: 1, format: 'M' });
-    expect(parseFieldText('<+W2>')).toEqual({ offset: 2, format: 'W' });
-    expect(parseFieldText('<+DW5>')).toEqual({ offset: 5, format: 'dddd' });
-  });
-
-  it('앞뒤에 다른 글자가 있어도 패턴만 찾아낸다', () => {
-    expect(parseFieldText('<+D0>입니다')).toEqual({ offset: 0, format: 'M/D' });
-    expect(parseFieldText('오늘은 <+D0>')).toEqual({ offset: 0, format: 'M/D' });
-  });
-
-  it('패턴이 없으면 null이다', () => {
-    expect(parseFieldText('그냥 쓴 글자')).toBeNull();
-    expect(parseFieldText('')).toBeNull();
   });
 });
 
