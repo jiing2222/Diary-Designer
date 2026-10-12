@@ -161,6 +161,13 @@ export function Editor() {
   const redo = useStore((s) => s.redo);
   const [zoom, setZoom] = useState(100);
   const svgRef = useRef<SVGSVGElement>(null);
+  // 지금 펼침면이 바뀌면(한눈에 보기·Print에서 페이지를 골라 오면) 그 자리가 보이게 — 이미 보이면
+  // 움직이지 않는다(block: 'nearest').
+  const cursorNow = useCursor();
+  const spreadKey = `${cursorNow?.spread}:${cursorNow?.view}:${cursorNow?.source?.itemId ?? ''}`;
+  useEffect(() => {
+    svgRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [spreadKey]);
 
   /** 마우스가 붙을 자리 */
   const [hover, setHover] = useState<Point | null>(null);

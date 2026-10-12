@@ -126,6 +126,8 @@ export interface Cursor {
   /** 원본 편집 중이면 그 날짜 묶음과 원본 면 번호(세부계획 A4.6 2-1). */
   source: { itemId: string; faceIndex: number } | null;
   view: ViewMode;
+  /** 이 탭이 Print 화면인가(세부계획 A14: 작업 탭 안에서 Print로 바뀐다). 없으면 편집 화면. */
+  printing?: boolean;
 }
 
 /** 복사한 자리 — 같은 자리에 다시 붙이면 살짝 밀고, 다른 자리면 같은 위치에 붙인다. */
@@ -189,6 +191,8 @@ interface Settings {
   cutStack: boolean;
   cutStackGroup: number;
   unprintable: UnprintableSetting;
+  /** 양면 작업의 빈 뒷면(홀수 페이지의 마지막 장)에 바탕(도트)을 찍을지 — 끄면 빈 종이(세부계획 A14 결정). */
+  blankBackGrid: boolean;
 }
 
 interface Store extends Settings {
@@ -245,6 +249,11 @@ interface Store extends Settings {
   setView: (view: ViewMode) => void;
   enterSourceEdit: (itemId: string, faceIndex: number) => void;
   exitSourceEdit: () => void;
+  /** 이 탭을 Print 화면으로 / 편집 화면으로. */
+  openPrint: () => void;
+  closePrint: () => void;
+  /** 편집 화면의 이 면(0부터)으로 간다 — Print 미리보기에서 속지를 누르면(‘이 페이지 편집’). */
+  goToFace: (faceIndex: number) => void;
   /**
    * 보통 페이지를 날짜 묶음으로 펼친다(‘날짜로 펼치기’, 세부계획 A4.6). 되돌리기 된다.
    * 날짜 묶음이면 기간만 바꾼다 — 날짜별 수정은 날짜에 붙어 있어 같은 날짜면 따라간다.
@@ -562,6 +571,7 @@ export const useStore = create<Store>((set, get) => ({
   cutStack: false,
   cutStackGroup: 0,
   unprintable: { show: true, width: 3 },
+  blankBackGrid: false,
 
   hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [] }) => {
     // 새로고침하면 id 카운터가 0부터 다시 시작한다 — 불러온 id들보다 위로 올려야
@@ -821,6 +831,28 @@ export const useStore = create<Store>((set, get) => ({
       if (!work || !target) return {};
       const items = revertToSource(work, target, s.selectedIds);
       return items === work.items ? {} : commitItems(s, work, items);
+    }),
+
+  openPrint: () =>
+    set((s) => {
+      const work = activeWork(s);
+      return work ? setCursor(s, work, { printing: true, source: null }) : {};
+    }),
+
+  closePrint: () =>
+    set((s) => {
+      const work = activeWork(s);
+      return work ? setCursor(s, work, { printing: false }) : {};
+    }),
+
+  goToFace: (faceIndex) =>
+    set((s) => {
+      const work = activeWork(s);
+      if (!work) return {};
+      const cursor = { ...cursorOf(s, work), source: null, printing: false };
+      const spreads = spreadsFor(work, cursor, facesOf(work, s.today).length);
+      const spread = Math.max(0, spreads.findIndex((sp) => sp.includes(faceIndex)));
+      return setCursor(s, work, { ...cursor, spread, side: spreads[spread]?.[0] === faceIndex ? 'back' : 'front' });
     }),
 
   setDatedPeriod: (itemId, dataset, boundary) =>

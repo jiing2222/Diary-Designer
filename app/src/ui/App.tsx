@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { LIBRARY_TAB } from '../core/workspace';
 import { diarySizeLabel } from '../core/diary';
-import { useActiveDiary, useActiveWork, useStore } from '../store';
+import { useActiveDiary, useActiveWork, useCursor, useStore } from '../store';
 import { boot, startAutosave } from './persist';
 import { Home } from './Home';
 import { Editor } from './Editor';
 import { EditorRail } from './EditorRail';
+import { PrintMain, PrintRail } from './Print';
 import { LIBRARY_RAIL, LibraryMain, type LibrarySection } from './Library';
 import { Modal } from './Modal';
 import { Toast } from './Toast';
@@ -89,7 +90,7 @@ export function App() {
       <div className="frame-body">
         {screen === 'tabs' && (
           <nav className="frame-rail">
-            {onLibrary ? <LibraryRail section={section} setSection={setSection} /> : <EditorRail />}
+            {onLibrary ? <LibraryRail section={section} setSection={setSection} /> : <WorkRail />}
           </nav>
         )}
         <main className={`frame-main ${screen === 'home' ? 'is-home' : ''}`}>
@@ -129,8 +130,16 @@ export function App() {
 /** 작업 탭이 열려 있지만 그 작업이 사라졌으면(휴지통 등) 빈 안내를 보여준다. */
 function EditorArea() {
   const work = useActiveWork();
+  const printing = useCursor()?.printing ?? false;
   if (!work) return <p className="muted center">열린 작업이 없어요.</p>;
-  return <Editor key={work.id} />;
+  // 작업 탭 안에서 편집 ↔ Print가 바뀐다(세부계획 A14 결정 2026-10-06).
+  return printing ? <PrintMain key={work.id} /> : <Editor key={work.id} />;
+}
+
+/** 작업 탭의 레일 — 편집 중이면 편집 도구, Print 중이면 Paper · Sides · Layout · Marks. */
+function WorkRail() {
+  const printing = useCursor()?.printing ?? false;
+  return printing ? <PrintRail /> : <EditorRail />;
 }
 
 function TabBar({ onLibrary, libraryOn, onNew }: { onLibrary: () => void; libraryOn: boolean; onNew: () => void }) {
@@ -169,6 +178,8 @@ function WorkStatus() {
   const work = useActiveWork();
   const diary = useActiveDiary();
   const renameWork = useStore((s) => s.renameWork);
+  const openPrint = useStore((s) => s.openPrint);
+  const printing = useCursor()?.printing ?? false;
   if (!work) return null;
   return (
     <>
@@ -189,9 +200,11 @@ function WorkStatus() {
           {diary.name}
         </span>
       )}
-      <button className="primary print-btn" disabled title="새 Print 화면은 6단계에서 붙어요">
-        Print
-      </button>
+      {!printing && (
+        <button className="primary print-btn" onClick={openPrint} title="종이에 어떻게 찍을지 정하고 PDF로">
+          Print
+        </button>
+      )}
     </>
   );
 }

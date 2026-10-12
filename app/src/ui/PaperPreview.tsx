@@ -9,6 +9,7 @@ import type { Layout } from '../core/layout';
 import type { PaperState, UnprintableSetting } from '../store';
 import type { InsertSetting } from '../core/template';
 import type { Mm } from '../core/units';
+import type { ColorRules } from '../core/colorRules';
 
 /** 칸 하나에 실제로 들어가는 내용. PDF의 SlotContent와 같은 역할이다. */
 export interface PreviewSlotContent {
@@ -17,6 +18,8 @@ export interface PreviewSlotContent {
   objects: DiaryObject[];
   /** 세트형·월간 달력일 때만 쓴다. 이 칸이 가리키는 쪽(달, 0부터). */
   calendarPage?: number;
+  /** 리뉴얼 Print — 이 칸의 달력이 그릴 연도·달(0부터)과 색 규칙(실제 색). 있으면 `calendarPage`보다 먼저. */
+  calendar?: { year: number; page: number; rules?: ColorRules };
   /**
    * "인쇄하기"에서 직접 손봤으면 true(App.tsx가 comboSlotOverrides·
    * pageOverrides를 보고 정한다). 낱장 조합에서 **다른 양식이 배정된
@@ -166,9 +169,10 @@ export function PaperPreview({
                 mode={mode}
                 mirror={mirror}
                 calendarContext={
-                  content.calendarPage !== undefined && calendarYear !== undefined
+                  content.calendar ??
+                  (content.calendarPage !== undefined && calendarYear !== undefined
                     ? { year: calendarYear, page: content.calendarPage }
-                    : undefined
+                    : undefined)
                 }
               />
 

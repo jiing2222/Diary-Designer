@@ -295,6 +295,28 @@ describe('달 모양', () => {
   });
 });
 
+describe('Print 화면', () => {
+  beforeEach(() => {
+    s().createWork();
+  });
+
+  it('열고 닫는다 — 탭마다 따로', () => {
+    s().openPrint();
+    expect(s().cursors[active().id].printing).toBe(true);
+    s().closePrint();
+    expect(s().cursors[active().id].printing).toBe(false);
+  });
+
+  it('속지를 누르면 그 페이지의 편집 화면으로 — 펼침면·쪽을 맞춘다', () => {
+    s().duplicateItemAt(0, 4); // 면 5개: [null,0] [1,2] [3,4]
+    s().openPrint();
+    s().goToFace(3);
+    expect(s().cursors[active().id]).toMatchObject({ printing: false, spread: 2, side: 'back' });
+    s().goToFace(2);
+    expect(s().cursors[active().id]).toMatchObject({ spread: 1, side: 'front' });
+  });
+});
+
 describe('저장한 글자 스타일', () => {
   beforeEach(() => {
     s().createWork();

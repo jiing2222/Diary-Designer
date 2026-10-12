@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cardsForFaces, insertFootprint, parsePageRange, printCards, sheetCount } from './print';
+import { backLayoutOf, cardAt, cardsForFaces, insertFootprint, parsePageRange, printCards, sheetCount } from './print';
+import { computeLayout } from './layout';
 
 describe('속지 한 장 = 앞·뒷면', () => {
   it('양면: 면 0·1이 1장, 홀수면 마지막 뒷면이 빈다', () => {
@@ -44,5 +45,22 @@ describe('용지', () => {
   it('필요한 장수는 올림', () => {
     expect(sheetCount(9, 4)).toBe(3);
     expect(sheetCount(0, 4)).toBe(0);
+  });
+});
+
+describe('칸 배정·뒷면 배치(미리보기와 PDF가 같이 쓴다)', () => {
+  it('차례로: 장마다 칸 수만큼, 마지막 장의 남는 칸은 빈다', () => {
+    expect([0, 1, 2, 3].map((slot) => cardAt(1, slot, 6, 4, { on: false }))).toEqual([4, 5, null, null]);
+  });
+
+  it('겹치기 배치를 켜면 칸마다 연속 구간 — 1장 0번 칸 다음은 2장 0번 칸', () => {
+    expect(cardAt(0, 0, 8, 4, { on: true })).toBe(0);
+    expect(cardAt(1, 0, 8, 4, { on: true })).toBe(1);
+  });
+
+  it('뒷면은 칸 위치를 좌우로 뒤집는다', () => {
+    const layout = computeLayout({ paperWidth: 210, paperHeight: 297, insertWidth: 80, insertHeight: 125, gap: 0, printMargin: 5, allowRotate: false, align: 'topLeft' });
+    const back = backLayoutOf(layout, 210, 297, false);
+    expect(back.slots[0].x).toBeCloseTo(210 - layout.slots[0].x - layout.slots[0].width);
   });
 });

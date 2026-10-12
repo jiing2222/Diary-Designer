@@ -42,16 +42,11 @@ import {
   splitLines,
   valignOf,
 } from '../core/text';
-import { mirrorLayout, turnLayout180, type Layout } from '../core/layout';
+import { type Layout } from '../core/layout';
+import { backLayoutOf, cardAt } from '../core/print';
 import { cropModeForSide, cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
-import {
-  capacityPerSheet,
-  cutStackPage,
-  filledSlots,
-  frontBackFilled,
-  sheetsNeeded,
-} from '../core/template';
+import { capacityPerSheet, frontBackFilled, sheetsNeeded } from '../core/template';
 import { insertSizeOf, placeSlot } from '../core/place';
 import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
 import {
@@ -383,10 +378,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   // 안의 내용까지 함께 도는 일은 배치에 실린 turn180을 보고 placeSlot이 한다 —
   // 그래서 그리는 쪽(drawSide 아래의 draw*)은 아무것도 달라지지 않는다.
   const backLayout = duplex
-    ? (() => {
-        const m = mirrorLayout(input.layout, input.paperWidth, input.paperHeight);
-        return input.backTurn180 ? turnLayout180(m, input.paperWidth, input.paperHeight) : m;
-      })()
+    ? backLayoutOf(input.layout, input.paperWidth, input.paperHeight, !!input.backTurn180)
     : null;
 
   /**
@@ -463,13 +455,9 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
        * 칸마다 cutStackPage가 담당 쪽을 따로 정해준다 — 칸별로 비는 자리가
        * 다를 수 있어 장 단위 컷오프(filled) 대신 칸마다 null인지 본다.
        */
-      const filled = filledSlots(sheet, totalPages, slotsPerSheet);
+      // 칸 배정은 미리보기(ui/Print)와 같은 core/print의 cardAt 하나로.
       const pageFor = (i: number): number | null =>
-        input.cutStack
-          ? cutStackPage(sheet, i, totalPages, slotsPerSheet, input.cutStackGroup)
-          : i < filled
-            ? sheet * slotsPerSheet + i
-            : null;
+        cardAt(sheet, i, totalPages, slotsPerSheet, { on: !!input.cutStack, group: input.cutStackGroup });
 
       const resolveDatasetSlot = (i: number): SlotContent => {
         const p = pageFor(i);

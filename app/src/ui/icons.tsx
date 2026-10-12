@@ -291,3 +291,25 @@ export function PaletteIcon() {
     </svg>
   );
 }
+
+/* ── Print 레일(Paper · Sides · Layout · Marks) — Paper·Layout은 위의 PaperIcon·LayoutIcon ── */
+
+/** Sides — 앞·뒤 두 장이 겹친 모양. */
+export function SidesIcon() {
+  return (
+    <svg {...box24}>
+      <rect x={4} y={6} width={11} height={14} rx={1.5} />
+      <path d="M9 6V4.5A1.5 1.5 0 0 1 10.5 3h8A1.5 1.5 0 0 1 20 4.5v11a1.5 1.5 0 0 1-1.5 1.5H15" />
+    </svg>
+  );
+}
+
+/** Marks — 재단 표시(모서리의 십자). */
+export function MarksIcon() {
+  return (
+    <svg {...box24}>
+      <rect x={7} y={7} width={10} height={10} />
+      <path d="M7 2.5v3M2.5 7h3M17 2.5v3M18.5 7h3M7 18.5v3M2.5 17h3M17 18.5v3M18.5 17h3" />
+    </svg>
+  );
+}

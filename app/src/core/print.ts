@@ -1,4 +1,5 @@
-import { computeLayout, type Align, type Layout } from './layout';
+import { computeLayout, mirrorLayout, turnLayout180, type Align, type Layout } from './layout';
+import { cutStackPage, filledSlots, sheetsNeeded } from './template';
 import type { Mm } from './units';
 
 /**
@@ -62,8 +63,32 @@ export function insertFootprint(insert: { width: Mm; height: Mm }): { width: Mm;
 
 /** 필요한 용지 장수(앞뒤 한 장 = 1장). 속지 수를 한 장의 칸 수로 나눠 올림. */
 export function sheetCount(cardCount: number, slotsPerSheet: number): number {
-  if (slotsPerSheet <= 0) return 0;
-  return Math.ceil(cardCount / slotsPerSheet);
+  return sheetsNeeded(cardCount, slotsPerSheet);
+}
+
+/**
+ * 이 용지(sheet)의 이 칸(slot)에 들어갈 속지 번호. 빈 칸이면 null.
+ * **미리보기(ui/Print)와 PDF(pdf/export)가 이 함수 하나를 쓴다** — 둘이 따로 계산하면 화면에서 본
+ * 칸 배정과 인쇄물이 달라진다. 겹치기 배치(자른 뒤 쌓으면 순서대로)를 켜면 칸마다 연속된 구간을 맡는다.
+ */
+export function cardAt(
+  sheet: number,
+  slot: number,
+  totalCards: number,
+  slotsPerSheet: number,
+  cutStack: { on: boolean; group?: number },
+): number | null {
+  if (cutStack.on) return cutStackPage(sheet, slot, totalCards, slotsPerSheet, cutStack.group);
+  return slot < filledSlots(sheet, totalCards, slotsPerSheet) ? sheet * slotsPerSheet + slot : null;
+}
+
+/**
+ * 뒷면 배치 — 칸 위치를 뒤집고(긴 변으로 넘기는 프린터), 짧은 변으로 넘기는 프린터면 반 바퀴 더
+ * 돌린다(core/layout의 mirrorLayout·turnLayout180). 미리보기와 PDF가 같이 쓴다.
+ */
+export function backLayoutOf(layout: Layout, paperWidth: Mm, paperHeight: Mm, backTurn180: boolean): Layout {
+  const m = mirrorLayout(layout, paperWidth, paperHeight);
+  return backTurn180 ? turnLayout180(m, paperWidth, paperHeight) : m;
 }
 
 /** 용지 — 프리셋 크기와 방향, 프린터가 못 찍는 가장자리. */
