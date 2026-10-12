@@ -86,7 +86,11 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
           value={name}
           maxLength={40}
           onChange={(e) => setName(e.target.value)}
-          onBlur={() => name.trim() && name !== saved.name && patch(saved.id, { name })}
+          onBlur={() => {
+            // 비우고 나가면 원래 이름으로 돌아간다(이름 없는 팔레트는 두지 않는다).
+            if (!name.trim()) setName(saved.name);
+            else if (name !== saved.name) patch(saved.id, { name });
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') e.currentTarget.blur();
           }}
