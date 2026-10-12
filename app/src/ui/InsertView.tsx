@@ -321,7 +321,10 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
   const [, setCoverageVersion] = useState(0);
   useEffect(() => {
     let cancelled = false;
-    const fontIds = new Set<string | undefined>([undefined, ...objects.map((t) => t.font)]);
+    // 실제로 그리는 글꼴만(등록소에 없는 글꼴은 기본 글꼴로 그린다). 등록 글꼴이 늦게 다시
+    // 등록되면(userFonts가 바뀌면) 다시 읽는다.
+    const drawn = (id: string | undefined) => (id && userFonts.some((f) => f.id === id) ? id : undefined);
+    const fontIds = new Set<string | undefined>([undefined, ...objects.map((t) => drawn(t.font))]);
     for (const id of fontIds) {
       if (cachedCoverageFont(id)) continue;
       ensureCoverageFont(id)
@@ -334,7 +337,7 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
     return () => {
       cancelled = true;
     };
-  }, [objects]);
+  }, [objects, userFonts]);
   return (
     /*
      * 커닝과 합자를 끈다.

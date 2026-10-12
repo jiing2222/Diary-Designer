@@ -43,6 +43,15 @@ export function ensureCoverageFont(fontId: string | undefined): Promise<Font | u
   if (!hit && !cache.has(key)) {
     hit = parse(key);
     loading.set(key, hit);
+    // 파일이 아직 없었으면(새로고침 뒤 등록 글꼴을 다시 등록하기 전 등) 실패를 기억하지 않는다 —
+    // 기억하면 나중에 등록돼도 다시 읽지 않아 측정·밑줄이 화면에서만 빠진다.
+    // 받다가 실패한 것(네트워크 등)도 다음에 다시 받게 지운다.
+    hit.then(
+      (font) => {
+        if (!font) loading.delete(key);
+      },
+      () => loading.delete(key),
+    );
   }
   return hit ?? Promise.resolve(cache.get(key));
 }
