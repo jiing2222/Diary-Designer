@@ -355,7 +355,10 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
       {objects.map((t) => {
         const size = sizeOf(t);
         const align = alignOf(t);
-        const coverage = cachedCoverageFont(t.font);
+        // 실제로 그리는 글꼴로 잰다 — 등록 글꼴이 새로고침 뒤 사라졌으면 기본 글꼴로 그리므로(familyOf)
+        // 재는 것도 기본 글꼴로. PDF도 같은 규칙이다(pdf/export의 fontFor·coverageFontFor).
+        const drawnFont = t.font && userFonts.some((f) => f.id === t.font) ? t.font : undefined;
+        const coverage = cachedCoverageFont(drawnFont);
         const lines = splitLines(displayText(t)).map((line) =>
           coverage ? sanitizeForFont(line, coverage) : line,
         );

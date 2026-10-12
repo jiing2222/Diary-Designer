@@ -1129,6 +1129,21 @@ describe('세트형 — 데이터셋', () => {
       expect(by).toBeCloseTo(5);
     });
 
+    it('굵게·기울임·밑줄을 함께 켠 세운 글자도 회전 배치에서 안전하게 그려진다 — 상태가 짝지어 닫힌다', async () => {
+      const bytes = await buildPdf({
+        ...base,
+        layout: { ...base.layout, rotated: true },
+        dotGrid: noGrid,
+        fontBytes: realFont,
+        objects: [text({ bold: true, italic: true, underline: true, strike: true, rotate: 90, letterSpacing: 0.3 })],
+      });
+      const streams = (await pageStreams(bytes)).join('\n');
+      // 그래픽 상태 저장(q)과 복원(Q)의 수가 같아야 한다 — 하나라도 안 닫히면 뒤에 그리는 것이 모두 기운다.
+      expect((streams.match(/\bq\b/g) ?? []).length).toBe((streams.match(/\bQ\b/g) ?? []).length);
+      expect(streams).toMatch(/\bcm\b/);
+      expect(streams).toMatch(/\b2 Tr\b/);
+    });
+
     it('밑줄·취소선은 화면과 같은 굵기의 선으로 그린다', async () => {
       const bytes = await buildPdf({
         ...base,
