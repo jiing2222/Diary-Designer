@@ -101,3 +101,17 @@ export function topMargin(insertHeight: Mm, punch: PunchSetting): Mm {
   if (centers.length === 0) return 0;
   return centers[0] - punch.markSize / 2;
 }
+
+/**
+ * 구멍 표시들(중심·반지름) — 화면 안내(ui/PunchGuide)와 인쇄되는 타공 표시(pdf/export)가 같이 쓴다.
+ * 뒷면이면(`mirror`) 오른쪽에 온다. 지름은 `markSize`(Page → Punch에서 3~6mm, 기능후보 9).
+ */
+export function holeMarks(
+  insertWidth: Mm,
+  insertHeight: Mm,
+  punch: PunchSetting,
+  mirror = false,
+): { cx: Mm; cy: Mm; r: Mm }[] {
+  const cx = holeCenterX(punch, insertWidth, mirror);
+  return holeCentersY(insertHeight, punch).map((cy) => ({ cx, cy, r: punch.markSize / 2 }));
+}

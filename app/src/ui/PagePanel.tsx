@@ -144,6 +144,9 @@ function PunchGroup() {
       <Row label="안전영역">
         <Num value={punch.safeZoneWidth} onChange={(safeZoneWidth) => patchPunch({ safeZoneWidth })} />
       </Row>
+      <Row label="구멍 지름" hint="타공기 구멍 크기. 화면 안내와, PDF를 만들 때 고르면 인쇄되는 타공 표시에 쓰여요">
+        <Num value={punch.markSize} min={3} max={6} step={0.5} onChange={(markSize) => patchPunch({ markSize })} />
+      </Row>
       <PunchReadout />
     </>
   );

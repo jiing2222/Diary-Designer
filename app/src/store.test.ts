@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { facesOf, targetOf, useStore } from './store';
+import { facesOf, savedPrintSettingsOf, targetOf, useStore } from './store';
 import { MAX_TABS, LIBRARY_TAB } from './core/workspace';
 import { emptyOverride } from './core/dated';
 import type { DatedItem, PageItem, Work } from './core/work';
@@ -314,6 +314,20 @@ describe('Print 화면', () => {
     expect(s().cursors[active().id]).toMatchObject({ printing: false, spread: 2, side: 'back' });
     s().goToFace(2);
     expect(s().cursors[active().id]).toMatchObject({ spread: 1, side: 'front' });
+  });
+});
+
+describe('인쇄 설정 저장', () => {
+  it('저장할 것만 꺼내고, 불러올 때 아는 키만 받는다', () => {
+    useStore.setState({ gap: 3, exportChoice: { grid: false, punch: true } });
+    const saved = savedPrintSettingsOf(s());
+    expect(saved).toMatchObject({ gap: 3, exportChoice: { grid: false, punch: true } });
+    expect(saved).not.toHaveProperty('printRange');
+    useStore.setState(initial, true);
+    s().hydrate({ works: [], diaries: [], folders: [], print: { ...saved, nope: 1 } as never });
+    expect(s().gap).toBe(3);
+    expect(s().exportChoice).toEqual({ grid: false, punch: true });
+    expect(s()).not.toHaveProperty('nope');
   });
 });
 

@@ -44,6 +44,7 @@ import {
 } from '../core/text';
 import { type Layout } from '../core/layout';
 import { backLayoutOf, cardAt } from '../core/print';
+import { holeMarks, type PunchSetting } from '../core/punch';
 import { cropModeForSide, cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import { capacityPerSheet, frontBackFilled, sheetsNeeded } from '../core/template';
@@ -71,6 +72,8 @@ import {
   RULER_COLOR,
   RULER_WIDTH,
   TEXT_COLOR,
+  PUNCH_MARK_COLOR,
+  PUNCH_MARK_WIDTH,
   hexToRgb,
 } from '../core/style';
 import {
@@ -120,6 +123,8 @@ export interface SlotContent {
    * 없으면 옛 달력 세트처럼 `calendarYear` + 칸의 쪽 번호로 정한다.
    */
   month?: { year: number; month: number };
+  /** 타공 표시를 찍을 때만 — 이 칸 속지의 구멍 설정(core/punch의 holeMarks로 자리를 정한다). */
+  punch?: PunchSetting;
 }
 
 export interface ExportInput {
@@ -244,6 +249,11 @@ export interface ExportInput {
   cutStack?: boolean;
   /** 겹치기 배치에서 몇 장을 한 무더기로 볼지. 정하지 않으면 전체가 한 무더기다. */
   cutStackGroup?: number;
+  /**
+   * 출력 면 — 수동 양면 인쇄용(세부계획 A14 결정). `front`면 앞면 쪽만, `back`이면 뒷면 쪽만 만든다.
+   * 정하지 않으면 둘 다(양면일 때).
+   */
+  sides?: 'both' | 'front' | 'back';
 }
 
 /** 완전히 빈 칸. 반복 인쇄에서 마지막 장의 남는 칸에 쓴다. */
@@ -274,6 +284,7 @@ const RULER = color(RULER_COLOR);
 const DOT = color(CONTENT_COLOR.dot);
 const GRID_LINE = color(CONTENT_COLOR.line);
 const TEXT = color(TEXT_COLOR);
+const PUNCH_MARK = color(PUNCH_MARK_COLOR);
 
 export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -402,9 +413,10 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
      */
     pageFor: ((i: number) => number | null) | null,
   ) {
-    // 층 순서가 화면과 같아야 한다. 도트 → 선 → 도형 → 체크박스 → 달 → 이미지 → 글자.
+    // 층 순서가 화면과 같아야 한다. 도트 → (타공 표시) → 선 → 도형 → 체크박스 → 달 → 이미지 → 글자.
     // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
     drawDotGrid(page, layout, resolveForSheet, flipY, mirror);
+    drawPunchMarks(page, layout, resolveForSheet, flipY, mirror);
     drawObjects(page, layout, resolveForSheet, flipY);
     drawShapes(page, layout, resolveForSheet, flipY);
     drawCheckboxes(page, layout, resolveForSheet, flipY);
@@ -442,9 +454,10 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     }
   }
 
-  for (let sheet = 0; sheet < sheets; sheet++) {
-    const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
+  const wantFront = input.sides !== 'back';
+  const wantBack = input.sides !== 'front';
 
+  for (let sheet = 0; sheet < sheets; sheet++) {
     if (datasetMode) {
       /*
        * 세트형 — 칸 하나가 한 쪽. 앞·뒤가 같은 쪽 번호를 가리키므로(위의 sheets
@@ -463,9 +476,12 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
         const p = pageFor(i);
         return p === null ? BLANK_SLOT : (input.datasetOverrides!.get(p) ?? BLANK_SLOT);
       };
-      drawSide(page, input.layout, resolveDatasetSlot, false, pageFor);
+      if (wantFront) {
+        const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
+        drawSide(page, input.layout, resolveDatasetSlot, false, pageFor);
+      }
 
-      if (duplex && backLayout) {
+      if (duplex && backLayout && wantBack) {
         const backPage = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
         const resolveDatasetBack = (i: number): SlotContent => {
           const p = pageFor(i);
@@ -477,6 +493,8 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
       }
       continue;
     }
+
+    const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
 
     // 이 장에서 앞·뒤 각각 실제로 채울 칸 수. totalSlots가 없으면 언제나 전부다.
     // 마지막 장만 모자랄 수 있고, 그 나머지 칸은 완전히 비운다. 화면 미리보기와
@@ -1111,6 +1129,35 @@ function drawMoons(page: PDFPage, layout: Layout, resolveSlot: (i: number) => Sl
       const lit = moonLitPath(o.phase!, cx, cy, r);
       if (lit) page.drawSvgPath(lit, { ...at, color: c });
       page.drawSvgPath(moonOutlinePath(cx, cy, r), { ...at, borderColor: c, borderWidth: strokeWidthOf(o) });
+    }
+  });
+}
+
+/**
+ * 타공 표시(리뉴얼 6단계, 기능후보 9) — 칸 내용에 구멍 설정이 실려 있을 때만 구멍 자리에 얇은 원을
+ * 찍는다. 자리는 화면 안내(ui/PunchGuide)와 같은 core/punch의 holeMarks. 뒷면이면 오른쪽.
+ */
+function drawPunchMarks(
+  page: PDFPage,
+  layout: Layout,
+  resolveSlot: (i: number) => SlotContent,
+  flipY: (y: Mm) => Mm,
+  mirror: boolean,
+) {
+  layout.slots.forEach((slot, i) => {
+    const punch = resolveSlot(i).punch;
+    if (!punch) return;
+    const insert = insertSizeOf(slot, layout.rotated);
+    const place = placeSlot(slot, layout.rotated, layout.turn180);
+    for (const h of holeMarks(insert.width, insert.height, punch, mirror)) {
+      const c = place.map(h.cx, h.cy);
+      page.drawCircle({
+        x: mmToPt(c.x),
+        y: mmToPt(flipY(c.y)),
+        size: mmToPt(h.r),
+        borderColor: PUNCH_MARK,
+        borderWidth: mmToPt(PUNCH_MARK_WIDTH),
+      });
     }
   });
 }

@@ -29,6 +29,14 @@ export interface WorkPrintSettings {
   cutStackGroup: number;
   /** 양면 작업의 빈 뒷면(홀수 페이지의 마지막 장)에 앞면과 같은 바탕(도트)을 찍을지 — 끄면 빈 종이(세부계획 A14 결정). */
   blankBackGrid: boolean;
+  /** 출력 면 — 수동 양면 인쇄용(앞면만 / 뒷면만 / 둘 다). */
+  sides: 'both' | 'front' | 'back';
+  /**
+   * PDF 전 확인 창에서 고른 것(기능후보 9, 세부계획 A14). 격자를 끄면 모든 면의 바탕을 찍지 않고,
+   * 켜면 면마다 정한 대로(Page → Background의 인쇄). 타공 표시를 켜면 구멍 자리에 얇은 원을 찍는다.
+   */
+  printGrid: boolean;
+  printPunch: boolean;
 }
 
 /** 이번에 찍을 속지들 — 고른 페이지(면 번호)가 있으면 그것이 든 속지만. */
@@ -45,11 +53,14 @@ export function workExportInput(
   files: Pick<ExportInput, 'fontBytes' | 'userFonts' | 'userImages'> = {},
 ): ExportInput {
   const cards = cardsToPrint(work, faces.length, pickedFaces);
+  const grid = (g: ResolvedFace['background']) => (settings.printGrid ? g : { ...g, print: false });
+  const punch = settings.printPunch ? diary.punch : undefined;
   const content = (face: ResolvedFace): SlotContent => ({
-    dotGrid: face.background,
+    dotGrid: grid(face.background),
     objects: resolveObjectColors(face.objects, work.palette),
     safeZoneWidth: diary.punch.safeZoneWidth,
     month: face.month,
+    punch,
   });
 
   const fronts = new Map<number, SlotContent>();
@@ -60,7 +71,7 @@ export function workExportInput(
     if (card.back !== null) backs.set(i, content(faces[card.back]));
     else if (work.duplex && settings.blankBackGrid) {
       // 빈 뒷면에 바탕만 — 앞면과 같은 도트·격자, 글자·그림은 없다.
-      backs.set(i, { dotGrid: front.background, objects: [], safeZoneWidth: diary.punch.safeZoneWidth });
+      backs.set(i, { dotGrid: grid(front.background), objects: [], safeZoneWidth: diary.punch.safeZoneWidth, punch });
     }
   });
 
@@ -84,6 +95,7 @@ export function workExportInput(
     showRuler: settings.showRuler,
     cutStack: settings.cutStack,
     cutStackGroup: settings.cutStackGroup || undefined,
+    sides: work.duplex ? settings.sides : 'front',
     colorRules: resolveRuleColors(work.colorRules, work.palette),
     ...files,
   };

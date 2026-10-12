@@ -224,3 +224,10 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } {
     b: (n & 0xff) / 255,
   };
 }
+
+/**
+ * 인쇄되는 타공 표시(리뉴얼 6단계, 기능후보 9) — PDF를 만들 때 확인 창에서 고르면 구멍 자리에
+ * 얇은 원을 찍는다. 타공기를 맞출 때 보는 표시라 옅게. **인쇄해봐야 아는 값.**
+ */
+export const PUNCH_MARK_COLOR = '#b5b5b5';
+export const PUNCH_MARK_WIDTH: Mm = 0.15;

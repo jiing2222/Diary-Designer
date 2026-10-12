@@ -5738,3 +5738,34 @@ button.danger:hover {
   height: 28px;
   border-radius: 6px;
 }
+.print-bar-gap {
+  flex: 1;
+}
+.print-panel .range-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 28px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+}
+.tool-panel-note.warn {
+  color: #b5533c;
+}
+.export-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 300px;
+}
+.export-dialog .tool-panel-note {
+  margin: 0 0 6px 22px;
+}
+.export-summary {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}

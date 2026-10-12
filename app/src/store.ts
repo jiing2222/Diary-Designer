@@ -193,6 +193,12 @@ interface Settings {
   unprintable: UnprintableSetting;
   /** 양면 작업의 빈 뒷면(홀수 페이지의 마지막 장)에 바탕(도트)을 찍을지 — 끄면 빈 종이(세부계획 A14 결정). */
   blankBackGrid: boolean;
+  /** 출력 면 — 수동 양면 인쇄용(Marks). */
+  printSides: 'both' | 'front' | 'back';
+  /** 출력 범위(Paper) — 전체 / 페이지 선택(`1-5, 8`). 작업마다가 아니라 지금 Print에 쓰는 값. */
+  printRange: { mode: 'all' | 'pick'; text: string };
+  /** PDF 전 확인 창에서 지난번에 고른 것 — 다음에 미리 체크해 둔다(기능후보 9). 미리보기도 이대로 그린다. */
+  exportChoice: { grid: boolean; punch: boolean };
 }
 
 interface Store extends Settings {
@@ -204,6 +210,8 @@ interface Store extends Settings {
     tabs?: Tabs;
     defaultDiaryId?: string | null;
     textStyles?: SavedTextStyle[];
+    /** 저장해 둔 인쇄 설정(용지·배치·표시·확인 창의 선택). */
+    print?: Partial<SavedPrintSettings>;
   }) => void;
   setToday: (iso: string) => void;
 
@@ -341,6 +349,40 @@ interface Store extends Settings {
   patchPaper: (p: Partial<PaperState>) => void;
   patch: (p: Partial<Settings>) => void;
   patchUnprintable: (p: Partial<UnprintableSetting>) => void;
+}
+
+/* ────────────────────────── 인쇄 설정 저장 ────────────────────────── */
+
+/** 앱 설정과 함께 저장하는 인쇄 설정 — 다음에 열어도 용지·배치·확인 창의 선택이 그대로다. */
+export const SAVED_PRINT_KEYS = [
+  'paper',
+  'gap',
+  'allowRotate',
+  'align',
+  'cropMark',
+  'cropFrontOnly',
+  'showRuler',
+  'backTurn180',
+  'cutStack',
+  'cutStackGroup',
+  'unprintable',
+  'blankBackGrid',
+  'printSides',
+  'exportChoice',
+] as const;
+export type SavedPrintSettings = Pick<Settings, (typeof SAVED_PRINT_KEYS)[number]>;
+
+/** 저장된 인쇄 설정에서 아는 키만(옛 값·모르는 키는 버린다). */
+function pickPrintSettings(saved: Partial<SavedPrintSettings>): Partial<SavedPrintSettings> {
+  const out: Record<string, unknown> = {};
+  for (const key of SAVED_PRINT_KEYS) if (saved[key] !== undefined) out[key] = saved[key];
+  return out as Partial<SavedPrintSettings>;
+}
+
+export function savedPrintSettingsOf(s: Settings): SavedPrintSettings {
+  const out: Record<string, unknown> = {};
+  for (const key of SAVED_PRINT_KEYS) out[key] = s[key];
+  return out as SavedPrintSettings;
 }
 
 /* ────────────────────────── 지금 탭·지금 면 ────────────────────────── */
@@ -572,8 +614,11 @@ export const useStore = create<Store>((set, get) => ({
   cutStackGroup: 0,
   unprintable: { show: true, width: 3 },
   blankBackGrid: false,
+  printSides: 'both',
+  printRange: { mode: 'all', text: '' },
+  exportChoice: { grid: true, punch: false },
 
-  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [] }) => {
+  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [], print = {} }) => {
     // 새로고침하면 id 카운터가 0부터 다시 시작한다 — 불러온 id들보다 위로 올려야
     // 새로 만드는 것이 불러온 것과 겹치지 않는다(옛 판 loadProject와 같은 이유).
     ensureIdCounterAbove([
@@ -592,6 +637,7 @@ export const useStore = create<Store>((set, get) => ({
       histories: {},
       cursors: {},
       textStyles,
+      ...pickPrintSettings(print),
       ready: true,
     });
   },

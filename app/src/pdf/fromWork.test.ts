@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { PDFDocument } from 'pdf-lib';
+import { inflateSync } from 'node:zlib';
+import { Buffer } from 'node:buffer';
 import { buildPdf } from './export';
 import { workExportInput, type WorkPrintSettings } from './fromWork';
 import { expandWork, newPage, newWork, type DatedItem, type Work } from '../core/work';
@@ -24,6 +26,9 @@ const settings: WorkPrintSettings = {
   cutStack: false,
   cutStackGroup: 0,
   blankBackGrid: false,
+  sides: 'both',
+  printGrid: true,
+  printPunch: false,
 };
 
 function workWith(pageCount: number, duplex = true): Work {
@@ -97,3 +102,48 @@ describe('작업 → PDF 재료', () => {
     expect(doc.getPageCount()).toBe(2); // 칸 하나 → 달마다 한 장
   });
 });
+
+describe('PDF 전 확인 창의 선택·출력 면', () => {
+  it('격자를 끄면 모든 면의 바탕을 찍지 않는다, 타공 표시를 켜면 다이어리의 구멍 설정이 실린다', () => {
+    const work = workWith(2);
+    const input = workExportInput(work, diary, expandWork(work, today), { ...settings, printGrid: false, printPunch: true }, null);
+    expect(input.datasetOverrides?.get(0)?.dotGrid.print).toBe(false);
+    expect(input.datasetOverrides?.get(0)?.punch).toEqual(diary.punch);
+  });
+
+  it('출력 면 — 뒷면만이면 뒷면 쪽만 나온다', async () => {
+    const work = workWith(16);
+    const both = await PDFDocument.load(await buildPdf(workExportInput(work, diary, expandWork(work, today), settings, null)));
+    const backOnly = await PDFDocument.load(
+      await buildPdf(workExportInput(work, diary, expandWork(work, today), { ...settings, sides: 'back' }, null)),
+    );
+    expect(backOnly.getPageCount()).toBe(both.getPageCount() / 2);
+  });
+
+  it('타공 표시는 구멍마다 원 하나 — 칸마다 구멍 수만큼', async () => {
+    const work = workWith(1, false);
+    const input = workExportInput(work, diary, expandWork(work, today), { ...settings, printPunch: true, printGrid: false }, null);
+    const bytes = await buildPdf({ ...input, layout: { ...input.layout, slots: input.layout.slots.slice(0, 1), count: 1 } });
+    const doc = await PDFDocument.load(bytes);
+    const raw = doc.getPages()[0].node.Contents();
+    expect(raw).toBeDefined();
+    // 구멍 테두리 굵기(0.15mm → pt)로 그린 선의 수 = 구멍 수
+    const widths = contentWidths(bytes);
+    expect(widths.filter((w) => Math.abs(w - 0.15 * (72 / 25.4)) < 1e-3).length).toBe(diary.punch.holeCount);
+  });
+});
+
+/** 내용 스트림의 선 굵기(w) 값들 — pdf/export.test의 같은 이름 함수와 같다. */
+function contentWidths(bytes: Uint8Array): number[] {
+  const text = Buffer.from(bytes).toString('latin1');
+  const out: number[] = [];
+  for (const m of text.matchAll(/stream\r?\n([\s\S]*?)endstream/g)) {
+    try {
+      const inflated = inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1');
+      for (const w of inflated.matchAll(/([\d.]+) w\b/g)) out.push(Number(w[1]));
+    } catch {
+      // 압축이 아닌 스트림은 건너뛴다.
+    }
+  }
+  return out;
+}

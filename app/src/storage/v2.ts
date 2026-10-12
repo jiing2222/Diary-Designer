@@ -110,6 +110,8 @@ export interface V2Meta {
   defaultDiaryId?: string | null;
   /** 저장한 글자 스타일 — 모든 작업 공통(core/textStyles). */
   textStyles?: SavedTextStyle[];
+  /** 인쇄 설정(용지·배치·표시·PDF 전 확인 창의 선택) — store의 SAVED_PRINT_KEYS. */
+  print?: Record<string, unknown>;
 }
 
 const META_KEY = 'meta';

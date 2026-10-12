@@ -1,4 +1,4 @@
-import { holeCenterX, holeCentersY, type PunchSetting } from '../core/punch';
+import { holeCenterX, holeMarks, type PunchSetting } from '../core/punch';
 import type { Mm } from '../core/units';
 
 /**
@@ -39,8 +39,8 @@ export function PunchGuide({
       <rect x={zoneX} y={0} width={punch.safeZoneWidth} height={height} className="safe-zone" />
       <line x1={edgeX} y1={0} x2={edgeX} y2={height} className="safe-zone-edge" />
       <line x1={cx} y1={0} x2={cx} y2={height} className="logo-line" />
-      {holeCentersY(height, punch).map((cy, i) => (
-        <circle key={i} cx={cx} cy={cy} r={punch.markSize / 2} className="hole" />
+      {holeMarks(width, height, punch, mirror).map((h, i) => (
+        <circle key={i} cx={h.cx} cy={h.cy} r={h.r} className="hole" />
       ))}
     </g>
   );

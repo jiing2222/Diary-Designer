@@ -1,4 +1,4 @@
-import { useStore } from '../store';
+import { savedPrintSettingsOf, useStore } from '../store';
 import {
   deleteFolder,
   deleteWork,
@@ -51,6 +51,7 @@ export async function boot(): Promise<{ skippedNotebooks: string[] }> {
     tabs: meta.tabs,
     defaultDiaryId: meta.defaultDiaryId,
     textStyles: meta.textStyles,
+    print: meta.print,
   });
   remember(useStore.getState());
 
@@ -84,6 +85,7 @@ function metaOf(s: State): V2Meta {
     fonts: s.userFonts.map((f) => ({ id: f.id, name: f.name })),
     images: s.userImages.map((i) => ({ id: i.id, name: i.name })),
     textStyles: s.textStyles,
+    print: savedPrintSettingsOf(s),
   };
 }
 

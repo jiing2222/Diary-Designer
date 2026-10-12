@@ -1,9 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useActiveDiary, useActiveWork, useFaces, useInsert, useStore } from '../store';
-import { backLayoutOf, cardAt, paperSize, sheetCount } from '../core/print';
+import { backLayoutOf, cardAt, paperSize, parsePageRange, sheetCount } from '../core/print';
 import { cropModeForSide, type CropMode } from '../core/crop';
 import { PAPER_PRESETS } from '../core/presets';
 import { cardsToPrint, workExportInput, type WorkPrintSettings } from '../pdf/fromWork';
+import { buildPdf, downloadPdf, type ExportInput } from '../pdf/export';
+import { loadBodyFont } from '../fonts/load';
+import { fontBytes } from '../fonts/registry';
+import { imageBytes, imageKind } from '../images/registry';
+import { Modal } from './Modal';
 import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
 import { Check, Num, Row } from './PagePanel';
 import { LayoutIcon, MarksIcon, PaperIcon, SidesIcon } from './icons';
@@ -40,9 +45,27 @@ function usePrintSettings(): WorkPrintSettings {
   const cutStack = useStore((s) => s.cutStack);
   const cutStackGroup = useStore((s) => s.cutStackGroup);
   const blankBackGrid = useStore((s) => s.blankBackGrid);
+  const sides = useStore((s) => s.printSides);
+  const choice = useStore((s) => s.exportChoice);
   return useMemo(
-    () => ({ paper, gap, allowRotate, align, cropMark, cropFrontOnly, showRuler, backTurn180, cutStack, cutStackGroup, blankBackGrid }),
-    [paper, gap, allowRotate, align, cropMark, cropFrontOnly, showRuler, backTurn180, cutStack, cutStackGroup, blankBackGrid],
+    () => ({
+      paper,
+      gap,
+      allowRotate,
+      align,
+      cropMark,
+      cropFrontOnly,
+      showRuler,
+      backTurn180,
+      cutStack,
+      cutStackGroup,
+      blankBackGrid,
+      sides,
+      // 미리보기도 PDF 전 확인 창에서 지난번에 고른 대로 그린다 — 화면에서 본 대로 인쇄된다.
+      printGrid: choice.grid,
+      printPunch: choice.punch,
+    }),
+    [paper, gap, allowRotate, align, cropMark, cropFrontOnly, showRuler, backTurn180, cutStack, cutStackGroup, blankBackGrid, sides, choice],
   );
 }
 
@@ -52,14 +75,23 @@ function usePrintJob() {
   const diary = useActiveDiary();
   const faces = useFaces();
   const settings = usePrintSettings();
+  const range = useStore((s) => s.printRange);
   return useMemo(() => {
     if (!work || !diary) return null;
-    const input = workExportInput(work, diary, faces, settings, null);
+    // 출력 범위 — 페이지 선택이면 고른 페이지가 든 속지만(양면이면 앞·뒤 함께). 못 읽으면 전체로 보이고 PDF는 막는다.
+    const parsed = range.mode === 'pick' ? parsePageRange(range.text, faces.length) : null;
+    const picked = parsed && 'faces' in parsed ? parsed.faces : null;
+    const rangeError = parsed && 'error' in parsed ? parsed.error : range.mode === 'pick' && picked?.length === 0 ? '' : null;
+    const input = workExportInput(work, diary, faces, settings, rangeError === null ? picked : null);
     const slots = input.layout.slots.length;
     const cards = input.datasetPages ?? 0;
     return {
       // 속지 번호 → 앞·뒤 면 번호(PDF 재료와 같은 함수) — 미리보기에서 속지를 누르면 그 페이지로 간다.
-      printed: cardsToPrint(work, faces.length, null),
+      printed: cardsToPrint(work, faces.length, rangeError === null ? picked : null),
+      pickedCount: rangeError === null && picked ? picked.length : faces.length,
+      /** 고른 페이지(면 번호) — 전체면 null. PDF를 만들 때 미리보기와 같은 범위로. */
+      pickedFaces: rangeError === null ? picked : null,
+      rangeError,
       work,
       diary,
       faces,
@@ -70,7 +102,7 @@ function usePrintJob() {
       sheets: sheetCount(cards, slots),
       backLayout: backLayoutOf(input.layout, input.paperWidth, input.paperHeight, settings.backTurn180),
     };
-  }, [work, diary, faces, settings]);
+  }, [work, diary, faces, settings, range]);
 }
 
 /* ────────────────────────── 레일과 패널 ────────────────────────── */
@@ -113,6 +145,8 @@ function PaperPanel() {
   const patchUnprintable = useStore((s) => s.patchUnprintable);
   return (
     <div className="panel-rows">
+      <RangeSection />
+      <h3 className="panel-sub">용지</h3>
       <Row label="크기">
         <select value={paper.presetId} onChange={(e) => setPaperPreset(e.target.value)}>
           {PAPER_PRESETS.map((p) => (
@@ -150,6 +184,45 @@ function PaperPanel() {
       )}
       <p className="tool-panel-note">인쇄 대화상자에서 ‘실제 크기(100%)’로 찍어야 mm가 맞아요. Marks의 50mm 눈금으로 확인할 수 있어요.</p>
     </div>
+  );
+}
+
+/** 출력 범위 — 전체 / 페이지 선택(`1-5, 8`, 세부계획 A14 결정). */
+function RangeSection() {
+  const range = useStore((s) => s.printRange);
+  const patch = useStore((s) => s.patch);
+  const job = usePrintJob();
+  const set = (p: Partial<typeof range>) => patch({ printRange: { ...range, ...p } });
+  return (
+    <>
+      <h3 className="panel-sub">출력 범위</h3>
+      <span className="seg">
+        <button className={range.mode === 'all' ? 'on' : ''} onClick={() => set({ mode: 'all' })}>
+          전체
+        </button>
+        <button className={range.mode === 'pick' ? 'on' : ''} onClick={() => set({ mode: 'pick' })}>
+          페이지 선택
+        </button>
+      </span>
+      {range.mode === 'pick' && (
+        <>
+          <input
+            className="range-input"
+            type="text"
+            value={range.text}
+            placeholder="예: 1-5, 8"
+            onChange={(e) => set({ text: e.target.value })}
+          />
+          <p className={`tool-panel-note ${job?.rangeError !== null ? 'warn' : ''}`}>
+            {job?.rangeError
+              ? `‘${job.rangeError}’을 알아볼 수 없어요. 1-5, 8처럼 써요.`
+              : job?.rangeError === ''
+                ? '페이지 번호를 써요(편집 화면의 p.1, p.2…).'
+                : `${job?.pickedCount}페이지 · 속지 ${job?.cards}장${job?.work.duplex ? ' — 양면이라 고른 페이지의 앞·뒤가 함께 나와요' : ''}`}
+          </p>
+        </>
+      )}
+    </>
   );
 }
 
@@ -230,6 +303,8 @@ function MarksPanel() {
   const cropMark = useStore((s) => s.cropMark);
   const cropFrontOnly = useStore((s) => s.cropFrontOnly);
   const showRuler = useStore((s) => s.showRuler);
+  const printSides = useStore((s) => s.printSides);
+  const duplex = useActiveWork()?.duplex ?? false;
   const patch = useStore((s) => s.patch);
   return (
     <div className="panel-rows">
@@ -245,6 +320,26 @@ function MarksPanel() {
       {cropMark !== 'none' && <Check checked={cropFrontOnly} onChange={(v) => patch({ cropFrontOnly: v })} label="앞면에만" />}
       <Check checked={showRuler} onChange={(v) => patch({ showRuler: v })} label="50mm 검증 눈금" />
       <p className="tool-panel-note">인쇄한 뒤 눈금을 자로 재서 50mm인지 확인해요.</p>
+      {duplex && (
+        <>
+          <Row label="출력 면">
+            <span className="seg">
+              {(
+                [
+                  ['both', '둘 다'],
+                  ['front', '앞면만'],
+                  ['back', '뒷면만'],
+                ] as const
+              ).map(([id, label]) => (
+                <button key={id} className={printSides === id ? 'on' : ''} onClick={() => patch({ printSides: id })}>
+                  {label}
+                </button>
+              ))}
+            </span>
+          </Row>
+          <p className="tool-panel-note">프린터가 양면을 못 하면 앞면만 찍고, 종이를 뒤집어 넣은 뒤 뒷면만 찍어요.</p>
+        </>
+      )}
     </div>
   );
 }
@@ -261,9 +356,10 @@ export function PrintMain() {
   const [sheet, setSheet] = useState(0);
   const [side, setSide] = useState<'front' | 'back'>('front');
   const [guides, setGuides] = useState(false);
+  const [asking, setAsking] = useState(false);
 
   if (!job) return <p className="muted center">작업을 찾을 수 없어요.</p>;
-  const { work, input, slots, cards, sheets, backLayout, faces } = job;
+  const { work, input, slots, cards, sheets, backLayout } = job;
   const at = Math.min(sheet, Math.max(0, sheets - 1));
   const back = work.duplex && side === 'back';
   const cardsList = input.datasetOverrides!;
@@ -304,7 +400,17 @@ export function PrintMain() {
           ← 편집으로
         </button>
         <span className="print-title">{work.name}</span>
+        <span className="print-bar-gap" />
+        <button
+          className="primary"
+          disabled={job.rangeError !== null || cards === 0}
+          title={job.rangeError !== null ? '출력 범위를 먼저 고쳐 주세요' : undefined}
+          onClick={() => setAsking(true)}
+        >
+          Export PDF
+        </button>
       </div>
+      {asking && <ExportDialog job={job} onClose={() => setAsking(false)} />}
 
       <div className="print-stage">
         {sheets === 0 ? (
@@ -357,9 +463,97 @@ export function PrintMain() {
       </div>
 
       <div className="print-foot">
-        {faces.length}페이지 → {paperName} {sheets}장 ({work.duplex ? '양면' : '단면'}) · 속지 {slots}개/장
+        {job.pickedCount}페이지 → {paperName} {sheets}장 ({work.duplex ? '양면' : '단면'}) · 속지 {slots}개/장
         <span className="muted"> · 속지를 누르면 그 페이지를 고쳐요</span>
       </div>
     </div>
   );
+}
+
+/* ────────────────────────── PDF 전 확인 창 ────────────────────────── */
+
+type PrintJob = NonNullable<ReturnType<typeof usePrintJob>>;
+
+/**
+ * PDF를 만들기 직전에 묻는다 — 타공 표시·배경 격자를 찍을지(기능후보 9 결정: 잊기 쉬워 매번 묻고,
+ * 지난번 선택을 미리 체크해 둔다). 고른 것은 기억해서 미리보기도 그대로 그린다.
+ */
+function ExportDialog({ job, onClose }: { job: PrintJob; onClose: () => void }) {
+  const choice = useStore((s) => s.exportChoice);
+  const patch = useStore((s) => s.patch);
+  const showToast = useStore((s) => s.showToast);
+  const paper = useStore((s) => s.paper);
+  const [grid, setGrid] = useState(choice.grid);
+  const [punch, setPunch] = useState(choice.punch);
+  const [busy, setBusy] = useState(false);
+
+  async function make() {
+    setBusy(true);
+    patch({ exportChoice: { grid, punch } });
+    try {
+      const settings = { ...job.settings, printGrid: grid, printPunch: punch };
+      const files = await filesFor(job.faces);
+      const input = workExportInput(job.work, job.diary, job.faces, settings, job.pickedFaces, files);
+      const bytes = await buildPdf(input);
+      const paperName = paper.presetId === 'custom' ? `${paper.width}x${paper.height}` : paper.presetId;
+      downloadPdf(bytes, `${job.work.name}_${job.diary.presetId}_${paperName}.pdf`);
+      onClose();
+    } catch {
+      showToast('PDF를 만들지 못했어요. 다시 해 볼래요?');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="PDF 만들기" onClose={onClose}>
+      <div className="export-dialog">
+        <label className="check">
+          <input type="checkbox" checked={punch} onChange={(e) => setPunch(e.target.checked)} />
+          타공 표시를 인쇄할까요?
+        </label>
+        <p className="tool-panel-note">구멍 자리에 얇은 원을 찍어요. 타공기를 맞출 때 봐요.</p>
+        <label className="check">
+          <input type="checkbox" checked={grid} onChange={(e) => setGrid(e.target.checked)} />
+          배경 격자(도트·그리드)를 인쇄할까요?
+        </label>
+        <p className="tool-panel-note">끄면 모든 페이지의 배경을 찍지 않아요. 켜면 페이지마다 정한 대로예요.</p>
+        <p className="export-summary">
+          {job.pickedCount}페이지 · {job.sheets}장 ({job.work.duplex ? (job.settings.sides === 'both' ? '양면' : job.settings.sides === 'front' ? '앞면만' : '뒷면만') : '단면'})
+        </p>
+        <div className="card-dialog-actions">
+          <button className="ghost" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button className="primary" onClick={() => void make()} disabled={busy}>
+            {busy ? '만드는 중…' : 'PDF 만들기'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** PDF에 심을 파일들 — 기본 글꼴, 그리고 실제로 쓰인 등록 글꼴·이미지만(안 쓴 것까지 심으면 무거워진다). */
+async function filesFor(faces: PrintJob['faces']): Promise<Pick<ExportInput, 'fontBytes' | 'userFonts' | 'userImages'>> {
+  const fontIds = new Set<string>();
+  const imageIds = new Set<string>();
+  for (const f of faces) {
+    for (const o of f.objects) {
+      if ((o.type === 'text' || o.type === 'calendar') && o.font) fontIds.add(o.font);
+      if (o.type === 'image' && o.imageId) imageIds.add(o.imageId);
+    }
+  }
+  const userFonts = new Map<string, ArrayBuffer>();
+  for (const id of fontIds) {
+    const b = fontBytes(id);
+    if (b) userFonts.set(id, b);
+  }
+  const userImages = new Map<string, { bytes: ArrayBuffer; kind: 'png' | 'jpg' }>();
+  for (const id of imageIds) {
+    const b = imageBytes(id);
+    const kind = imageKind(id);
+    if (b && kind) userImages.set(id, { bytes: b, kind });
+  }
+  return { fontBytes: await loadBodyFont(), userFonts, userImages };
 }
