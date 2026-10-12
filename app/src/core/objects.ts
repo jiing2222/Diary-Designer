@@ -375,6 +375,16 @@ export function isMoon(o: DiaryObject): o is MoonObject {
   return o.type === 'moon';
 }
 
+/**
+ * 저장하지 않는 화면용 값을 걷어낸다 — 지금은 달의 `phase`(날짜를 채울 때 넣는 값). 날짜 페이지에서
+ * 복사해 붙인 달처럼, 보이는 그대로의 객체가 저장 쪽으로 넘어올 때 core/work가 부른다.
+ */
+export function withoutDisplayOnly(o: DiaryObject): DiaryObject {
+  if (!isMoon(o) || o.phase === undefined) return o;
+  const { phase: _phase, ...rest } = o;
+  return rest;
+}
+
 /** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 체크박스는 아직 아니다(찍을 때만 크기가 정해진다). */
 export function isBoxResizable(
   o: DiaryObject,

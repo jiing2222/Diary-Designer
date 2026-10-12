@@ -271,6 +271,20 @@ describe('달 모양', () => {
     expect(s().selectedIds).toEqual([objs()[3].id]);
   });
 
+  it('날짜 페이지의 달을 복사해 붙여도 위상(화면용)은 저장되지 않는다', () => {
+    const moon = { id: 'mo1', type: 'moon' as const, x: 0, y: 0, width: 5, height: 5, offset: 0 };
+    setItems([{ ...datedItem(), faces: [{ id: 'fc1', background: DEFAULT_DOT_GRID, objects: [moon] }] }, ...active().items]);
+    useStore.setState({ cursors: {} });
+    s().goTo(0, 'front'); // 10/1
+    s().select(['mo1']);
+    s().copySelected();
+    s().goTo(2, 'back'); // 면 3(보통 페이지) = 펼침면 2의 왼쪽
+    s().pasteClipboard();
+    const page = active().items[1] as PageItem;
+    expect(page.face.objects).toHaveLength(1);
+    expect(page.face.objects[0]).not.toHaveProperty('phase');
+  });
+
   it('꾸미기 — undefined를 준 키는 지워 기본값으로, 준 키만 바뀐다', () => {
     s().commitMoon({ x: 0, y: 0, width: 5, height: 5 });
     s().styleMoon({ size: 3, strokeWidth: 0.3 });

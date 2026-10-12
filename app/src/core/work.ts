@@ -1,4 +1,4 @@
-import { cloneObject, newId, type DiaryObject } from './objects';
+import { cloneObject, newId, withoutDisplayOnly, type DiaryObject } from './objects';
 import { DEFAULT_DOT_GRID, type DotGrid } from './grid';
 import type { CalendarDate, Dataset, DateDataset } from './dataset';
 import { resolveFieldsWithDates } from './format';
@@ -366,8 +366,10 @@ export function editableBackground(work: Pick<Work, 'items'>, target: FaceTarget
  * - 날짜 페이지: 날짜만 채운 원본과 견줘 **달라진 것만** 그 날짜의 수정으로 남긴다.
  *   달라진 게 없으면 수정을 지운다(원본으로 되돌아간다).
  */
-export function writeObjects(work: Pick<Work, 'items'>, target: FaceTarget, next: DiaryObject[]): WorkItem[] {
+export function writeObjects(work: Pick<Work, 'items'>, target: FaceTarget, shown: DiaryObject[]): WorkItem[] {
   const itemId = targetItemId(target);
+  // 화면용 값(달의 위상)은 저장하지 않는다 — 날짜 페이지에서 복사해 붙인 달 등.
+  const next = shown.map(withoutDisplayOnly);
   return work.items.map((item) => {
     if (item.id !== itemId) return item;
     if (item.kind === 'page') return { ...item, face: { ...item.face, objects: next } };
@@ -381,7 +383,7 @@ export function writeObjects(work: Pick<Work, 'items'>, target: FaceTarget, next
     const period = target.face.period;
     const source = period && item.faces[period.faceIndex];
     if (!period || !source) return item;
-    const filled = resolveFieldsWithDates(source.objects, period.dates);
+    const filled = resolveFieldsWithDates(source.objects, period.dates).map(withoutDisplayOnly);
     const diff = diffOverride(filled, next);
     const key = overrideKey(period.key, period.faceIndex);
     const { [key]: _old, ...rest } = item.overrides;

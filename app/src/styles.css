@@ -5583,3 +5583,7 @@ button.danger:hover {
 .frame-body {
   min-width: 0;
 }
+.stylebar-note {
+  font-size: 12px;
+  color: var(--muted);
+}

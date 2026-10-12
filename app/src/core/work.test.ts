@@ -27,6 +27,7 @@ import {
 } from './work';
 import { DEFAULT_DOT_GRID } from './grid';
 import { emptyOverride, suggestPerPage } from './dated';
+import { moonPhaseOf } from './moon';
 import type { TextObject } from './objects';
 
 const today = { year: 2026, month: 10, day: 11 };
@@ -401,6 +402,23 @@ describe('달 모양', () => {
     expect(phases).toHaveLength(3);
     const page = { kind: 'page' as const, id: 'p1', face: face([moon]) };
     expect(editableObjects({ items: [page] }, { kind: 'face', face: expandWork({ items: [page] }, today)[0] })[0]).not.toHaveProperty('phase');
+  });
+
+  it('날짜 페이지에서 달의 순번만 바꾸면 위상도 그 날짜로 다시 정해진다', () => {
+    // 위상이 바뀌는 이틀을 찾는다(같은 위상이면 이 테스트는 아무것도 확인하지 못한다).
+    let day = 1;
+    while (moonPhaseOf({ year: 2026, month: 9, day }) === moonPhaseOf({ year: 2026, month: 9, day: day + 1 })) day++;
+    const start = `2026-09-${String(day).padStart(2, '0')}`;
+    const end = `2026-09-${String(day + 1).padStart(2, '0')}`;
+    // 한 페이지에 이틀 — 그 페이지의 달을 둘째 날짜로
+    const item = dated({
+      faces: [face([moon])],
+      dataset: { kind: 'date', perPage: 2, start, end, step: 'day' },
+      overrides: { [`${start}/0`]: { ...emptyOverride(), props: { mo1: { offset: 1 } } } },
+    });
+    const shown = expandWork({ items: [item] }, today)[0].objects[0] as typeof moon & { phase?: number };
+    expect(shown.phase).toBe(moonPhaseOf({ year: 2026, month: 9, day: day + 1 }));
+    expect(shown.phase).not.toBe(moonPhaseOf({ year: 2026, month: 9, day }));
   });
 
   it('한 페이지에 며칠 제안에 달의 순번도 센다', () => {
