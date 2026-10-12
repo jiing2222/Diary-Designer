@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backLayoutOf, cardAt, cardsForFaces, formatPageRange, insertFootprint, parsePageRange, printCards, sheetCount } from './print';
+import { backLayoutOf, cardAt, cardsForFaces, formatPageRange, insertFootprint, parsePageRange, printCards, repeatCards, sheetCount } from './print';
 import { computeLayout } from './layout';
 
 describe('속지 한 장 = 앞·뒷면', () => {
@@ -71,5 +71,21 @@ describe('고른 페이지를 글자로', () => {
     expect(formatPageRange([4, 0, 1, 2, 2])).toBe('1-3, 5');
     expect(formatPageRange([])).toBe('');
     expect(parsePageRange(formatPageRange([0, 1, 2, 4, 9]), 20)).toEqual({ faces: [0, 1, 2, 4, 9] });
+  });
+});
+
+describe('repeatCards — 속지마다 n부', () => {
+  it('같은 속지를 이어서 늘어놓고, 앞·뒤 짝은 그대로다', () => {
+    const cards = printCards(4, true); // (0,1) (2,3)
+    expect(repeatCards(cards, 3)).toEqual([
+      { front: 0, back: 1 }, { front: 0, back: 1 }, { front: 0, back: 1 },
+      { front: 2, back: 3 }, { front: 2, back: 3 }, { front: 2, back: 3 },
+    ]);
+  });
+  it('1 이하·이상한 값은 1부', () => {
+    const cards = printCards(2, false);
+    expect(repeatCards(cards, 1)).toBe(cards);
+    expect(repeatCards(cards, 0)).toBe(cards);
+    expect(repeatCards(cards, Number.NaN)).toBe(cards);
   });
 });

@@ -59,6 +59,16 @@ export function formatPageRange(faces: number[]): string {
 }
 
 /** 고른 면이 하나라도 든 속지만 — 양면이면 고른 페이지의 앞·뒤가 함께 나온다(세부계획 A14 결정). */
+/**
+ * 속지마다 `copies`부. 같은 속지를 **이어서** 늘어놓으므로 칸이 4개인 용지라면 한 장이 같은
+ * 속지 4개로 찬다(사용자 요청 — 양식 하나를 한 장에 가득). 앞·뒤는 카드째로 늘어나 짝이
+ * 어긋나지 않는다.
+ */
+export function repeatCards(cards: PrintCard[], copies: number): PrintCard[] {
+  const n = Math.max(1, Math.floor(copies) || 1);
+  return n === 1 ? cards : cards.flatMap((c) => Array.from({ length: n }, () => c));
+}
+
 export function cardsForFaces(cards: PrintCard[], faces: number[] | null): PrintCard[] {
   if (!faces) return cards;
   const picked = new Set(faces);

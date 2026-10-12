@@ -12,6 +12,7 @@ import {
   isBoxResizable,
   isImage,
   isLine,
+  distanceToSegment,
   isLocked,
   isShape,
   isText,
@@ -20,7 +21,6 @@ import {
   rectLines,
   resizeBox,
   rotationOf,
-  splitAtBoundary,
   type DiaryObject,
   type TextStyle,
 } from '../core/objects';
@@ -78,6 +78,7 @@ import {
   toggleId,
   withCells,
   DRAG_START,
+  GRAB,
   HANDLE_SIZE,
   type Drag,
   type Editing,
@@ -93,6 +94,18 @@ import {
  * PrintSlotEditor도 같은 몸짓 코드를 저마다 가지고 있어 이 값을 가져다 쓴다.
  */
 export const IMAGE_RESIZE_SNAP_DIST: Mm = 2;
+
+/**
+ * 그리기 도구에서 고른 것을 잡아 옮기는 자리 — 가장 가까운 도트에서 격자 간격의 이 비율보다
+ * 멀어야 한다(도트 사이 몸통). 더 가까우면 그리기로 친다. 5mm 격자면 1.5mm.
+ */
+const MOVE_ZONE = 0.3;
+
+/**
+ * 그리기 도구에서 고른 선을 잡는 너그러움 — 화면 px. 선에서 2mm(GRAB)만 보면 100% 화면에서
+ * 7px 남짓이라 거의 정확히 눌러야 했다(사용자 신고). 화면 기준이라 확대해도 손에 느껴지는 폭이 같다.
+ */
+const MOVE_GRAB_PX = 12;
 
 /**
  * 양식 만들기 화면.
@@ -135,7 +148,6 @@ export function Editor() {
   const selectedIds = useStore((s) => s.selectedIds);
   const setTool = useStore((s) => s.setTool);
   const drawLines = useStore((s) => s.drawLines);
-  const commitCrossBoundaryLine = useStore((s) => s.commitCrossBoundaryLine);
   const select = useStore((s) => s.select);
   const deleteSelected = useStore((s) => s.deleteSelected);
   const copySelected = useStore((s) => s.copySelected);
@@ -177,6 +189,11 @@ export function Editor() {
     canvas.scrollTop = initialViewport.current?.scrollTop ?? 0;
     canvas.scrollLeft = initialViewport.current?.scrollLeft ?? 0;
   }, []);
+  // 다른 펼침면으로 가면 긋다 만 선(첫 점)을 버린다 — 남겨두면 앞 페이지에서 찍은 좌표가
+  // 새 페이지로 따라와, 다음 클릭에 엉뚱한 자리에서 시작하는 선이 생겼다.
+  useEffect(() => {
+    setPending(null);
+  }, [spreadKey]);
   useEffect(() => {
     if (previousSpread.current === spreadKey && initialViewport.current?.scrollTop !== undefined) return;
     previousSpread.current = spreadKey;
@@ -185,6 +202,8 @@ export function Editor() {
 
   /** 마우스가 붙을 자리 */
   const [hover, setHover] = useState<Point | null>(null);
+  /** 그리기 도구에서 지금 마우스 아래 것을 잡아 옮길 수 있는가 — 커서를 이동 모양으로. */
+  const [canGrab, setCanGrab] = useState(false);
   /** 선의 첫 점을 찍어둔 상태. 다음 클릭에서 선이 완성된다. */
   const [pending, setPending] = useState<Point | null>(null);
   // 자동 필드 도구로 다음에 찍을 순번과 ‘찍을 때마다 다음 날짜로’ — AutoField 패널과 같이 쓴다.
@@ -218,14 +237,6 @@ export function Editor() {
     grid.spacing,
     grid.minMargin,
     grid.toEdge,
-  );
-  // 비활성 쪽의 격자 — 경계를 넘어 잇는 선의 둘째 점을 그 쪽 격자에 앉히려고
-  // 있다. 없으면(빈 뒷면 등) 그 점은 안 붙는다.
-  const inactiveLattice = gridLattice(
-    gridArea(insert, inactiveGrid, insert.punch.safeZoneWidth, inactiveSide === 'back'),
-    inactiveGrid.spacing,
-    inactiveGrid.minMargin,
-    inactiveGrid.toEdge,
   );
   const scale = (zoom / 100) * PX_PER_MM_AT_100;
   const noGrid = lattice.xs.length === 0 || lattice.ys.length === 0;
@@ -444,41 +455,6 @@ export function Editor() {
   }
 
   /**
-   * 뒷면 끝에서 앞면 끝으로(또는 반대로) 한 번에 그은 선 — 두 쪽 경계에서
-   * 만나는 반쪽 두 개로 쪼개 각자의 쪽에 커밋한다. 실행취소가 앞뒤로 따로
-   * 붙는 원칙(설계문서 8장) 그대로, 반쪽씩 두 번 커밋된다.
-   *
-   * `pending`은 activeSide 로컬, `clickLocal`은 inactiveSide(따로 있는 svg 자신의
-   * viewBox) 로컬이다 — 두 svg가 떨어져 있어(뒷면·앞면 각자 0~insert.width) 하나로
-   * 합친 좌표가 없다. 대신 **경계까지의 거리**로 비율을 구한다 — 어느 쪽
-   * 좌표계인지와 무관하게, "경계에서 몇 mm 떨어졌는지"는 두 쪽 다 셀 수 있다.
-   */
-  function completeCrossBoundaryLine(clickLocal: Point) {
-    if (!pending) return;
-    const edgeXOf = (s: Side) => (s === 'back' ? insert.width : 0);
-    const { aSeg, bSeg } = splitAtBoundary(
-      {
-        ...pending,
-        distToBoundary: activeSide === 'back' ? insert.width - pending.x : pending.x,
-        edgeX: edgeXOf(activeSide),
-      },
-      {
-        ...clickLocal,
-        distToBoundary: inactiveSide === 'back' ? insert.width - clickLocal.x : clickLocal.x,
-        edgeX: edgeXOf(inactiveSide),
-      },
-    );
-
-    // 반쪽 둘을 한 번에 커밋한다 — 되돌리기가 하나로 묶이려면(store.ts의
-    // crossBoundaryPairs) 두 쪽 다 같은 액션 안에서 새로 생겨야 한다.
-    const backSeg = activeSide === 'back' ? aSeg : bSeg;
-    const frontSeg = activeSide === 'back' ? bSeg : aSeg;
-    commitCrossBoundaryLine(backSeg, frontSeg, inactiveSide);
-
-    setPending(null);
-  }
-
-  /**
    * 딱 하나만 골랐을 때의 끝점 손잡이.
    *
    * 여러 개 골라놓고 손잡이가 잔뜩 뜨면 어느 것을 잡는지 알 수 없다.
@@ -517,6 +493,37 @@ export function Editor() {
     });
   }
 
+  /**
+   * 그리기 도구 그대로 옮길 수 있는 것 — 고른 것 중 이 자리에 있는 것. 도트 근처는 그리기 몫이다
+   * (MOVE_ZONE). 선은 화면 px로 너그럽게(MOVE_GRAB_PX), 네모·글자·이미지는 테두리뿐 아니라 안쪽
+   * 어디든 잡힌다 — 안쪽에서 새로 그리는 것은 어차피 도트에서 시작한다.
+   */
+  function grabbableAt(raw: Point, snap: Point | null): DiaryObject | null {
+    if (tool !== 'draw' || pending || !snap || selectedIds.length === 0) return null;
+    if (Math.hypot(raw.x - snap.x, raw.y - snap.y) <= grid.spacing * MOVE_ZONE) return null;
+    const tol = Math.max(GRAB, MOVE_GRAB_PX / scale);
+    for (const o of objects) {
+      if (!selectedIds.includes(o.id) || isLocked(o)) continue;
+      if (isLine(o)) {
+        if (distanceToSegment(o, raw.x, raw.y) <= tol) return o;
+        continue;
+      }
+      const b = screenBoundsOfObjects([o]);
+      if (b && raw.x >= b.x - tol && raw.x <= b.x + b.width + tol && raw.y >= b.y - tol && raw.y <= b.y + b.height + tol) {
+        return o;
+      }
+    }
+    return null;
+  }
+
+  /** 선 끝점을 잡는다. 아직 움직이지 않았으니 미리보기도 끝점 그대로다(gestures의 Drag 'handle'). */
+  function startGrip(grip: { id: string; end: 1 | 2 }, raw: Point) {
+    const line = objects.find((o) => o.id === grip.id);
+    if (!line || !isLine(line)) return;
+    const at = grip.end === 1 ? { x: line.x1, y: line.y1 } : { x: line.x2, y: line.y2 };
+    setDragBoth({ kind: 'handle', id: grip.id, end: grip.end, to: at, origin: raw, moved: false });
+  }
+
   function onDown(e: React.PointerEvent) {
     const raw = rawMm(e);
     const snap = snapped(e);
@@ -541,9 +548,18 @@ export function Editor() {
     if (tool === 'draw' && !pending) {
       const grip = anyLineHandleAt(objects, raw);
       if (grip) {
-        setDragBoth({ kind: 'handle', id: grip.id, end: grip.end, to: raw });
+        startGrip(grip, raw);
         return;
       }
+    }
+
+    // 그리기 도구 그대로 옮기기(사용자 요청) — 고른 것(방금 그린 선·네모)의 몸통을 **도트 사이에서**
+    // 잡으면 옮긴다. 도트 근처를 누르면 지금처럼 그린다: 네모 모서리에 붙여 다음 네모를 그리거나 선
+    // 위의 도트에서 새로 시작하는 일이 흔해서, 거기까지 옮기기로 가로채면 안 된다.
+    const grab = grabbableAt(raw, snap);
+    if (grab) {
+      startMove(grab, raw, e);
+      return;
     }
 
     // 표도 몸짓은 그리기(면)와 똑같이 점에서 끄는 드래그다. 그 사이에서
@@ -621,7 +637,7 @@ export function Editor() {
     // 늘이려다 매번 통째로 옮겨진다.
     const grip = handleAt(lone, raw);
     if (grip) {
-      setDragBoth({ kind: 'handle', id: grip.id, end: grip.end, to: raw });
+      startGrip(grip, raw);
       return;
     }
 
@@ -637,6 +653,8 @@ export function Editor() {
 
   function onMove(e: React.PointerEvent) {
     setHover(snapped(e));
+    const here = rawMm(e);
+    setCanGrab(!dragRef.current && !!here && grabbableAt(here, snapped(e)) !== null);
     const d = dragRef.current;
     const raw = rawMm(e);
     if (!d || !raw) return;
@@ -655,7 +673,13 @@ export function Editor() {
       const snap = snapped(e);
       if (!snap) return;
       setDragBoth({ ...d, to: snap });
-    } else if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox') {
+    } else if (d.kind === 'handle') {
+      // 손떨림으로 끝점이 움직이지 않게, 한 번 넘기기 전까지는 누른 것으로 둔다(옮기기와 같은 문턱).
+      const moved = d.moved || Math.hypot(raw.x - d.origin.x, raw.y - d.origin.y) > DRAG_START;
+      const snap = snapped(e);
+      if (!moved || !snap) return;
+      setDragBoth({ ...d, moved, to: snap });
+    } else if (d.kind === 'draw' || d.kind === 'textbox') {
       const snap = snapped(e);
       if (!snap) return;
       setDragBoth({ ...d, to: snap });
@@ -695,6 +719,12 @@ export function Editor() {
       // 것은 제자리로 돌아오느라 이동량이 0이 아니어서, 그걸로 재면 클릭만 해도
       // 옮겨진 것으로 친다.
       if (!d.moved) {
+        // 그리기 도구에서 몸통을 눌렀다 떼기만 했으면 평소의 그리기 클릭처럼 가까운 도트에 첫 점을 찍는다.
+        if (tool === 'draw') {
+          const p = snapToLattice(lattice, d.origin.x, d.origin.y);
+          if (p) setPending(p);
+          return;
+        }
         if (d.hitId) select([d.hitId]);
         return;
       }
@@ -713,6 +743,12 @@ export function Editor() {
     }
 
     if (d.kind === 'handle') {
+      if (!d.moved) {
+        // 끌지 않고 끝점을 누르기만 했다 — 그리기 도구라면 그 끝점에서 새 선을 시작한다
+        // (이어지는 대각선·삼각형). 고르기 도구라면 아무것도 바꾸지 않는다.
+        if (tool === 'draw') setPending(d.to);
+        return;
+      }
       reshapeSelected(d.id, d.end, d.to);
       return;
     }
@@ -935,17 +971,7 @@ export function Editor() {
   }
 
   /**
-   * 비활성 쪽(따로 있는, 정적으로만 그려진 svg)의 pointerDown.
-   *
-   * 그리기 도구로 선의 첫 점(pending)을 찍어둔 채로 여기를 클릭하면 경계를
-   * 넘어 선을 잇는다. 그 외에는 초점만 옮긴다 — 오늘까지의 탭 클릭과 같다.
-   * 캔버스 자신의 CTM으로 좌표를 재는 것은 rawMm과 같은 방식이지만, 이
-   * svg는 활성 쪽이 아니라서 rawMm(activeSide 기준)을 그대로 쓸 수 없다.
-   *
-   * **격자에 앉힌다.** 활성 쪽에서 선을 그을 때(onDown)는 늘
-   * snapToLattice를 거치는데, 처음 이 함수를 짤 때 그걸 빠뜨려서 경계를
-   * 넘는 선의 둘째 점만 격자에 안 붙고 클릭한 픽셀 그대로 박혔다 — 왼쪽은
-   * 점에 딱 붙는데 오른쪽으로 갈수록 살짝 기울어 보이던 버그가 이거였다.
+   * 비활성 쪽(따로 있는, 정적으로만 그려진 svg)의 pointerDown — 초점만 옮긴다(탭 클릭과 같다).
    *
    * stopPropagation을 꼭 해야 한다 — 안 그러면 이 클릭이 .editor-canvas의
    * onOutsideDown까지 거품처럼 올라가, select 도구일 때 활성 쪽 좌표계로
@@ -953,56 +979,21 @@ export function Editor() {
    */
   function onInactivePointerDown(e: React.PointerEvent<SVGSVGElement>) {
     e.stopPropagation();
-    const svg = e.currentTarget;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) {
-      switchSide(inactiveSide);
-      return;
-    }
-    const p = svg.createSVGPoint();
-    p.x = e.clientX;
-    p.y = e.clientY;
-    const local = p.matrixTransform(ctm.inverse());
-    const snap = snapToLattice(inactiveLattice, local.x, local.y);
-
-    if (tool === 'draw' && pending && snap) {
-      completeCrossBoundaryLine(snap);
+    // 첫 점을 찍은 채 옆 페이지를 누르면 막는다(사용자 결정 2026-10-12). 두 페이지에 걸친
+    // 선은 실제로는 반쪽 둘이라 한쪽만 옮기면 끊어지고, 경계에서 만나는 점이 도트 위가 아니었다.
+    // 첫 점은 그대로 두어 같은 페이지 안에서 마저 그을 수 있게 한다.
+    if (tool === 'draw' && pending) {
+      showToast('선은 페이지 경계를 넘을 수 없어요. 같은 페이지 안에서 다음 점을 눌러 주세요.');
       return;
     }
     switchSide(inactiveSide);
   }
 
   /**
-   * 비활성 쪽 위에서 마우스가 움직일 때 — 선을 잇는 중(pending)이면 활성
-   * 쪽의 잇는 선 미리보기(hover)가 경계를 넘어서도 커서를 계속 따라가게 한다.
-   *
-   * hover는 activeSide 로컬 좌표다. 비활성 쪽의 로컬 좌표를, "경계에서 몇
-   * mm 떨어졌는지"를 거쳐 activeSide 좌표계로 그대로 연장한 값(insert.width를
-   * 넘거나 0보다 작아짐)으로 바꿔치기한다 — completeCrossBoundaryLine이
-   * 두 좌표계를 잇는 것과 같은 방식이다.
-   *
-   * pending이 없을 때는(다른 도구, 또는 그냥 지나가는 중) 아무 일도 하지
-   * 않는다 — 비활성 쪽은 평소엔 정적이다.
-   */
-  function onInactivePointerMove(e: React.PointerEvent<SVGSVGElement>) {
-    if (!(tool === 'draw' && pending)) return;
-    const svg = e.currentTarget;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return;
-    const p = svg.createSVGPoint();
-    p.x = e.clientX;
-    p.y = e.clientY;
-    const local = p.matrixTransform(ctm.inverse());
-    const distFromBoundary = inactiveSide === 'back' ? insert.width - local.x : local.x;
-    const activeLocalX = activeSide === 'back' ? insert.width + distFromBoundary : -distFromBoundary;
-    setHover({ x: activeLocalX, y: local.y });
-  }
-
-  /**
    * 비활성 쪽 — 정적으로만 그린다(손댈 수 없다). 클릭하면
-   * onInactivePointerDown이 초점을 옮기거나 경계를 넘는 선을 잇는다.
+   * onInactivePointerDown이 초점을 옮긴다.
    *
-   * 오버플로가 활성 쪽 위로 보이도록(예: 경계를 넘어가는 pending 선 미리보기),
+   * 오버플로가 활성 쪽 위로 보이도록(예: 페이지 밖으로 넘친 글자),
    * 활성 쪽 svg를 항상 나중에 그려 위로 올린다 — CSS의 z-index로 한다
    * (뒷면이 활성일 땐 왼쪽 svg가 먼저라 그냥 두면 오른쪽 정적 앞면에 가려진다).
    */
@@ -1014,7 +1005,6 @@ export function Editor() {
         width={insert.width * scale}
         height={insert.height * scale}
         onPointerDown={onInactivePointerDown}
-        onPointerMove={onInactivePointerMove}
         onPointerLeave={() => setHover(null)}
       >
         <rect x={0} y={0} width={insert.width} height={insert.height} className="sheet-bg" />
@@ -1392,7 +1382,7 @@ export function Editor() {
           const activeSvg = (
             <svg
               ref={svgRef}
-              className={`insert-sheet active-canvas ${tool}`}
+              className={`insert-sheet active-canvas ${tool}${canGrab ? ' can-grab' : ''}`}
               viewBox={`0 0 ${insert.width} ${insert.height}`}
               width={insert.width * scale}
               height={insert.height * scale}
@@ -1473,6 +1463,17 @@ export function Editor() {
             {noGrid
               ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
               : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
+          </span>
+        )}
+        {/*
+          그리기는 조작이 곧 종류라(위 Editor 주석) 대각선은 끌어서가 아니라 점을 두 번
+          눌러 긋는다 — 대각선으로 끌었다가 네모가 나오면 고장으로 보였다.
+        */}
+        {tool === 'draw' && !noGrid && (
+          <span className="foot-hint">
+            {pending
+              ? '다음 점을 누르면 선이 그어집니다(대각선도). Esc로 취소.'
+              : '점을 누르고 다음 점을 누르면 선(대각선 포함), 점에서 끌면 네모. 방금 그린 것은 도트 사이를 잡고 끌면 옮겨져요.'}
           </span>
         )}
         {/*
