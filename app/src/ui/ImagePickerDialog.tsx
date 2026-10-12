@@ -1,17 +1,16 @@
 import { imageLabelOf, type UserImage } from '../images/registry';
 import { libraryImages } from '../core/assets';
 import { useStore } from '../store';
+import { removeAssetWithConfirm } from './removeAsset';
 import { Modal } from './Modal';
 
 /**
  * 이미지 썸네일 그리드 — 빈 이미지 상자를 더블클릭했을 때 뜨는 고르기
  * 창(ImagePickerDialog)이 쓴다. 정사각형으로 크롭한 작은 그리드다 — 훑어보고
  * 빨리 고르는 자리라 원본 비율까지 살릴 필요는 없다(원본 비율로 크게
- * 보려면 DesignLibraryDialog의 "디자인 관리"를 연다).
+ * 보려면 Library → Images). ×는 Library의 지우기와 같은 확인을 거친다.
  */
 export function ImageThumbGrid({ images, onPick }: { images: UserImage[]; onPick?: (id: string) => void }) {
-  const removeUserImage = useStore((s) => s.removeUserImage);
-
   return (
     <div className="image-picker-grid">
       {images.map((img) => (
@@ -35,9 +34,9 @@ export function ImageThumbGrid({ images, onPick }: { images: UserImage[]; onPick
             className="image-picker-remove"
             onClick={(e) => {
               e.stopPropagation();
-              removeUserImage(img.id);
+              removeAssetWithConfirm('image', img.id, imageLabelOf(img));
             }}
-            title="자주 쓰는 이미지 목록에서 빼기 — 지금 어딘가에 쓰는 중이면 안 빠집니다"
+            title="Library에서 지우기 — 쓰는 중이면 목록에서만 빠지고 작업에는 남아요"
           >
             ×
           </button>
@@ -76,7 +75,7 @@ export function ImagePickerDialog({
   return (
     <Modal title="이미지 고르기" onClose={onClose}>
       {usable.length === 0 ? (
-        <p className="modal-note">아직 자주 쓰는 이미지가 없습니다. 파일을 불러오면 다음부터 여기 뜹니다.</p>
+        <p className="modal-note">아직 올린 이미지가 없어요. 파일을 불러오면 Library에 남아 다음부터 여기 떠요.</p>
       ) : (
         <ImageThumbGrid images={usable} onPick={onPick} />
       )}

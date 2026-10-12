@@ -1773,7 +1773,7 @@ export function ImageCategoryBody() {
   return (
     <>
       {usable.length === 0 ? (
-        <p className="tool-panel-note">아직 자주 쓰는 이미지가 없습니다. 파일을 불러오면 다음부터 여기 뜹니다.</p>
+        <p className="tool-panel-note">아직 올린 이미지가 없어요. 파일을 불러오면 Library에 남아 다음부터 여기 떠요.</p>
       ) : (
         <ImageThumbGrid images={usable} onPick={placeCentered} />
       )}

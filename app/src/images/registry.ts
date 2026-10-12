@@ -115,7 +115,7 @@ export async function registerImage(file: File, reuseId?: string): Promise<UserI
 }
 
 /**
- * 이름·저장 여부·최근 사용 시각을 IndexedDB에 다시 남긴다.
+ * 이름·목록에서 뺀 표시·최근 사용 시각을 IndexedDB에 다시 남긴다.
  *
  * 이름 바꾸기·목록에서 빼기·다시 쓰기(usedAt 갱신)가 함께 쓴다 — 파일
  * 바이트는 그대로 두고 부가정보만 갈아 끼운다. 파일이 없는(저장 파일에서

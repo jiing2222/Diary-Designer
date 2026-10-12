@@ -4,6 +4,7 @@ import { FONT_ACCEPT, fontLabelOf, hasFont, registerFont, type UserFont } from '
 import { IMAGE_ACCEPT, hasImage, imageLabelOf, registerImage, type UserImage } from '../images/registry';
 import { imagesInUse, libraryFonts, libraryImages, reusableIdFor, worksUsingAsset } from '../core/assets';
 import { DEFAULT_FONT_FAMILY } from '../core/style';
+import { removeAssetWithConfirm } from './removeAsset';
 
 /**
  * Library → Images · Fonts(리뉴얼 7-3, 세부계획 B ‘Library 화면 시안’).
@@ -88,7 +89,7 @@ function ImageTile({ image }: { image: UserImage }) {
       <AssetName label={imageLabelOf(image)} onRename={(v) => useStore.getState().renameUserImage(image.id, v)} />
       <div className="asset-meta">
         <span className="muted">{count > 0 ? `작업 ${count}개` : '안 씀'}</span>
-        <RemoveButton kind="image" id={image.id} label={imageLabelOf(image)} count={count} />
+        <RemoveButton kind="image" id={image.id} label={imageLabelOf(image)} />
       </div>
     </div>
   );
@@ -191,7 +192,7 @@ function FontLine({ font, sample }: { font: UserFont; sample: string }) {
         )}
       </span>
       <span className="muted">{count > 0 ? `작업 ${count}개` : '안 씀'}</span>
-      <RemoveButton kind="font" id={font.id} label={fontLabelOf(font)} count={count} />
+      <RemoveButton kind="font" id={font.id} label={fontLabelOf(font)} />
     </div>
   );
 }
@@ -230,32 +231,10 @@ function AssetName({ label, onRename }: { label: string; onRename: (label: strin
   );
 }
 
-/** 지우기 — 쓰는 작업이 있으면 ‘목록에서만 빠져요’를 먼저 알린다(세부계획 B 결정 2026-10-11). */
-function RemoveButton({
-  kind,
-  id,
-  label,
-  count,
-}: {
-  kind: 'image' | 'font';
-  id: string;
-  label: string;
-  count: number;
-}) {
+/** 지우기 단추 — 확인은 ui/removeAsset.ts. */
+function RemoveButton({ kind, id, label }: { kind: 'image' | 'font'; id: string; label: string }) {
   return (
-    <button
-      className="ghost danger asset-remove"
-      onClick={() => {
-        const question =
-          count > 0
-            ? `‘${label}’은(는) 작업 ${count}개에서 쓰는 중이에요(휴지통 포함). 목록에서만 빠지고 작업에는 그대로 남아요. 뺄까요?`
-            : `‘${label}’을(를) 지울까요? 파일도 지워져요.`;
-        if (!window.confirm(question)) return;
-        const s = useStore.getState();
-        const result = kind === 'image' ? s.removeUserImage(id) : s.removeUserFont(id);
-        if (result === 'hidden') s.showToast('목록에서 뺐어요. 쓰던 작업에는 그대로 있어요.');
-      }}
-    >
+    <button className="ghost danger asset-remove" onClick={() => removeAssetWithConfirm(kind, id, label)}>
       지우기
     </button>
   );
