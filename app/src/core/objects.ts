@@ -83,6 +83,11 @@ export interface TextObject {
   valign?: VAlign;
   color?: string;
   /**
+   * 자간 — 글자 사이에 더하는 간격(mm, 음수면 좁힌다). 정하지 않았으면 0.
+   * 폭 계산(core/text의 `lineWidthOf`)에 들어가서 화면·PDF·정렬이 같이 따른다(리뉴얼 5단계).
+   */
+  letterSpacing?: Mm;
+  /**
    * 굵게 — **모든 글꼴에서 가짜 굵게**(리뉴얼 5단계, 세부계획 A4.5). 글자 테두리에 같은
    * 색 선을 덧그린다. 굵기는 core/text의 `fakeBoldStrokeOf` 하나를 화면(SVG stroke)과
    * PDF(채우기+테두리)가 같이 쓴다. 글자 폭은 바뀌지 않는다. 진짜 Bold 파일은 쓰지 않는다
@@ -441,7 +446,7 @@ export type LineStyle = Partial<Pick<LineObject, 'width' | 'color' | 'dash'>>;
  * 똑같이 객체에 새겨져 따라다닌다.
  */
 export type TextStyle = Partial<
-  Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight' | 'bold' | 'font' | 'rotate'>
+  Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight' | 'letterSpacing' | 'bold' | 'font' | 'rotate'>
 >;
 /** 달력마다 따로 정할 수 있는 것들. */
 export type CalendarStyle = Partial<

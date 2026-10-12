@@ -5,6 +5,8 @@ import {
   blockHeight,
   boldOf,
   fakeBoldStrokeOf,
+  letterSpacingOfText,
+  linePieces,
   lineWidthOf,
   displayText,
   effectiveLineHeight,
@@ -299,5 +301,36 @@ describe('글자 폭', () => {
   it('측정기의 1mm 폭에 글자 크기를 곱한다', () => {
     const measure = (text: string) => text.length * 0.5;
     expect(lineWidthOf('abcd', 3, measure)).toBe(6);
+  });
+});
+
+describe('자간', () => {
+  const measure = (text: string) => [...text].length * 0.5; // 글자마다 0.5mm(크기 1mm일 때)
+
+  it('정하지 않았으면 0', () => {
+    expect(letterSpacingOfText({})).toBe(0);
+    expect(letterSpacingOfText({ letterSpacing: -0.3 })).toBe(-0.3);
+  });
+
+  it('줄 폭에 글자 사이마다(글자 수 − 1) 더한다 — 끝 글자 뒤에는 없다', () => {
+    expect(lineWidthOf('abcd', 2, measure, 0.5)).toBe(4 + 1.5);
+    expect(lineWidthOf('a', 2, measure, 0.5)).toBe(1);
+    expect(lineWidthOf('', 2, measure, 0.5)).toBe(0);
+    expect(lineWidthOf('ab', 2, measure, -0.2)).toBeCloseTo(1.8);
+  });
+
+  it('그릴 조각: 자간이 없으면 통째로, 있으면 글자마다 폭 + 자간씩 뒤로', () => {
+    expect(linePieces('abc', 2, measure, 0)).toEqual([{ text: 'abc', dx: 0 }]);
+    expect(linePieces('abc', 2, measure, 0.5)).toEqual([
+      { text: 'a', dx: 0 },
+      { text: 'b', dx: 1.5 },
+      { text: 'c', dx: 3 },
+    ]);
+  });
+
+  it('마지막 조각의 끝 = 줄 폭 (조각과 폭 계산이 어긋나지 않는다)', () => {
+    const pieces = linePieces('가나다라', 3, measure, 0.4);
+    const last = pieces[pieces.length - 1];
+    expect(last.dx + measure(last.text) * 3).toBeCloseTo(lineWidthOf('가나다라', 3, measure, 0.4));
   });
 });

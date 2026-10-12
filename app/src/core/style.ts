@@ -133,6 +133,11 @@ export const CALENDAR_SIZE_SCALE = 1;
 export const CALENDAR_ADJACENT_OPACITY = 0.35;
 /** 자간(글자 사이 간격). 기본은 벌리지 않는다. */
 export const CALENDAR_LETTER_SPACING: Mm = 0;
+
+/** 글자(일반 글자·날짜 칸) 자간의 기본값과, 칸에 칠 수 있는 범위(세부계획 A4.5 결정 2026-10-12). 달력도 같은 범위. */
+export const TEXT_LETTER_SPACING: Mm = 0;
+export const MIN_LETTER_SPACING: Mm = -1;
+export const MAX_LETTER_SPACING: Mm = 10;
 /** 줄(주) 간격 배율. sizeScale과 별개로 행 사이 간격만 조절한다. 기본은 1(그대로). */
 export const CALENDAR_ROW_SCALE = 1;
 

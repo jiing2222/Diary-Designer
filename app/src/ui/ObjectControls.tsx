@@ -16,13 +16,15 @@ import {
 import { checkboxPath } from '../core/checkbox';
 import {
   DEFAULT_FONT_FAMILY,
+  MAX_LETTER_SPACING,
+  MIN_LETTER_SPACING,
   OBJECT_LINE_COLOR,
   OBJECT_LINE_WIDTH,
   SHAPE_FILL_COLOR,
   TEXT_COLOR,
   TEXT_SIZE,
 } from '../core/style';
-import { boldOf, naturalLineHeight } from '../core/text';
+import { boldOf, letterSpacingOfText, naturalLineHeight } from '../core/text';
 import { DEFAULT_FIELD_DRAFT } from '../core/fieldFormat';
 import {
   letterSpacingOf,
@@ -119,8 +121,6 @@ export function LineControls({
  */
 const SIZE_SCALES = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
 const ROW_SCALES = [0.7, 0.8, 0.9, 1, 1.2, 1.4, 1.6, 1.8, 2];
-const MIN_LETTER_SPACING_MM: Mm = 0;
-const MAX_LETTER_SPACING_MM: Mm = 5;
 
 /**
  * 달력의 시작 요일·요일 언어·글꼴·색·크기 등.
@@ -188,8 +188,8 @@ export function CalendarControls({
             value={spacingMixed ? null : letterSpacingOf(first)}
             unit="mm"
             title="자간"
-            min={MIN_LETTER_SPACING_MM}
-            max={MAX_LETTER_SPACING_MM}
+            min={MIN_LETTER_SPACING}
+            max={MAX_LETTER_SPACING}
             step={0.1}
             onChange={(mm) => apply({ letterSpacing: mm === 0 ? undefined : mm })}
           />
@@ -897,7 +897,7 @@ export function TextControls({
         title="색"
       />
 
-      <Pop label="간격·배치" title="줄 간격·세로 정렬·회전">
+      <Pop label="간격·배치" title="줄 간격·자간·세로 정렬·회전">
         <PopRow label="줄 간격">
           <NumField
             value={lineMm}
@@ -908,6 +908,19 @@ export function TextControls({
             step={0.5}
             onCommit={afterPick}
             onChange={(mm) => apply({ lineHeight: mm })}
+          />
+        </PopRow>
+        <PopRow label="자간">
+          {/* 줄 간격처럼 직접 치는 칸(세부계획 A4.5 결정). 0을 치면 값을 비워 기본(0)을 따른다. */}
+          <NumField
+            value={mixed('letterSpacing') ? null : letterSpacingOfText(items[0])}
+            unit="mm"
+            title="글자 사이에 더하는 간격(음수면 좁힌다)"
+            min={MIN_LETTER_SPACING}
+            max={MAX_LETTER_SPACING}
+            step={0.1}
+            onCommit={afterPick}
+            onChange={(mm) => apply({ letterSpacing: mm === 0 ? undefined : mm })}
           />
         </PopRow>
         <PopRow label="세로 정렬">

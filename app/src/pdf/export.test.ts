@@ -1080,6 +1080,17 @@ describe('세트형 — 데이터셋', () => {
       expect(contentStreamWidths(bytes).some((w) => Math.abs(w - mmToPt(fakeBoldStrokeOf({ bold: true }, 4))) < 1e-3)).toBe(true);
     });
 
+    it('자간을 주면 글자를 하나씩 떼어 그린다(Tj가 글자 수만큼)', async () => {
+      const count = async (patch: Partial<TextObject>) => {
+        const bytes = await buildPdf({ ...base, dotGrid: noGrid, fontBytes: realFont, objects: [text({ text: 'ABCD', ...patch })] });
+        return ((await pageStreams(bytes)).join('\n').match(/\bTj\b/g) ?? []).length;
+      };
+      // 칸(슬롯)마다 같은 글자를 그리므로 횟수의 비율로 본다: 한 줄 1번 → 글자 4개 4번
+      const plain = await count({});
+      expect(plain).toBeGreaterThan(0);
+      expect(await count({ letterSpacing: 0.5 })).toBe(plain * 4);
+    });
+
     it('보통 글자는 테두리를 그리지 않는다', async () => {
       const bytes = await buildPdf({ ...base, dotGrid: noGrid, fontBytes: realFont, objects: [text()] });
       expect((await pageStreams(bytes)).join('\n')).not.toMatch(/\b2 Tr\b/);

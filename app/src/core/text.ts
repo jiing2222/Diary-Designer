@@ -1,5 +1,5 @@
 import { cleanStyle, type Align, type TextObject, type TextStyle, type VAlign } from './objects';
-import { FAKE_BOLD_STROKE_RATIO, TEXT_ASCENT, TEXT_DESCENT, TEXT_SIZE } from './style';
+import { FAKE_BOLD_STROKE_RATIO, TEXT_ASCENT, TEXT_DESCENT, TEXT_LETTER_SPACING, TEXT_SIZE } from './style';
 import type { Mm } from './units';
 
 /**
@@ -50,9 +50,34 @@ export function fakeBoldStrokeOf(t: { bold?: boolean }, size: Mm): Mm {
  */
 export type Measure = (text: string) => number;
 
-/** 한 줄의 폭(mm). */
-export function lineWidthOf(line: string, size: Mm, measure: Measure): Mm {
-  return measure(line) * size;
+/** 자간(mm). 정하지 않았으면 0. */
+export function letterSpacingOfText(t: { letterSpacing?: Mm }): Mm {
+  return t.letterSpacing ?? TEXT_LETTER_SPACING;
+}
+
+/**
+ * 한 줄의 폭(mm) — 글자 폭 + 글자 사이(글자 수 − 1)마다 자간. 끝 글자 뒤에는 자간을 붙이지
+ * 않는다(가운데·오른쪽 정렬이 한쪽으로 치우치지 않게). 글자 수는 코드 포인트로 센다(이모지 하나 = 1).
+ */
+export function lineWidthOf(line: string, size: Mm, measure: Measure, spacing: Mm = 0): Mm {
+  const gaps = Math.max(0, [...line].length - 1);
+  return measure(line) * size + spacing * gaps;
+}
+
+/**
+ * 한 줄을 그릴 조각들 — 줄 왼쪽 끝에서 몇 mm 뒤(`dx`)에 무엇을 그리는가. 자간이 0이면 줄
+ * 통째로 한 조각, 아니면 글자마다 한 조각(글자 폭 + 자간씩 뒤로). PDF는 이대로 그리고,
+ * 화면은 같은 간격을 글자마다 `dx`로 준다(ui/InsertView의 spacedChars).
+ */
+export function linePieces(line: string, size: Mm, measure: Measure, spacing: Mm): { text: string; dx: Mm }[] {
+  if (spacing === 0) return [{ text: line, dx: 0 }];
+  const out: { text: string; dx: Mm }[] = [];
+  let dx = 0;
+  for (const ch of line) {
+    out.push({ text: ch, dx });
+    dx += measure(ch) * size + spacing;
+  }
+  return out;
 }
 
 /**

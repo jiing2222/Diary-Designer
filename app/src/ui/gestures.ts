@@ -109,6 +109,7 @@ export function editingFor(t: TextObject): Editing {
       valign: t.valign,
       color: t.color,
       lineHeight: t.lineHeight,
+      letterSpacing: t.letterSpacing,
       bold: t.bold,
       font: t.font,
       rotate: t.rotate,

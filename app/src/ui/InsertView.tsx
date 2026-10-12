@@ -47,6 +47,7 @@ import {
   anchorX,
   fakeBoldStrokeOf,
   leftOf,
+  letterSpacingOfText,
   lineWidthOf,
   displayText,
   lineBaselines,
@@ -361,7 +362,8 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
         // (구현전략 ‘바닥 1’). 아직이면 잠깐 브라우저 정렬(text-anchor)로 — 읽는 대로 다시 그린다.
         const measure = coverage ? measureOf(coverage) : null;
         const x = anchorX(t, align);
-        const lineX = (line: string) => (measure ? leftOf(t, align, lineWidthOf(line, size, measure)) : x);
+        const spacing = letterSpacingOfText(t);
+        const lineX = (line: string) => (measure ? leftOf(t, align, lineWidthOf(line, size, measure, spacing)) : x);
         const boldStroke = fakeBoldStrokeOf(t, size);
         const rotate = rotateOf(t);
         const el = (
@@ -392,7 +394,7 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
           >
             {lines.map((line, i) => (
               <tspan key={i} x={lineX(line)} y={baselines[i]}>
-                {line || ' '}
+                {spacedChars(line || ' ', spacing)}
               </tspan>
             ))}
           </text>
@@ -493,7 +495,8 @@ function CalendarLayer({
  *
  * SVG에는 CSS letter-spacing이 있지만, PDF(pdf-lib)와 같은 방식으로 맞추려고
  * 글자 사이마다 `<tspan dx>`를 직접 준다 — `dx`는 이 SVG 좌표계와 같은
- * mm 단위라 core/calendar의 `letterSpacingOf` 값을 그대로 쓸 수 있다.
+ * mm 단위라 core/calendar의 `letterSpacingOf`·core/text의 `letterSpacingOfText` 값을 그대로
+ * 쓸 수 있다(달력·글자 둘 다, PDF는 core/text의 `linePieces`로 같은 간격).
  * 간격이 0이면(대부분의 경우) 지금까지처럼 글자를 통째로 낸다.
  */
 function spacedChars(text: string, spacing: Mm) {

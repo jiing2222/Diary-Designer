@@ -27,6 +27,8 @@ import { mmToPt, ptToMm, type Mm } from '../core/units';
 import {
   alignOf,
   fakeBoldStrokeOf,
+  letterSpacingOfText,
+  linePieces,
   lineWidthOf,
   displayText,
   leftOf,
@@ -642,6 +644,7 @@ function drawTexts(
       const coverage = coverageFontFor(t, fonts);
       const measure = measureOf(coverage);
       const boldStroke = fakeBoldStrokeOf(t, size);
+      const spacing = letterSpacingOfText(t);
       const fill = t.color ? color(t.color) : TEXT;
 
       const rotate = rotateOf(t);
@@ -653,38 +656,42 @@ function drawTexts(
         // 참고)는 X로 바꿔서 잰다·그린다. 안 바꾸면 컬러 이모지 폰트조차
         // 실제로는 빈 칸을 그리면서 폭만 차지해 뒤 글자와 자리가 어긋난다.
         const drawn = sanitizeForFont(line, coverage);
-        const width = lineWidthOf(drawn, size, measure);
-        // 먼저 글자 자신의 회전(90/270)을 상자 가운데 축으로 적용하고, 그 다음
-        // place.map으로 칸 배치(회전 배치 포함)를 반영한다 — 순서가 바뀌면 안 된다.
-        const local = localRotation.map({ x: leftOf(t, alignOf(t), width), y: baselines[i] });
-        const p = place.map(local.x, local.y);
-        // 가짜 굵게 — 글자를 ‘채우기 + 테두리’ 방식으로 그린다. 테두리 굵기·색은 화면의
-        // SVG stroke와 같은 값(core/text의 fakeBoldStrokeOf). drawText는 이 글자 상태를
-        // 바꾸지 않으므로 감싼 그래픽 상태 안에서 그대로 물려받는다.
-        if (boldStroke > 0) {
-          page.pushOperators(
-            pushGraphicsState(),
-            setTextRenderingMode(TextRenderingMode.FillAndOutline),
-            setLineWidth(mmToPt(boldStroke)),
-            setLineJoin(LineJoinStyle.Round),
-            setStrokingColor(fill),
-          );
+        const width = lineWidthOf(drawn, size, measure, spacing);
+        const left = leftOf(t, alignOf(t), width);
+        // 자간이 있으면 글자를 하나씩 떼어 그린다(core/text의 linePieces — 화면과 같은 간격).
+        for (const piece of linePieces(drawn, size, measure, spacing)) {
+          // 먼저 글자 자신의 회전(90/270)을 상자 가운데 축으로 적용하고, 그 다음
+          // place.map으로 칸 배치(회전 배치 포함)를 반영한다 — 순서가 바뀌면 안 된다.
+          const local = localRotation.map({ x: left + piece.dx, y: baselines[i] });
+          const p = place.map(local.x, local.y);
+          // 가짜 굵게 — 글자를 ‘채우기 + 테두리’ 방식으로 그린다. 테두리 굵기·색은 화면의
+          // SVG stroke와 같은 값(core/text의 fakeBoldStrokeOf). drawText는 이 글자 상태를
+          // 바꾸지 않으므로 감싼 그래픽 상태 안에서 그대로 물려받는다.
+          if (boldStroke > 0) {
+            page.pushOperators(
+              pushGraphicsState(),
+              setTextRenderingMode(TextRenderingMode.FillAndOutline),
+              setLineWidth(mmToPt(boldStroke)),
+              setLineJoin(LineJoinStyle.Round),
+              setStrokingColor(fill),
+            );
+          }
+          page.drawText(piece.text, {
+            x: mmToPt(p.x),
+            y: mmToPt(flipY(p.y)),
+            size: mmToPt(size),
+            font,
+            color: fill,
+            // 자리는 두 map()이 이미 옮겨준다. 하지만 pdf-lib은 글자 자체를 그
+            // 방향으로 돌려 그리라고 따로 말해주지 않으면 언제나 가로로 눕혀
+            // 그린다 — 화면(SVG)은 <g transform>이 글자까지 통째로 돌리므로 이
+            // 차이가 화면에서는 안 보이다가 인쇄물에서만 드러났다. 두 회전(글자
+            // 자신 + 회전 배치)의 각도를 더한다 — 방향(부호)이 같은 각도끼리는
+            // 그냥 더하면 합쳐진 회전이 나온다.
+            rotate: degrees(layoutRotateDeg(layout) + pdfRotateOf(rotate)),
+          });
+          if (boldStroke > 0) page.pushOperators(popGraphicsState());
         }
-        page.drawText(drawn, {
-          x: mmToPt(p.x),
-          y: mmToPt(flipY(p.y)),
-          size: mmToPt(size),
-          font,
-          color: fill,
-          // 자리는 두 map()이 이미 옮겨준다. 하지만 pdf-lib은 글자 자체를 그
-          // 방향으로 돌려 그리라고 따로 말해주지 않으면 언제나 가로로 눕혀
-          // 그린다 — 화면(SVG)은 <g transform>이 글자까지 통째로 돌리므로 이
-          // 차이가 화면에서는 안 보이다가 인쇄물에서만 드러났다. 두 회전(글자
-          // 자신 + 회전 배치)의 각도를 더한다 — 방향(부호)이 같은 각도끼리는
-          // 그냥 더하면 합쳐진 회전이 나온다.
-          rotate: degrees(layoutRotateDeg(layout) + pdfRotateOf(rotate)),
-        });
-        if (boldStroke > 0) page.pushOperators(popGraphicsState());
       });
     }
 
