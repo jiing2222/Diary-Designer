@@ -43,17 +43,52 @@ export function currentUser(): CloudUser | null {
 /**
  * 로그인 상태가 바뀔 때 알려준다. 반환값을 부르면 그만 듣는다.
  *
- * 토큰이 만료되거나 다른 탭에서 로그아웃하는 경우까지 함께 잡힌다 —
- * SDK가 localStorage를 지켜보기 때문이다.
+ * 다른 탭에서 로그아웃하는 경우도 잡힌다 — SDK가 localStorage를 지켜본다.
+ * 저장된 토큰의 만료·서버 유효성은 시작할 때 refreshSession으로 확인한다.
  */
 export function onAuthChange(listener: (user: CloudUser | null) => void): () => void {
   if (!pb) return () => {};
   return pb.authStore.onChange(() => listener(currentUser()));
 }
 
+let refreshing: Promise<CloudUser | null> | null = null;
+
+/** 저장된 계정을 서버에서도 확인한다. 연결 실패는 로그아웃으로 취급하지 않는다. */
+export function refreshSession(): Promise<CloudUser | null> {
+  if (refreshing) return refreshing;
+  refreshing = checkSession().finally(() => { refreshing = null; });
+  return refreshing;
+}
+
+async function checkSession(): Promise<CloudUser | null> {
+  if (!pb?.authStore.token) return null;
+  if (!pb.authStore.isValid) {
+    pb.authStore.clear();
+    return null;
+  }
+  const token = pb.authStore.token;
+  try {
+    // SDK의 authRefresh는 응답 즉시 계정을 바꾼다. 확인 중 로그아웃·다른 계정으로
+    // 로그인했으면 옛 응답이 그 결정을 되돌리지 않도록 토큰을 비교한 뒤 저장한다.
+    const auth = await pb.send<{ token: string; record: RecordModel }>('/api/collections/users/auth-refresh', {
+      method: 'POST', headers: { Authorization: token }, requestKey: null,
+    });
+    if (pb.authStore.token === token) pb.authStore.save(auth.token, auth.record);
+    return currentUser();
+  } catch (err) {
+    if (pb.authStore.token !== token) return currentUser();
+    const status = (err as { status?: number })?.status;
+    if (status === 401 || status === 403) {
+      pb.authStore.clear();
+      return null;
+    }
+    throw err;
+  }
+}
+
 export async function signIn(email: string, password: string): Promise<CloudUser> {
   if (!pb) throw new Error('서버가 설정되지 않았습니다.');
-  const auth = await pb.collection('users').authWithPassword(email, password);
+  const auth = await pb.collection('users').authWithPassword(email.trim(), password);
   return userOf(auth.record)!;
 }
 
@@ -65,7 +100,7 @@ export async function signIn(email: string, password: string): Promise<CloudUser
  */
 export async function signUp(email: string, password: string): Promise<CloudUser> {
   if (!pb) throw new Error('서버가 설정되지 않았습니다.');
-  await pb.collection('users').create({ email, password, passwordConfirm: password });
+  await pb.collection('users').create({ email: email.trim(), password, passwordConfirm: password });
   return signIn(email, password);
 }
 
@@ -115,9 +150,13 @@ export function authed(): { pb: PocketBase; userId: string } | null {
  * PocketBase가 내는 것은 상태 코드와 필드별 영어 메시지라 그대로 보여주면
  * 무엇을 해야 할지 알 수 없다. 실제로 자주 나오는 것만 골라 옮긴다.
  */
-export function cloudErrorText(err: unknown): string {
+export function cloudErrorText(err: unknown, action: 'signIn' | 'signUp' | 'account' = 'signIn'): string {
   const status = (err as { status?: number })?.status;
-  if (status === 400) return '이메일 또는 비밀번호가 맞지 않습니다.';
+  if (status === 400) {
+    if (action === 'signUp') return '가입하지 못했어요. 이메일이 이미 등록됐는지, 비밀번호가 8자 이상인지 확인해 주세요.';
+    if (action === 'account') return '변경하지 못했어요. 현재 비밀번호와 입력한 내용을 확인해 주세요.';
+    return '이메일 또는 비밀번호가 맞지 않습니다.';
+  }
   if (status === 403) return '권한이 없습니다. 다시 로그인해 보세요.';
   if (status === 404) return '서버에서 찾을 수 없습니다.';
   if (status === 0 || status === undefined) return '서버에 연결하지 못했습니다.';

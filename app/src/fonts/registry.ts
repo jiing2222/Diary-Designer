@@ -136,10 +136,17 @@ async function restoreFonts(
   resolveId?: (name: string) => string | undefined,
   known: FontInfo[] = [],
 ): Promise<UserFont[]> {
-  const cached = await readAssetCache('fonts');
+  const rows = await readAssetCache('fonts');
+  const cached = rows.filter((row) => typeof row.id === 'string' && row.id.length > 0);
   reserveIds(cached.map((f) => f.id));
   const names = new Set(cached.map((f) => f.name));
-  const legacy = await idbEntries<{ name: string; buffer: ArrayBuffer } & FontMeta>('fonts');
+  const legacy = new Map(await idbEntries<{ name: string; buffer: ArrayBuffer } & FontMeta>('fonts'));
+  // 첫 데이터 이전은 파일을 이름 키로 복사했다. id가 없는 그 사본도 원본과 같은 id로 복원한다.
+  for (const row of rows) {
+    if ((typeof row.id !== 'string' || !row.id) && row.buffer && typeof row.name === 'string') {
+      legacy.set(row.name, { name: row.name, buffer: row.buffer, label: row.label, favorite: row.favorite, hidden: row.hidden });
+    }
+  }
   const restored: UserFont[] = [];
   for (const row of cached) {
     if (row.deleted) continue;

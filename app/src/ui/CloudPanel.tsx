@@ -6,9 +6,8 @@
  * 없다.
  *
  * 여기서 하는 일은 로그인·로그아웃과 **지금 상태를 정직하게 보여주는 것**뿐이다.
- * 실제로 올리고 내리는 것은 App.tsx의 effect가 한다 — 화면이 열려 있든
- * 닫혀 있든 동기화는 계속돼야 하므로, 그 일을 이 컴포넌트가 들고 있으면
- * 안 된다.
+ * 작업별 동기화는 8-2에서 연결한다. 그 전에는 로컬 저장 상태를 분명히
+ * 알리고, 로그인만 했다고 작업이 서버에 올라갔다고 표시하지 않는다.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -22,12 +21,13 @@ import {
   signIn,
   signOut,
   signUp,
+  refreshSession,
   type CloudUser,
 } from '../cloud/client';
-import { forgetRecord } from '../cloud/projects';
 
 /** 지금 동기화가 어디까지 갔는지. App.tsx가 정하고 여기서 보여주기만 한다. */
 export type SyncState =
+  | { kind: 'local' }
   | { kind: 'idle' }
   | { kind: 'syncing' }
   | { kind: 'saved'; at: Date }
@@ -35,6 +35,8 @@ export type SyncState =
 
 function statusText(sync: SyncState): string {
   switch (sync.kind) {
+    case 'local':
+      return '이 기기에 저장';
     case 'syncing':
       return '올리는 중…';
     case 'saved':
@@ -46,12 +48,26 @@ function statusText(sync: SyncState): string {
   }
 }
 
-export function CloudPanel({ sync }: { sync: SyncState }) {
+export function CloudPanel({ sync = { kind: 'local' } }: { sync?: SyncState }) {
   const [user, setUser] = useState<CloudUser | null>(() => currentUser());
+  const [checking, setChecking] = useState(() => currentUser() !== null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => onAuthChange(setUser), []);
+  useEffect(() => {
+    let alive = true;
+    const stop = onAuthChange((next) => {
+      setUser(next);
+      setSessionError(null);
+    });
+    void refreshSession().catch((err) => {
+      if (alive) setSessionError(cloudErrorText(err));
+    }).finally(() => {
+      if (alive) setChecking(false);
+    });
+    return () => { alive = false; stop(); };
+  }, []);
 
   // 바깥을 누르거나 Esc — 설정 말풍선과 같은 방식이다(SettingsPanel).
   useEffect(() => {
@@ -77,29 +93,31 @@ export function CloudPanel({ sync }: { sync: SyncState }) {
       <button
         className="ghost cloud-trigger"
         onClick={() => setOpen((v) => !v)}
-        title={user ? `${user.email}으로 로그인함` : '로그인하면 다른 기기에서도 이어서 작업합니다'}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        title={user ? `${user.email} 계정` : '계정 로그인'}
       >
         <span className={`cloud-dot ${user ? sync.kind : 'out'}`} aria-hidden="true" />
-        {user ? '클라우드' : '로그인'}
+        {checking ? '계정 확인 중…' : user ? '계정' : '로그인'}
       </button>
 
-      {user && sync.kind !== 'idle' && (
+      {user && sync.kind !== 'idle' && sync.kind !== 'local' && (
         <span className={`cloud-status ${sync.kind === 'error' ? 'bad' : ''}`}>
           {statusText(sync)}
         </span>
       )}
 
       {open && (
-        <div className="popover popover-below cloud-pop">
-          <h2>클라우드</h2>
+        <div className="popover popover-below cloud-pop" role="dialog" aria-label="계정">
+          <h2>계정</h2>
           <div className="popover-body">
+            {sessionError && <p className="cloud-error" role="alert">계정을 확인하지 못했어요. 로컬 작업은 계속할 수 있어요. {sessionError}</p>}
             {user ? (
               <SignedIn
                 user={user}
                 sync={sync}
                 onSignOut={() => {
                   signOut();
-                  forgetRecord();
                   setOpen(false);
                 }}
               />
@@ -126,18 +144,19 @@ function SignedIn({
     <div className="cloud-signed">
       <p className="cloud-email">{user.email}</p>
       <p className="note">
-        작업이 자동으로 서버에 올라갑니다. 다른 기기에서 같은 계정으로 로그인하면 이어서 할 수
-        있습니다.
+        {sync.kind === 'local'
+          ? '작업은 지금 이 기기에 저장됩니다. 다른 기기에서 이어 쓰는 기능은 준비 중이에요.'
+          : '작업이 서버에도 저장됩니다. 다른 기기에서 같은 계정으로 로그인하면 이어서 할 수 있습니다.'}
       </p>
       {/*
         올라가지 않는 것을 미리 말해둔다. 다른 컴퓨터에서 열었을 때 글꼴이
         기본 글꼴로 보이면 고장 난 것으로 오해하기 딱 좋다 — 그때 가서
         알리면 늦는다.
       */}
-      <p className="note">
+      {sync.kind !== 'local' && <p className="note">
         글꼴·이미지 <b>파일</b>은 올라가지 않습니다. 다른 기기에서는 같은 이름으로 다시 등록해야
         합니다.
-      </p>
+      </p>}
       {sync.kind === 'error' && <p className="cloud-error">{sync.text}</p>}
       <AccountForm onDeleted={onSignOut} />
       <button className="ghost" onClick={onSignOut}>
@@ -164,7 +183,6 @@ function AccountForm({ onDeleted }: { onDeleted: () => void }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (mode === 'delete' && !confirm('계정과 서버에 저장된 작업이 모두 지워집니다. 탈퇴할까요?')) return;
     setBusy(true);
     setMsg(null);
     try {
@@ -177,7 +195,7 @@ function AccountForm({ onDeleted }: { onDeleted: () => void }) {
         onDeleted();
       }
     } catch (err) {
-      setMsg({ ok: false, text: cloudErrorText(err) });
+      setMsg({ ok: false, text: cloudErrorText(err, 'account') });
     } finally {
       setBusy(false);
     }
@@ -206,6 +224,7 @@ function AccountForm({ onDeleted }: { onDeleted: () => void }) {
           value={current}
           onChange={(e) => setCurrent(e.target.value)}
           autoComplete="current-password"
+          disabled={busy}
           required
         />
       </label>
@@ -218,16 +237,18 @@ function AccountForm({ onDeleted }: { onDeleted: () => void }) {
             onChange={(e) => setNext(e.target.value)}
             autoComplete="new-password"
             minLength={8}
+            disabled={busy}
             required
           />
         </label>
       )}
-      {msg && <p className="cloud-error">{msg.text}</p>}
+      {mode === 'delete' && <p className="cloud-error">계정과 서버에 저장된 자료가 모두 지워집니다. 이 기기에 저장된 작업은 남습니다.</p>}
+      {msg && <p className="cloud-error" role="alert">{msg.text}</p>}
       <div className="cloud-actions">
         <button type="submit" disabled={busy} className={mode === 'delete' ? 'danger' : undefined}>
           {busy ? '잠시만요…' : mode === 'password' ? '바꾸기' : '탈퇴하기'}
         </button>
-        <button type="button" className="ghost" onClick={() => open('closed')}>
+        <button type="button" className="ghost" disabled={busy} onClick={() => open('closed')}>
           취소
         </button>
       </div>
@@ -251,7 +272,7 @@ function SignInForm({ onDone }: { onDone: () => void }) {
       else await signIn(email, password);
       onDone();
     } catch (err) {
-      setError(cloudErrorText(err));
+      setError(cloudErrorText(err, mode === 'up' ? 'signUp' : 'signIn'));
     } finally {
       setBusy(false);
     }
@@ -260,8 +281,7 @@ function SignInForm({ onDone }: { onDone: () => void }) {
   return (
     <form className="cloud-form" onSubmit={(e) => void submit(e)}>
       <p className="note">
-        로그인하면 작업이 서버에도 저장돼서, 브라우저를 지우거나 다른 기기에서 열어도 이어서 할 수
-        있습니다.
+        계정을 만들거나 로그인할 수 있어요. 작업은 지금 이 기기에 저장됩니다.
       </p>
 
       <label className="cloud-field">
@@ -271,6 +291,7 @@ function SignInForm({ onDone }: { onDone: () => void }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
+          disabled={busy}
           required
         />
       </label>
@@ -283,12 +304,13 @@ function SignInForm({ onDone }: { onDone: () => void }) {
           onChange={(e) => setPassword(e.target.value)}
           autoComplete={mode === 'up' ? 'new-password' : 'current-password'}
           /* PocketBase 기본값이 8자다. 눌러보고 나서 알게 하지 않는다. */
-          minLength={8}
+          minLength={mode === 'up' ? 8 : undefined}
+          disabled={busy}
           required
         />
       </label>
 
-      {error && <p className="cloud-error">{error}</p>}
+      {error && <p className="cloud-error" role="alert">{error}</p>}
 
       <div className="cloud-actions">
         <button type="submit" disabled={busy}>
@@ -297,6 +319,7 @@ function SignInForm({ onDone }: { onDone: () => void }) {
         <button
           type="button"
           className="ghost"
+          disabled={busy}
           onClick={() => {
             setMode((m) => (m === 'in' ? 'up' : 'in'));
             setError(null);

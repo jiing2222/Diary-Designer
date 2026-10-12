@@ -46,6 +46,18 @@ async function registry(kind: 'font' | 'image') {
 }
 
 describe.each(['font', 'image'] as const)('%s 파일 보존', (kind) => {
+  it('첫 데이터 이전 때 이름 키로 복사된 파일도 기존 id로 복원한다', async () => {
+    const r = await registry(kind);
+    const id = kind === 'font' ? 'f40' : 'img40';
+    db.files.set(r.store, new Map([['원본', { name: '원본', buffer: buffer(7), kind: 'png' }]]));
+    const restored = await r.restore(() => id, [{ id, name: '원본', label: '내 자료' }]);
+    expect(restored).toMatchObject([{ id, name: '원본', label: '내 자료' }]);
+    expect(new Uint8Array(r.bytes(id)!)).toEqual(new Uint8Array([7]));
+    expect(db.files.get(r.store)?.get(id)).toMatchObject({ id, buffer: buffer(7) });
+    vi.resetModules();
+    expect(await (await registry(kind)).restore()).toHaveLength(1);
+  });
+
   it('같은 이름의 두 파일도 id별로 보관하고 재열기 후 각각의 바이트를 보존한다', async () => {
     const r = await registry(kind);
     const a = await r.add(file(`same.${r.ext}`, 1));

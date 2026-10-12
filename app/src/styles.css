@@ -271,8 +271,12 @@ header h1 {
   color: var(--warn);
 }
 
-.cloud-pop {
+.cloud .cloud-pop {
   width: 288px;
+  max-width: calc(100vw - 24px);
+  left: auto;
+  right: 0;
+  margin-left: 0;
 }
 
 .cloud-signed {

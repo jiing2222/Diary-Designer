@@ -147,10 +147,17 @@ async function restoreImages(
   resolveId?: (name: string) => string | undefined,
   known: ImageInfo[] = [],
 ): Promise<UserImage[]> {
-  const cached = await readAssetCache('images');
+  const rows = await readAssetCache('images');
+  const cached = rows.filter((row) => typeof row.id === 'string' && row.id.length > 0);
   reserveImageIds(cached.map((i) => i.id));
   const names = new Set(cached.map((i) => i.name));
-  const legacy = await idbEntries<{ name: string; kind: ImageKind; buffer: ArrayBuffer } & ImageMeta>('images');
+  const legacy = new Map(await idbEntries<{ name: string; kind: ImageKind; buffer: ArrayBuffer } & ImageMeta>('images'));
+  // 첫 데이터 이전은 파일을 이름 키로 복사했다. id가 없는 그 사본도 원본과 같은 id로 복원한다.
+  for (const row of rows) {
+    if ((typeof row.id !== 'string' || !row.id) && row.buffer && row.kind && typeof row.name === 'string') {
+      legacy.set(row.name, { name: row.name, kind: row.kind, buffer: row.buffer, label: row.label, usedAt: row.usedAt, hidden: row.hidden });
+    }
+  }
   const restored: UserImage[] = [];
   for (const row of cached) {
     if (row.deleted) continue;

@@ -12,6 +12,7 @@ import { Modal } from './Modal';
 import { Onboarding } from './Onboarding';
 import { Toast } from './Toast';
 import { RingsLogo } from './icons';
+import { CloudPanel } from './CloudPanel';
 
 /**
  * 앱 틀(리뉴얼, design/리뉴얼/디자인.md ‘앱 틀’·‘탭’).
@@ -96,7 +97,7 @@ export function App() {
             />
           )}
           {onLibrary && <SaveState />}
-          <span className="account-dot" title="로그인은 8단계에서 붙어요">·</span>
+          <CloudPanel />
         </div>
       </header>
 
