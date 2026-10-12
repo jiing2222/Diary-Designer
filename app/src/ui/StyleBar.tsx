@@ -3,14 +3,17 @@ import {
   isCalendar,
   isCheckbox,
   isImage,
+  isMoon,
   isLine,
   isShape,
   isText,
   MIN_FREE_BOX_SIZE,
   type CornerRoundness,
+  type MoonStyle,
   type TextStyle,
 } from '../core/objects';
 import { iconSizeOf } from '../core/checkbox';
+import { moonSizeOf } from '../core/moon';
 import { roundMm } from '../core/units';
 import { useEditObjects, useHasBack, useSide, useStore } from '../store';
 import type { Editing } from './gestures';
@@ -62,6 +65,7 @@ export function StyleBar({
   const checkboxDraftStyle = useStore((s) => s.checkboxDraftStyle);
   const setCheckboxDraftStyle = useStore((s) => s.setCheckboxDraftStyle);
   const styleCheckbox = useStore((s) => s.styleCheckbox);
+  const styleMoon = useStore((s) => s.styleMoon);
   const calendarDraftStyle = useStore((s) => s.calendarDraftStyle);
   const setCalendarDraftStyle = useStore((s) => s.setCalendarDraftStyle);
   const styleCalendar = useStore((s) => s.styleCalendar);
@@ -98,6 +102,7 @@ export function StyleBar({
   const pickedImages = picked.filter(isImage);
   const pickedShapes = picked.filter(isShape);
   const pickedCheckboxes = picked.filter(isCheckbox);
+  const pickedMoons = picked.filter(isMoon);
   const size = boundsOfObjects(picked);
 
   // 무엇 하나를 골랐거나 그 도구를 쓰는 중이면 그 속성을, 아니면 선 속성을 보여준다.
@@ -127,7 +132,10 @@ export function StyleBar({
     !showTable &&
     !showShape &&
     (tool === 'checkbox' || pickedCheckboxes.length > 0);
+  // 달은 고른 것이 전부 달일 때만(다른 것과 섞이면 선 막대 등이 맡는다).
+  const showMoon = pickedMoons.length > 0 && pickedMoons.length === picked.length;
   const showText =
+    !showMoon &&
     !showCalendar &&
     !showImage &&
     !showMixedColor &&
@@ -148,7 +156,22 @@ export function StyleBar({
               "—")으로 보여준다. 저장된 상자(칸, 도트 네 개가 모서리)는
               옮기기 기준이라 손대지 않고, 실제로 그려지는 아이콘 크기
               (iconSize)만 바꾼다 — core/checkbox의 checkboxIconBox 주석 참고. */}
-          {picked.length === pickedCheckboxes.length && pickedCheckboxes.length > 0 ? (
+          {showMoon ? (
+            // 달 지름 — 저장된 상자(칸)는 옮기기 기준이라 그대로 두고 그리는 달만 키운다(core/moon).
+            <NumField
+              value={
+                pickedMoons.every((o) => moonSizeOf(o) === moonSizeOf(pickedMoons[0]))
+                  ? roundMm(moonSizeOf(pickedMoons[0]), 1)
+                  : null
+              }
+              unit="mm"
+              title="달 지름"
+              min={MIN_FREE_BOX_SIZE}
+              max={roundMm(Math.min(...pickedMoons.map((o) => Math.max(o.width, o.height))), 1)}
+              step={0.1}
+              onChange={(mm) => styleMoon({ size: mm })}
+            />
+          ) : picked.length === pickedCheckboxes.length && pickedCheckboxes.length > 0 ? (
             <NumField
               value={
                 pickedCheckboxes.every((o) => iconSizeOf(o) === iconSizeOf(pickedCheckboxes[0]))
@@ -184,13 +207,19 @@ export function StyleBar({
                     ? '이미지'
                     : tool === 'checkbox'
                       ? '체크박스'
+                      : tool === 'moon'
+                        ? '달'
                       : tool === 'draw' && drawStyle.roundness
                         ? '도형'
                         : '선'}
         </span>
       )}
 
-      {showCalendar ? (
+      {showMoon ? (
+        // 굵기·색은 체크박스와 같은 막대(테두리 굵기·색). 달은 빛나는 부분도 이 색으로 칠한다.
+        // 막대는 바꾼 키(굵기 또는 색)만 넘긴다 — 그대로 styleMoon에 준다.
+        <CheckboxControls items={pickedMoons} apply={(p) => styleMoon(p as MoonStyle)} />
+      ) : showCalendar ? (
         <CalendarControls
           items={pickedCalendars.length > 0 ? pickedCalendars : [calendarDraftStyle]}
           apply={pickedCalendars.length > 0 ? styleCalendar : setCalendarDraftStyle}

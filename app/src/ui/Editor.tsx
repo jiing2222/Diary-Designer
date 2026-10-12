@@ -8,6 +8,7 @@ import {
   cleanStyle,
   groupIdOf,
   isCalendar,
+  isMoon,
   isBoxResizable,
   isImage,
   isLine,
@@ -151,6 +152,7 @@ export function Editor() {
   const commitShape = useStore((s) => s.commitShape);
   const commitTable = useStore((s) => s.commitTable);
   const commitCheckboxes = useStore((s) => s.commitCheckboxes);
+  const commitMoon = useStore((s) => s.commitMoon);
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
   const fieldDraft = useStore((s) => s.fieldDraft);
@@ -279,8 +281,8 @@ export function Editor() {
     setPending(null);
     setDragBoth(null);
     finishEditing();
-    // 자동 필드 도구로 들어올 때마다 첫째 날짜부터 다시 센다.
-    if (tool === 'field') setFieldNext({ offset: 0 });
+    // 자동 필드·달 도구로 들어올 때마다 첫째 날짜부터 다시 센다.
+    if (tool === 'field' || tool === 'moon') setFieldNext({ offset: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool]);
 
@@ -546,7 +548,7 @@ export function Editor() {
       return;
     }
 
-    if (tool === 'field') {
+    if (tool === 'field' || tool === 'moon') {
       // 이미 있는 글자를 클릭하면 고르기만 한다 — 자동 필드는 타이핑할 게
       // 없으니 새로 겹쳐 쓰는 대신 속성 막대에서 만지도록 안내한다.
       const hit = hitAt(svgRef.current, objects, raw);
@@ -737,6 +739,12 @@ export function Editor() {
             height: Math.abs(d.to.y - d.from.y),
           };
       if (!box) return;
+
+      // 달 — 누른 칸 하나(끌었으면 걸친 칸 전체) 가운데에 그 날의 달을 놓는다.
+      if (tool === 'moon') {
+        commitMoon(box);
+        return;
+      }
 
       if (tool === 'field') {
         // 기준일 없는 D-day는 값이 빈칸이라 놓으면 보이지 않는 칸이 된다 — 먼저 정하게 한다.
@@ -1029,10 +1037,10 @@ export function Editor() {
     height: Math.abs(textDrag.to.y - textDrag.from.y) || grid.spacing,
   };
 
-  // 글자·자동 필드 도구에서 마우스가 올라간 칸. 어디에 쓰일지 미리 보여준다.
+  // 글자·자동 필드·달 도구에서 마우스가 올라간 칸. 어디에 쓰일지 미리 보여준다.
   // 이미 상자를 끄는 중이면 그 몸짓(textDrag)이 같은 자리를 대신 보여준다.
   const hoverCell =
-    (tool === 'text' || tool === 'field') && hover && !editing && !textDrag
+    (tool === 'text' || tool === 'field' || tool === 'moon') && hover && !editing && !textDrag
       ? cellAt(lattice, hover.x, hover.y)
       : null;
 
@@ -1208,7 +1216,7 @@ export function Editor() {
                         className={
                           isImage(o)
                             ? 'image-picked'
-                            : isCalendar(o) || activeFace?.fieldIds.includes(o.id)
+                            : isCalendar(o) || isMoon(o) || activeFace?.fieldIds.includes(o.id)
                               ? 'auto-picked'
                               : undefined
                         }

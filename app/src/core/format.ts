@@ -1,7 +1,8 @@
 import { dateAtOffset, majorityMonthDate, type CalendarDate, type Dataset } from './dataset';
 import { fieldValue, formatDate, isMonthLevel } from './fieldFormat';
 import { dateColorOf, ruleAppliesTo, type ColorRules } from './colorRules';
-import { isText, type DiaryObject } from './objects';
+import { isMoon, isText, type DiaryObject } from './objects';
+import { moonPhaseOf } from './moon';
 import { FIELD_PATTERN } from './text';
 
 /**
@@ -59,6 +60,12 @@ export function resolveFieldsWithDates(
   rules?: ColorRules,
 ): DiaryObject[] {
   return objects.map((o) => {
+    // 달 모양 — 그 날짜의 위상을 넣는다(그릴 때 core/moon이 모양을 정한다). 날짜가 없으면 위상도 없다.
+    if (isMoon(o)) {
+      const date = dates[o.offset] ?? null;
+      const { phase: _old, ...rest } = o;
+      return date ? { ...rest, phase: moonPhaseOf(date) } : rest;
+    }
     // 페이지 번호는 면 순서를 알아야 해서 여기서 채우지 않는다(core/work가 채운다).
     if (!isText(o) || !o.field || o.field.kind === 'page') return o;
     const monthLevel = !o.field.kind && isMonthLevel(o.field.format);

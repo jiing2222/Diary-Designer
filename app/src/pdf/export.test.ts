@@ -1350,3 +1350,29 @@ describe('체크박스', () => {
     expect(contentStreamWidths(bytes)).toContain(0.2);
   });
 });
+
+describe('달 모양 (리뉴얼 4-4)', () => {
+  const base = {
+    paperWidth: 210,
+    paperHeight: 297,
+    layout,
+    dotGrid: DEFAULT_DOT_GRID,
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+  const moon = (phase?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7) =>
+    ({ id: 'mo1', type: 'moon' as const, x: 5, y: 5, width: 8, height: 8, offset: 0, strokeWidth: 0.3, phase });
+
+  // 모양(경로) 자체는 core/moon.test.ts가 본다. 여기서는 SVG 호(A)가 든 경로를 pdf-lib이
+  // 받아 그리는지, 굵기가 화면과 같은 mm로 찍히는지만 본다.
+  it.each([0, 1, 2, 3, 4, 5, 6, 7] as const)('위상 %s도 안전하게 만들어지고 테두리 굵기가 같다', async (phase) => {
+    const bytes = await buildPdf({ ...base, objects: [moon(phase)] });
+    expect(contentStreamWidths(bytes)).toContain(0.3);
+  });
+
+  it('위상이 없으면(날짜가 없는 칸) 그리지 않는다', async () => {
+    const bytes = await buildPdf({ ...base, objects: [moon()] });
+    expect(contentStreamWidths(bytes)).not.toContain(0.3);
+  });
+});

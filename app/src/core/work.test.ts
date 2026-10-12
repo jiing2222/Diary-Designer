@@ -26,7 +26,7 @@ import {
   type WorkItem,
 } from './work';
 import { DEFAULT_DOT_GRID } from './grid';
-import { emptyOverride } from './dated';
+import { emptyOverride, suggestPerPage } from './dated';
 import type { TextObject } from './objects';
 
 const today = { year: 2026, month: 10, day: 11 };
@@ -384,5 +384,26 @@ describe('색 규칙', () => {
 
   it('보통 페이지도 오늘이 일요일이면 규칙 색', () => {
     expect(colors([{ kind: 'page', id: 'p1', face: face([dayField('t1')]) }])).toEqual(['@B']); // 오늘 10/11(일)
+  });
+});
+
+describe('달 모양', () => {
+  const moon = { id: 'mo1', type: 'moon' as const, x: 0, y: 0, width: 5, height: 5, offset: 0 };
+
+  it('날짜 묶음의 페이지마다 그 날의 위상 — 고칠 객체(보통 페이지)에는 위상이 저장되지 않는다', () => {
+    // 2026-09-25 추석(보름) ~ 9/27
+    const item = dated({
+      faces: [face([moon])],
+      dataset: { kind: 'date', perPage: 1, start: '2026-09-25', end: '2026-09-27', step: 'day' },
+    });
+    const phases = expandWork({ items: [item] }, today).map((f) => (f.objects[0] as typeof moon & { phase?: number }).phase);
+    expect(phases[0]).toBe(4);
+    expect(phases).toHaveLength(3);
+    const page = { kind: 'page' as const, id: 'p1', face: face([moon]) };
+    expect(editableObjects({ items: [page] }, { kind: 'face', face: expandWork({ items: [page] }, today)[0] })[0]).not.toHaveProperty('phase');
+  });
+
+  it('한 페이지에 며칠 제안에 달의 순번도 센다', () => {
+    expect(suggestPerPage([{ ...moon, offset: 6 }])).toBe(7);
   });
 });

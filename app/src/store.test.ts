@@ -254,6 +254,33 @@ describe('작업 색상', () => {
   });
 });
 
+describe('달 모양', () => {
+  beforeEach(() => {
+    s().createWork();
+  });
+  const objs = () => (active().items[0] as PageItem).face.objects;
+
+  it('놓으면 고른 상태, 다음 날짜로 넘기기를 켜면 순번이 늘어난다', () => {
+    s().commitMoon({ x: 0, y: 0, width: 5, height: 5 });
+    s().commitMoon({ x: 5, y: 0, width: 5, height: 5 });
+    expect(objs().map((o) => (o as { offset: number }).offset)).toEqual([0, 0]);
+    s().setFieldNext({ advance: true });
+    s().commitMoon({ x: 10, y: 0, width: 5, height: 5 });
+    s().commitMoon({ x: 15, y: 0, width: 5, height: 5 });
+    expect(objs().map((o) => (o as { offset: number }).offset)).toEqual([0, 0, 0, 1]);
+    expect(s().selectedIds).toEqual([objs()[3].id]);
+  });
+
+  it('꾸미기 — undefined를 준 키는 지워 기본값으로, 준 키만 바뀐다', () => {
+    s().commitMoon({ x: 0, y: 0, width: 5, height: 5 });
+    s().styleMoon({ size: 3, strokeWidth: 0.3 });
+    s().styleMoon({ color: '@A' });
+    expect(objs()[0]).toMatchObject({ size: 3, strokeWidth: 0.3, color: '@A' });
+    s().styleMoon({ size: undefined });
+    expect(objs()[0]).not.toHaveProperty('size');
+  });
+});
+
 describe('색 규칙', () => {
   beforeEach(() => {
     s().createWork();

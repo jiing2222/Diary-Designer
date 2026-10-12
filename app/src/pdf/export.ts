@@ -70,6 +70,7 @@ import {
   imageRotateOf,
   isCalendar,
   isCheckbox,
+  isMoon,
   isImage,
   isLine,
   isShape,
@@ -90,6 +91,7 @@ import {
 } from '../core/calendar';
 import { calendarCellAt, isInMonth } from '../core/dataset';
 import { dateColorOf, weekdayHeaderColorOf, type ColorRules } from '../core/colorRules';
+import { moonCircle, moonLitPath, moonOutlinePath } from '../core/moon';
 import { sheetSlotKey } from '../core/sheetSlots';
 
 /**
@@ -395,12 +397,13 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
      */
     pageFor: ((i: number) => number | null) | null,
   ) {
-    // 층 순서가 화면과 같아야 한다. 도트 → 선 → 도형 → 체크박스 → 이미지 → 글자.
+    // 층 순서가 화면과 같아야 한다. 도트 → 선 → 도형 → 체크박스 → 달 → 이미지 → 글자.
     // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
     drawDotGrid(page, layout, resolveForSheet, flipY, mirror);
     drawObjects(page, layout, resolveForSheet, flipY);
     drawShapes(page, layout, resolveForSheet, flipY);
     drawCheckboxes(page, layout, resolveForSheet, flipY);
+    drawMoons(page, layout, resolveForSheet, flipY);
     drawImages(page, layout, resolveForSheet, embeddedImages, flipY);
     if (bodyFont && bodyCoverage) {
       const fonts: Fonts = {
@@ -1017,6 +1020,34 @@ function drawCheckboxes(
     }
 
     page.pushOperators(popGraphicsState());
+  });
+}
+
+/**
+ * 달 모양 — 화면(ui/InsertView의 `MoonLayer`)과 같은 경로(core/moon)를 그린다. 빛나는
+ * 부분은 칠하고, 테두리 원은 선으로. 위상이 없으면(날짜가 없는 칸) 그리지 않는다.
+ */
+function drawMoons(page: PDFPage, layout: Layout, resolveSlot: (i: number) => SlotContent, flipY: (y: Mm) => Mm) {
+  const PT_PER_MM = mmToPt(1);
+  layout.slots.forEach((slot, i) => {
+    const objects = resolveSlot(i).objects.filter(isMoon).filter((o) => o.phase !== undefined);
+    if (objects.length === 0) return;
+    const place = placeSlot(slot, layout.rotated, layout.turn180);
+    for (const o of objects) {
+      // 칸의 왼쪽 위(0,0) 기준으로 그린 뒤 place.map(o.x, o.y)로 옮긴다(drawCheckboxes와 같다).
+      const { cx, cy, r } = moonCircle({ ...o, x: 0, y: 0 });
+      const p = place.map(o.x, o.y);
+      const at = {
+        x: mmToPt(p.x),
+        y: mmToPt(flipY(p.y)),
+        scale: PT_PER_MM,
+        rotate: degrees(layoutRotateDeg(layout)),
+      };
+      const c = color(strokeColorOf(o));
+      const lit = moonLitPath(o.phase!, cx, cy, r);
+      if (lit) page.drawSvgPath(lit, { ...at, color: c });
+      page.drawSvgPath(moonOutlinePath(cx, cy, r), { ...at, borderColor: c, borderWidth: strokeWidthOf(o) });
+    }
   });
 }
 

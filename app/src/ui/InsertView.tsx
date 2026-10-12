@@ -36,6 +36,7 @@ import {
 } from '../core/calendar';
 import { calendarCellAt, isInMonth } from '../core/dataset';
 import { dateColorOf, weekdayHeaderColorOf, type ColorRules } from '../core/colorRules';
+import { moonCircle, moonLitPath, moonOutlinePath } from '../core/moon';
 import { sanitizeForFont } from '../core/fontCoverage';
 import { familyOf } from '../fonts/registry';
 import { cachedCoverageFont, ensureCoverageFont } from '../fonts/coverage';
@@ -56,6 +57,7 @@ import {
   imageRotateOf,
   isCalendar,
   isCheckbox,
+  isMoon,
   isImage,
   isLine,
   isShape,
@@ -63,6 +65,7 @@ import {
   rotationOf,
   type CalendarObject,
   type CheckboxObject,
+  type MoonObject,
   type DiaryObject,
   type ImageObject,
   type LineObject,
@@ -164,6 +167,7 @@ export function InsertView({
       <g clipPath={mode === 'print' ? `url(#${clipId})` : undefined}>
         <ShapeLayer objects={objects.filter(isShape)} />
         <CheckboxLayer objects={objects.filter(isCheckbox)} />
+        <MoonLayer objects={objects.filter(isMoon)} />
         <ImageLayer objects={objects.filter(isImage)} />
         <TextLayer objects={objects.filter(isText)} hiddenId={hiddenId} />
         <CalendarLayer objects={objects.filter(isCalendar)} context={calendarContext} />
@@ -215,6 +219,29 @@ function CheckboxLayer({ objects }: { objects: CheckboxObject[] }) {
           strokeWidth={strokeWidthOf(o)}
         />
       ))}
+    </g>
+  );
+}
+
+/**
+ * 달 모양 — 테두리 원 + 빛나는 부분 칠하기. 모양은 core/moon이 정하고 PDF(pdf/export)도
+ * 같은 경로를 그린다. 위상(`phase`)이 없으면(날짜가 없는 칸) 그리지 않는다.
+ */
+function MoonLayer({ objects }: { objects: MoonObject[] }) {
+  return (
+    <g>
+      {objects.map((o) => {
+        if (o.phase === undefined) return null;
+        const { cx, cy, r } = moonCircle(o);
+        const lit = moonLitPath(o.phase, cx, cy, r);
+        const color = strokeColorOf(o);
+        return (
+          <g key={o.id}>
+            {lit && <path d={lit} fill={color} stroke="none" />}
+            <path d={moonOutlinePath(cx, cy, r)} fill="none" stroke={color} strokeWidth={strokeWidthOf(o)} />
+          </g>
+        );
+      })}
     </g>
   );
 }

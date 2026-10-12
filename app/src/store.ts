@@ -31,6 +31,8 @@ import {
   type CalendarStyle,
   type CheckboxObject,
   type CheckboxStyle,
+  type MoonObject,
+  type MoonStyle,
   type CornerRoundness,
   type DiaryObject,
   type ImageObject,
@@ -103,7 +105,7 @@ interface UnprintableSetting {
   width: Mm;
 }
 
-export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar' | 'image' | 'checkbox';
+export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar' | 'image' | 'checkbox' | 'moon';
 
 /**
  * 펼침면의 어느 쪽인지. 다이어리를 펼치면 왼쪽은 앞 장의 **뒷면**, 오른쪽은 다음 장의
@@ -300,6 +302,10 @@ interface Store extends Settings {
   setCalendarDraftStyle: (patch: CalendarStyle) => void;
   commitCheckboxes: (boxes: Box[]) => void;
   styleCheckbox: (patch: CheckboxStyle) => void;
+  /** 달 모양을 놓는다 — 날짜는 `fieldNext`의 순번(날짜 칸과 같이 쓴다). 놓은 것을 고른다. */
+  commitMoon: (box: Box) => void;
+  /** 고른 달의 크기·굵기·색·날짜 순번. undefined를 준 키는 지워 기본값으로. */
+  styleMoon: (patch: MoonStyle) => void;
   undo: () => void;
   redo: () => void;
 
@@ -1156,6 +1162,30 @@ export const useStore = create<Store>((set, get) => ({
         if (o.type !== 'checkbox' || !s.selectedIds.includes(o.id)) return o;
         const merged = { ...o, ...patch };
         for (const k of Object.keys(patch) as (keyof CheckboxStyle)[]) {
+          if (patch[k] === undefined) delete merged[k];
+        }
+        return merged;
+      });
+      return commitObjects(s, next);
+    }),
+
+  commitMoon: (box) =>
+    set((s) => {
+      const next: MoonObject = { id: newId('mo'), type: 'moon', ...box, offset: s.fieldNext.offset };
+      return {
+        ...commitObjects(s, [...activeObjects(s), next]),
+        selectedIds: [next.id],
+        fieldNext: s.fieldNext.advance ? { ...s.fieldNext, offset: s.fieldNext.offset + 1 } : s.fieldNext,
+      };
+    }),
+
+  styleMoon: (patch) =>
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      const next = activeObjects(s).map((o) => {
+        if (o.type !== 'moon' || !s.selectedIds.includes(o.id)) return o;
+        const merged = { ...o, ...patch };
+        for (const k of Object.keys(patch) as (keyof MoonStyle)[]) {
           if (patch[k] === undefined) delete merged[k];
         }
         return merged;

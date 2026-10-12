@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useFaces, useHasBack, useSide, useStore, type Tool } from '../store';
-import { isCalendar, isCheckbox, isText } from '../core/objects';
+import { isCalendar, isCheckbox, isMoon, isText } from '../core/objects';
 import { chipPatch, FIELD_CHIPS, tileOf } from '../core/fieldFormat';
-import { AutoFieldTiles, FieldSettings, type AutoTile } from './AutoFieldPanel';
+import { AutoFieldTiles, FieldSettings, MoonPanel, type AutoTile } from './AutoFieldPanel';
 import { CalendarPanelControls, CheckboxIconGrid, FieldToggle } from './ObjectControls';
 import { BASE_KEYS, colorOfKey, keyLabel, keyOfRef, nextPointKey, refOf } from '../core/colors';
 import type { RuleKey } from '../core/colorRules';
@@ -45,7 +45,7 @@ const DRAW_TOOLS: { tool: Tool; label: string; icon: React.ReactNode }[] = [
 function categoryOfTool(tool: Tool): Category | null {
   if (tool === 'draw' || tool === 'table' || tool === 'checkbox') return 'draw';
   if (tool === 'text') return 'text';
-  if (tool === 'field' || tool === 'calendar') return 'auto';
+  if (tool === 'field' || tool === 'calendar' || tool === 'moon') return 'auto';
   if (tool === 'image') return 'image';
   return null;
 }
@@ -65,7 +65,7 @@ export function EditorRail() {
   const fieldIds = usePickedFieldIds();
   const pickedKey = picked.map((o) => o.id).join(',');
   useEffect(() => {
-    if (picked.some(isCalendar) || fieldIds.length > 0) setOpen('auto');
+    if (picked.some(isCalendar) || picked.some(isMoon) || fieldIds.length > 0) setOpen('auto');
     else if (picked.length > 0 && picked.every(isCheckbox)) setOpen('draw');
     // 고른 것이 바뀔 때만 본다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -384,6 +384,8 @@ function AutoFieldPanel() {
   const styleCalendar = useStore((s) => s.styleCalendar);
   const picked = usePicked();
   const calendars = picked.filter(isCalendar);
+  const moons = picked.filter(isMoon);
+  const styleMoon = useStore((s) => s.styleMoon);
   const fields = picked.filter(isText).filter((t) => t.field);
   const fieldIds = usePickedFieldIds();
   const side = useSide();
@@ -396,7 +398,9 @@ function AutoFieldPanel() {
   const active: AutoTile | null =
     calendars.length > 0
       ? 'calendar'
-      : first
+      : moons.length > 0 || (picked.length === 0 && tool === 'moon')
+        ? 'moon'
+        : first
         ? tileOf(first)
         : sourceFieldOnDatePage
           ? null
@@ -407,9 +411,8 @@ function AutoFieldPanel() {
               : null;
 
   function pick(tile: AutoTile) {
-    if (tile === 'moon') return;
-    if (tile === 'calendar') {
-      setTool('calendar');
+    if (tile === 'calendar' || tile === 'moon') {
+      setTool(tile);
       return;
     }
     const patch = chipPatch(FIELD_CHIPS[tile][0]);
@@ -430,6 +433,8 @@ function AutoFieldPanel() {
         <CalendarPanelControls items={calendars} apply={styleCalendar} />
       </>
     );
+  } else if (moons.length > 0 || tool === 'moon') {
+    body = <MoonPanel moons={moons} apply={styleMoon} />;
   } else if (first) {
     body = (
       <FieldSettings

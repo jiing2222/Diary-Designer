@@ -12,6 +12,8 @@ import {
   type FieldTile,
 } from '../core/fieldFormat';
 import { todayFrom } from '../core/dated';
+import { MOON_PHASE_NAMES, moonPhaseOf } from '../core/moon';
+import type { MoonObject, MoonStyle } from '../core/objects';
 import { PopRow } from './Popover';
 import { CalendarIcon } from './icons';
 
@@ -43,8 +45,7 @@ export function AutoFieldTiles({ active, onPick }: { active: AutoTile | null; on
           key={t.id}
           className={`tool-tile ${active === t.id ? 'on' : ''}`}
           onClick={() => onPick(t.id)}
-          disabled={t.id === 'moon'}
-          title={t.id === 'moon' ? '달 모양은 곧 붙어요' : t.label}
+          title={t.label}
         >
           <span className="auto-glyph">{t.glyph}</span>
           <span>{t.label}</span>
@@ -220,6 +221,43 @@ function NextFieldRow() {
           : '같은 날의 월·일·요일 칸을 따로 놓아도 모두 같은 날짜예요.'}
       </p>
     </>
+  );
+}
+
+/**
+ * 달 모양(Moon 타일) — 날짜에 맞춰 차고 기우는 달(8단계, core/moon). 크기·굵기·색은 위쪽 막대.
+ * 고른 달이 있으면 그 달의 날짜 순번을, 없으면 다음에 놓을 달의 순번을 정한다.
+ */
+export function MoonPanel({ moons, apply }: { moons: MoonObject[]; apply: (patch: MoonStyle) => void }) {
+  const today = todayFrom(useStore((s) => s.today));
+  const phase = moonPhaseOf(today);
+  const first = moons[0];
+  const offsetMixed = moons.some((m) => m.offset !== first?.offset);
+  return (
+    <div className="field-settings">
+      <p className="tool-panel-note">
+        칸을 누르면 그 칸 가운데에 그 날의 달을 놓아요(끌면 여러 칸 크기). 빛나는 부분을 칠해요 — 오늘은{' '}
+        {MOON_PHASE_NAMES[phase]}이에요.
+      </p>
+      {first ? (
+        <PopRow label="날짜">
+          <span className="numfield" title="이 페이지에서 몇째 날짜의 달인지">
+            이 페이지의
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={offsetMixed ? '' : first.offset + 1}
+              placeholder={offsetMixed ? '—' : undefined}
+              onChange={(e) => apply({ offset: Math.max(1, Math.round(Number(e.target.value) || 1)) - 1 })}
+            />
+            번째
+          </span>
+        </PopRow>
+      ) : (
+        <NextFieldRow />
+      )}
+    </div>
   );
 }
 

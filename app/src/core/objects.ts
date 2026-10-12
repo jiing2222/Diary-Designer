@@ -1,5 +1,6 @@
 import { roundMm, type Mm } from './units';
 import type { FieldSpec } from './fieldFormat';
+import type { MoonPhase } from './moon';
 
 /**
  * 속지 위에 놓이는 객체들.
@@ -306,13 +307,45 @@ export interface CheckboxObject {
   groupId?: string;
 }
 
+/**
+ * 달 모양(리뉴얼 4-4, 세부계획 A4.7) — 날짜에 맞춰 차고 기우는 달을 도형으로 그린다.
+ *
+ * 체크박스처럼 저장된 상자(x·y·width·height)는 칸 그대로고, 달은 그 가운데에 `size`
+ * 지름으로 그린다(core/moon). 날짜는 자동 필드처럼 이 페이지의 `offset`번째 날짜다.
+ */
+export interface MoonObject {
+  id: string;
+  type: 'moon';
+  x: Mm;
+  y: Mm;
+  width: Mm;
+  height: Mm;
+  /** 이 페이지의 몇째 날짜(0부터)의 달인가. */
+  offset: number;
+  /** 달 지름. 정하지 않았으면 칸의 짧은 변 85%(core/moon의 `moonSizeOf`). */
+  size?: Mm;
+  /** 테두리 굵기·색(색은 빛나는 부분도 같이 칠한다). 값이 없으면 core/shape의 기본값. */
+  strokeWidth?: Mm;
+  color?: string;
+  /**
+   * 그릴 위상 — **저장하지 않는다.** 날짜를 채울 때 core/format이 그 날짜로 정해 넣는다
+   * (자동 필드의 글자와 같다). 날짜가 없는 칸이면 없고, 그때는 아무것도 그리지 않는다.
+   */
+  phase?: MoonPhase;
+  /** 잠갔는가. LineObject의 `locked` 참고. */
+  locked?: boolean;
+  /** 그룹 id. LineObject의 `groupId` 참고. */
+  groupId?: string;
+}
+
 export type DiaryObject =
   | LineObject
   | TextObject
   | CalendarObject
   | ImageObject
   | ShapeObject
-  | CheckboxObject;
+  | CheckboxObject
+  | MoonObject;
 
 export function isLine(o: DiaryObject): o is LineObject {
   return o.type === 'line';
@@ -338,6 +371,10 @@ export function isCheckbox(o: DiaryObject): o is CheckboxObject {
   return o.type === 'checkbox';
 }
 
+export function isMoon(o: DiaryObject): o is MoonObject {
+  return o.type === 'moon';
+}
+
 /** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 체크박스는 아직 아니다(찍을 때만 크기가 정해진다). */
 export function isBoxResizable(
   o: DiaryObject,
@@ -346,8 +383,8 @@ export function isBoxResizable(
 }
 
 /** 자기 상자(x·y·width·height)로 클릭 판정을 하는 오브젝트인가. 크기조정 가능 여부와는 다르다 — 체크박스는 상자로 골라지지만 손잡이는 없다. */
-export function isBoxShaped(o: DiaryObject): o is CalendarObject | ImageObject | ShapeObject | CheckboxObject {
-  return isBoxResizable(o) || isCheckbox(o);
+export function isBoxShaped(o: DiaryObject): o is CalendarObject | ImageObject | ShapeObject | CheckboxObject | MoonObject {
+  return isBoxResizable(o) || isCheckbox(o) || isMoon(o);
 }
 
 /** 잠겼는가. 정하지 않았으면(대부분) 잠기지 않은 것이다. */
@@ -423,6 +460,7 @@ export type ShapeStyle = Partial<
 >;
 /** 체크박스마다 따로 정할 수 있는 것들. */
 export type CheckboxStyle = Partial<Pick<CheckboxObject, 'icon' | 'strokeWidth' | 'color' | 'iconSize'>>;
+export type MoonStyle = Partial<Pick<MoonObject, 'size' | 'strokeWidth' | 'color' | 'offset'>>;
 
 /**
  * undefined인 키를 걷어낸다. 객체에 값이 없어야 기본값을 따라간다.
@@ -666,6 +704,7 @@ const ID_PREFIX: Record<DiaryObject['type'], string> = {
   image: 'im',
   shape: 'sh',
   checkbox: 'ch',
+  moon: 'mo',
 };
 
 /**

@@ -86,13 +86,14 @@ export function todayPeriod(today: CalendarDate, objects: DiaryObject[]): Period
 }
 
 /**
- * 한 쪽에 며칠이 드는지 — 놓인 날짜 필드가 쓰는 가장 큰 순번 + 1. 필드가 없으면 1.
+ * 한 쪽에 며칠이 드는지 — 놓인 날짜 필드·달이 쓰는 가장 큰 순번 + 1. 필드가 없으면 1.
  * 위클리 한 쪽에 7칸(0~6)을 찍었으면 7이다. ‘날짜로 펼치기’가 처음 제안하는 값이다.
  */
 export function suggestPerPage(objects: DiaryObject[]): number {
   let maxOffset = 0;
   for (const o of objects) {
     if (o.type === 'text' && o.field) maxOffset = Math.max(maxOffset, o.field.offset);
+    if (o.type === 'moon') maxOffset = Math.max(maxOffset, o.offset);
   }
   return maxOffset + 1;
 }
