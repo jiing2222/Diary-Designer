@@ -19,7 +19,7 @@ export function Projects() {
   const diaries = useStore((s) => s.diaries);
   const view = useStore((s) => s.projectView);
   const patch = useStore((s) => s.patch);
-  const createWork = useStore((s) => s.createWork);
+  const startNewWork = useStore((s) => s.startNewWork);
   const [action, setAction] = useState<Action | null>(null);
   const live = useMemo(() => works.filter((w) => !isTrashed(w)), [works]);
   const shown = useMemo(() => projectsFor(works, view), [works, view]);
@@ -112,7 +112,7 @@ export function Projects() {
           <h2>
             {title} <span className="projects-count">{shown.length}개</span>
           </h2>
-          <button className="primary" onClick={() => createWork()}>
+          <button className="primary" onClick={() => startNewWork()}>
             + 새 작업
           </button>
         </div>

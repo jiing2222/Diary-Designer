@@ -9,6 +9,7 @@ import { EditorRail } from './EditorRail';
 import { PrintMain, PrintRail } from './Print';
 import { LIBRARY_RAIL, LibraryMain, type LibrarySection } from './Library';
 import { Modal } from './Modal';
+import { Onboarding } from './Onboarding';
 import { Toast } from './Toast';
 import { RingsLogo } from './icons';
 
@@ -30,7 +31,7 @@ export function App() {
   const [bootError, setBootError] = useState(false);
   const ready = useStore((s) => s.ready);
   const tabs = useStore((s) => s.tabs);
-  const createWork = useStore((s) => s.createWork);
+  const startNewWork = useStore((s) => s.startNewWork);
   const activateTab = useStore((s) => s.activateTab);
 
   useEffect(() => {
@@ -80,8 +81,8 @@ export function App() {
             }}
             libraryOn={onLibrary}
             onNew={() => {
-              createWork();
-              setScreen('tabs');
+              // 다이어리가 없으면 온보딩 창이 뜬다(작업은 등록한 뒤에 열린다).
+              if (startNewWork()) setScreen('tabs');
             }}
           />
         )}
@@ -102,8 +103,8 @@ export function App() {
           {screen === 'home' && (
             <Home
               onCreate={() => {
-                createWork();
-                setScreen('tabs');
+                // 처음이면 홈 위에 첫 다이어리 온보딩이 뜬다(기본계획 7장: 처음 Create를 누를 때).
+                if (startNewWork()) setScreen('tabs');
               }}
               onLibrary={() => {
                 activateTab(LIBRARY_TAB);
@@ -119,6 +120,7 @@ export function App() {
       </div>
 
       <PendingOpen />
+      <Onboarding />
       {notice && (
         <Modal title="옮기기 안내" onClose={() => setNotice(null)}>
           <p className="modal-note">{notice}</p>

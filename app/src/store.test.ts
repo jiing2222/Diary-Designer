@@ -550,6 +550,34 @@ describe('저장한 글자 스타일', () => {
   });
 });
 
+describe('첫 다이어리 온보딩 (7-2)', () => {
+  it('다이어리가 없으면 새 작업 대신 온보딩을 띄운다', () => {
+    expect(s().startNewWork()).toBeNull();
+    expect(s().onboarding).toBe(true);
+    expect(s().works).toEqual([]);
+  });
+
+  it('등록하고 시작하면 그 다이어리가 기본이 되고 새 작업이 열린다', () => {
+    s().startNewWork();
+    const id = s().finishOnboarding({ presetId: 'A5', name: '검정 바인더', size: { width: 150, height: 210 } });
+    expect(s().onboarding).toBe(false);
+    expect(s().diaries).toHaveLength(1);
+    expect(s().defaultDiaryId).toBe(s().diaries[0].id);
+    expect(active().id).toBe(id);
+    expect(active().diaryId).toBe(s().diaries[0].id);
+    expect(s().diaries[0]).toMatchObject({ name: '검정 바인더', width: 150, presetId: 'A5' });
+  });
+
+  it('닫으면 아무것도 만들지 않는다, 다이어리가 있으면 바로 새 작업', () => {
+    s().startNewWork();
+    expect(s().finishOnboarding(null)).toBeNull();
+    expect(s().diaries).toEqual([]);
+    s().addDiary('M6', 'm6');
+    expect(s().startNewWork()).not.toBeNull();
+    expect(s().onboarding).toBe(false);
+  });
+});
+
 describe('다이어리 관리 (7-2)', () => {
   it('실측이 다르면 그 크기로 등록하고, 크기를 고치면 기준 규격을 다시 붙인다', () => {
     const id = s().addDiary('M6', '검정 바인더', { width: 79, height: 127 });

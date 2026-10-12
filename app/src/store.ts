@@ -180,6 +180,11 @@ interface Settings {
    * (세부계획 A4.3). 위클리처럼 칸마다 다른 날짜면 켠다.
    */
   fieldNext: { offset: number; advance: boolean };
+  /**
+   * 첫 다이어리 온보딩 창을 띄울지(기본계획 7장: 처음 Create를 누를 때). 다이어리가 없을 때 새 작업을
+   * 누르면 켜진다. 저장하지 않는다.
+   */
+  onboarding: boolean;
   /** 저장한 글자 스타일 — 모든 작업 공통(core/textStyles). 앱 전체 설정과 함께 저장된다(ui/persist). */
   textStyles: SavedTextStyle[];
   userFonts: UserFont[];
@@ -232,6 +237,13 @@ interface Store extends Settings {
 
   /* ── 작업 ── */
   createWork: (name?: string) => string | null;
+  /**
+   * 화면의 ‘새 작업’(홈의 행성·탭의 +·Projects). 다이어리가 하나도 없으면 작업을 만들지 않고 첫 다이어리
+   * 온보딩을 띄운다(null). 있으면 기본 다이어리로 만든다.
+   */
+  startNewWork: () => string | null;
+  /** 온보딩을 마친다 — 다이어리를 등록해 기본으로 정하고 새 작업을 연다. `null`이면 창만 닫는다. */
+  finishOnboarding: (diary: { presetId: string; name: string; size?: { width: Mm; height: Mm } } | null) => string | null;
   renameWork: (id: string, name: string) => void;
   /** 원본은 유지하고 등록된 다른 다이어리로도 복제할 수 있다. */
   duplicateWork: (id: string, diaryId?: string) => string | null;
@@ -629,6 +641,7 @@ export const useStore = create<Store>((set, get) => ({
   textDraftStyle: {},
   fieldDraft: DEFAULT_FIELD_DRAFT,
   fieldNext: { offset: 0, advance: false },
+  onboarding: false,
   textStyles: [],
   userFonts: [],
   userImages: [],
@@ -733,6 +746,22 @@ export const useStore = create<Store>((set, get) => ({
         : withTabs({ ...s, works: [...s.works, work] }, result.tabs)),
     });
     return work.id;
+  },
+
+  startNewWork: () => {
+    if (get().diaries.length === 0) {
+      set({ onboarding: true });
+      return null;
+    }
+    return get().createWork();
+  },
+
+  finishOnboarding: (diary) => {
+    set({ onboarding: false });
+    if (!diary) return null;
+    const id = get().addDiary(diary.presetId, diary.name, diary.size);
+    set({ defaultDiaryId: id });
+    return get().createWork();
   },
 
   renameWork: (id, name) =>

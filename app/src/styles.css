@@ -6195,3 +6195,23 @@ button.danger:hover {
   align-self: flex-start;
   margin-top: 6px;
 }
+
+/* 첫 다이어리 온보딩(리뉴얼 7-2) — 규격 고르기와 ‘잘 모르겠어요’ 안내. */
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.onboarding .onboarding-unsure {
+  align-self: flex-start;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.onboarding-help ol {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.8;
+}
