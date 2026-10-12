@@ -120,9 +120,14 @@ export interface SlotContent {
   dotGrid: DotGrid;
   objects: DiaryObject[];
   safeZoneWidth: Mm;
+  /**
+   * 달력 객체가 그릴 달(리뉴얼 — 작업의 면마다 정해져 있다, core/work의 ResolvedFace.month).
+   * 없으면 옛 달력 세트처럼 `calendarYear` + 칸의 쪽 번호로 정한다.
+   */
+  month?: { year: number; month: number };
 }
 
-interface ExportInput {
+export interface ExportInput {
   paperWidth: Mm;
   paperHeight: Mm;
   layout: Layout;
@@ -420,9 +425,14 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
         coverage: { regular: bodyCoverage, user: userCoverage },
       };
       drawTexts(page, layout, resolveForSheet, fonts, flipY);
-      if (pageFor && input.calendarYear !== undefined) {
-        drawCalendars(page, layout, resolveForSheet, pageFor, input.calendarYear, fonts, flipY, input.colorRules);
-      }
+      // 달력이 그릴 달 — 칸 내용에 실려 오면 그것(리뉴얼), 아니면 옛 달력 세트의 연도 + 쪽 번호.
+      const monthFor = (i: number): { year: number; page: number } | null => {
+        const m = resolveForSheet(i).month;
+        if (m) return { year: m.year, page: m.month - 1 };
+        const p = pageFor?.(i) ?? null;
+        return p !== null && input.calendarYear !== undefined ? { year: input.calendarYear, page: p } : null;
+      };
+      drawCalendars(page, layout, resolveForSheet, monthFor, fonts, flipY, input.colorRules);
     }
 
     // 재단선과 눈금자는 속지 내용이 아니라 용지 위의 표시라 장마다 그 위에 얹는다.
@@ -748,16 +758,14 @@ function drawTexts(
  * `CalendarLayer`)과 같은 함수다. 다른 점은 `cx`가 SVG의 text-anchor="middle"
  * 대신 폭을 재서 왼쪽 끝을 직접 계산한다는 것뿐이다(drawTexts와 같은 이유).
  *
- * `pageFor(i)`가 이 칸의 쪽 번호(달, 0부터)를 알려준다 — 자동 필드처럼
- * 미리 값을 채운 오브젝트를 받는 게 아니라, 그릴 때 이 번호와 `year`로
- * 직접 날짜를 계산한다.
+ * `monthFor(i)`가 이 칸이 그릴 연도·달(0부터)을 알려준다 — 자동 필드처럼
+ * 미리 값을 채운 오브젝트를 받는 게 아니라, 그릴 때 이 달로 직접 날짜를 계산한다.
  */
 function drawCalendars(
   page: PDFPage,
   layout: Layout,
   resolveSlot: (i: number) => SlotContent,
-  pageFor: (i: number) => number | null,
-  year: number,
+  monthFor: (i: number) => { year: number; page: number } | null,
   fonts: Fonts,
   flipY: (y: Mm) => Mm,
   rules?: ColorRules,
@@ -765,8 +773,9 @@ function drawCalendars(
   layout.slots.forEach((slot, i) => {
     const calendars = resolveSlot(i).objects.filter(isCalendar);
     if (calendars.length === 0) return;
-    const datasetPage = pageFor(i);
-    if (datasetPage === null) return;
+    const at = monthFor(i);
+    if (at === null) return;
+    const { year, page: datasetPage } = at;
 
     const insert = insertSizeOf(slot, layout.rotated);
     const place = placeSlot(slot, layout.rotated, layout.turn180);
