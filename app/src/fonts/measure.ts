@@ -2,6 +2,13 @@ import type { Font } from '@pdf-lib/fontkit';
 import type { Measure } from '../core/text';
 
 /**
+ * 합자·문맥 대체를 끈다 — 화면이 `font-variant-ligatures: none`으로 그리는 것과 같게.
+ * Pretendard는 `->`를 화살표 글자 하나로 바꾸는데, 켜 두면 화면(두 글자)과 인쇄물(화살표)의
+ * 모양·폭이 달라진다. 재는 것(여기)과 PDF에 심는 글꼴(pdf/export의 embedFont) 둘 다 이 값을 쓴다.
+ */
+export const NO_LIGATURES = { liga: false, clig: false, dlig: false, hlig: false, calt: false };
+
+/**
  * 글꼴 파일로 글자 폭을 잰다 — core/text의 `Measure`(글자 크기 1mm일 때의 폭).
  *
  * **화면과 PDF가 이 함수 하나를 쓴다**(구현전략 ‘바닥 1’). 화면은 fonts/coverage가
@@ -9,7 +16,7 @@ import type { Measure } from '../core/text';
  * 같은 계산이라 두 뷰의 자리가 같다.
  *
  * 계산은 pdf-lib이 폭을 재는 방식과 같다: 글리프 advance를 더하고 커닝은 넣지 않는다
- * (화면도 font-kerning: none으로 그린다, ui/InsertView).
+ * (화면도 font-kerning: none으로 그린다, ui/InsertView). 합자도 끈다(`NO_LIGATURES`).
  */
 const cache = new WeakMap<Font, Measure>();
 
@@ -21,7 +28,7 @@ export function measureOf(font: Font): Measure {
     let w = widths.get(text);
     if (w === undefined) {
       let units = 0;
-      for (const glyph of font.layout(text).glyphs) units += glyph.advanceWidth;
+      for (const glyph of font.layout(text, NO_LIGATURES).glyphs) units += glyph.advanceWidth;
       w = units / font.unitsPerEm;
       widths.set(text, w);
     }

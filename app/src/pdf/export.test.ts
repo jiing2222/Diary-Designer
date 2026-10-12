@@ -13,7 +13,7 @@ import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from '../core/style';
 import { MM_TO_PT, mmToPt, ptToMm } from '../core/units';
 import type { CalendarObject, TextObject } from '../core/objects';
 import fontkit from '@pdf-lib/fontkit';
-import { measureOf } from '../fonts/measure';
+import { measureOf, NO_LIGATURES } from '../fonts/measure';
 import { fakeBoldStrokeOf, lineWidthOf } from '../core/text';
 
 /**
@@ -1066,11 +1066,18 @@ describe('세트형 — 데이터셋', () => {
     it('화면과 같은 측정기의 폭이 pdf-lib이 재는 폭과 같다', async () => {
       const doc = await PDFDocument.create();
       doc.registerFontkit(fontkit);
-      const embedded = await doc.embedFont(realFont, { subset: false });
+      const embedded = await doc.embedFont(realFont, { subset: false, features: NO_LIGATURES });
       const measure = measureOf(fontkit.create(new Uint8Array(realFont)));
-      for (const line of ['굵게 Bold', 'We AV 1,234', '2026.10.12 (월)']) {
+      for (const line of ['굵게 Bold', 'We AV 1,234', '2026.10.12 (월)', 'A -> B']) {
         expect(lineWidthOf(line, 4, measure)).toBeCloseTo(ptToMm(embedded.widthOfTextAtSize(line, mmToPt(4))), 6);
       }
+    });
+
+    it('합자를 쓰지 않는다 — 화면(합자 끔)처럼 ‘->’는 두 글자 폭', () => {
+      // Pretendard는 ‘->’를 화살표 글자 하나로 바꾸는 합자가 있다. 화면은 합자를 끄고 그리므로
+      // 재는 폭도, PDF에 그리는 글자도 두 글자여야 같은 모양·같은 자리가 된다.
+      const measure = measureOf(fontkit.create(new Uint8Array(realFont)));
+      expect(measure('->')).toBeCloseTo(measure('-') + measure('>'), 6);
     });
 
     it('굵은 글자는 ‘채우기+테두리’로, 테두리 굵기는 화면과 같은 값', async () => {

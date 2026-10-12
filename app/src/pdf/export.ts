@@ -23,7 +23,7 @@ import {
 } from 'pdf-lib';
 import fontkit, { type Font as FontkitFont } from '@pdf-lib/fontkit';
 import { sanitizeForFont } from '../core/fontCoverage';
-import { mmToPt, ptToMm, type Mm } from '../core/units';
+import { mmToPt, type Mm } from '../core/units';
 import {
   alignOf,
   fakeBoldStrokeOf,
@@ -101,7 +101,7 @@ import {
 import { calendarCellAt, isInMonth } from '../core/dataset';
 import { dateColorOf, weekdayHeaderColorOf, type ColorRules } from '../core/colorRules';
 import { moonCircle, moonLitPath, moonOutlinePath } from '../core/moon';
-import { measureOf } from '../fonts/measure';
+import { measureOf, NO_LIGATURES } from '../fonts/measure';
 import { sheetSlotKey } from '../core/sheetSlots';
 
 /**
@@ -329,13 +329,14 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   const userCoverage = new Map<string, FontkitFont>();
   if ((texts.length > 0 || calendars.length > 0) && input.fontBytes) {
     doc.registerFontkit(fontkit);
-    bodyFont = await doc.embedFont(input.fontBytes, { subset: false });
+    // 합자는 끈다 — 화면과 같은 글자·같은 폭으로(fonts/measure의 NO_LIGATURES).
+    bodyFont = await doc.embedFont(input.fontBytes, { subset: false, features: NO_LIGATURES });
     bodyCoverage = fontkit.create(new Uint8Array(input.fontBytes));
     // 굵게는 가짜 굵게(테두리 덧그리기)라 Bold 글꼴 파일을 따로 심지 않는다(리뉴얼 5단계).
     // 등록 글꼴도 실제로 쓰이는 것만 심는다. 달력도 자기 글꼴을 가질 수 있다.
     for (const [id, b] of input.userFonts ?? []) {
       if (texts.some((t) => t.font === id) || calendars.some((c) => c.font === id)) {
-        userFonts.set(id, await doc.embedFont(b, { subset: false }));
+        userFonts.set(id, await doc.embedFont(b, { subset: false, features: NO_LIGATURES }));
         userCoverage.set(id, fontkit.create(new Uint8Array(b)));
       }
     }
@@ -754,6 +755,8 @@ function drawCalendars(
       const title = titleOf(o, year, datasetPage);
       const textColor = o.color ? color(o.color) : TEXT;
       const font = o.font ? (fonts.user.get(o.font) ?? fonts.regular) : fonts.regular;
+      // 폭은 글자와 같은 측정기로(fonts/measure) — PDF 안에서 재는 곳을 하나로.
+      const measure = measureOf((o.font && fonts.coverage.user.get(o.font)) || fonts.coverage.regular);
       const spacing = letterSpacingOf(o);
 
       /**
@@ -765,7 +768,7 @@ function drawCalendars(
         if (text === '') return;
         const fill = hex ? color(hex) : textColor;
         if (spacing === 0) {
-          const width = ptToMm(font.widthOfTextAtSize(text, mmToPt(geo.fontSize)));
+          const width = lineWidthOf(text, geo.fontSize, measure);
           const p = place.map(o.x + localCx - width / 2, o.y + localBaseline);
           page.drawText(text, {
             x: mmToPt(p.x),
@@ -780,7 +783,7 @@ function drawCalendars(
         }
 
         const chars = [...text];
-        const widths = chars.map((ch) => ptToMm(font.widthOfTextAtSize(ch, mmToPt(geo.fontSize))));
+        const widths = chars.map((ch) => lineWidthOf(ch, geo.fontSize, measure));
         const totalWidth = widths.reduce((a, b) => a + b, 0) + spacing * (chars.length - 1);
         let cursor = o.x + localCx - totalWidth / 2;
         chars.forEach((ch, ci) => {
