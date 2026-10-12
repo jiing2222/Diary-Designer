@@ -550,6 +550,36 @@ describe('저장한 글자 스타일', () => {
   });
 });
 
+describe('다이어리 관리 (7-2)', () => {
+  it('실측이 다르면 그 크기로 등록하고, 크기를 고치면 기준 규격을 다시 붙인다', () => {
+    const id = s().addDiary('M6', '검정 바인더', { width: 79, height: 127 });
+    expect(s().diaries.find((d) => d.id === id)).toMatchObject({ width: 79, height: 127, presetId: 'M6' });
+    s().patchDiary(id, { width: 148, height: 210 });
+    expect(s().diaries.find((d) => d.id === id)?.presetId).toBe('A5');
+  });
+
+  it('구멍 설정은 그 다이어리만', () => {
+    const a = s().addDiary('M6', 'a');
+    const b = s().addDiary('M6', 'b');
+    s().patchDiaryPunch(a, { markSize: 5 });
+    expect(s().diaries.find((d) => d.id === a)?.punch.markSize).toBe(5);
+    expect(s().diaries.find((d) => d.id === b)?.punch.markSize).toBe(4);
+  });
+
+  it('쓰는 작업이 있으면(휴지통 포함) 지우지 않고, 없으면 지운다 — 기본이었으면 남은 첫 다이어리가 기본', () => {
+    const a = s().addDiary('M6', 'a');
+    const b = s().addDiary('A5', 'b');
+    s().setDefaultDiary(a);
+    const w = s().createWork()!;
+    expect(active().diaryId).toBe(a);
+    s().trashWorkById(w);
+    expect(s().removeDiary(a)).toBe(false);
+    s().deleteWorkForever(w);
+    expect(s().removeDiary(a)).toBe(true);
+    expect(s().defaultDiaryId).toBe(b);
+  });
+});
+
 describe('색 규칙', () => {
   beforeEach(() => {
     s().createWork();

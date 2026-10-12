@@ -67,6 +67,20 @@ export function diarySizeLabel(d: Pick<Diary, 'width' | 'height'>): string {
   return `${preset.name} · ${size}`;
 }
 
+/**
+ * 다이어리로 등록할 수 있는 규격 — 3단접이는 다이어리가 아니라 **페이지 종류**라 뺀다(기본계획 7장).
+ * 온보딩과 ‘+ 추가’가 이 목록을 보여준다.
+ */
+export const DIARY_PRESETS: InsertPreset[] = INSERT_PRESETS.filter((p) => !p.id.endsWith('TRI'));
+
+/**
+ * 실측 크기를 바꾼다 — 기준 규격 이름표(`presetId`)는 ±10mm 안의 가장 가까운 규격으로 다시 붙인다.
+ * 구멍 설정은 그대로다(구멍 자리는 세로 길이에서 그때그때 계산된다, core/punch).
+ */
+export function resizeDiary(d: Diary, width: Mm, height: Mm): Diary {
+  return { ...d, width, height, presetId: nearestPreset(width, height)?.id ?? 'custom' };
+}
+
 /** 규격에서 새 다이어리를 만든다. 크기·구멍은 규격 값으로 채운다. */
 export function diaryFromPreset(id: string, presetId: string, name: string, color: string): Diary {
   const preset = findInsertPreset(presetId) ?? INSERT_PRESETS[0];

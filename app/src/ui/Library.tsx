@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { daysLeft, isTrashed } from '../core/library';
-import { diarySizeLabel } from '../core/diary';
 import { FontManagePanel, ImageManagePanel } from './DesignLibraryDialog';
 import { Projects } from './Projects';
+import { Diaries } from './Diaries';
 
 /**
  * Library 탭(리뉴얼, 세부계획 B). 맨 앞에 고정된 탭이다(디자인.md ‘탭’).
@@ -84,27 +84,3 @@ function Trash() {
   );
 }
 
-/** 2단계의 다이어리 목록 — 보기와 기본 다이어리 고르기만. 등록·실측 수정은 7단계. */
-function Diaries() {
-  const diaries = useStore((s) => s.diaries);
-  const defaultId = useStore((s) => s.defaultDiaryId);
-  const setDefault = useStore((s) => s.setDefaultDiary);
-  return (
-    <div className="library-pane">
-      <h2>Diaries</h2>
-      {diaries.length === 0 && <p className="muted">아직 다이어리가 없어요. 새 작업을 만들면 M6 다이어리가 하나 생겨요.</p>}
-      {diaries.map((d) => (
-        <div key={d.id} className="trash-row">
-          <span className="diary-dot" style={{ background: d.color }} />
-          <span className="work-name">{d.name}</span>
-          <span className="muted">{diarySizeLabel(d)}</span>
-          {d.id === defaultId ? (
-            <span className="muted">★ 기본</span>
-          ) : (
-            <button className="ghost" onClick={() => setDefault(d.id)}>기본으로</button>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}

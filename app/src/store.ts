@@ -72,10 +72,19 @@ import {
   type Work,
   type WorkItem,
 } from './core/work';
-import { diaryFromPreset, nextDiaryColor, type Diary } from './core/diary';
+import { diaryFromPreset, nextDiaryColor, resizeDiary, type Diary } from './core/diary';
 import { addPoint, colorOfKey, mapColors, refOf, setKeyColor, type WorkPalette } from './core/colors';
 import { mapRuleColors, type RuleKey } from './core/colorRules';
-import { DEFAULT_PROJECT_VIEW, isTrashed, restoreWork, trashWork, removeFolderFrom, type Folder, type ProjectView } from './core/library';
+import {
+  DEFAULT_PROJECT_VIEW,
+  isTrashed,
+  restoreWork,
+  trashWork,
+  removeFolderFrom,
+  worksUsingDiary,
+  type Folder,
+  type ProjectView,
+} from './core/library';
 import {
   activate,
   closeTab,
@@ -236,8 +245,14 @@ interface Store extends Settings {
   addFolder: (name: string) => string | null;
   renameFolder: (id: string, name: string) => void;
   removeFolder: (id: string) => void;
-  addDiary: (presetId: string, name: string) => string;
-  patchDiary: (id: string, patch: Partial<Omit<Diary, 'id' | 'punch'>>) => void;
+  /** 규격에서 다이어리를 등록한다. 실측이 다르면 `size`로 — 기준 규격 이름표는 ±10mm로 다시 붙인다. */
+  addDiary: (presetId: string, name: string, size?: { width: Mm; height: Mm }) => string;
+  /** 이름·색·크기를 고친다. 크기를 바꾸면 기준 규격 이름표도 다시 붙인다(core/diary의 resizeDiary). */
+  patchDiary: (id: string, patch: Partial<Omit<Diary, 'id' | 'punch' | 'presetId'>>) => void;
+  /** 이 다이어리의 구멍 설정을 고친다(Library → Diaries). 같은 다이어리를 쓰는 작업이 모두 바뀐다. */
+  patchDiaryPunch: (id: string, p: Partial<PunchSetting>) => void;
+  /** 쓰는 작업이 없을 때만 지운다(휴지통 포함). 지웠으면 true. 기본이었으면 남은 첫 다이어리가 기본이 된다. */
+  removeDiary: (id: string) => boolean;
   setDefaultDiary: (id: string) => void;
 
   /* ── 페이지 ── */
@@ -808,15 +823,38 @@ export const useStore = create<Store>((set, get) => ({
       projectView: s.projectView.folderId === id ? { ...s.projectView, folderId: undefined } : s.projectView,
     })),
 
-  addDiary: (presetId, name) => {
+  addDiary: (presetId, name, size) => {
     const s = get();
-    const d = diaryFromPreset(newId('d'), presetId, name.trim() || presetId, nextDiaryColor(s.diaries.map((x) => x.color)));
+    const base = diaryFromPreset(newId('d'), presetId, name.trim() || presetId, nextDiaryColor(s.diaries.map((x) => x.color)));
+    const d = size && (size.width !== base.width || size.height !== base.height) ? resizeDiary(base, size.width, size.height) : base;
     set({ diaries: [...s.diaries, d], defaultDiaryId: s.defaultDiaryId ?? d.id });
     return d.id;
   },
 
   patchDiary: (id, patch) =>
-    set((s) => ({ diaries: s.diaries.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),
+    set((s) => ({
+      diaries: s.diaries.map((d) => {
+        if (d.id !== id) return d;
+        const next = { ...d, ...patch };
+        return patch.width !== undefined || patch.height !== undefined ? resizeDiary(next, next.width, next.height) : next;
+      }),
+    })),
+
+  patchDiaryPunch: (id, p) =>
+    set((s) => ({ diaries: s.diaries.map((d) => (d.id === id ? { ...d, punch: { ...d.punch, ...p } } : d)) })),
+
+  removeDiary: (id) => {
+    const s = get();
+    if (worksUsingDiary(s.works, id) > 0) return false;
+    const diaries = s.diaries.filter((d) => d.id !== id);
+    if (diaries.length === s.diaries.length) return false;
+    set({
+      diaries,
+      defaultDiaryId: s.defaultDiaryId === id ? (diaries[0]?.id ?? null) : s.defaultDiaryId,
+      projectView: s.projectView.diaryId === id ? { ...s.projectView, diaryId: null } : s.projectView,
+    });
+    return true;
+  },
 
   setDefaultDiary: (id) => set({ defaultDiaryId: id }),
 

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { diaryFromPreset, diarySizeLabel, nearestPreset, nextDiaryColor, samePaper, DIARY_COLORS } from './diary';
+import {
+  diaryFromPreset,
+  diarySizeLabel,
+  nearestPreset,
+  nextDiaryColor,
+  resizeDiary,
+  samePaper,
+  DIARY_COLORS,
+  DIARY_PRESETS,
+} from './diary';
 
 describe('nearestPreset — ±10mm면 같은 규격', () => {
   it('정확히 같으면 그 규격', () => {
@@ -62,5 +71,20 @@ describe('samePaper', () => {
   it('세로가 다르면 다른 종이', () => {
     const a = diaryFromPreset('a', 'M6', 'a', '#000');
     expect(samePaper(a, { ...a, height: 126 })).toBe(false);
+  });
+});
+
+describe('다이어리 크기 바꾸기·등록할 수 있는 규격', () => {
+  it('크기를 바꾸면 ±10mm 안의 가장 가까운 규격 이름표를 다시 붙이고, 멀면 custom', () => {
+    const d = diaryFromPreset('d1', 'M6', 'M6', '#000');
+    expect(resizeDiary(d, 78, 128).presetId).toBe('M6');
+    expect(resizeDiary(d, 148, 210).presetId).toBe('A5');
+    expect(resizeDiary(d, 300, 300).presetId).toBe('custom');
+    expect(resizeDiary(d, 78, 128).punch).toEqual(d.punch);
+  });
+
+  it('3단접이는 다이어리가 아니라 페이지 종류라 빠진다', () => {
+    expect(DIARY_PRESETS.map((p) => p.id)).not.toContain('M6TRI');
+    expect(DIARY_PRESETS.map((p) => p.id)).toContain('M6');
   });
 });

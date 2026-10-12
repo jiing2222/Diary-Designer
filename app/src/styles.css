@@ -6065,3 +6065,133 @@ button.danger:hover {
   stroke: var(--blue-deep);
   stroke-width: 1.2;
 }
+
+/* Library → Diaries(리뉴얼 7-2) — 가운데 고치기 + 오른쪽 속지·구멍 미리보기. Projects와 같은 틀. */
+.diary-editor {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+.diary-form {
+  flex: 1;
+  min-width: 0;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.diary-form .library-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.diary-form .panel-sub {
+  margin: 14px 0 2px;
+}
+.diary-name-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 28px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+}
+.diary-colors {
+  display: inline-flex;
+  gap: 6px;
+}
+.diary-color {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.diary-color.on {
+  outline: 2px solid var(--blue-deep);
+  outline-offset: 2px;
+}
+.diary-fine {
+  margin-top: 6px;
+  font-size: 12.5px;
+}
+.diary-fine summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+.diary-remove {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  font-size: 12px;
+}
+.diary-preview {
+  position: sticky;
+  top: 0;
+  width: 200px;
+  margin: 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--panel);
+}
+.diary-preview svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+}
+.diary-preview figcaption {
+  margin-top: 8px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--muted);
+}
+.diary-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 520px;
+}
+.diary-preset-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.diary-preset-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border: none;
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.diary-preset-tile:hover {
+  background: var(--hover-bg);
+}
+.diary-preset-tile.on {
+  background: var(--blue-subtle);
+  color: var(--blue-deep);
+}
+.diary-preset-shape {
+  width: 30px;
+  max-height: 46px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  background: #fff;
+}
+.diary-picker > .primary {
+  align-self: flex-start;
+  margin-top: 6px;
+}

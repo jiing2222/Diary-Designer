@@ -37,6 +37,14 @@ export function projectsFor(works: Work[], view: ProjectView): Work[] {
     });
 }
 
+/**
+ * 이 다이어리를 쓰는 작업 수 — 휴지통의 작업도 센다(되살리면 다시 그 다이어리가 필요하다).
+ * 0일 때만 다이어리를 지울 수 있다(세부계획 B 결정 2026-10-12).
+ */
+export function worksUsingDiary(works: Work[], diaryId: string): number {
+  return works.filter((w) => w.diaryId === diaryId).length;
+}
+
 /** 휴지통에 머무는 기간. 지나면 완전히 지운다(사용자 결정). */
 export const TRASH_DAYS = 30;
 
