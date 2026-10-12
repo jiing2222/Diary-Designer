@@ -6,6 +6,7 @@ import type { PunchSetting } from './core/punch';
 import type { Align } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
 import { DEFAULT_FIELD_DRAFT, patchField, type FieldDraft, type FieldSpec } from './core/fieldFormat';
+import { applyToDraft, pickSavedStyle, stylePatchOf, type SavedTextStyle } from './core/textStyles';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import type { InsertSetting } from './core/template';
 import { persistFontLabel } from './fonts/registry';
@@ -170,6 +171,8 @@ interface Settings {
    * (세부계획 A4.3). 위클리처럼 칸마다 다른 날짜면 켠다.
    */
   fieldNext: { offset: number; advance: boolean };
+  /** 저장한 글자 스타일 — 모든 작업 공통(core/textStyles). 앱 전체 설정과 함께 저장된다(ui/persist). */
+  textStyles: SavedTextStyle[];
   userFonts: UserFont[];
   userImages: UserImage[];
   pickImageFor: string | null;
@@ -190,7 +193,14 @@ interface Settings {
 
 interface Store extends Settings {
   /** 저장소에서 읽은 것으로 채운다. */
-  hydrate: (data: { works: Work[]; diaries: Diary[]; folders: Folder[]; tabs?: Tabs; defaultDiaryId?: string | null }) => void;
+  hydrate: (data: {
+    works: Work[];
+    diaries: Diary[];
+    folders: Folder[];
+    tabs?: Tabs;
+    defaultDiaryId?: string | null;
+    textStyles?: SavedTextStyle[];
+  }) => void;
   setToday: (iso: string) => void;
 
   /* ── 탭 ── */
@@ -281,6 +291,14 @@ interface Store extends Settings {
   setTextDraftStyle: (patch: TextStyle) => void;
   setFieldDraft: (patch: Partial<FieldDraft>) => void;
   setFieldNext: (patch: Partial<{ offset: number; advance: boolean }>) => void;
+  /** 글자 모양을 이름 붙여 저장한다(글꼴·크기·간격·색·B·I·U·S만). 저장한 것의 id. */
+  saveTextStyle: (name: string, style: TextStyle) => string;
+  removeTextStyle: (id: string) => void;
+  /**
+   * 저장한 스타일을 쓴다 — 고른 글자가 있으면 그 글자에(되돌리기 됨), 없으면 다음에 놓을 글자에
+   * 쓰고 글자 도구를 든다(세부계획 A8 결정 2026-10-12).
+   */
+  applyTextStyle: (id: string) => void;
   commitCalendar: (box: Box) => void;
   resizeObject: (id: string, box: Box, extra?: Partial<TextObject>) => void;
   styleCalendar: (patch: CalendarStyle) => void;
@@ -522,6 +540,7 @@ export const useStore = create<Store>((set, get) => ({
   textDraftStyle: {},
   fieldDraft: DEFAULT_FIELD_DRAFT,
   fieldNext: { offset: 0, advance: false },
+  textStyles: [],
   userFonts: [],
   userImages: [],
   pickImageFor: null,
@@ -544,10 +563,15 @@ export const useStore = create<Store>((set, get) => ({
   cutStackGroup: 0,
   unprintable: { show: true, width: 3 },
 
-  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId }) => {
+  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [] }) => {
     // 새로고침하면 id 카운터가 0부터 다시 시작한다 — 불러온 id들보다 위로 올려야
     // 새로 만드는 것이 불러온 것과 겹치지 않는다(옛 판 loadProject와 같은 이유).
-    ensureIdCounterAbove([...works.flatMap(allIdsOf), ...diaries.map((d) => d.id), ...folders.map((f) => f.id)]);
+    ensureIdCounterAbove([
+      ...works.flatMap(allIdsOf),
+      ...diaries.map((d) => d.id),
+      ...folders.map((f) => f.id),
+      ...textStyles.map((t) => t.id),
+    ]);
     const exists = (id: string) => works.some((w) => w.id === id && !isTrashed(w));
     set({
       works,
@@ -557,6 +581,7 @@ export const useStore = create<Store>((set, get) => ({
       tabs: keepExisting(tabs ?? emptyTabs(), exists),
       histories: {},
       cursors: {},
+      textStyles,
       ready: true,
     });
   },
@@ -965,6 +990,27 @@ export const useStore = create<Store>((set, get) => ({
   setFieldDraft: (patch) => set((s) => ({ fieldDraft: patchField(s.fieldDraft, patch) })),
 
   setFieldNext: (patch) => set((s) => ({ fieldNext: { ...s.fieldNext, ...patch } })),
+
+  saveTextStyle: (name, style) => {
+    const id = newId('ts');
+    set((s) => ({ textStyles: [...s.textStyles, { id, name: name.trim() || '스타일', style: pickSavedStyle(style) }] }));
+    return id;
+  },
+
+  removeTextStyle: (id) => set((s) => ({ textStyles: s.textStyles.filter((t) => t.id !== id) })),
+
+  applyTextStyle: (id) => {
+    const s = get();
+    const saved = s.textStyles.find((t) => t.id === id);
+    if (!saved) return;
+    const pickedText = activeObjects(s).some((o) => o.type === 'text' && s.selectedIds.includes(o.id));
+    if (pickedText) {
+      s.styleText(stylePatchOf(saved.style));
+      return;
+    }
+    set({ textDraftStyle: applyToDraft(s.textDraftStyle, saved.style) });
+    if (s.tool !== 'text') s.setTool('text');
+  },
 
   commitCalendar: (box) =>
     set((s) => {

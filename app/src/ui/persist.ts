@@ -50,6 +50,7 @@ export async function boot(): Promise<{ skippedNotebooks: string[] }> {
     folders: data.folders,
     tabs: meta.tabs,
     defaultDiaryId: meta.defaultDiaryId,
+    textStyles: meta.textStyles,
   });
   remember(useStore.getState());
 
@@ -82,6 +83,7 @@ function metaOf(s: State): V2Meta {
     defaultDiaryId: s.defaultDiaryId,
     fonts: s.userFonts.map((f) => ({ id: f.id, name: f.name })),
     images: s.userImages.map((i) => ({ id: i.id, name: i.name })),
+    textStyles: s.textStyles,
   };
 }
 

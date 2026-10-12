@@ -295,6 +295,50 @@ describe('달 모양', () => {
   });
 });
 
+describe('저장한 글자 스타일', () => {
+  beforeEach(() => {
+    s().createWork();
+  });
+  const texts = () => (active().items[0] as PageItem).face.objects as TextObject[];
+
+  it('저장하면 정렬·회전은 빼고 담는다', () => {
+    const id = s().saveTextStyle('제목', { size: 5, bold: true, align: 'center' });
+    expect(s().textStyles).toEqual([{ id, name: '제목', style: { size: 5, bold: true } }]);
+  });
+
+  it('고른 글자가 있으면 그 글자에 통째로 — 저장에 없는 값은 기본으로 돌아가고 정렬은 남는다', () => {
+    s().commitText({ x: 0, y: 0, width: 10, height: 5, text: '가', italic: true, align: 'right' });
+    s().select([texts()[0].id]);
+    const id = s().saveTextStyle('제목', { size: 5, bold: true });
+    s().applyTextStyle(id);
+    expect(texts()[0]).toMatchObject({ size: 5, bold: true, align: 'right' });
+    expect(texts()[0]).not.toHaveProperty('italic');
+    s().undo();
+    expect(texts()[0]).toMatchObject({ italic: true });
+  });
+
+  it('고른 글자가 없으면 다음에 놓을 글자에 쓰고 글자 도구를 든다', () => {
+    const id = s().saveTextStyle('캡션', { size: 2, color: '@A' });
+    s().setTextDraftStyle({ align: 'center', bold: true });
+    s().applyTextStyle(id);
+    expect(s().textDraftStyle).toEqual({ align: 'center', size: 2, color: '@A' });
+    expect(s().tool).toBe('text');
+  });
+
+  it('지운다', () => {
+    const id = s().saveTextStyle('제목', { size: 5 });
+    s().removeTextStyle(id);
+    expect(s().textStyles).toEqual([]);
+  });
+
+  it('불러온 스타일 id보다 카운터를 올린다', () => {
+    useStore.setState(initial, true);
+    s().hydrate({ works: [], diaries: [], folders: [], textStyles: [{ id: 'ts900', name: 'x', style: {} }] });
+    expect(s().saveTextStyle('y', {})).not.toBe('ts900');
+    expect(Number(s().textStyles[1].id.replace(/\D/g, ''))).toBeGreaterThan(900);
+  });
+});
+
 describe('색 규칙', () => {
   beforeEach(() => {
     s().createWork();

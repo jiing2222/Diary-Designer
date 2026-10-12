@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useFaces, useHasBack, useSide, useStore, type Tool } from '../store';
-import { isCalendar, isCheckbox, isMoon, isText } from '../core/objects';
+import { isCalendar, isCheckbox, isMoon, isText, type TextObject } from '../core/objects';
+import { familyOf } from '../fonts/registry';
+import { mmToPt } from '../core/units';
+import { TEXT_SIZE } from '../core/style';
 import { chipPatch, FIELD_CHIPS, tileOf } from '../core/fieldFormat';
 import { AutoFieldTiles, FieldSettings, MoonPanel, type AutoTile } from './AutoFieldPanel';
 import { CalendarPanelControls, CheckboxIconGrid, FieldToggle } from './ObjectControls';
@@ -496,7 +499,79 @@ function TextPanel() {
   return (
     <>
       <p className="tool-panel-note">페이지를 눌러 그 칸에 글자를 놓아요. 끌면 여러 칸에 걸친 상자가 돼요. 글꼴·크기·색은 위쪽 막대에서 바꿔요.</p>
+      <SavedTextStyles picked={texts} />
       {texts.length > 0 && <FieldToggle texts={texts} />}
     </>
+  );
+}
+
+/**
+ * 저장한 글자 스타일(세부계획 A8) — 모든 작업 공통. 누르면 고른 글자에, 고른 글자가 없으면 다음에
+ * 놓을 글자에 쓴다. ‘지금 모양 저장’은 고른 글자(없으면 다음에 놓을 글자)의 모양을 담는다.
+ */
+function SavedTextStyles({ picked }: { picked: TextObject[] }) {
+  const textStyles = useStore((s) => s.textStyles);
+  const draft = useStore((s) => s.textDraftStyle);
+  const userFonts = useStore((s) => s.userFonts);
+  const saveTextStyle = useStore((s) => s.saveTextStyle);
+  const removeTextStyle = useStore((s) => s.removeTextStyle);
+  const applyTextStyle = useStore((s) => s.applyTextStyle);
+  const palette = useActiveWork()?.palette;
+
+  const colorOf = (ref: string | undefined) => {
+    if (!ref) return undefined;
+    const key = keyOfRef(ref);
+    return key === null ? ref : ((palette && colorOfKey(palette, key)) ?? undefined);
+  };
+
+  return (
+    <div className="text-styles">
+      <h3 className="panel-sub">저장한 스타일</h3>
+      {textStyles.length === 0 && <p className="tool-panel-note">자주 쓰는 글자 모양을 저장해 두면 어느 작업에서나 눌러서 써요.</p>}
+      {textStyles.map((t) => (
+        <div key={t.id} className="text-style-row">
+          <button
+            className="text-style-btn"
+            onClick={() => applyTextStyle(t.id)}
+            title={picked.length > 0 ? '고른 글자에 쓰기' : '다음에 놓을 글자에 쓰기'}
+          >
+            <span
+              className="text-style-name"
+              style={{
+                fontFamily: familyOf(userFonts, t.style.font),
+                fontStyle: t.style.italic ? 'italic' : undefined,
+                textDecoration:
+                  [t.style.underline && 'underline', t.style.strike && 'line-through'].filter(Boolean).join(' ') || undefined,
+                WebkitTextStroke: t.style.bold ? '0.6px currentColor' : undefined,
+                color: colorOf(t.style.color),
+              }}
+            >
+              {t.name}
+            </span>
+            <span className="text-style-meta">{Math.round(mmToPt(t.style.size ?? TEXT_SIZE) * 10) / 10}pt</span>
+          </button>
+          <button
+            className="ghost text-style-remove"
+            title="스타일 지우기"
+            aria-label={`${t.name} 스타일 지우기`}
+            onClick={() => {
+              if (window.confirm(`‘${t.name}’ 스타일을 지울까요? 이미 쓴 글자는 그대로예요.`)) removeTextStyle(t.id);
+            }}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <button
+        className="ghost text-style-save"
+        onClick={() => {
+          const name = window.prompt('스타일 이름', '');
+          if (name === null) return;
+          saveTextStyle(name, picked[0] ?? draft);
+        }}
+      >
+        + {picked.length > 0 ? '고른 글자 모양 저장' : '지금 모양 저장'}
+      </button>
+    </div>
   );
 }

@@ -18,6 +18,7 @@ import { migrateTemplates, type Migrated } from '../core/migrate';
 import type { Work } from '../core/work';
 import type { Diary } from '../core/diary';
 import type { Folder } from '../core/library';
+import type { SavedTextStyle } from '../core/textStyles';
 import type { Tabs } from '../core/workspace';
 
 const DB_NAME = 'rings-v2';
@@ -107,6 +108,8 @@ export interface V2Meta {
   images?: SavedImage[];
   /** 새 작업을 만들 때 쓰는 다이어리. */
   defaultDiaryId?: string | null;
+  /** 저장한 글자 스타일 — 모든 작업 공통(core/textStyles). */
+  textStyles?: SavedTextStyle[];
 }
 
 const META_KEY = 'meta';
