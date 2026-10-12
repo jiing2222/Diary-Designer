@@ -155,10 +155,18 @@ export const CALENDAR_ROW_SCALE = 1;
  */
 export const DEFAULT_FONT_FAMILY = 'Pretendard';
 export const DEFAULT_FONT_URL = `${import.meta.env.BASE_URL}fonts/Pretendard-Regular.ttf`;
-export const BOLD_FONT_URL = `${import.meta.env.BASE_URL}fonts/Pretendard-Bold.ttf`;
 
 /** 화면(CSS)과 PDF가 함께 쓰는 굵기 값. @font-face 선언과 반드시 같아야 한다. */
 export const FONT_WEIGHT = { regular: 400, bold: 700 } as const;
+
+/**
+ * 가짜 굵게(리뉴얼 5단계, 세부계획 A4.5) — 글자 테두리에 같은 색 선을 덧그리는 굵기를
+ * 글자 크기에 대한 비율로. 선은 테두리 안팎으로 반씩 걸쳐서 한쪽으로는 절반만큼 두꺼워진다.
+ * 글자 폭(자리)은 바꾸지 않는다 → 줄바꿈·정렬이 그대로다.
+ *
+ * **인쇄해봐야 아는 값**(진행상황.md ‘아직 인쇄해보지 않은 값’).
+ */
+export const FAKE_BOLD_STROKE_RATIO = 0.05;
 
 /** 재단선·십자 마크. 인쇄되지만 자르고 나면 대부분 사라진다. 너무 눈에 띈다는
  *  피드백으로 한 번 더 연하게 했다. */

@@ -1,5 +1,5 @@
 import { cleanStyle, type Align, type TextObject, type TextStyle, type VAlign } from './objects';
-import { TEXT_ASCENT, TEXT_DESCENT, TEXT_SIZE } from './style';
+import { FAKE_BOLD_STROKE_RATIO, TEXT_ASCENT, TEXT_DESCENT, TEXT_SIZE } from './style';
 import type { Mm } from './units';
 
 /**
@@ -33,14 +33,26 @@ export function boldOf(t: { bold?: boolean }): boolean {
 }
 
 /**
- * 굵게를 쓸 수 있는가.
- *
- * 등록한 글꼴에는 Bold 파일이 따로 없다. 브라우저는 가짜 굵게를 만들어주지만
- * pdf-lib에는 그 기능이 없어서, 허용하면 화면만 굵고 인쇄물은 그대로 나온다.
- * 굵은 글꼴이 필요하면 Bold 파일을 따로 등록해서 고른다.
+ * 가짜 굵게의 덧그리는 선 굵기(mm). 굵게가 아니면 0. 모든 글꼴에 같은 방식이다 —
+ * 등록 글꼴에는 Bold 파일이 없어서, 진짜 Bold 파일은 쓰지 않고 하나로 통일했다(A4.5).
+ * 화면(SVG stroke)과 PDF(글자 그리기 방식 ‘채우기+테두리’)가 이 값 하나를 쓴다.
  */
-export function canBold(t: { font?: string }): boolean {
-  return t.font === undefined;
+export function fakeBoldStrokeOf(t: { bold?: boolean }, size: Mm): Mm {
+  return boldOf(t) ? size * FAKE_BOLD_STROKE_RATIO : 0;
+}
+
+/**
+ * 글자 폭을 재는 함수 — 글자 크기가 1mm일 때 이 글자들이 차지하는 폭(mm).
+ *
+ * 글꼴 파일을 읽어야 해서 core는 직접 재지 못한다. 글꼴을 읽는 쪽(fonts/measure)이
+ * 만들어 넘기고, **화면과 PDF가 같은 측정기**를 쓴다(구현전략 ‘바닥 1’). 그래서
+ * 자리 계산(아래 `lineWidthOf`·`leftOf`)이 두 뷰에서 같다.
+ */
+export type Measure = (text: string) => number;
+
+/** 한 줄의 폭(mm). */
+export function lineWidthOf(line: string, size: Mm, measure: Measure): Mm {
+  return measure(line) * size;
 }
 
 /**

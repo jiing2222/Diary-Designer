@@ -1,4 +1,4 @@
-import { BOLD_FONT_URL, DEFAULT_FONT_URL } from '../core/style';
+import { DEFAULT_FONT_URL } from '../core/style';
 
 /**
  * 속지 글꼴 불러오기.
@@ -26,8 +26,4 @@ function load(url: string): Promise<ArrayBuffer> {
 
 export function loadBodyFont(): Promise<ArrayBuffer> {
   return load(DEFAULT_FONT_URL);
-}
-
-export function loadBoldFont(): Promise<ArrayBuffer> {
-  return load(BOLD_FONT_URL);
 }

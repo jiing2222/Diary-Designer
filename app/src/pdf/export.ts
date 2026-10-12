@@ -1,6 +1,8 @@
 import {
   LineCapStyle,
+  LineJoinStyle,
   PDFDocument,
+  TextRenderingMode,
   clip,
   closePath,
   degrees,
@@ -10,6 +12,10 @@ import {
   popGraphicsState,
   pushGraphicsState,
   rgb,
+  setLineJoin,
+  setLineWidth,
+  setStrokingColor,
+  setTextRenderingMode,
   StandardFonts,
   type PDFFont,
   type PDFImage,
@@ -20,7 +26,8 @@ import { sanitizeForFont } from '../core/fontCoverage';
 import { mmToPt, ptToMm, type Mm } from '../core/units';
 import {
   alignOf,
-  boldOf,
+  fakeBoldStrokeOf,
+  lineWidthOf,
   displayText,
   leftOf,
   lineBaselines,
@@ -92,6 +99,7 @@ import {
 import { calendarCellAt, isInMonth } from '../core/dataset';
 import { dateColorOf, weekdayHeaderColorOf, type ColorRules } from '../core/colorRules';
 import { moonCircle, moonLitPath, moonOutlinePath } from '../core/moon';
+import { measureOf } from '../fonts/measure';
 import { sheetSlotKey } from '../core/sheetSlots';
 
 /**
@@ -118,8 +126,6 @@ interface ExportInput {
   objects: DiaryObject[];
   /** 속지 글꼴 파일. 글자가 있을 때만 쓰인다. */
   fontBytes?: ArrayBuffer | Uint8Array;
-  /** 굵게용 글꼴 파일. 굵은 글자가 실제로 있을 때만 쓰인다. */
-  boldFontBytes?: ArrayBuffer | Uint8Array;
   /**
    * 사용자가 등록한 글꼴. `TextObject.font`의 id → 파일 바이트.
    *
@@ -314,7 +320,6 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   // 달력도 글자로 그려진다 — 글자 하나 없이 달력만 있는 양식도 글꼴을 심어야 한다.
   const calendars = allObjects.flatMap((list) => list.filter(isCalendar));
   let bodyFont: PDFFont | null = null;
-  let boldFont: PDFFont | null = null;
   const userFonts = new Map<string, PDFFont>();
   // 실제로 그릴 수 있는 글자인지 보는 데 쓴다(core/fontCoverage의 canDraw) —
   // 굵기가 다르다고 글자 목록이 달라지지 않으므로 Regular 하나로 충분하다.
@@ -324,10 +329,7 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     doc.registerFontkit(fontkit);
     bodyFont = await doc.embedFont(input.fontBytes, { subset: false });
     bodyCoverage = fontkit.create(new Uint8Array(input.fontBytes));
-    // 굵기마다 파일이 따로다. 굵은 글자가 하나도 없으면 심지 않는다.
-    if (input.boldFontBytes && texts.some(boldOf)) {
-      boldFont = await doc.embedFont(input.boldFontBytes, { subset: false });
-    }
+    // 굵게는 가짜 굵게(테두리 덧그리기)라 Bold 글꼴 파일을 따로 심지 않는다(리뉴얼 5단계).
     // 등록 글꼴도 실제로 쓰이는 것만 심는다. 달력도 자기 글꼴을 가질 수 있다.
     for (const [id, b] of input.userFonts ?? []) {
       if (texts.some((t) => t.font === id) || calendars.some((c) => c.font === id)) {
@@ -408,7 +410,6 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     if (bodyFont && bodyCoverage) {
       const fonts: Fonts = {
         regular: bodyFont,
-        bold: boldFont,
         user: userFonts,
         coverage: { regular: bodyCoverage, user: userCoverage },
       };
@@ -564,7 +565,6 @@ function drawDotGrid(
  */
 interface Fonts {
   regular: PDFFont;
-  bold: PDFFont | null;
   /** 등록 글꼴. id로 찾는다. */
   user: Map<string, PDFFont>;
   /** 실제로 그릴 수 있는 글자인지 보는 데 쓴다 — core/fontCoverage 참고. */
@@ -574,13 +574,13 @@ interface Fonts {
 /**
  * 이 글자를 그릴 글꼴.
  *
- * 등록 글꼴이 먼저다. 그 글꼴에는 Bold 파일이 없으므로 굵게는 아예 끼지 않는다
- * (core/text의 canBold와 같은 규칙이다). 새로고침 뒤처럼 등록소에 없는 id가
- * 남아 있으면 기본 글꼴로 돌아간다 — 화면에서도 그렇게 보인다.
+ * 등록 글꼴이 먼저다. 굵게는 글꼴 파일을 바꾸지 않고 가짜 굵게로 그린다(drawTexts).
+ * 새로고침 뒤처럼 등록소에 없는 id가 남아 있으면 기본 글꼴로 돌아간다 — 화면에서도
+ * 그렇게 보인다.
  */
 function fontFor(t: TextObject, fonts: Fonts): PDFFont {
   if (t.font) return fonts.user.get(t.font) ?? fonts.regular;
-  return boldOf(t) && fonts.bold ? fonts.bold : fonts.regular;
+  return fonts.regular;
 }
 
 /** fontFor의 커버리지(fontkit) 버전 — 굵기는 안 본다(위 Fonts.coverage 주석 참고). */
@@ -603,7 +603,7 @@ function drawTexts(
   page: PDFPage,
   layout: Layout,
   resolveSlot: (i: number) => SlotContent,
-  /** 심어둔 글꼴들. `bold`가 없으면 굵은 글자가 없어서 심지 않은 것이다. */
+  /** 심어둔 글꼴들. */
   fonts: Fonts,
   flipY: (y: Mm) => Mm,
 ) {
@@ -636,10 +636,13 @@ function drawTexts(
       const size = sizeOf(t);
       const lines = splitLines(displayText(t));
       const baselines = lineBaselines(t, size, valignOf(t), lines.length, lineHeightOf(t));
-      // 폭을 재는 글꼴과 그리는 글꼴이 반드시 같아야 한다. Bold는 획이 두꺼운
-      // 만큼 폭도 넓어서, Regular로 재고 Bold로 그리면 가운데 정렬이 어긋난다.
+      // 그리는 글꼴과 재는 글꼴(fontkit)은 같은 파일이다. 폭은 화면과 같은 측정기로
+      // 잰다(fonts/measure, 구현전략 ‘바닥 1’) — 두 뷰의 자리가 같다.
       const font = fontFor(t, fonts);
       const coverage = coverageFontFor(t, fonts);
+      const measure = measureOf(coverage);
+      const boldStroke = fakeBoldStrokeOf(t, size);
+      const fill = t.color ? color(t.color) : TEXT;
 
       const rotate = rotateOf(t);
       const localRotation = rotationOf(t, rotate);
@@ -650,17 +653,29 @@ function drawTexts(
         // 참고)는 X로 바꿔서 잰다·그린다. 안 바꾸면 컬러 이모지 폰트조차
         // 실제로는 빈 칸을 그리면서 폭만 차지해 뒤 글자와 자리가 어긋난다.
         const drawn = sanitizeForFont(line, coverage);
-        const width = ptToMm(font.widthOfTextAtSize(drawn, mmToPt(size)));
+        const width = lineWidthOf(drawn, size, measure);
         // 먼저 글자 자신의 회전(90/270)을 상자 가운데 축으로 적용하고, 그 다음
         // place.map으로 칸 배치(회전 배치 포함)를 반영한다 — 순서가 바뀌면 안 된다.
         const local = localRotation.map({ x: leftOf(t, alignOf(t), width), y: baselines[i] });
         const p = place.map(local.x, local.y);
+        // 가짜 굵게 — 글자를 ‘채우기 + 테두리’ 방식으로 그린다. 테두리 굵기·색은 화면의
+        // SVG stroke와 같은 값(core/text의 fakeBoldStrokeOf). drawText는 이 글자 상태를
+        // 바꾸지 않으므로 감싼 그래픽 상태 안에서 그대로 물려받는다.
+        if (boldStroke > 0) {
+          page.pushOperators(
+            pushGraphicsState(),
+            setTextRenderingMode(TextRenderingMode.FillAndOutline),
+            setLineWidth(mmToPt(boldStroke)),
+            setLineJoin(LineJoinStyle.Round),
+            setStrokingColor(fill),
+          );
+        }
         page.drawText(drawn, {
           x: mmToPt(p.x),
           y: mmToPt(flipY(p.y)),
           size: mmToPt(size),
           font,
-          color: t.color ? color(t.color) : TEXT,
+          color: fill,
           // 자리는 두 map()이 이미 옮겨준다. 하지만 pdf-lib은 글자 자체를 그
           // 방향으로 돌려 그리라고 따로 말해주지 않으면 언제나 가로로 눕혀
           // 그린다 — 화면(SVG)은 <g transform>이 글자까지 통째로 돌리므로 이
@@ -669,6 +684,7 @@ function drawTexts(
           // 그냥 더하면 합쳐진 회전이 나온다.
           rotate: degrees(layoutRotateDeg(layout) + pdfRotateOf(rotate)),
         });
+        if (boldStroke > 0) page.pushOperators(popGraphicsState());
       });
     }
 

@@ -22,7 +22,7 @@ import {
   TEXT_COLOR,
   TEXT_SIZE,
 } from '../core/style';
-import { boldOf, canBold, naturalLineHeight } from '../core/text';
+import { boldOf, naturalLineHeight } from '../core/text';
 import { DEFAULT_FIELD_DRAFT } from '../core/fieldFormat';
 import {
   letterSpacingOf,
@@ -847,8 +847,6 @@ export function TextControls({
   // 하나라도 보통 굵기면 눌렀을 때 전부 굵어진다. 여러 개가 섞여 있을 때
   // 무엇이 될지 예측하기 쉬운 쪽이다.
   const allBold = !mixed('bold') && boldOf(items[0]);
-  // 등록 글꼴에는 Bold 파일이 없다. 가짜 굵게는 PDF에서 안 되므로 막는다.
-  const boldable = items.every(canBold);
 
   return (
     <>
@@ -862,8 +860,8 @@ export function TextControls({
         className={`bold-btn ${allBold ? 'on' : ''}`}
         // 보통 굵기로 되돌릴 때는 값을 아예 지운다. 그래야 기본값을 따라간다.
         onClick={() => pick({ bold: allBold ? undefined : true })}
-        disabled={!boldable}
-        title={boldable ? '굵게' : '등록한 글꼴은 굵게가 없습니다. Bold 파일을 따로 등록하세요'}
+        // 모든 글꼴에서 가짜 굵게(core/text) — 등록한 글꼴도 굵게 할 수 있다.
+        title="굵게"
       >
         가
       </button>

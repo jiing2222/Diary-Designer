@@ -26,7 +26,7 @@ import {
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm, type Mm } from '../core/units';
-import { newTextStyle, rotateOf } from '../core/text';
+import { fakeBoldStrokeOf, newTextStyle, rotateOf } from '../core/text';
 import {
   useActiveWork,
   useCursor,
@@ -1588,7 +1588,7 @@ export function TextInput({
    * (상자 크기 조정 때 글자가 따라 커지지 않게 한 것과 같은 원칙 — 그
    * 반대 방향도 상자가 저절로 안 바뀌어야 한다).
    */
-  const measured = measureTextBox(editing.text, size, lineHeight, editing.style.bold, family);
+  const measured = measureTextBox(editing.text, size, lineHeight, family);
   // extraPx는 위 useLayoutEffect가 실측으로 채운다 — 처음 그릴 때는 0이다.
   const liveWidth = Math.max(box.width, measured.width + extraPx.w / scale);
   const liveHeight = Math.max(box.height, measured.height + extraPx.h / scale);
@@ -1605,7 +1605,9 @@ export function TextInput({
         height: liveHeight * scale,
         fontSize: size * scale,
         fontFamily: family,
-        fontWeight: editing.style.bold ? FONT_WEIGHT.bold : FONT_WEIGHT.regular,
+        fontWeight: FONT_WEIGHT.regular,
+        // 가짜 굵게 — 다 쓴 뒤 그려질 모습(core/text의 fakeBoldStrokeOf)과 같게 테두리를 덧그린다.
+        WebkitTextStroke: editing.style.bold ? `${fakeBoldStrokeOf(editing.style, size) * scale}px currentColor` : undefined,
         // 이 글자에 새겨둔 줄 간격을 그대로 쓴다 — 타이핑 중과 커밋 후가
         // 같은 자리로 보여야 한다.
         lineHeight: `${lineHeight * scale}px`,

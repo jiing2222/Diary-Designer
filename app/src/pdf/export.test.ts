@@ -10,8 +10,11 @@ import { computeLayout } from '../core/layout';
 import { DEFAULT_DOT_GRID } from '../core/grid';
 import { sheetSlotKey } from '../core/sheetSlots';
 import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from '../core/style';
-import { MM_TO_PT } from '../core/units';
-import type { CalendarObject } from '../core/objects';
+import { MM_TO_PT, mmToPt, ptToMm } from '../core/units';
+import type { CalendarObject, TextObject } from '../core/objects';
+import fontkit from '@pdf-lib/fontkit';
+import { measureOf } from '../fonts/measure';
+import { fakeBoldStrokeOf, lineWidthOf } from '../core/text';
 
 /**
  * 완성된 PDF 바이트에서 `w`(선 굵기 지정) 연산자의 값을 전부 꺼낸다.
@@ -239,28 +242,6 @@ describe('도트 격자 인쇄', () => {
     const withText = await buildPdf({ ...base, dotGrid: noGrid, objects: [text] });
     const empty = await buildPdf({ ...base, dotGrid: noGrid, objects: [] });
     expect(withText.byteLength).toBe(empty.byteLength);
-  });
-
-  it('굵은 글자가 없으면 Bold 글꼴을 심지 않는다', async () => {
-    // 굵기마다 파일이 2.7MB다. 쓰지도 않을 것을 심으면 PDF가 그만큼 무거워진다.
-    // 망가진 바이트를 줘도 터지지 않아야 한다 — 아예 손대지 않는다는 뜻이다.
-    const plain = {
-      id: 't1',
-      type: 'text' as const,
-      x: 10,
-      y: 10,
-      width: 40,
-      height: 20,
-      text: '보통 굵기',
-    };
-    const given = await buildPdf({
-      ...base,
-      dotGrid: noGrid,
-      objects: [plain],
-      boldFontBytes: new Uint8Array([1, 2, 3]),
-    });
-    const not = await buildPdf({ ...base, dotGrid: noGrid, objects: [plain] });
-    expect(given.byteLength).toBe(not.byteLength);
   });
 
   it('쓰이지 않는 등록 글꼴은 심지 않는다', async () => {
@@ -1068,6 +1049,43 @@ describe('세트형 — 데이터셋', () => {
    * 그 함수 안의 실제 로직이라, 저장소의 진짜 Pretendard 파일을 읽어 코드가
    * 실제로 실행되는지까지 여기서 확인한다.
    */
+  describe('글자 폭·가짜 굵게(실제 글꼴로 확인, 리뉴얼 5-1)', () => {
+    const realFont = readFileSync(fileURLToPath(new URL('../../public/fonts/Pretendard-Regular.ttf', import.meta.url)));
+    const text = (patch: Partial<TextObject> = {}): TextObject => ({
+      id: 't1',
+      type: 'text',
+      x: 10,
+      y: 10,
+      width: 40,
+      height: 10,
+      text: '굵게 Bold',
+      size: 4,
+      ...patch,
+    });
+
+    it('화면과 같은 측정기의 폭이 pdf-lib이 재는 폭과 같다', async () => {
+      const doc = await PDFDocument.create();
+      doc.registerFontkit(fontkit);
+      const embedded = await doc.embedFont(realFont, { subset: false });
+      const measure = measureOf(fontkit.create(new Uint8Array(realFont)));
+      for (const line of ['굵게 Bold', 'We AV 1,234', '2026.10.12 (월)']) {
+        expect(lineWidthOf(line, 4, measure)).toBeCloseTo(ptToMm(embedded.widthOfTextAtSize(line, mmToPt(4))), 6);
+      }
+    });
+
+    it('굵은 글자는 ‘채우기+테두리’로, 테두리 굵기는 화면과 같은 값', async () => {
+      const bytes = await buildPdf({ ...base, dotGrid: noGrid, fontBytes: realFont, objects: [text({ bold: true })] });
+      const streams = (await pageStreams(bytes)).join('\n');
+      expect(streams).toMatch(/\b2 Tr\b/);
+      expect(contentStreamWidths(bytes).some((w) => Math.abs(w - mmToPt(fakeBoldStrokeOf({ bold: true }, 4))) < 1e-3)).toBe(true);
+    });
+
+    it('보통 글자는 테두리를 그리지 않는다', async () => {
+      const bytes = await buildPdf({ ...base, dotGrid: noGrid, fontBytes: realFont, objects: [text()] });
+      expect((await pageStreams(bytes)).join('\n')).not.toMatch(/\b2 Tr\b/);
+    });
+  });
+
   describe('월간 달력 — 자간·제목(실제 글꼴로 확인)', () => {
     const realFont = readFileSync(fileURLToPath(new URL('../../public/fonts/Pretendard-Regular.ttf', import.meta.url)));
 

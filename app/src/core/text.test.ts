@@ -4,7 +4,8 @@ import {
   baselineY,
   blockHeight,
   boldOf,
-  canBold,
+  fakeBoldStrokeOf,
+  lineWidthOf,
   displayText,
   effectiveLineHeight,
   fieldPlaceholder,
@@ -176,11 +177,10 @@ describe('굵게', () => {
     expect(newTextStyle({ bold: true }, 5).bold).toBe(true);
   });
 
-  it('기본 글꼴에서만 쓸 수 있다', () => {
-    // 등록한 글꼴에는 Bold 파일이 없다. 브라우저는 가짜 굵게를 만들어주지만
-    // pdf-lib에는 그 기능이 없어서, 허용하면 화면만 굵고 인쇄물은 그대로다.
-    expect(canBold({})).toBe(true);
-    expect(canBold({ font: 'f1' })).toBe(false);
+  it('가짜 굵게 — 모든 글꼴에서 덧그리는 선 굵기는 글자 크기의 비율, 굵게가 아니면 0', () => {
+    expect(fakeBoldStrokeOf({ bold: true }, 4)).toBeCloseTo(0.2);
+    expect(fakeBoldStrokeOf({ bold: true, font: 'f1' } as { bold: boolean }, 4)).toBeCloseTo(0.2);
+    expect(fakeBoldStrokeOf({}, 4)).toBe(0);
   });
 });
 
@@ -292,5 +292,12 @@ describe('글자 회전', () => {
   it('rotateOf — 정하지 않았으면 0', () => {
     expect(rotateOf({})).toBe(0);
     expect(rotateOf({ rotate: 90 })).toBe(90);
+  });
+});
+
+describe('글자 폭', () => {
+  it('측정기의 1mm 폭에 글자 크기를 곱한다', () => {
+    const measure = (text: string) => text.length * 0.5;
+    expect(lineWidthOf('abcd', 3, measure)).toBe(6);
   });
 });
