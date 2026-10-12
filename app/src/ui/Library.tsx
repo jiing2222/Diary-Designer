@@ -6,13 +6,14 @@ import { LibraryColors } from './LibraryColors';
 import { Projects } from './Projects';
 import { Diaries } from './Diaries';
 import { DiaryIcon, FontsIcon, ImageIcon, PaletteIcon, ProjectsIcon, TrashIcon } from './icons';
+import { PinStudio } from './PinStudio';
 
 /**
  * Library 탭(리뉴얼, 세부계획 B). 맨 앞에 고정된 탭이다(디자인.md ‘탭’).
  *
  * Projects는 7-1, Diaries는 7-2, Images·Fonts는 7-3(ui/LibraryAssets), Colors는 7-4(ui/LibraryColors)에서 채웠다.
  */
-export type LibrarySection = 'projects' | 'diaries' | 'images' | 'fonts' | 'colors' | 'trash' | 'learn';
+export type LibrarySection = 'projects' | 'diaries' | 'images' | 'fonts' | 'colors' | 'trash' | 'learn' | 'pins';
 
 export const LIBRARY_RAIL: { id: LibrarySection; label: string; icon: React.ReactNode }[] = [
   { id: 'projects', label: 'Projects', icon: <ProjectsIcon /> },
@@ -21,6 +22,8 @@ export const LIBRARY_RAIL: { id: LibrarySection; label: string; icon: React.Reac
   { id: 'fonts', label: 'Fonts', icon: <FontsIcon /> },
   { id: 'colors', label: 'Colors', icon: <PaletteIcon /> },
   { id: 'trash', label: 'Trash', icon: <TrashIcon /> },
+  // 핀터레스트 홍보 이미지 만들기 — 개발 서버에서만(사용자에게 보일 기능이 아니다).
+  ...(import.meta.env.DEV ? [{ id: 'pins' as const, label: 'Pins', icon: '📌' }] : []),
 ];
 
 export function LibraryMain({ section }: { section: LibrarySection }) {
@@ -30,6 +33,7 @@ export function LibraryMain({ section }: { section: LibrarySection }) {
   if (section === 'fonts') return <LibraryFonts />;
   if (section === 'learn') return <Soon title="Learn" note="앱 사용법, 인쇄 팁, 다이어리 종이 이야기를 준비하고 있어요." />;
   if (section === 'diaries') return <Diaries />;
+  if (section === 'pins') return <PinStudio />;
   return <LibraryColors />;
 }
 
