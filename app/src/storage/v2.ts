@@ -19,8 +19,7 @@ import type { Work } from '../core/work';
 import type { Diary } from '../core/diary';
 import type { Folder } from '../core/library';
 import type { SavedTextStyle } from '../core/textStyles';
-import type { Tabs } from '../core/workspace';
-import type { Cursor } from '../store';
+import type { Cursor, Tabs } from '../core/workspace';
 
 const DB_NAME = 'rings-v2';
 const DB_VERSION = 1;

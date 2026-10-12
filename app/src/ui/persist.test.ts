@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../store';
 import { boot, flushAutosave, startAutosave } from './persist';
-import { loadAll, saveFolder, saveWork } from '../storage/v2';
+import { loadAll, saveFolder, saveMeta, saveWork } from '../storage/v2';
 
 vi.mock('../storage/v2', () => ({
   loadAll: vi.fn(), migrateFromV1: vi.fn(async () => {}),
@@ -60,11 +60,19 @@ describe('자동 저장의 실제 결과', () => {
     expect(useStore.getState().saveStatus).toBe('saved');
   });
 
-  it('마지막 저장 상태로 되돌아오면 저장 중 표시가 남지 않는다', async () => {
-    useStore.getState().rememberViewport({ zoom: 100 });
+  it('보는 위치(확대·스크롤)만 바꾸면 저장 중 표시 없이 조용히 저장한다', async () => {
     await flushAutosave();
-    useStore.getState().rememberViewport({ zoom: 150 });
-    useStore.getState().rememberViewport({ zoom: 100 });
+    vi.mocked(saveMeta).mockClear();
+    useStore.getState().rememberViewport({ zoom: 150, scrollTop: 300 });
+    expect(useStore.getState().saveStatus).toBe('saved');
+    await flushAutosave();
+    expect(useStore.getState().saveStatus).toBe('saved');
+    expect(vi.mocked(saveMeta).mock.lastCall?.[0].cursors?.[useStore.getState().tabs.active]).toMatchObject({ zoom: 150, scrollTop: 300 });
+  });
+
+  it('작업 내용을 고치면 저장 중을 보여주고, 끝나면 저장됨', async () => {
+    await flushAutosave();
+    useStore.getState().renameWork(useStore.getState().works[0].id, '새 이름');
     expect(useStore.getState().saveStatus).toBe('pending');
     await flushAutosave();
     expect(useStore.getState().saveStatus).toBe('saved');

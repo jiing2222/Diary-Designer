@@ -76,7 +76,18 @@ import { diaryFromPreset, nextDiaryColor, type Diary } from './core/diary';
 import { addPoint, colorOfKey, mapColors, refOf, setKeyColor, type WorkPalette } from './core/colors';
 import { mapRuleColors, type RuleKey } from './core/colorRules';
 import { DEFAULT_PROJECT_VIEW, isTrashed, restoreWork, trashWork, removeFolderFrom, type Folder, type ProjectView } from './core/library';
-import { activate, closeTab, emptyTabs, keepExisting, openTab, LIBRARY_TAB, type Tabs } from './core/workspace';
+import {
+  activate,
+  closeTab,
+  emptyTabs,
+  keepExisting,
+  openTab,
+  LIBRARY_TAB,
+  type Cursor,
+  type Side,
+  type Tabs,
+  type ViewMode,
+} from './core/workspace';
 import { todayFrom, type Boundary } from './core/dated';
 import type { CalendarDate, DateDataset } from './core/dataset';
 
@@ -108,33 +119,8 @@ interface UnprintableSetting {
 
 export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar' | 'image' | 'checkbox' | 'moon';
 
-/**
- * 펼침면의 어느 쪽인지. 다이어리를 펼치면 왼쪽은 앞 장의 **뒷면**, 오른쪽은 다음 장의
- * **앞면**이다(core/work의 `spreadsOf`). 옛 판의 앞면/뒷면 이름을 그대로 쓴다 —
- * 편집 화면의 경계를 넘는 선·뒷면 거울 같은 동작이 이 이름을 기준으로 짜여 있다.
- */
-export type Side = 'front' | 'back';
-
-/** 편집 화면 보기 — 펼침면(다이어리를 펼친 모습) 또는 일렬(한 면씩 아래로, 기능후보 8). */
-export type ViewMode = 'spread' | 'single';
-
-/** 작업 탭마다 기억하는 편집 위치(기능후보 11: 탭마다 따로). */
-export interface Cursor {
-  /** 지금 고르는 펼침면(일렬 보기면 면) 번호. */
-  spread: number;
-  side: Side;
-  /** 원본 편집 중이면 그 날짜 묶음과 원본 면 번호(세부계획 A4.6 2-1). */
-  source: { itemId: string; faceIndex: number } | null;
-  view: ViewMode;
-  /** 이 탭이 Print 화면인가(세부계획 A14: 작업 탭 안에서 Print로 바뀐다). 없으면 편집 화면. */
-  printing?: boolean;
-  /** 탭을 오가거나 Print에서 돌아올 때 편집 화면을 같은 자리로 되살린다. */
-  zoom?: number;
-  scrollTop?: number;
-  scrollLeft?: number;
-  /** 탭을 떠날 때 고른 객체. 면을 바꾸면 비운다. */
-  selectedIds?: string[];
-}
+// 탭마다 기억하는 편집 위치의 모양은 core/workspace에 둔다 — 저장소(storage/v2)도 같은 모양을 읽고 쓴다.
+export type { Cursor, Side, ViewMode } from './core/workspace';
 
 /** 복사한 자리 — 같은 자리에 다시 붙이면 살짝 밀고, 다른 자리면 같은 위치에 붙인다. */
 export interface ClipboardOrigin {

@@ -21,7 +21,16 @@ export function printJob(
   const slots = input.layout.slots.length;
   const cards = input.datasetPages ?? 0;
   return {
-    work, diary, faces, settings, input, printed, pickedFaces, rangeError, slots, cards,
+    work,
+    diary,
+    faces,
+    settings,
+    input,
+    printed,
+    pickedFaces,
+    rangeError,
+    slots,
+    cards,
     pickedCount: printed.reduce((n, card) => n + (card.back === null ? 1 : 2), 0),
     sheets: sheetCount(cards, slots),
     backLayout: backLayoutOf(input.layout, input.paperWidth, input.paperHeight, settings.backTurn180),
@@ -62,18 +71,25 @@ export function sheetSlots(
     });
     const slot = card === null ? undefined : (back ? input.datasetBackOverrides! : input.datasetOverrides!).get(card);
     const f = face.get(i);
-    content.set(i, slot ? {
-      insert,
-      dotGrid: slot.dotGrid,
-      objects: slot.objects,
-      punch: slot.punch,
-      calendar: slot.month ? { year: slot.month.year, page: slot.month.month - 1, rules: input.colorRules } : undefined,
-      selected: f !== undefined && picked?.has(f),
-    } : {
-      insert,
-      dotGrid: { ...input.dotGrid, print: false, showOnScreen: false },
-      objects: [],
-    });
+    content.set(
+      i,
+      slot
+        ? {
+            insert,
+            dotGrid: slot.dotGrid,
+            objects: slot.objects,
+            punch: slot.punch,
+            calendar: slot.month
+              ? { year: slot.month.year, page: slot.month.month - 1, rules: input.colorRules }
+              : undefined,
+            selected: f !== undefined && picked?.has(f),
+          }
+        : {
+            insert,
+            dotGrid: { ...input.dotGrid, print: false, showOnScreen: false },
+            objects: [],
+          },
+    );
   }
   return { content, face };
 }

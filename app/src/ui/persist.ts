@@ -73,8 +73,10 @@ type Saved = {
   diaries: Map<string, Diary>;
   folders: Map<string, Folder>;
   metaKey: string;
+  /** 보는 위치(탭·스크롤·확대·선택)를 뺀 설정 — 이것이 바뀌어야 ‘저장 중’을 보여준다. */
+  contentKey: string;
 };
-let saved: Saved = { works: new Map(), diaries: new Map(), folders: new Map(), metaKey: '' };
+let saved: Saved = { works: new Map(), diaries: new Map(), folders: new Map(), metaKey: '', contentKey: '' };
 
 type State = ReturnType<typeof useStore.getState>;
 
@@ -94,12 +96,22 @@ function metaOf(s: State): V2Meta {
   };
 }
 
+/**
+ * 보는 위치를 뺀 설정의 열쇠. 탭·스크롤·확대·선택만 바뀐 것은 작업 내용이 아니라서, 저장은 하되
+ * 위 막대에 ‘저장 중…’을 띄우지 않는다(스크롤할 때마다 깜빡이면 무엇이 바뀌었는지 헷갈린다).
+ */
+function contentKeyOf(s: State): string {
+  const { tabs: _tabs, cursors: _cursors, ...rest } = metaOf(s);
+  return JSON.stringify(rest);
+}
+
 function remember(s: State) {
   saved = {
     works: new Map(s.works.map((w) => [w.id, w])),
     diaries: new Map(s.diaries.map((d) => [d.id, d])),
     folders: new Map(s.folders.map((f) => [f.id, f])),
     metaKey: JSON.stringify(metaOf(s)),
+    contentKey: contentKeyOf(s),
   };
 }
 
@@ -112,6 +124,14 @@ function hasChanges(s: State): boolean {
     || s.diaries.some((d) => saved.diaries.get(d.id) !== d) || saved.diaries.size !== s.diaries.length
     || s.folders.some((f) => saved.folders.get(f.id) !== f) || saved.folders.size !== s.folders.length
     || JSON.stringify(metaOf(s)) !== saved.metaKey;
+}
+
+/** 작업 내용(작업·다이어리·폴더·글자 스타일·인쇄 설정 등)이 바뀌었는가 — 보는 위치만 바뀐 것은 아니다. */
+function hasContentChanges(s: State): boolean {
+  return s.works.some((w) => saved.works.get(w.id) !== w) || saved.works.size !== s.works.length
+    || s.diaries.some((d) => saved.diaries.get(d.id) !== d) || saved.diaries.size !== s.diaries.length
+    || s.folders.some((f) => saved.folders.get(f.id) !== f) || saved.folders.size !== s.folders.length
+    || contentKeyOf(s) !== saved.contentKey;
 }
 
 let inFlight: Promise<void> | null = null;
@@ -129,7 +149,9 @@ export async function flushAutosave(): Promise<void> {
     return;
   }
   const next = metaOf(s);
-  useStore.setState({ saveStatus: 'saving' });
+  // 보는 위치만 바뀌었으면 조용히 저장한다(실패하면 그때는 알린다).
+  const loud = hasContentChanges(s) || s.saveStatus === 'error';
+  if (loud) useStore.setState({ saveStatus: 'saving' });
   inFlight = (async () => {
     try {
       const writes: Promise<unknown>[] = [];
@@ -145,7 +167,10 @@ export async function flushAutosave(): Promise<void> {
       if (results.some((r) => r.status === 'rejected')) throw new Error('저장 실패');
       meta = next;
       remember(s);
-      useStore.setState({ saveStatus: hasChanges(useStore.getState()) ? 'pending' : 'saved' });
+      const after = useStore.getState();
+      if (loud || after.saveStatus !== 'saved') {
+        useStore.setState({ saveStatus: hasContentChanges(after) ? 'pending' : 'saved' });
+      }
     } catch {
       useStore.setState({ saveStatus: 'error' });
     } finally {
@@ -158,9 +183,9 @@ export async function flushAutosave(): Promise<void> {
 /** 고칠 때마다 시계를 다시 맞추고 손을 멈추면 쓴다. 탭을 숨기거나 닫을 때는 바로 쓴다. */
 export function startAutosave(): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
-  const schedule = () => {
+  const schedule = (loud: boolean) => {
     if (timer !== null) clearTimeout(timer);
-    useStore.setState({ saveStatus: 'pending' });
+    if (loud) useStore.setState({ saveStatus: 'pending' });
     timer = setTimeout(() => {
       timer = null;
       void flushAutosave();
@@ -175,9 +200,12 @@ export function startAutosave(): () => void {
     if (document.hidden) now();
   };
   const unsubscribe = useStore.subscribe((s, before) => {
-    // 저장 상태를 알리는 갱신이 다시 저장을 예약하지 않게 한다.
-    if (s.works !== before.works || s.diaries !== before.diaries || s.folders !== before.folders
-      || JSON.stringify(metaOf(s)) !== JSON.stringify(metaOf(before))) schedule();
+    // 저장 상태를 알리는 갱신이 다시 저장을 예약하지 않게 한다. 작업 내용이 바뀌면 ‘저장 중’을
+    // 보여주고, 보는 위치(탭·스크롤·확대·선택)만 바뀌면 조용히 예약한다.
+    const content = s.works !== before.works || s.diaries !== before.diaries || s.folders !== before.folders
+      || contentKeyOf(s) !== contentKeyOf(before);
+    if (content) schedule(true);
+    else if (JSON.stringify(metaOf(s)) !== JSON.stringify(metaOf(before))) schedule(false);
   });
   window.addEventListener('pagehide', now);
   document.addEventListener('visibilitychange', onVisibility);

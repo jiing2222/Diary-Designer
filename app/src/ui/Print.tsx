@@ -95,7 +95,7 @@ function usePrintJob(ignoreRange = false) {
   // ‘모든 장’에서 페이지를 고르는 중에는 전체를 펼쳐 보인다(고른 것만 보이면 더 고를 수 없다).
   const range = ignoreRange ? ALL_PAGES : storedRange;
   return useMemo(
-    () => work && diary ? printJob(work, diary, faces, settings, range) : null,
+    () => (work && diary ? printJob(work, diary, faces, settings, range) : null),
     [work, diary, faces, settings, range],
   );
 }
@@ -389,9 +389,8 @@ export function PrintMain() {
   const at = Math.min(sheet, Math.max(0, sheets - 1));
   const back = work.duplex && side === 'back';
 
-  const { content: slotContent, face: slotFace } = view === 'one'
-    ? sheetSlots(job, at, back, insert)
-    : { content: undefined, face: new Map<number, number>() };
+  const { content: slotContent, face: slotFace } =
+    view === 'one' ? sheetSlots(job, at, back, insert) : { content: undefined, face: new Map<number, number>() };
 
   const size = paperSize(paper);
   const paperName = paper.presetId === 'custom' ? `${size.width}×${size.height}` : paper.presetId;
@@ -407,7 +406,13 @@ export function PrintMain() {
         <button
           className="primary"
           disabled={job.rangeError !== null || sheets === 0}
-          title={job.rangeError !== null ? '출력 범위를 먼저 고쳐 주세요' : slots === 0 ? '속지가 들어가는 용지를 골라 주세요' : undefined}
+          title={
+            job.rangeError !== null
+              ? '출력 범위를 먼저 고쳐 주세요'
+              : slots === 0
+                ? '속지가 들어가는 용지를 골라 주세요'
+                : undefined
+          }
           onClick={() => setAsking(true)}
         >
           Export PDF
@@ -419,7 +424,9 @@ export function PrintMain() {
         {view === 'all' ? (
           <AllSheets picking={picking} />
         ) : sheets === 0 ? (
-          <p className="muted center">{slots === 0 ? '이 용지에는 속지가 들어가지 않아요. 용지 크기를 바꿔 주세요.' : '찍을 페이지가 없어요.'}</p>
+          <p className="muted center">
+            {slots === 0 ? '이 용지에는 속지가 들어가지 않아요. 용지 크기를 바꿔 주세요.' : '찍을 페이지가 없어요.'}
+          </p>
         ) : (
           <PaperPreview
             paper={{ ...paper, ...size }}
@@ -452,11 +459,15 @@ export function PrintMain() {
         </span>
         {view === 'all' ? (
           <label className="check">
-            <input type="checkbox" checked={picking} onChange={(e) => {
-              const enabled = e.target.checked;
-              if (enabled && range.mode === 'all') patch({ printRange: { mode: 'pick', text: '' } });
-              setPicking(enabled);
-            }} />
+            <input
+              type="checkbox"
+              checked={picking}
+              onChange={(e) => {
+                const enabled = e.target.checked;
+                if (enabled && range.mode === 'all') patch({ printRange: { mode: 'pick', text: '' } });
+                setPicking(enabled);
+              }}
+            />
             눌러서 출력할 페이지 고르기
           </label>
         ) : (
@@ -490,7 +501,10 @@ export function PrintMain() {
 
       <div className="print-foot">
         {job.pickedCount}페이지 → {paperName} {sheets}장 ({work.duplex ? '양면' : '단면'}) · 속지 {slots}개/장
-        <span className="muted"> · {view === 'all' && picking ? '속지를 눌러 출력할 페이지를 골라요' : '속지를 누르면 그 페이지를 고쳐요'}</span>
+        <span className="muted">
+          {' '}
+          · {view === 'all' && picking ? '속지를 눌러 출력할 페이지를 골라요' : '속지를 누르면 그 페이지를 고쳐요'}
+        </span>
       </div>
     </div>
   );
@@ -514,7 +528,9 @@ function AllSheets({ picking }: { picking: boolean }) {
   const size = paperSize(paper);
 
   const parsed = range.mode === 'pick' ? parsePageRange(range.text, job.faces.length) : null;
-  const picked = new Set(range.mode === 'all' ? job.faces.map((_, i) => i) : parsed && 'faces' in parsed ? parsed.faces : []);
+  const picked = new Set(
+    range.mode === 'all' ? job.faces.map((_, i) => i) : parsed && 'faces' in parsed ? parsed.faces : [],
+  );
   const toggle = (face: number) => {
     const next = new Set(picked);
     if (next.has(face)) next.delete(face);
@@ -527,43 +543,52 @@ function AllSheets({ picking }: { picking: boolean }) {
     else goToFace(face);
   };
 
-  if (job.sheets === 0) return <p className="muted center">{job.slots === 0 ? '이 용지에는 속지가 들어가지 않아요. 용지 크기를 바꿔 주세요.' : '찍을 페이지가 없어요.'}</p>;
+  if (job.sheets === 0)
+    return (
+      <p className="muted center">
+        {job.slots === 0 ? '이 용지에는 속지가 들어가지 않아요. 용지 크기를 바꿔 주세요.' : '찍을 페이지가 없어요.'}
+      </p>
+    );
   return (
     <div className="all-sheets">
       {Array.from({ length: job.sheets }, (_, sheet) => {
         const sides = job.work.duplex ? ([false, true] as const) : ([false] as const);
         return (
           <LazySheet key={sheet} label={`${sheet + 1}장`}>
-            {(visible) => sides.map((back) => {
-              // 설명은 늘 남겨 카드 높이를 유지하고, 화면 밖의 무거운 SVG만 내려놓는다.
-              const face = sheetFaces(job, sheet, back);
-              const names = [...face.values()].map((f) => faceLabel(job.faces[f], f));
-              return (
-                <figure key={String(back)} className="sheet-side">
-                  <div className="sheet-picture" style={{ height: 150 * size.height / size.width }}>
-                    {visible ? (
-                      <PaperPreview
-                        paper={{ ...paper, ...size }}
-                        insert={insert}
-                        dotGrid={job.input.dotGrid}
-                        objects={[]}
-                        layout={back ? job.backLayout : job.input.layout}
-                        cropMark={cropModeForSide(job.input.cropMark, job.input.cropFrontOnly ?? false, back)}
-                        showRuler={job.input.showRuler}
-                        unprintable={{ show: false, width: 0 }}
-                        slotOverrides={sheetSlots(job, sheet, back, insert, picking ? picked : undefined).content}
-                        mode="print"
-                        mirror={back}
-                        onSlotClick={(i) => click(face.get(i))}
-                      />
-                    ) : <div className="sheet-placeholder" />}
-                  </div>
-                  <figcaption>
-                    <b>{back ? '뒤' : '앞'}</b> {names.length > 0 ? names.join(' · ') : '비어 있음'}
-                  </figcaption>
-                </figure>
-              );
-            })}
+            {(visible) =>
+              sides.map((back) => {
+                // 설명은 늘 남겨 카드 높이를 유지하고, 화면 밖의 무거운 SVG만 내려놓는다.
+                const face = sheetFaces(job, sheet, back);
+                const names = [...face.values()].map((f) => faceLabel(job.faces[f], f));
+                return (
+                  <figure key={String(back)} className="sheet-side">
+                    <div className="sheet-picture" style={{ height: (150 * size.height) / size.width }}>
+                      {visible ? (
+                        <PaperPreview
+                          paper={{ ...paper, ...size }}
+                          insert={insert}
+                          dotGrid={job.input.dotGrid}
+                          objects={[]}
+                          layout={back ? job.backLayout : job.input.layout}
+                          cropMark={cropModeForSide(job.input.cropMark, job.input.cropFrontOnly ?? false, back)}
+                          showRuler={job.input.showRuler}
+                          unprintable={{ show: false, width: 0 }}
+                          slotOverrides={sheetSlots(job, sheet, back, insert, picking ? picked : undefined).content}
+                          mode="print"
+                          mirror={back}
+                          onSlotClick={(i) => click(face.get(i))}
+                        />
+                      ) : (
+                        <div className="sheet-placeholder" />
+                      )}
+                    </div>
+                    <figcaption>
+                      <b>{back ? '뒤' : '앞'}</b> {names.length > 0 ? names.join(' · ') : '비어 있음'}
+                    </figcaption>
+                  </figure>
+                );
+              })
+            }
           </LazySheet>
         );
       })}
@@ -590,9 +615,7 @@ function LazySheet({ label, children }: { label: string; children: (visible: boo
   return (
     <section ref={ref} className="sheet-card">
       <h3 className="sheet-card-title">{label}</h3>
-      <div className="sheet-card-body">
-        {children(visible)}
-      </div>
+      <div className="sheet-card-body">{children(visible)}</div>
     </section>
   );
 }
