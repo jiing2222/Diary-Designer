@@ -316,6 +316,15 @@ describe('편집 — 보통 페이지', () => {
     expect(right?.kind === 'face' && facesOf(active(), s().today).indexOf(right.face)).toBe(2);
   });
 
+  it('새로 그은 선은 고른 상태가 된다 — 그리기 도구 그대로 끌어 옮길 수 있게', () => {
+    s().drawLines([{ x1: 0, y1: 0, x2: 10, y2: 5 }]);
+    const line = (active().items[0] as PageItem).face.objects[0];
+    expect(s().selectedIds).toEqual([line.id]);
+    // 같은 선을 다시 그으면 지워지고, 고른 것에서도 빠진다.
+    s().drawLines([{ x1: 0, y1: 0, x2: 10, y2: 5 }]);
+    expect(s().selectedIds).toEqual([]);
+  });
+
   it('다른 작업에 붙여넣으면 같은 자리에', () => {
     s().drawLines([{ x1: 0, y1: 0, x2: 10, y2: 0 }]);
     const line = (active().items[0] as PageItem).face.objects[0];

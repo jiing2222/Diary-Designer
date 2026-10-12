@@ -94,6 +94,12 @@ import {
 export const IMAGE_RESIZE_SNAP_DIST: Mm = 2;
 
 /**
+ * 그리기 도구에서 고른 것을 잡아 옮기는 자리 — 가장 가까운 도트에서 격자 간격의 이 비율보다
+ * 멀어야 한다(도트 사이 몸통). 더 가까우면 그리기로 친다. 5mm 격자면 1.5mm.
+ */
+const MOVE_ZONE = 0.3;
+
+/**
  * 양식 만들기 화면.
  *
  * 속지 한 장을 크게 띄우고 그 위에 그린다. 용지도 배치도 여기서는 모른다 —
@@ -514,6 +520,17 @@ export function Editor() {
       }
     }
 
+    // 그리기 도구 그대로 옮기기(사용자 요청) — 고른 것(방금 그린 선·네모)의 몸통을 **도트 사이에서**
+    // 잡으면 옮긴다. 도트 근처를 누르면 지금처럼 그린다: 네모 모서리에 붙여 다음 네모를 그리거나 선
+    // 위의 도트에서 새로 시작하는 일이 흔해서, 거기까지 옮기기로 가로채면 안 된다.
+    if (tool === 'draw' && !pending && snap && Math.hypot(raw.x - snap.x, raw.y - snap.y) > grid.spacing * MOVE_ZONE) {
+      const hit = hitAt(svgRef.current, objects, raw);
+      if (hit && selectedIds.includes(hit.id) && !isLocked(hit)) {
+        startMove(hit, raw, e);
+        return;
+      }
+    }
+
     // 표도 몸짓은 그리기(면)와 똑같이 점에서 끄는 드래그다. 그 사이에서
     // 실제로 무엇이 생기는지는 onUp이 지금 도구를 보고 가른다.
     if (tool === 'draw' || tool === 'table') {
@@ -669,6 +686,12 @@ export function Editor() {
       // 것은 제자리로 돌아오느라 이동량이 0이 아니어서, 그걸로 재면 클릭만 해도
       // 옮겨진 것으로 친다.
       if (!d.moved) {
+        // 그리기 도구에서 몸통을 눌렀다 떼기만 했으면 평소의 그리기 클릭처럼 가까운 도트에 첫 점을 찍는다.
+        if (tool === 'draw') {
+          const p = snapToLattice(lattice, d.origin.x, d.origin.y);
+          if (p) setPending(p);
+          return;
+        }
         if (d.hitId) select([d.hitId]);
         return;
       }
@@ -1417,7 +1440,7 @@ export function Editor() {
           <span className="foot-hint">
             {pending
               ? '다음 점을 누르면 선이 그어집니다(대각선도). Esc로 취소.'
-              : '점을 누르고 다음 점을 누르면 선(대각선 포함), 점에서 끌면 네모.'}
+              : '점을 누르고 다음 점을 누르면 선(대각선 포함), 점에서 끌면 네모. 방금 그린 것은 도트 사이를 잡고 끌면 옮겨져요.'}
           </span>
         )}
         {/*

@@ -1142,7 +1142,14 @@ export const useStore = create<Store>((set, get) => ({
       const cur = activeObjects(s);
       const next = toggleLines(cur, segs, s.drawStyle);
       if (next === cur) return {};
-      return commitObjects(s, next);
+      // 새로 생긴 선을 고른 상태로 둔다 — 도형처럼, 그리기 도구 그대로 바로 끌어 옮길 수 있게
+      // (편집기 onDown의 ‘고른 것의 몸통’). 같은 선을 다시 그어 지운 것이면 고른 것만 정리한다.
+      const added = next.filter((o) => !cur.includes(o)).map((o) => o.id);
+      const ids = new Set(next.map((o) => o.id));
+      return {
+        ...commitObjects(s, next),
+        selectedIds: added.length > 0 ? added : s.selectedIds.filter((id) => ids.has(id)),
+      };
     }),
 
   setDrawStyle: (patch) => set((s) => ({ drawStyle: { ...s.drawStyle, ...patch } })),
