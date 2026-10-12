@@ -1,15 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useActiveDiary, useActiveWork, useFaces, useInsert, useStore } from '../store';
-import { backLayoutOf, cardAt, paperSize, parsePageRange, sheetCount } from '../core/print';
+import { formatPageRange, paperSize, parsePageRange } from '../core/print';
+import { faceLabel } from '../core/work';
 import { cropModeForSide, type CropMode } from '../core/crop';
 import { PAPER_PRESETS } from '../core/presets';
-import { cardsToPrint, workExportInput, type WorkPrintSettings } from '../pdf/fromWork';
+import { workExportInput, type WorkPrintSettings } from '../pdf/fromWork';
 import { buildPdf, downloadPdf, type ExportInput } from '../pdf/export';
 import { loadBodyFont } from '../fonts/load';
 import { fontBytes } from '../fonts/registry';
 import { imageBytes, imageKind } from '../images/registry';
 import { Modal } from './Modal';
-import { PaperPreview, type PreviewSlotContent } from './PaperPreview';
+import { PaperPreview } from './PaperPreview';
+import { printJob, sheetFaces, sheetSlots, type PrintJob } from './printPreview';
 import { Check, Num, Row } from './PagePanel';
 import { LayoutIcon, MarksIcon, PaperIcon, SidesIcon } from './icons';
 
@@ -65,45 +67,40 @@ function usePrintSettings(): WorkPrintSettings {
       printGrid: choice.grid,
       printPunch: choice.punch,
     }),
-    [paper, gap, allowRotate, align, cropMark, cropFrontOnly, showRuler, backTurn180, cutStack, cutStackGroup, blankBackGrid, sides, choice],
+    [
+      paper,
+      gap,
+      allowRotate,
+      align,
+      cropMark,
+      cropFrontOnly,
+      showRuler,
+      backTurn180,
+      cutStack,
+      cutStackGroup,
+      blankBackGrid,
+      sides,
+      choice,
+    ],
   );
 }
 
 /** 이번 인쇄의 재료 — PDF와 미리보기가 같이 쓴다. */
-function usePrintJob() {
+function usePrintJob(ignoreRange = false) {
   const work = useActiveWork();
   const diary = useActiveDiary();
   const faces = useFaces();
   const settings = usePrintSettings();
-  const range = useStore((s) => s.printRange);
-  return useMemo(() => {
-    if (!work || !diary) return null;
-    // 출력 범위 — 페이지 선택이면 고른 페이지가 든 속지만(양면이면 앞·뒤 함께). 못 읽으면 전체로 보이고 PDF는 막는다.
-    const parsed = range.mode === 'pick' ? parsePageRange(range.text, faces.length) : null;
-    const picked = parsed && 'faces' in parsed ? parsed.faces : null;
-    const rangeError = parsed && 'error' in parsed ? parsed.error : range.mode === 'pick' && picked?.length === 0 ? '' : null;
-    const input = workExportInput(work, diary, faces, settings, rangeError === null ? picked : null);
-    const slots = input.layout.slots.length;
-    const cards = input.datasetPages ?? 0;
-    return {
-      // 속지 번호 → 앞·뒤 면 번호(PDF 재료와 같은 함수) — 미리보기에서 속지를 누르면 그 페이지로 간다.
-      printed: cardsToPrint(work, faces.length, rangeError === null ? picked : null),
-      pickedCount: rangeError === null && picked ? picked.length : faces.length,
-      /** 고른 페이지(면 번호) — 전체면 null. PDF를 만들 때 미리보기와 같은 범위로. */
-      pickedFaces: rangeError === null ? picked : null,
-      rangeError,
-      work,
-      diary,
-      faces,
-      settings,
-      input,
-      slots,
-      cards,
-      sheets: sheetCount(cards, slots),
-      backLayout: backLayoutOf(input.layout, input.paperWidth, input.paperHeight, settings.backTurn180),
-    };
-  }, [work, diary, faces, settings, range]);
+  const storedRange = useStore((s) => s.printRange);
+  // ‘모든 장’에서 페이지를 고르는 중에는 전체를 펼쳐 보인다(고른 것만 보이면 더 고를 수 없다).
+  const range = ignoreRange ? ALL_PAGES : storedRange;
+  return useMemo(
+    () => work && diary ? printJob(work, diary, faces, settings, range) : null,
+    [work, diary, faces, settings, range],
+  );
 }
+
+const ALL_PAGES = { mode: 'all' as const, text: '' };
 
 /* ────────────────────────── 레일과 패널 ────────────────────────── */
 
@@ -154,7 +151,11 @@ function PaperPanel() {
               {p.name} ({p.width}×{p.height})
             </option>
           ))}
-          {paper.presetId === 'custom' && <option value="custom">직접 ({paper.width}×{paper.height})</option>}
+          {paper.presetId === 'custom' && (
+            <option value="custom">
+              직접 ({paper.width}×{paper.height})
+            </option>
+          )}
         </select>
       </Row>
       <Row label="가로">
@@ -176,13 +177,19 @@ function PaperPanel() {
       <Row label="여백" hint="속지를 놓지 않는 용지 가장자리">
         <Num value={paper.printMargin} min={0} max={30} onChange={(printMargin) => patchPaper({ printMargin })} />
       </Row>
-      <Check checked={unprintable.show} onChange={(show) => patchUnprintable({ show })} label="인쇄 불가 가장자리 표시" />
+      <Check
+        checked={unprintable.show}
+        onChange={(show) => patchUnprintable({ show })}
+        label="인쇄 불가 가장자리 표시"
+      />
       {unprintable.show && (
         <Row label="가장자리 폭">
           <Num value={unprintable.width} min={0} max={15} onChange={(width) => patchUnprintable({ width })} />
         </Row>
       )}
-      <p className="tool-panel-note">인쇄 대화상자에서 ‘실제 크기(100%)’로 찍어야 mm가 맞아요. Marks의 50mm 눈금으로 확인할 수 있어요.</p>
+      <p className="tool-panel-note">
+        인쇄 대화상자에서 ‘실제 크기(100%)’로 찍어야 mm가 맞아요. Marks의 50mm 눈금으로 확인할 수 있어요.
+      </p>
     </div>
   );
 }
@@ -245,12 +252,18 @@ function SidesPanel() {
           </button>
         </span>
       </Row>
-      <p className="tool-panel-note">이 작업의 설정이에요 — 양면이면 페이지 1·2가 첫 장의 앞·뒤예요(편집 화면의 양면과 같아요).</p>
+      <p className="tool-panel-note">
+        이 작업의 설정이에요 — 양면이면 페이지 1·2가 첫 장의 앞·뒤예요(편집 화면의 양면과 같아요).
+      </p>
       {work.duplex && (
         <>
           <Check checked={backTurn180} onChange={(v) => patch({ backTurn180: v })} label="뒷면 반 바퀴 돌리기" />
           <p className="tool-panel-note">짧은 변으로 넘기는 프린터에서 앞뒤 구멍이 어긋나면 켜요.</p>
-          <Check checked={blankBackGrid} onChange={(v) => patch({ blankBackGrid: v })} label="빈 뒷면에 배경(도트) 찍기" />
+          <Check
+            checked={blankBackGrid}
+            onChange={(v) => patch({ blankBackGrid: v })}
+            label="빈 뒷면에 배경(도트) 찍기"
+          />
           <p className="tool-panel-note">페이지 수가 홀수일 때 마지막 장의 뒷면이에요. 끄면 빈 종이예요.</p>
         </>
       )}
@@ -285,7 +298,14 @@ function LayoutPanel() {
       <Check checked={cutStack} onChange={(v) => patch({ cutStack: v })} label="자른 뒤 쌓으면 순서대로" />
       {cutStack && (
         <Row label="무더기" hint="몇 장씩 한 무더기로 자를지(0 = 전체)">
-          <Num value={cutStackGroup} min={0} max={500} step={1} unit="장" onChange={(v) => patch({ cutStackGroup: v })} />
+          <Num
+            value={cutStackGroup}
+            min={0}
+            max={500}
+            step={1}
+            unit="장"
+            onChange={(v) => patch({ cutStackGroup: v })}
+          />
         </Row>
       )}
     </div>
@@ -317,7 +337,9 @@ function MarksPanel() {
           ))}
         </select>
       </Row>
-      {cropMark !== 'none' && <Check checked={cropFrontOnly} onChange={(v) => patch({ cropFrontOnly: v })} label="앞면에만" />}
+      {cropMark !== 'none' && (
+        <Check checked={cropFrontOnly} onChange={(v) => patch({ cropFrontOnly: v })} label="앞면에만" />
+      )}
       <Check checked={showRuler} onChange={(v) => patch({ showRuler: v })} label="50mm 검증 눈금" />
       <p className="tool-panel-note">인쇄한 뒤 눈금을 자로 재서 50mm인지 확인해요.</p>
       {duplex && (
@@ -353,42 +375,23 @@ export function PrintMain() {
   const unprintable = useStore((s) => s.unprintable);
   const closePrint = useStore((s) => s.closePrint);
   const goToFace = useStore((s) => s.goToFace);
+  const range = useStore((s) => s.printRange);
+  const patch = useStore((s) => s.patch);
   const [sheet, setSheet] = useState(0);
   const [side, setSide] = useState<'front' | 'back'>('front');
   const [guides, setGuides] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [view, setView] = useState<'one' | 'all'>('one');
+  const [picking, setPicking] = useState(false);
 
   if (!job) return <p className="muted center">작업을 찾을 수 없어요.</p>;
-  const { work, input, slots, cards, sheets, backLayout } = job;
+  const { work, input, slots, sheets, backLayout } = job;
   const at = Math.min(sheet, Math.max(0, sheets - 1));
   const back = work.duplex && side === 'back';
-  const cardsList = input.datasetOverrides!;
-  const backsList = input.datasetBackOverrides!;
 
-  // 이 장·이 면의 칸마다 무엇이 들어가는지 — PDF와 같은 칸 배정(cardAt).
-  const slotContent = new Map<number, PreviewSlotContent>();
-  const slotFace = new Map<number, number>();
-  for (let i = 0; i < slots; i++) {
-    const card = cardAt(at, i, cards, slots, { on: job.settings.cutStack, group: job.settings.cutStackGroup || undefined });
-    const content = card === null ? undefined : (back ? backsList : cardsList).get(card);
-    if (card !== null) {
-      const face = back ? job.printed[card]?.back : job.printed[card]?.front;
-      if (face !== null && face !== undefined) slotFace.set(i, face);
-    }
-    slotContent.set(
-      i,
-      content
-        ? {
-            insert,
-            dotGrid: content.dotGrid,
-            objects: content.objects,
-            calendar: content.month
-              ? { year: content.month.year, page: content.month.month - 1, rules: input.colorRules }
-              : undefined,
-          }
-        : { insert, dotGrid: { ...input.dotGrid, print: false, showOnScreen: false }, objects: [] },
-    );
-  }
+  const { content: slotContent, face: slotFace } = view === 'one'
+    ? sheetSlots(job, at, back, insert)
+    : { content: undefined, face: new Map<number, number>() };
 
   const size = paperSize(paper);
   const paperName = paper.presetId === 'custom' ? `${size.width}×${size.height}` : paper.presetId;
@@ -403,8 +406,8 @@ export function PrintMain() {
         <span className="print-bar-gap" />
         <button
           className="primary"
-          disabled={job.rangeError !== null || cards === 0}
-          title={job.rangeError !== null ? '출력 범위를 먼저 고쳐 주세요' : undefined}
+          disabled={job.rangeError !== null || sheets === 0}
+          title={job.rangeError !== null ? '출력 범위를 먼저 고쳐 주세요' : slots === 0 ? '속지가 들어가는 용지를 골라 주세요' : undefined}
           onClick={() => setAsking(true)}
         >
           Export PDF
@@ -412,9 +415,11 @@ export function PrintMain() {
       </div>
       {asking && <ExportDialog job={job} onClose={() => setAsking(false)} />}
 
-      <div className="print-stage">
-        {sheets === 0 ? (
-          <p className="muted center">찍을 페이지가 없어요.</p>
+      <div className={`print-stage ${view === 'all' ? 'all' : ''}`}>
+        {view === 'all' ? (
+          <AllSheets picking={picking} />
+        ) : sheets === 0 ? (
+          <p className="muted center">{slots === 0 ? '이 용지에는 속지가 들어가지 않아요. 용지 크기를 바꿔 주세요.' : '찍을 페이지가 없어요.'}</p>
         ) : (
           <PaperPreview
             paper={{ ...paper, ...size }}
@@ -437,42 +442,162 @@ export function PrintMain() {
       </div>
 
       <div className="print-nav">
-        <button className="ghost" disabled={at <= 0} onClick={() => setSheet(at - 1)} aria-label="앞 장">
-          ‹
-        </button>
-        <span>
-          {sheets === 0 ? 0 : at + 1} / {sheets}장
+        <span className="seg">
+          <button className={view === 'one' ? 'on' : ''} onClick={() => setView('one')}>
+            한 장씩
+          </button>
+          <button className={view === 'all' ? 'on' : ''} onClick={() => setView('all')}>
+            모든 장
+          </button>
         </span>
-        <button className="ghost" disabled={at >= sheets - 1} onClick={() => setSheet(at + 1)} aria-label="다음 장">
-          ›
-        </button>
-        {work.duplex && (
-          <span className="seg">
-            <button className={side === 'front' ? 'on' : ''} onClick={() => setSide('front')}>
-              앞면
+        {view === 'all' ? (
+          <label className="check">
+            <input type="checkbox" checked={picking} onChange={(e) => {
+              const enabled = e.target.checked;
+              if (enabled && range.mode === 'all') patch({ printRange: { mode: 'pick', text: '' } });
+              setPicking(enabled);
+            }} />
+            눌러서 출력할 페이지 고르기
+          </label>
+        ) : (
+          <>
+            <button className="ghost" disabled={at <= 0} onClick={() => setSheet(at - 1)} aria-label="앞 장">
+              ‹
             </button>
-            <button className={side === 'back' ? 'on' : ''} onClick={() => setSide('back')}>
-              뒷면
+            <span>
+              {sheets === 0 ? 0 : at + 1} / {sheets}장
+            </span>
+            <button className="ghost" disabled={at >= sheets - 1} onClick={() => setSheet(at + 1)} aria-label="다음 장">
+              ›
             </button>
-          </span>
+            {work.duplex && (
+              <span className="seg">
+                <button className={side === 'front' ? 'on' : ''} onClick={() => setSide('front')}>
+                  앞면
+                </button>
+                <button className={side === 'back' ? 'on' : ''} onClick={() => setSide('back')}>
+                  뒷면
+                </button>
+              </span>
+            )}
+            <label className="check">
+              <input type="checkbox" checked={guides} onChange={(e) => setGuides(e.target.checked)} />
+              인쇄되지 않는 안내 보기
+            </label>
+          </>
         )}
-        <label className="check">
-          <input type="checkbox" checked={guides} onChange={(e) => setGuides(e.target.checked)} />
-          인쇄되지 않는 안내 보기
-        </label>
       </div>
 
       <div className="print-foot">
         {job.pickedCount}페이지 → {paperName} {sheets}장 ({work.duplex ? '양면' : '단면'}) · 속지 {slots}개/장
-        <span className="muted"> · 속지를 누르면 그 페이지를 고쳐요</span>
+        <span className="muted"> · {view === 'all' && picking ? '속지를 눌러 출력할 페이지를 골라요' : '속지를 누르면 그 페이지를 고쳐요'}</span>
       </div>
     </div>
   );
 }
 
-/* ────────────────────────── PDF 전 확인 창 ────────────────────────── */
+/* ────────────────────────── 모든 장 ────────────────────────── */
 
-type PrintJob = NonNullable<ReturnType<typeof usePrintJob>>;
+/**
+ * 모든 종이를 작은 그림으로(세부계획 A14 결정 2026-10-06) — 종이마다 어떤 속지(p.3 · 10/5)가 앞·뒤
+ * 어디에 들어가는지 본다. 속지를 누르면 그 페이지의 편집 화면으로, ‘눌러서 고르기’를 켜면 출력 범위에
+ * 넣고 뺀다(세부계획 A14 결정 2026-10-12). 고르는 중에는 전체를 펼쳐 보인다.
+ */
+function AllSheets({ picking }: { picking: boolean }) {
+  const job = usePrintJob(picking);
+  const insert = useInsert();
+  const paper = useStore((s) => s.paper);
+  const range = useStore((s) => s.printRange);
+  const patch = useStore((s) => s.patch);
+  const goToFace = useStore((s) => s.goToFace);
+  if (!job) return null;
+  const size = paperSize(paper);
+
+  const parsed = range.mode === 'pick' ? parsePageRange(range.text, job.faces.length) : null;
+  const picked = new Set(range.mode === 'all' ? job.faces.map((_, i) => i) : parsed && 'faces' in parsed ? parsed.faces : []);
+  const toggle = (face: number) => {
+    const next = new Set(picked);
+    if (next.has(face)) next.delete(face);
+    else next.add(face);
+    patch({ printRange: { mode: 'pick', text: formatPageRange([...next]) } });
+  };
+  const click = (face: number | undefined) => {
+    if (face === undefined) return;
+    if (picking) toggle(face);
+    else goToFace(face);
+  };
+
+  if (job.sheets === 0) return <p className="muted center">{job.slots === 0 ? '이 용지에는 속지가 들어가지 않아요. 용지 크기를 바꿔 주세요.' : '찍을 페이지가 없어요.'}</p>;
+  return (
+    <div className="all-sheets">
+      {Array.from({ length: job.sheets }, (_, sheet) => {
+        const sides = job.work.duplex ? ([false, true] as const) : ([false] as const);
+        return (
+          <LazySheet key={sheet} label={`${sheet + 1}장`}>
+            {(visible) => sides.map((back) => {
+              // 설명은 늘 남겨 카드 높이를 유지하고, 화면 밖의 무거운 SVG만 내려놓는다.
+              const face = sheetFaces(job, sheet, back);
+              const names = [...face.values()].map((f) => faceLabel(job.faces[f], f));
+              return (
+                <figure key={String(back)} className="sheet-side">
+                  <div className="sheet-picture" style={{ height: 150 * size.height / size.width }}>
+                    {visible ? (
+                      <PaperPreview
+                        paper={{ ...paper, ...size }}
+                        insert={insert}
+                        dotGrid={job.input.dotGrid}
+                        objects={[]}
+                        layout={back ? job.backLayout : job.input.layout}
+                        cropMark={cropModeForSide(job.input.cropMark, job.input.cropFrontOnly ?? false, back)}
+                        showRuler={job.input.showRuler}
+                        unprintable={{ show: false, width: 0 }}
+                        slotOverrides={sheetSlots(job, sheet, back, insert, picking ? picked : undefined).content}
+                        mode="print"
+                        mirror={back}
+                        onSlotClick={(i) => click(face.get(i))}
+                      />
+                    ) : <div className="sheet-placeholder" />}
+                  </div>
+                  <figcaption>
+                    <b>{back ? '뒤' : '앞'}</b> {names.length > 0 ? names.join(' · ') : '비어 있음'}
+                  </figcaption>
+                </figure>
+              );
+            })}
+          </LazySheet>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 화면에 들어올 때만 안을 그린다 — 장이 많아도(100장 이상) 가볍게(세부계획 A14). */
+function LazySheet({ label, children }: { label: string; children: (visible: boolean) => React.ReactNode }) {
+  const ref = useRef<HTMLElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        setVisible(entries.some((e) => e.isIntersecting));
+      },
+      { rootMargin: '400px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <section ref={ref} className="sheet-card">
+      <h3 className="sheet-card-title">{label}</h3>
+      <div className="sheet-card-body">
+        {children(visible)}
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────── PDF 전 확인 창 ────────────────────────── */
 
 /**
  * PDF를 만들기 직전에 묻는다 — 타공 표시·배경 격자를 찍을지(기능후보 9 결정: 잊기 쉬워 매번 묻고,
@@ -519,7 +644,15 @@ function ExportDialog({ job, onClose }: { job: PrintJob; onClose: () => void }) 
         </label>
         <p className="tool-panel-note">끄면 모든 페이지의 배경을 찍지 않아요. 켜면 페이지마다 정한 대로예요.</p>
         <p className="export-summary">
-          {job.pickedCount}페이지 · {job.sheets}장 ({job.work.duplex ? (job.settings.sides === 'both' ? '양면' : job.settings.sides === 'front' ? '앞면만' : '뒷면만') : '단면'})
+          {job.pickedCount}페이지 · {job.sheets}장 (
+          {job.work.duplex
+            ? job.settings.sides === 'both'
+              ? '양면'
+              : job.settings.sides === 'front'
+                ? '앞면만'
+                : '뒷면만'
+            : '단면'}
+          )
         </p>
         <div className="card-dialog-actions">
           <button className="ghost" onClick={onClose} disabled={busy}>
@@ -535,7 +668,9 @@ function ExportDialog({ job, onClose }: { job: PrintJob; onClose: () => void }) 
 }
 
 /** PDF에 심을 파일들 — 기본 글꼴, 그리고 실제로 쓰인 등록 글꼴·이미지만(안 쓴 것까지 심으면 무거워진다). */
-async function filesFor(faces: PrintJob['faces']): Promise<Pick<ExportInput, 'fontBytes' | 'userFonts' | 'userImages'>> {
+async function filesFor(
+  faces: PrintJob['faces'],
+): Promise<Pick<ExportInput, 'fontBytes' | 'userFonts' | 'userImages'>> {
   const fontIds = new Set<string>();
   const imageIds = new Set<string>();
   for (const f of faces) {

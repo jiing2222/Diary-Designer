@@ -1,11 +1,25 @@
-import { describe, expect, it } from 'vitest';
-import { migrateSnapshot } from './v2';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { migrateSnapshot, v2Get, v2Put } from './v2';
 import { toProject } from '../core/project';
 import { insertFromPreset, newTemplate } from '../core/template';
 import { initHistory } from '../core/history';
 import { newId } from '../core/objects';
 
 const NOW = '2026-10-11T00:00:00.000Z';
+afterEach(() => vi.unstubAllGlobals());
+
+describe('저장소 실패는 빈 데이터·저장 성공과 구분한다', () => {
+  it('저장소를 열지 못하면 읽기·쓰기 모두 실패를 알린다', async () => {
+    const error = new Error('저장소를 사용할 수 없음');
+    vi.stubGlobal('indexedDB', { open: () => {
+      const request = { error, onerror: () => {} };
+      queueMicrotask(() => request.onerror());
+      return request;
+    } });
+    await expect(v2Get('works', 'w1')).rejects.toBe(error);
+    await expect(v2Put('works', 'w1', {})).rejects.toBe(error);
+  });
+});
 
 describe('migrateSnapshot — 옛 자동 저장 JSON을 새 구조로', () => {
   it('옛 자동 저장을 작업·다이어리로', () => {

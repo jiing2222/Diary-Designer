@@ -32,7 +32,7 @@ export function printCards(faceCount: number, duplex: boolean): PrintCard[] {
  */
 export function parsePageRange(text: string, faceCount: number): { faces: number[] } | { error: string } {
   const out = new Set<number>();
-  for (const raw of text.split(/[,\s]+/)) {
+  for (const raw of text.replace(/\s*([-~])\s*/g, '$1').split(/[,\s]+/)) {
     const part = raw.trim();
     if (part === '') continue;
     const m = part.match(/^(\d+)(?:\s*[-~]\s*(\d+))?$/);
@@ -43,6 +43,19 @@ export function parsePageRange(text: string, faceCount: number): { faces: number
     for (let p = Math.max(1, lo); p <= Math.min(faceCount, hi); p++) out.add(p - 1);
   }
   return { faces: [...out].sort((x, y) => x - y) };
+}
+
+/** 면 번호들(0부터)을 ‘페이지 선택’ 글자로 — 이어지는 번호는 묶는다(`[0,1,2,4]` → `1-3, 5`). parsePageRange의 반대. */
+export function formatPageRange(faces: number[]): string {
+  const pages = [...new Set(faces)].sort((a, b) => a - b).map((f) => f + 1);
+  const parts: string[] = [];
+  for (let i = 0; i < pages.length; ) {
+    let j = i;
+    while (j + 1 < pages.length && pages[j + 1] === pages[j] + 1) j++;
+    parts.push(i === j ? String(pages[i]) : `${pages[i]}-${pages[j]}`);
+    i = j + 1;
+  }
+  return parts.join(', ');
 }
 
 /** 고른 면이 하나라도 든 속지만 — 양면이면 고른 페이지의 앞·뒤가 함께 나온다(세부계획 A14 결정). */

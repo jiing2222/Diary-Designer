@@ -1,4 +1,4 @@
-import { savedPrintSettingsOf, useStore } from '../store';
+import { activeWork, cursorOf, savedPrintSettingsOf, useStore } from '../store';
 import {
   deleteFolder,
   deleteWork,
@@ -52,6 +52,7 @@ export async function boot(): Promise<{ skippedNotebooks: string[] }> {
     defaultDiaryId: meta.defaultDiaryId,
     textStyles: meta.textStyles,
     print: meta.print,
+    cursors: meta.cursors,
   });
   remember(useStore.getState());
 
@@ -78,9 +79,13 @@ let saved: Saved = { works: new Map(), diaries: new Map(), folders: new Map(), m
 type State = ReturnType<typeof useStore.getState>;
 
 function metaOf(s: State): V2Meta {
+  const work = activeWork(s);
   return {
     ...meta,
     tabs: s.tabs,
+    cursors: work
+      ? { ...s.cursors, [work.id]: { ...cursorOf(s, work), selectedIds: s.selectedIds } }
+      : s.cursors,
     defaultDiaryId: s.defaultDiaryId,
     fonts: s.userFonts.map((f) => ({ id: f.id, name: f.name })),
     images: s.userImages.map((i) => ({ id: i.id, name: i.name })),
@@ -102,26 +107,52 @@ function remember(s: State) {
  * 지난번 쓴 것과 견줘 바뀐 것만 쓴다. store는 고칠 때마다 새 객체를 만들므로(불변),
  * 참조가 같으면 안 바뀐 것이다.
  */
-function flush() {
+function hasChanges(s: State): boolean {
+  return s.works.some((w) => saved.works.get(w.id) !== w) || saved.works.size !== s.works.length
+    || s.diaries.some((d) => saved.diaries.get(d.id) !== d) || saved.diaries.size !== s.diaries.length
+    || s.folders.some((f) => saved.folders.get(f.id) !== f) || saved.folders.size !== s.folders.length
+    || JSON.stringify(metaOf(s)) !== saved.metaKey;
+}
+
+let inFlight: Promise<void> | null = null;
+
+/** 저장을 기다린 뒤에만 ‘저장됨’으로. 실패하면 바뀐 것이 그대로 남아 다음 시도에서 다시 쓴다. */
+export async function flushAutosave(): Promise<void> {
+  if (inFlight) {
+    await inFlight;
+    return flushAutosave();
+  }
   const s = useStore.getState();
   if (!s.ready) return;
-
-  for (const w of s.works) if (saved.works.get(w.id) !== w) void saveWork(w);
-  for (const id of saved.works.keys()) if (!s.works.some((w) => w.id === id)) void deleteWork(id);
-
-  for (const d of s.diaries) if (saved.diaries.get(d.id) !== d) void saveDiary(d);
-  for (const id of saved.diaries.keys()) if (!s.diaries.some((d) => d.id === id)) void v2Delete('diaries', id);
-
-  for (const f of s.folders) if (saved.folders.get(f.id) !== f) void saveFolder(f);
-  for (const id of saved.folders.keys()) if (!s.folders.some((f) => f.id === id)) void deleteFolder(id);
-
-  const next = metaOf(s);
-  const key = JSON.stringify(next);
-  if (key !== saved.metaKey) {
-    meta = next;
-    void saveMeta(next);
+  if (!hasChanges(s)) {
+    if (s.saveStatus !== 'saved') useStore.setState({ saveStatus: 'saved' });
+    return;
   }
-  remember(s);
+  const next = metaOf(s);
+  useStore.setState({ saveStatus: 'saving' });
+  inFlight = (async () => {
+    try {
+      const writes: Promise<unknown>[] = [];
+      for (const w of s.works) if (saved.works.get(w.id) !== w) writes.push(saveWork(w));
+      for (const id of saved.works.keys()) if (!s.works.some((w) => w.id === id)) writes.push(deleteWork(id));
+      for (const d of s.diaries) if (saved.diaries.get(d.id) !== d) writes.push(saveDiary(d));
+      for (const id of saved.diaries.keys()) if (!s.diaries.some((d) => d.id === id)) writes.push(v2Delete('diaries', id));
+      for (const f of s.folders) if (saved.folders.get(f.id) !== f) writes.push(saveFolder(f));
+      for (const id of saved.folders.keys()) if (!s.folders.some((f) => f.id === id)) writes.push(deleteFolder(id));
+      if (JSON.stringify(next) !== saved.metaKey) writes.push(saveMeta(next));
+      // 실패한 쓰기가 있어도 나머지가 끝나야 다음 저장과 순서가 뒤집히지 않는다.
+      const results = await Promise.allSettled(writes);
+      if (results.some((r) => r.status === 'rejected')) throw new Error('저장 실패');
+      meta = next;
+      remember(s);
+      useStore.setState({ saveStatus: hasChanges(useStore.getState()) ? 'pending' : 'saved' });
+    } catch {
+      useStore.setState({ saveStatus: 'error' });
+    } finally {
+      inFlight = null;
+    }
+  })();
+  await inFlight;
 }
 
 /** 고칠 때마다 시계를 다시 맞추고 손을 멈추면 쓴다. 탭을 숨기거나 닫을 때는 바로 쓴다. */
@@ -129,20 +160,25 @@ export function startAutosave(): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const schedule = () => {
     if (timer !== null) clearTimeout(timer);
+    useStore.setState({ saveStatus: 'pending' });
     timer = setTimeout(() => {
       timer = null;
-      flush();
+      void flushAutosave();
     }, 800);
   };
   const now = () => {
     if (timer !== null) clearTimeout(timer);
     timer = null;
-    flush();
+    void flushAutosave();
   };
   const onVisibility = () => {
     if (document.hidden) now();
   };
-  const unsubscribe = useStore.subscribe(schedule);
+  const unsubscribe = useStore.subscribe((s, before) => {
+    // 저장 상태를 알리는 갱신이 다시 저장을 예약하지 않게 한다.
+    if (s.works !== before.works || s.diaries !== before.diaries || s.folders !== before.folders
+      || JSON.stringify(metaOf(s)) !== JSON.stringify(metaOf(before))) schedule();
+  });
   window.addEventListener('pagehide', now);
   document.addEventListener('visibilitychange', onVisibility);
   return () => {

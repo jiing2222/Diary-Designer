@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backLayoutOf, cardAt, cardsForFaces, insertFootprint, parsePageRange, printCards, sheetCount } from './print';
+import { backLayoutOf, cardAt, cardsForFaces, formatPageRange, insertFootprint, parsePageRange, printCards, sheetCount } from './print';
 import { computeLayout } from './layout';
 
 describe('속지 한 장 = 앞·뒷면', () => {
@@ -24,6 +24,7 @@ describe('페이지 선택', () => {
     expect(parsePageRange('1-3, 5, 99', 6)).toEqual({ faces: [0, 1, 2, 4] });
     expect(parsePageRange('4~2', 6)).toEqual({ faces: [1, 2, 3] });
     expect(parsePageRange('', 6)).toEqual({ faces: [] });
+    expect(parsePageRange('1 - 3, 5 ~ 6', 6)).toEqual({ faces: [0, 1, 2, 4, 5] });
   });
 
   it('알아볼 수 없는 조각을 알려준다', () => {
@@ -62,5 +63,13 @@ describe('칸 배정·뒷면 배치(미리보기와 PDF가 같이 쓴다)', () =
     const layout = computeLayout({ paperWidth: 210, paperHeight: 297, insertWidth: 80, insertHeight: 125, gap: 0, printMargin: 5, allowRotate: false, align: 'topLeft' });
     const back = backLayoutOf(layout, 210, 297, false);
     expect(back.slots[0].x).toBeCloseTo(210 - layout.slots[0].x - layout.slots[0].width);
+  });
+});
+
+describe('고른 페이지를 글자로', () => {
+  it('이어지는 번호는 묶고, 읽으면 같은 면이 된다', () => {
+    expect(formatPageRange([4, 0, 1, 2, 2])).toBe('1-3, 5');
+    expect(formatPageRange([])).toBe('');
+    expect(parsePageRange(formatPageRange([0, 1, 2, 4, 9]), 20)).toEqual({ faces: [0, 1, 2, 4, 9] });
   });
 });

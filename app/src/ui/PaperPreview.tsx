@@ -1,7 +1,8 @@
 import { cropSegments, type CropMode } from '../core/crop';
 import { type DotGrid } from '../core/grid';
 import { placeSlot } from '../core/place';
-import { CROP_COLOR, CROP_WIDTH, RULER_COLOR, RULER_WIDTH } from '../core/style';
+import { CROP_COLOR, CROP_WIDTH, PUNCH_MARK_COLOR, PUNCH_MARK_WIDTH, RULER_COLOR, RULER_WIDTH } from '../core/style';
+import { holeMarks, type PunchSetting } from '../core/punch';
 import { InsertView, type ViewMode } from './InsertView';
 import { PunchGuide } from './PunchGuide';
 import type { DiaryObject } from '../core/objects';
@@ -20,6 +21,10 @@ export interface PreviewSlotContent {
   calendarPage?: number;
   /** 리뉴얼 Print — 이 칸의 달력이 그릴 연도·달(0부터)과 색 규칙(실제 색). 있으면 `calendarPage`보다 먼저. */
   calendar?: { year: number; page: number; rules?: ColorRules };
+  /** Print ‘모든 장’에서 출력할 페이지로 고른 칸 — 화면에만 보이는 표시(인쇄되지 않는다). */
+  selected?: boolean;
+  /** 실제로 인쇄할 타공 표시. 안내(PunchGuide)와 달리 print 모드에도 그린다. */
+  punch?: PunchSetting;
   /**
    * "인쇄하기"에서 직접 손봤으면 true(App.tsx가 comboSlotOverrides·
    * pageOverrides를 보고 정한다). 낱장 조합에서 **다른 양식이 배정된
@@ -101,7 +106,7 @@ export function PaperPreview({
     <svg className="preview" viewBox={`0 0 ${pw} ${ph}`} role="img" aria-label="용지 배치 미리보기">
       <rect x={0} y={0} width={pw} height={ph} className="paper" />
 
-      {paper.printMargin > 0 && (
+      {mode === 'edit' && paper.printMargin > 0 && (
         <rect
           x={paper.printMargin}
           y={paper.printMargin}
@@ -176,6 +181,14 @@ export function PaperPreview({
                 }
               />
 
+              {content.punch && (
+                <g className="print-punch-marks" fill="none" stroke={PUNCH_MARK_COLOR} strokeWidth={PUNCH_MARK_WIDTH}>
+                  {holeMarks(content.insert.width, content.insert.height, content.punch, mirror).map((h, j) => (
+                    <circle key={j} cx={h.cx} cy={h.cy} r={h.r} />
+                  ))}
+                </g>
+              )}
+
               {mode === 'edit' && (
                 <PunchGuide
                   width={content.insert.width}
@@ -192,6 +205,9 @@ export function PaperPreview({
               s.x·y·width 기준으로 둔다 — 인쇄되지 않는 화면 전용 표시라
               cropMark처럼 항상 그린다(mode와 무관하다).
             */}
+            {content.selected && (
+              <rect x={s.x} y={s.y} width={s.width} height={s.height} className="paper-slot-selected" />
+            )}
             {content.overridden && (
               <circle cx={s.x + s.width - 3} cy={s.y + 3} r={1.6} className="override-badge">
                 <title>인쇄하기에서 직접 손봤습니다</title>

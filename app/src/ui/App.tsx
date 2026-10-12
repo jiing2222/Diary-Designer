@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { LIBRARY_TAB } from '../core/workspace';
 import { diarySizeLabel } from '../core/diary';
 import { useActiveDiary, useActiveWork, useCursor, useStore } from '../store';
-import { boot, startAutosave } from './persist';
+import { boot, flushAutosave, startAutosave } from './persist';
 import { Home } from './Home';
 import { Editor } from './Editor';
 import { EditorRail } from './EditorRail';
@@ -27,6 +27,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [section, setSection] = useState<LibrarySection>('projects');
   const [notice, setNotice] = useState<string | null>(null);
+  const [bootError, setBootError] = useState(false);
   const ready = useStore((s) => s.ready);
   const tabs = useStore((s) => s.tabs);
   const createWork = useStore((s) => s.createWork);
@@ -41,6 +42,8 @@ export function App() {
       if (skippedNotebooks.length > 0) {
         setNotice(`노트 ${skippedNotebooks.length}개(${skippedNotebooks.join(', ')})는 새 버전으로 옮기지 않았어요. 옛 버전에는 그대로 있어요.`);
       }
+    }).catch(() => {
+      if (alive) setBootError(true);
     });
     return () => {
       alive = false;
@@ -53,6 +56,7 @@ export function App() {
     if (ready && tabs.active !== LIBRARY_TAB) setScreen('tabs');
   }, [ready, tabs.active, tabs.open.length]);
 
+  if (bootError) return <div className="app-loading"><p>저장한 작업을 읽지 못했어요.</p><button className="primary" onClick={() => window.location.reload()}>다시 열기</button></div>;
   if (!ready) return <div className="app-loading">Rings</div>;
 
   const onLibrary = screen === 'tabs' && tabs.active === LIBRARY_TAB;
@@ -83,6 +87,7 @@ export function App() {
         )}
         <div className="frame-right">
           {screen === 'tabs' && tabs.active !== LIBRARY_TAB && <WorkStatus />}
+          {onLibrary && <SaveState />}
           <span className="account-dot" title="로그인은 8단계에서 붙어요">·</span>
         </div>
       </header>
@@ -173,7 +178,20 @@ function TabBar({ onLibrary, libraryOn, onNew }: { onLibrary: () => void; librar
   );
 }
 
-/** 고른 작업 탭의 저장 상태·다이어리 칩·Print(상단 바 오른쪽). */
+/** 작업과 Library 모두 실제 자동 저장 결과·실패 시 다시 저장을 보여준다. */
+function SaveState() {
+  const saveStatus = useStore((s) => s.saveStatus);
+  return (
+    <>
+      <span className={`save-state ${saveStatus === 'error' ? 'error' : ''}`} role="status" aria-live="polite" title="이 브라우저에 저장돼요">
+        {saveStatus === 'saved' ? '☁ 저장됨' : saveStatus === 'error' ? '저장 실패' : '저장 중…'}
+      </span>
+      {saveStatus === 'error' && <button className="ghost" onClick={() => void flushAutosave()}>다시 저장</button>}
+    </>
+  );
+}
+
+/** 고른 작업 탭의 이름·저장 상태·다이어리 칩·Print(상단 바 오른쪽). */
 function WorkStatus() {
   const work = useActiveWork();
   const diary = useActiveDiary();
@@ -193,7 +211,7 @@ function WorkStatus() {
       >
         {work.name}
       </button>
-      <span className="save-state" title="고칠 때마다 이 브라우저에 저장돼요">☁ 저장됨</span>
+      <SaveState />
       {diary && (
         <span className="diary-chip" title={diarySizeLabel(diary)}>
           <span className="diary-dot" style={{ background: diary.color }} />
@@ -201,7 +219,7 @@ function WorkStatus() {
         </span>
       )}
       {!printing && (
-        <button className="primary print-btn" onClick={openPrint} title="종이에 어떻게 찍을지 정하고 PDF로">
+        <button className="primary print-btn" onClick={() => openPrint()} title="종이에 어떻게 찍을지 정하고 PDF로">
           Print
         </button>
       )}

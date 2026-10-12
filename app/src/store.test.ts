@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { facesOf, savedPrintSettingsOf, targetOf, useStore } from './store';
+import { cursorOf, facesOf, savedPrintSettingsOf, targetOf, useStore } from './store';
 import { MAX_TABS, LIBRARY_TAB } from './core/workspace';
 import { emptyOverride } from './core/dated';
-import type { DatedItem, PageItem, Work } from './core/work';
+import { allIdsOf, type DatedItem, type PageItem, type Work } from './core/work';
 import type { TextObject } from './core/objects';
 import { DEFAULT_DOT_GRID } from './core/grid';
 
@@ -42,6 +42,102 @@ const datedItem = (): DatedItem => ({
 });
 
 describe('작업 만들기와 탭', () => {
+  it('새 포인트 색을 취소하면 작업 팔레트에 남지 않는다', () => {
+    s().createWork();
+    const original = active().palette;
+    s().previewPaletteColor('A', '#8ea8c6');
+    expect(active().palette).toBe(original);
+    expect(s().palettePreview?.palette.points).toEqual([{ key: 'A', color: '#8ea8c6' }]);
+    s().finishPalettePreview(false);
+    expect(active().palette).toBe(original);
+    expect(active().palette.points).toHaveLength(0);
+    expect(s().palettePreview).toBeNull();
+  });
+
+  it('Library 카드에서 고른 작업의 Print를 바로 연다', () => {
+    const a = s().createWork('a')!;
+    const b = s().createWork('b')!;
+    s().activateTab(LIBRARY_TAB);
+    s().openPrint(a);
+    expect(s().tabs.active).toBe(a);
+    expect(cursorOf(s(), active()).printing).toBe(true);
+    s().activateTab(b);
+    expect(cursorOf(s(), active()).printing).not.toBe(true);
+  });
+
+  it('Print 진입도 탭 수 제한을 지키며 확인 뒤에 열린다', () => {
+    const ids = Array.from({ length: MAX_TABS }, () => s().createWork()!);
+    s().duplicateWork(ids[0]);
+    const extra = s().works.find((w) => !ids.includes(w.id))!;
+    s().activateTab(LIBRARY_TAB);
+    s().openPrint(extra.id);
+    expect(s().pendingOpen?.printing).toBe(true);
+    expect(s().tabs.active).toBe(LIBRARY_TAB);
+    s().resolvePendingOpen(true);
+    expect(s().tabs.active).toBe(extra.id);
+    expect(cursorOf(s(), active()).printing).toBe(true);
+    expect(s().tabs.open).toHaveLength(MAX_TABS);
+  });
+
+  it('새로 읽어도 편집 위치·확대·선택을 복원한다', () => {
+    const id = s().createWork()!;
+    s().drawLines([{ x1: 0, y1: 0, x2: 10, y2: 0 }]);
+    const selected = [(active().items[0] as PageItem).face.objects[0].id];
+    s().rememberViewport({ zoom: 150, scrollTop: 300 });
+    const saved = s();
+    s().hydrate({
+      works: saved.works, diaries: saved.diaries, folders: saved.folders, tabs: saved.tabs,
+      cursors: { [id]: { ...cursorOf(saved, active()), selectedIds: selected } },
+    });
+    expect(s().selectedIds).toEqual(selected);
+    expect(cursorOf(s(), active())).toMatchObject({ zoom: 150, scrollTop: 300 });
+  });
+
+  it('작업과 Library를 오가도 그 작업의 선택이 돌아온다', () => {
+    const a = s().createWork('a')!;
+    s().drawLines([{ x1: 0, y1: 0, x2: 10, y2: 0 }]);
+    const id = (active().items[0] as PageItem).face.objects[0].id;
+    s().select([id]);
+    const b = s().createWork('b')!;
+    expect(s().selectedIds).toEqual([]);
+    s().activateTab(a);
+    expect(s().selectedIds).toEqual([id]);
+    s().activateTab(LIBRARY_TAB);
+    expect(s().selectedIds).toEqual([]);
+    s().activateTab(a);
+    expect(s().selectedIds).toEqual([id]);
+    s().closeWorkTab(b);
+    expect(s().selectedIds).toEqual([id]);
+  });
+
+  it('다른 페이지로 간 뒤에는 이전 페이지의 선택을 되살리지 않는다', () => {
+    const a = s().createWork()!;
+    s().drawLines([{ x1: 0, y1: 0, x2: 10, y2: 0 }]);
+    s().select([(active().items[0] as PageItem).face.objects[0].id]);
+    s().activateTab(LIBRARY_TAB);
+    s().activateTab(a);
+    s().addPageAfterCurrent();
+    s().goTo(1);
+    s().activateTab(LIBRARY_TAB);
+    s().activateTab(a);
+    expect(s().selectedIds).toEqual([]);
+  });
+
+  it('확대·스크롤은 작업별로 기억하며 선택을 지우지 않는다', () => {
+    const a = s().createWork()!;
+    s().drawLines([{ x1: 0, y1: 0, x2: 10, y2: 0 }]);
+    const ids = [(active().items[0] as PageItem).face.objects[0].id];
+    s().select(ids);
+    s().rememberViewport({ zoom: 150, scrollTop: 230, scrollLeft: 45 });
+    expect(s().selectedIds).toEqual(ids);
+    const b = s().createWork()!;
+    s().rememberViewport({ zoom: 75, scrollTop: 20, scrollLeft: 0 });
+    s().activateTab(a);
+    expect(cursorOf(s(), active())).toMatchObject({ zoom: 150, scrollTop: 230, scrollLeft: 45 });
+    s().activateTab(b);
+    expect(cursorOf(s(), active())).toMatchObject({ zoom: 75, scrollTop: 20, scrollLeft: 0 });
+  });
+
   it('새 작업을 만들면 탭이 열리고 다이어리가 없으면 M6로 하나 생긴다', () => {
     const id = s().createWork('10월 다이어리');
     expect(s().tabs.open).toEqual([id]);
@@ -74,6 +170,85 @@ describe('작업 만들기와 탭', () => {
     expect(s().tabs.open).toEqual([]);
     expect(s().tabs.active).toBe(LIBRARY_TAB);
     expect(s().works[0].trashedAt).toBeDefined();
+  });
+});
+
+describe('7-1 Projects 정리', () => {
+  it('폴더 이동은 내용을 보존하고 존재하지 않는 폴더로는 옮기지 않는다', () => {
+    const id = s().createWork()!;
+    const folder = s().addFolder('  메모  ')!;
+    const before = active();
+    s().moveWorkToFolder(id, folder);
+    expect(active().folderId).toBe(folder);
+    expect(active().items).toBe(before.items);
+    const moved = active();
+    s().moveWorkToFolder(id, '없는 폴더');
+    expect(active()).toBe(moved);
+    s().moveWorkToFolder(id, null);
+    expect(active().folderId).toBeUndefined();
+    expect(active().items).toBe(before.items);
+    expect(s().folders[0].name).toBe('메모');
+  });
+
+  it('폴더만 지우면 휴지통의 작업도 함께 폴더 밖으로 나오며 선택 필터를 해제한다', () => {
+    const a = s().createWork('a')!;
+    const b = s().createWork('b')!;
+    const folder = s().addFolder('임시')!;
+    s().moveWorkToFolder(a, folder);
+    s().moveWorkToFolder(b, folder);
+    s().trashWorkById(b);
+    s().patch({ projectView: { folderId: folder, diaryId: null, query: 'a', sort: 'name' } });
+    s().removeFolder(folder);
+    expect(s().folders).toHaveLength(0);
+    expect(s().works).toHaveLength(2);
+    expect(s().works.every((w) => w.folderId === undefined)).toBe(true);
+    expect(s().works.find((w) => w.id === b)?.trashedAt).toBeDefined();
+    expect(s().projectView).toEqual({ folderId: undefined, diaryId: null, query: 'a', sort: 'name' });
+  });
+
+  it('다른 다이어리 복제는 원본·현재 탭을 유지하며 좌표·날짜별 수정·색을 사본에 보존한다', () => {
+    const id = s().createWork('10월 기록')!;
+    setItems([datedItem()]);
+    s().goToFace(0);
+    s().select(['t1']);
+    s().styleText({ color: '@A', size: 4 });
+    s().setPaletteColor('base5', '#222222');
+    s().addPaletteColor('#8ea8c6');
+    const folder = s().addFolder('기록')!;
+    s().moveWorkToFolder(id, folder);
+    const source = active();
+    const sourceFaces = facesOf(source, s().today);
+    const target = s().addDiary('M5', 'M5 수첩');
+    const copyId = s().duplicateWork(id, target)!;
+    const copy = s().works.find((w) => w.id === copyId)!;
+    expect(s().tabs.active).toBe(id);
+    expect(s().works.find((w) => w.id === id)).toBe(source);
+    expect(copy.diaryId).toBe(target);
+    expect(copy.folderId).toBe(folder);
+    expect(copy.duplex).toBe(source.duplex);
+    expect(copy.palette).toEqual(source.palette);
+    expect(copy.palette.base).not.toBe(source.palette.base);
+    expect(copy.palette.points[0]).not.toBe(source.palette.points[0]);
+    expect(allIdsOf(copy).some((objId) => allIdsOf(source).includes(objId))).toBe(false);
+    const copyFaces = facesOf(copy, s().today);
+    expect(copyFaces.map((f) => f.period?.dates)).toEqual(sourceFaces.map((f) => f.period?.dates));
+    expect(copyFaces[0].objects[0]).toMatchObject({ x: 0, y: 0, width: 10, height: 5, color: '@A', size: 4 });
+    expect(copyFaces[1].objects[0]).not.toHaveProperty('size');
+    s().openWork(copyId);
+    s().goToFace(0);
+    s().select([copyFaces[0].objects[0].id]);
+    s().styleText({ size: 8 });
+    expect(facesOf(source, s().today)[0].objects[0]).toHaveProperty('size', 4);
+  });
+
+  it('없는 다이어리로 복제하지 않고, 반복 복제의 이름은 서로 구분된다', () => {
+    const id = s().createWork('메모')!;
+    expect(s().duplicateWork(id, '없는 다이어리')).toBeNull();
+    expect(s().works).toHaveLength(1);
+    s().duplicateWork(id);
+    s().duplicateWork(id);
+    expect(s().works.map((w) => w.name).sort()).toEqual(['메모', '메모 사본', '메모 사본 2']);
+    expect(s().addFolder('  ')).toBeNull();
   });
 });
 

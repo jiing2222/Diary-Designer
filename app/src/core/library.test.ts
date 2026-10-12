@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { daysLeft, expiredTrash, isTrashed, removeFolderFrom, restoreWork, trashWork } from './library';
+import { DEFAULT_PROJECT_VIEW, daysLeft, expiredTrash, isTrashed, projectsFor, removeFolderFrom, restoreWork, trashWork } from './library';
 import { newWork } from './work';
 
 const NOW = '2026-10-11T00:00:00.000Z';
@@ -33,5 +33,34 @@ describe('폴더', () => {
     const out = removeFolderFrom([a, b], 'f1');
     expect(out[0].folderId).toBeUndefined();
     expect(out[1].folderId).toBe('f2');
+  });
+});
+
+describe('Projects 목록', () => {
+  const a = { ...work(), id: 'a', name: '메모 10', diaryId: 'M5', folderId: 'f1', updatedAt: '2026-10-12', createdAt: '2026-10-01' };
+  const b = { ...work(), id: 'b', name: '메모 2', diaryId: 'M6', updatedAt: '2026-10-10', createdAt: '2026-10-11' };
+  const c = { ...work(), id: 'c', name: 'Daily', diaryId: 'M5', folderId: 'f1', updatedAt: '2026-10-11', createdAt: '2026-10-02' };
+  const trashed = { ...a, id: 'trash', trashedAt: NOW };
+  const works = [b, trashed, c, a];
+
+  it('모든 작업은 휴지통을 빼고 최근 수정순이며 원본 배열을 바꾸지 않는다', () => {
+    expect(projectsFor(works, DEFAULT_PROJECT_VIEW).map((w) => w.id)).toEqual(['a', 'c', 'b']);
+    expect(works.map((w) => w.id)).toEqual(['b', 'trash', 'c', 'a']);
+  });
+
+  it('폴더·다이어리·검색은 교집합이고 필터에 맞지 않으면 빈 목록', () => {
+    expect(projectsFor(works, { ...DEFAULT_PROJECT_VIEW, folderId: 'f1', diaryId: 'M5', query: '메모' }).map((w) => w.id)).toEqual(['a']);
+    expect(projectsFor(works, { ...DEFAULT_PROJECT_VIEW, folderId: 'f1', diaryId: 'M6' })).toEqual([]);
+    expect(projectsFor(works, { ...DEFAULT_PROJECT_VIEW, folderId: null }).map((w) => w.id)).toEqual(['b']);
+  });
+
+  it('이름순은 숫자를 자연스럽게 정렬하고 검색은 대소문자·앞뒤 공백·한글 조합을 구분하지 않는다', () => {
+    expect(projectsFor([a, b], { ...DEFAULT_PROJECT_VIEW, sort: 'name' }).map((w) => w.id)).toEqual(['b', 'a']);
+    expect(projectsFor(works, { ...DEFAULT_PROJECT_VIEW, query: ' DAILY ' }).map((w) => w.id)).toEqual(['c']);
+    expect(projectsFor(works, { ...DEFAULT_PROJECT_VIEW, query: '메모'.normalize('NFD') })).toHaveLength(2);
+  });
+
+  it('최근 만든순은 최근 수정순과 독립적이다', () => {
+    expect(projectsFor(works, { ...DEFAULT_PROJECT_VIEW, sort: 'created' }).map((w) => w.id)).toEqual(['b', 'c', 'a']);
   });
 });

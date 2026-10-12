@@ -146,8 +146,9 @@ function ColorPalettePopover({ palette, onPick }: { palette: WorkPalette; onPick
 }
 
 /** 새 색을 정의하는 칸 — 색상환과 16진 입력칸. 확정되는 즉시 `onCommit`. */
-export function ColorDefiner({ onCommit, initial }: { onCommit: (color: string) => void; initial?: string }) {
+export function ColorDefiner({ onCommit, initial, live = false }: { onCommit: (color: string) => void; initial?: string; live?: boolean }) {
   const [draft, setDraft] = useState(initial ?? '');
+  useEffect(() => setDraft(initial ?? ''), [initial]);
 
   function commit(raw: string) {
     const normalized = raw.startsWith('#') ? raw : `#${raw}`;
@@ -159,8 +160,11 @@ export function ColorDefiner({ onCommit, initial }: { onCommit: (color: string) 
       <input
         type="color"
         className="color-swatch-sm"
-        defaultValue={initial}
-        onChange={(e) => onCommit(e.target.value)}
+        value={initial && HEX_COLOR.test(initial) ? initial : '#000000'}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          onCommit(e.target.value);
+        }}
         title="색상환에서 고르기"
       />
       <input
@@ -168,7 +172,10 @@ export function ColorDefiner({ onCommit, initial }: { onCommit: (color: string) 
         className="color-hex"
         value={draft}
         placeholder="#000000"
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          if (live) commit(e.target.value);
+        }}
         onBlur={(e) => commit(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {

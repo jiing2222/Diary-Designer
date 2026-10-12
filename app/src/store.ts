@@ -73,9 +73,9 @@ import {
   type WorkItem,
 } from './core/work';
 import { diaryFromPreset, nextDiaryColor, type Diary } from './core/diary';
-import { addPoint, mapColors, refOf, setKeyColor, type WorkPalette } from './core/colors';
+import { addPoint, colorOfKey, mapColors, refOf, setKeyColor, type WorkPalette } from './core/colors';
 import { mapRuleColors, type RuleKey } from './core/colorRules';
-import { isTrashed, restoreWork, trashWork, removeFolderFrom, type Folder } from './core/library';
+import { DEFAULT_PROJECT_VIEW, isTrashed, restoreWork, trashWork, removeFolderFrom, type Folder, type ProjectView } from './core/library';
 import { activate, closeTab, emptyTabs, keepExisting, openTab, LIBRARY_TAB, type Tabs } from './core/workspace';
 import { todayFrom, type Boundary } from './core/dated';
 import type { CalendarDate, DateDataset } from './core/dataset';
@@ -128,6 +128,12 @@ export interface Cursor {
   view: ViewMode;
   /** 이 탭이 Print 화면인가(세부계획 A14: 작업 탭 안에서 Print로 바뀐다). 없으면 편집 화면. */
   printing?: boolean;
+  /** 탭을 오가거나 Print에서 돌아올 때 편집 화면을 같은 자리로 되살린다. */
+  zoom?: number;
+  scrollTop?: number;
+  scrollLeft?: number;
+  /** 탭을 떠날 때 고른 객체. 면을 바꾸면 비운다. */
+  selectedIds?: string[];
 }
 
 /** 복사한 자리 — 같은 자리에 다시 붙이면 살짝 밀고, 다른 자리면 같은 위치에 붙인다. */
@@ -141,12 +147,18 @@ export type DrawStyle = LineStyle & { roundness?: CornerRoundness };
 interface Settings {
   /** 저장소에서 다 읽어왔는가. 그 전에는 저장하지 않는다(빈 상태로 덮어쓰지 않게). */
   ready: boolean;
+  /** 브라우저 저장 결과(ui/persist가 갱신). 이 값 자체는 저장하지 않는다. */
+  saveStatus: 'saved' | 'pending' | 'saving' | 'error';
+  /** Colors에서 고르는 동안만 쓰는 팔레트. 작업·자동 저장에는 확정 전까지 넣지 않는다. */
+  palettePreview: { workId: string; palette: WorkPalette } | null;
   /** 오늘 날짜 `YYYY-MM-DD`. 날짜 묶음이 아닌 페이지의 자동 필드가 보여준다. */
   today: string;
 
   works: Work[];
   diaries: Diary[];
   folders: Folder[];
+  /** Projects의 검색·정렬·필터. 작업 탭을 오가도 이번 실행의 목록 위치를 기억한다. */
+  projectView: ProjectView;
   /** 새 작업을 만들 때 쓰는 다이어리. */
   defaultDiaryId: string | null;
   tabs: Tabs;
@@ -154,7 +166,7 @@ interface Settings {
   histories: Record<string, History<WorkItem[]>>;
   cursors: Record<string, Cursor>;
   /** 탭이 꽉 차서 열지 못한 작업과 닫을 후보 — 화면이 물어본다. */
-  pendingOpen: { workId: string; victim: string } | null;
+  pendingOpen: { workId: string; victim: string; printing?: boolean } | null;
 
   tool: Tool;
   selectedIds: string[];
@@ -212,6 +224,7 @@ interface Store extends Settings {
     textStyles?: SavedTextStyle[];
     /** 저장해 둔 인쇄 설정(용지·배치·표시·확인 창의 선택). */
     print?: Partial<SavedPrintSettings>;
+    cursors?: Record<string, Cursor>;
   }) => void;
   setToday: (iso: string) => void;
 
@@ -225,7 +238,8 @@ interface Store extends Settings {
   /* ── 작업 ── */
   createWork: (name?: string) => string | null;
   renameWork: (id: string, name: string) => void;
-  duplicateWork: (id: string) => void;
+  /** 원본은 유지하고 등록된 다른 다이어리로도 복제할 수 있다. */
+  duplicateWork: (id: string, diaryId?: string) => string | null;
   trashWorkById: (id: string) => void;
   restoreWorkById: (id: string) => void;
   deleteWorkForever: (id: string) => void;
@@ -233,7 +247,7 @@ interface Store extends Settings {
   setDuplex: (duplex: boolean) => void;
 
   /* ── 폴더·다이어리 ── */
-  addFolder: (name: string) => void;
+  addFolder: (name: string) => string | null;
   renameFolder: (id: string, name: string) => void;
   removeFolder: (id: string) => void;
   addDiary: (presetId: string, name: string) => string;
@@ -258,7 +272,8 @@ interface Store extends Settings {
   enterSourceEdit: (itemId: string, faceIndex: number) => void;
   exitSourceEdit: () => void;
   /** 이 탭을 Print 화면으로 / 편집 화면으로. */
-  openPrint: () => void;
+  openPrint: (workId?: string) => void;
+  rememberViewport: (patch: Partial<Pick<Cursor, 'zoom' | 'scrollTop' | 'scrollLeft'>>) => void;
   closePrint: () => void;
   /** 편집 화면의 이 면(0부터)으로 간다 — Print 미리보기에서 속지를 누르면(‘이 페이지 편집’). */
   goToFace: (faceIndex: number) => void;
@@ -278,6 +293,8 @@ interface Store extends Settings {
   /* ── 작업 색상 ── */
   addPaletteColor: (color: string) => void;
   setPaletteColor: (key: string, color: string) => void;
+  previewPaletteColor: (key: string, color: string) => void;
+  finishPalettePreview: (save: boolean) => void;
   /** 포인트 칸을 지운다. 그 칸을 쓰던 객체는 `replaceWith`(이름표나 색)로 옮긴다. */
   removePaletteColor: (key: string, replaceWith: string) => void;
   /** 색 규칙 하나를 정한다(값은 팔레트 이름표). undefined면 그 규칙을 끈다. 팔레트처럼 되돌리기 대상이 아니다. */
@@ -504,7 +521,14 @@ function patchActiveWork(s: Settings, fn: (w: Work) => Partial<Work>): Partial<S
 }
 
 function setCursor(s: Settings, work: Work, patch: Partial<Cursor>): Pick<Settings, 'cursors' | 'selectedIds'> {
-  return { cursors: { ...s.cursors, [work.id]: { ...cursorOf(s, work), ...patch } }, selectedIds: [] };
+  const before = cursorOf(s, work);
+  const moving = (patch.spread !== undefined && patch.spread !== before.spread)
+    || (patch.view !== undefined && patch.view !== before.view)
+    || (patch.source !== undefined && patch.source !== before.source);
+  return {
+    cursors: { ...s.cursors, [work.id]: { ...before, ...(moving ? { scrollTop: undefined, scrollLeft: undefined } : {}), ...patch, selectedIds: [] } },
+    selectedIds: [],
+  };
 }
 
 /** 더 이상 존재하지 않는 id를 선택 목록에서 걷어낸다. */
@@ -561,19 +585,32 @@ function localToday(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/** 열린 작업 탭이 바뀌면 그 탭의 커서를 지킨다(없으면 만든다). 선택은 탭마다 다르므로 놓는다. */
-function withTabs(tabs: Tabs): Partial<Settings> {
-  return { tabs, selectedIds: [], pendingOpen: null };
+/** 떠나는 탭의 선택을 기억하고 돌아오는 탭의 선택을 복원한다(기능후보 11). */
+function withTabs(s: Settings, tabs: Tabs): Partial<Settings> {
+  if (tabs.active === s.tabs.active) return { tabs, pendingOpen: null };
+  const outgoing = activeWork(s);
+  const cursors = outgoing
+    ? { ...s.cursors, [outgoing.id]: { ...cursorOf(s, outgoing), selectedIds: s.selectedIds } }
+    : s.cursors;
+  const next = { ...s, tabs, cursors };
+  const incoming = activeWork(next);
+  return {
+    tabs, cursors, pendingOpen: null,
+    selectedIds: incoming ? prune(cursorOf(next, incoming).selectedIds ?? [], activeObjects(next)) : [],
+  };
 }
 
 const firstPaper = PAPER_PRESETS[0];
 
 export const useStore = create<Store>((set, get) => ({
   ready: false,
+  saveStatus: 'saved',
+  palettePreview: null,
   today: localToday(),
   works: [],
   diaries: [],
   folders: [],
+  projectView: DEFAULT_PROJECT_VIEW,
   defaultDiaryId: null,
   tabs: emptyTabs(),
   histories: {},
@@ -618,7 +655,7 @@ export const useStore = create<Store>((set, get) => ({
   printRange: { mode: 'all', text: '' },
   exportChoice: { grid: true, punch: false },
 
-  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [], print = {} }) => {
+  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [], print = {}, cursors = {} }) => {
     // 새로고침하면 id 카운터가 0부터 다시 시작한다 — 불러온 id들보다 위로 올려야
     // 새로 만드는 것이 불러온 것과 겹치지 않는다(옛 판 loadProject와 같은 이유).
     ensureIdCounterAbove([
@@ -635,11 +672,15 @@ export const useStore = create<Store>((set, get) => ({
       defaultDiaryId: diaries.some((d) => d.id === defaultDiaryId) ? defaultDiaryId! : (diaries[0]?.id ?? null),
       tabs: keepExisting(tabs ?? emptyTabs(), exists),
       histories: {},
-      cursors: {},
+      cursors,
+      selectedIds: [],
       textStyles,
       ...pickPrintSettings(print),
       ready: true,
     });
+    const loaded = get();
+    const work = activeWork(loaded);
+    if (work) set({ selectedIds: prune(cursorOf(loaded, work).selectedIds ?? [], activeObjects(loaded)) });
   },
 
   setToday: (today) => set({ today }),
@@ -648,7 +689,7 @@ export const useStore = create<Store>((set, get) => ({
     set((s) => {
       const result = openTab(s.tabs, id);
       if ('full' in result) return { pendingOpen: { workId: id, victim: result.full } };
-      return withTabs(result.tabs);
+      return withTabs(s, result.tabs);
     }),
 
   resolvePendingOpen: (closeVictim) =>
@@ -657,12 +698,17 @@ export const useStore = create<Store>((set, get) => ({
       if (!closeVictim) return { pendingOpen: null };
       const closed = closeTab(s.tabs, s.pendingOpen.victim);
       const result = openTab(closed, s.pendingOpen.workId);
-      return 'full' in result ? { pendingOpen: null } : withTabs(result.tabs);
+      if ('full' in result) return { pendingOpen: null };
+      const next = { ...s, ...withTabs(s, result.tabs) };
+      const work = activeWork(next);
+      return s.pendingOpen.printing && work
+        ? { ...withTabs(s, result.tabs), ...setCursor(next, work, { printing: true, source: null }) }
+        : withTabs(s, result.tabs);
     }),
 
-  closeWorkTab: (id) => set((s) => withTabs(closeTab(s.tabs, id))),
+  closeWorkTab: (id) => set((s) => withTabs(s, closeTab(s.tabs, id))),
 
-  activateTab: (id) => set((s) => withTabs(activate(s.tabs, id))),
+  activateTab: (id) => set((s) => withTabs(s, activate(s.tabs, id))),
 
   createWork: (name) => {
     const s = get();
@@ -683,7 +729,7 @@ export const useStore = create<Store>((set, get) => ({
       defaultDiaryId: diaryId,
       ...('full' in result
         ? { pendingOpen: { workId: work.id, victim: result.full } }
-        : { tabs: result.tabs, selectedIds: [] }),
+        : withTabs({ ...s, works: [...s.works, work] }, result.tabs)),
     });
     return work.id;
   },
@@ -695,31 +741,35 @@ export const useStore = create<Store>((set, get) => ({
       return patchWork(s, id, () => ({ name: trimmed }));
     }),
 
-  duplicateWork: (id) =>
-    set((s) => {
-      const source = s.works.find((w) => w.id === id);
-      if (!source) return {};
-      const now = new Date().toISOString();
-      const items = source.items.map(cloneItem);
-      const copy: Work = {
-        ...source,
-        id: newId('w'),
-        name: uniqueWorkName(s.works, `${source.name} 사본`),
-        createdAt: now,
-        updatedAt: now,
-        items,
-      };
-      delete copy.trashedAt;
-      const at = s.works.indexOf(source) + 1;
-      return { works: [...s.works.slice(0, at), copy, ...s.works.slice(at)] };
-    }),
+  duplicateWork: (id, diaryId) => {
+    const s = get();
+    const source = s.works.find((w) => w.id === id);
+    const targetDiaryId = diaryId ?? source?.diaryId;
+    if (!source || !s.diaries.some((d) => d.id === targetDiaryId)) return null;
+    const now = new Date().toISOString();
+    const items = source.items.map(cloneItem);
+    const copy: Work = {
+      ...source,
+      id: newId('w'),
+      name: uniqueWorkName(s.works, `${source.name} 사본`),
+      createdAt: now,
+      updatedAt: now,
+      diaryId: targetDiaryId!,
+      palette: { base: { ...source.palette.base }, points: source.palette.points.map((p) => ({ ...p })) },
+      items,
+    };
+    delete copy.trashedAt;
+    const at = s.works.indexOf(source) + 1;
+    set({ works: [...s.works.slice(0, at), copy, ...s.works.slice(at)] });
+    return copy.id;
+  },
 
   trashWorkById: (id) =>
     set((s) => {
       const now = new Date().toISOString();
       return {
         works: s.works.map((w) => (w.id === id ? trashWork(w, now) : w)),
-        ...withTabs(closeTab(s.tabs, id)),
+        ...withTabs(s, closeTab(s.tabs, id)),
       };
     }),
 
@@ -729,13 +779,16 @@ export const useStore = create<Store>((set, get) => ({
     set((s) => {
       const { [id]: _h, ...histories } = s.histories;
       const { [id]: _c, ...cursors } = s.cursors;
-      return { works: s.works.filter((w) => w.id !== id), histories, cursors, ...withTabs(closeTab(s.tabs, id)) };
+      const next = { ...s, works: s.works.filter((w) => w.id !== id), histories, cursors };
+      return { works: next.works, histories, cursors, ...withTabs(next, closeTab(s.tabs, id)) };
     }),
 
   moveWorkToFolder: (id, folderId) =>
-    set((s) =>
-      patchWork(s, id, () => ({ folderId: folderId ?? undefined })),
-    ),
+    set((s) => {
+      if (folderId !== null && !s.folders.some((f) => f.id === folderId)) return {};
+      if (s.works.find((w) => w.id === id)?.folderId === (folderId ?? undefined)) return {};
+      return patchWork(s, id, () => ({ folderId: folderId ?? undefined }));
+    }),
 
   setDuplex: (duplex) =>
     set((s) => {
@@ -747,12 +800,13 @@ export const useStore = create<Store>((set, get) => ({
       };
     }),
 
-  addFolder: (name) =>
-    set((s) => {
-      const trimmed = name.trim();
-      if (trimmed === '') return {};
-      return { folders: [...s.folders, { id: newId('fd'), name: trimmed }] };
-    }),
+  addFolder: (name) => {
+    const trimmed = name.trim();
+    if (trimmed === '') return null;
+    const id = newId('fd');
+    set((s) => ({ folders: [...s.folders, { id, name: trimmed }] }));
+    return id;
+  },
 
   renameFolder: (id, name) =>
     set((s) => {
@@ -762,7 +816,11 @@ export const useStore = create<Store>((set, get) => ({
     }),
 
   removeFolder: (id) =>
-    set((s) => ({ folders: s.folders.filter((f) => f.id !== id), works: removeFolderFrom(s.works, id) })),
+    set((s) => ({
+      folders: s.folders.filter((f) => f.id !== id),
+      works: removeFolderFrom(s.works, id).map((w, i) => w === s.works[i] ? w : { ...w, updatedAt: new Date().toISOString() }),
+      projectView: s.projectView.folderId === id ? { ...s.projectView, folderId: undefined } : s.projectView,
+    })),
 
   addDiary: (presetId, name) => {
     const s = get();
@@ -879,10 +937,23 @@ export const useStore = create<Store>((set, get) => ({
       return items === work.items ? {} : commitItems(s, work, items);
     }),
 
-  openPrint: () =>
+  rememberViewport: (patch) =>
     set((s) => {
       const work = activeWork(s);
-      return work ? setCursor(s, work, { printing: true, source: null }) : {};
+      if (!work) return {};
+      const cursor = cursorOf(s, work);
+      if (Object.entries(patch).every(([key, value]) => cursor[key as keyof Cursor] === value)) return {};
+      return { cursors: { ...s.cursors, [work.id]: { ...cursor, ...patch } } };
+    }),
+
+  openPrint: (workId) =>
+    set((s) => {
+      const work = workId ? s.works.find((w) => w.id === workId && !isTrashed(w)) : activeWork(s);
+      if (!work) return {};
+      const result = openTab(s.tabs, work.id);
+      if ('full' in result) return { pendingOpen: { workId: work.id, victim: result.full, printing: true } };
+      const opened = withTabs(s, result.tabs);
+      return { ...opened, ...setCursor({ ...s, ...opened }, work, { printing: true, source: null }) };
     }),
 
   closePrint: () =>
@@ -934,6 +1005,29 @@ export const useStore = create<Store>((set, get) => ({
 
   setPaletteColor: (key, color) =>
     set((s) => patchActiveWork(s, (w) => ({ palette: setKeyColor(w.palette, key, color) }))),
+
+  previewPaletteColor: (key, color) =>
+    set((s) => {
+      const work = activeWork(s);
+      if (!work) return {};
+      const palette = s.palettePreview?.workId === work.id ? s.palettePreview.palette : work.palette;
+      return { palettePreview: {
+        workId: work.id,
+        palette: colorOfKey(palette, key) === null ? addPoint(palette, color) : setKeyColor(palette, key, color),
+      } };
+    }),
+
+  finishPalettePreview: (save) =>
+    set((s) => {
+      const preview = s.palettePreview;
+      if (!preview) return {};
+      const work = s.works.find((w) => w.id === preview.workId);
+      return {
+        palettePreview: null,
+        ...(save && work && JSON.stringify(work.palette) !== JSON.stringify(preview.palette)
+          ? patchWork(s, preview.workId, () => ({ palette: preview.palette })) : {}),
+      };
+    }),
 
   removePaletteColor: (key, replaceWith) =>
     set((s) => {
@@ -1587,7 +1681,10 @@ export const useHasBack = (): boolean => {
   return useMemo(() => targetOf(core, 'back') !== null, [core]);
 };
 
-export const usePalette = (): WorkPalette | null => useActiveWork()?.palette ?? null;
+export const usePalette = (): WorkPalette | null => useStore((s) => {
+  const work = activeWork(s);
+  return work ? (s.palettePreview?.workId === work.id ? s.palettePreview.palette : work.palette) : null;
+});
 
 const NO_OBJECTS: DiaryObject[] = [];
 

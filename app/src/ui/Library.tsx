@@ -1,20 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useStore } from '../store';
-import { facesOf } from '../store';
 import { daysLeft, isTrashed } from '../core/library';
 import { diarySizeLabel } from '../core/diary';
-import { resolveRuleColors } from '../core/colorRules';
-import { resolveObjectColors } from '../core/colors';
-import { InsertView } from './InsertView';
 import { FontManagePanel, ImageManagePanel } from './DesignLibraryDialog';
-import type { Work } from '../core/work';
-import type { DotGrid } from '../core/grid';
+import { Projects } from './Projects';
 
 /**
  * Library 탭(리뉴얼, 세부계획 B). 맨 앞에 고정된 탭이다(디자인.md ‘탭’).
  *
- * 2단계에서는 작업을 열고 정리하는 데 꼭 필요한 것만 둔다 — 작업 목록·휴지통·이미지·글꼴.
- * 폴더·다이어리·팔레트 저장은 7단계에서 채운다.
+ * Projects는 7-1에서 폴더·검색·정렬·다이어리 필터와 복제를 연결했다.
+ * 다이어리 관리·팔레트·자료 정책은 뒤의 7단계 작업에서 채운다.
  */
 export type LibrarySection = 'projects' | 'diaries' | 'images' | 'fonts' | 'colors' | 'trash' | 'learn';
 
@@ -42,82 +37,6 @@ function Soon({ title, note }: { title: string; note: string }) {
     <div className="library-pane soon">
       <h2>{title}</h2>
       <p className="muted">{note}</p>
-    </div>
-  );
-}
-
-function Projects() {
-  const works = useStore((s) => s.works);
-  const createWork = useStore((s) => s.createWork);
-  const live = useMemo(
-    () => works.filter((w) => !isTrashed(w)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    [works],
-  );
-  return (
-    <div className="library-pane">
-      <div className="library-head">
-        <h2>Projects</h2>
-        <button className="primary" onClick={() => createWork()}>
-          + 새 작업
-        </button>
-      </div>
-      {live.length === 0 ? (
-        <p className="muted">아직 작업이 없어요. ‘새 작업’으로 시작해요.</p>
-      ) : (
-        <div className="work-grid">
-          {live.map((w) => (
-            <WorkCard key={w.id} work={w} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** 작업 카드 — 앞쪽 두 면 썸네일, 페이지 수, 다이어리 색 점(이름은 마우스를 올리면). */
-function WorkCard({ work }: { work: Work }) {
-  const openWork = useStore((s) => s.openWork);
-  const renameWork = useStore((s) => s.renameWork);
-  const duplicateWork = useStore((s) => s.duplicateWork);
-  const trashWorkById = useStore((s) => s.trashWorkById);
-  const diary = useStore((s) => s.diaries.find((d) => d.id === work.diaryId));
-  const today = useStore((s) => s.today);
-  const faces = facesOf(work, today);
-
-  return (
-    <div className="work-card">
-      <button className="work-thumb" onClick={() => openWork(work.id)} title="열기">
-        {diary &&
-          faces.slice(0, 2).map((f) => (
-            <svg key={f.key} viewBox={`0 0 ${diary.width} ${diary.height}`} className="work-thumb-face">
-              <rect width={diary.width} height={diary.height} className="sheet-bg" />
-              <InsertView
-                insert={diary}
-                grid={f.background as DotGrid}
-                objects={resolveObjectColors(f.objects, work.palette)}
-                safeZoneWidth={diary.punch.safeZoneWidth}
-                mode="print"
-                calendarContext={{ year: f.month.year, page: f.month.month - 1, rules: resolveRuleColors(work.colorRules, work.palette) }}
-              />
-            </svg>
-          ))}
-        <span className="work-pages">{faces.length}</span>
-      </button>
-      <div className="work-meta">
-        {diary && <span className="diary-dot" style={{ background: diary.color }} title={`${diary.name} · ${diarySizeLabel(diary)}`} />}
-        <span className="work-name" onDoubleClick={() => {
-          const name = window.prompt('작업 이름', work.name);
-          if (name) renameWork(work.id, name);
-        }}>{work.name}</span>
-        <span className="work-actions">
-          <button className="ghost" title="이름 바꾸기" onClick={() => {
-            const name = window.prompt('작업 이름', work.name);
-            if (name) renameWork(work.id, name);
-          }}>✎</button>
-          <button className="ghost" title="복제" onClick={() => duplicateWork(work.id)}>⧉</button>
-          <button className="ghost danger" title="휴지통으로" onClick={() => trashWorkById(work.id)}>×</button>
-        </span>
-      </div>
     </div>
   );
 }

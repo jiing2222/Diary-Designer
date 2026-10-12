@@ -4612,6 +4612,9 @@ footer b {
   font-size: 12px;
   color: var(--muted);
 }
+.save-state.error {
+  color: var(--warn);
+}
 .diary-chip {
   display: inline-flex;
   align-items: center;
@@ -5117,6 +5120,236 @@ footer b {
   border-radius: 999px;
   padding: 7px 16px;
 }
+/* Projects는 레일 옆 정리 패널과 작업 목록을 각각 스크롤한다. */
+.library-projects {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  gap: 8px;
+  background: var(--panel);
+}
+.projects-panel {
+  width: 220px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 14px;
+  overflow-y: auto;
+  border-radius: 18px;
+  background: var(--bg);
+}
+.projects-panel h2 {
+  margin: 0 0 14px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+}
+.projects-panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 20px 4px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.projects-panel-heading h3 {
+  margin: 0;
+  font: inherit;
+}
+.projects-panel-heading button {
+  padding: 0 6px;
+}
+.project-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: var(--ink);
+}
+.project-filter:hover {
+  background: var(--panel);
+}
+.project-filter.on {
+  background: var(--blue-subtle);
+  color: var(--blue-deep);
+}
+.project-filter > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filter-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+.project-folder {
+  display: flex;
+  align-items: center;
+}
+.project-folder .project-filter {
+  flex: 1;
+  min-width: 0;
+}
+.folder-actions {
+  display: inline-flex;
+  opacity: 0;
+}
+.project-folder:hover .folder-actions,
+.project-folder:focus-within .folder-actions {
+  opacity: 1;
+}
+.folder-actions button {
+  padding: 3px 4px;
+  font-size: 11px;
+}
+.projects-content {
+  min-width: 0;
+  border-radius: 18px;
+  background: var(--bg);
+}
+.projects-count {
+  padding-left: 4px;
+  color: var(--muted);
+  font-family: 'Pretendard Variable', 'Pretendard', sans-serif;
+  font-size: 12px;
+}
+.projects-toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0 12px;
+}
+.projects-toolbar input,
+.projects-toolbar select,
+.project-form input,
+.project-form select {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 32px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+.projects-toolbar input {
+  flex: 1;
+}
+.projects-toolbar select {
+  flex: 0 0 150px;
+  width: 150px;
+}
+.projects-empty {
+  padding: 28px 0;
+  font-size: 13px;
+}
+.work-preview {
+  position: relative;
+}
+.work-preview .work-thumb {
+  width: 100%;
+  color: var(--ink);
+}
+.work-preview .work-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  gap: 3px;
+  margin: 0;
+}
+.work-preview .work-actions button {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 11px;
+}
+.work-preview .work-actions button:hover {
+  background: var(--hover-bg);
+}
+.work-diary {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+.diary-dot-button {
+  padding: 0;
+  border: 0;
+  width: 10px;
+  height: 10px;
+}
+.work-diary-note {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  z-index: 5;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--panel);
+  white-space: nowrap;
+  font-size: 12px;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 0.1);
+}
+.project-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 240px;
+}
+.project-menu button {
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 260px;
+  max-width: 400px;
+  font-size: 13px;
+}
+.project-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.project-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (max-width: 780px) {
+  .projects-panel {
+    width: 180px;
+    padding: 10px;
+  }
+  .projects-content {
+    padding: 18px;
+  }
+  .projects-toolbar {
+    flex-wrap: wrap;
+  }
+  .projects-toolbar input {
+    flex-basis: 100%;
+  }
+}
 .work-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -5181,6 +5414,10 @@ footer b {
 .work-actions button,
 .trash-row button {
   padding: 2px 6px;
+}
+.work-actions .work-print {
+  font-family: var(--font-display);
+  color: var(--accent);
 }
 .trash-row {
   display: flex;
@@ -5768,4 +6005,63 @@ button.danger:hover {
   margin: 4px 0 8px;
   font-size: 12px;
   color: var(--muted);
+}
+
+/* Print ‘모든 장’ — 종이마다 앞·뒤 작은 그림과 들어간 페이지 목록. 화면에 들어올 때만 그린다. */
+.print-stage.all {
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow-y: auto;
+}
+.all-sheets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  width: 100%;
+}
+.sheet-card {
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--panel);
+}
+.sheet-card-title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 500;
+}
+.sheet-card-body {
+  display: flex;
+  gap: 10px;
+}
+.sheet-side {
+  margin: 0;
+  width: 150px;
+}
+.sheet-side .preview {
+  width: 150px;
+  height: 100%;
+}
+.sheet-side figcaption {
+  margin-top: 4px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.sheet-side figcaption b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.sheet-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  background: #fff;
+}
+/* 출력할 페이지로 고른 칸 — 화면에만(인쇄되지 않는다). 디자인.md: 선택 표시는 블루. */
+.paper-slot-selected {
+  fill: var(--blue);
+  fill-opacity: 0.18;
+  stroke: var(--blue-deep);
+  stroke-width: 1.2;
 }

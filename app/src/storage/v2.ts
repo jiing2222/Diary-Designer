@@ -9,7 +9,7 @@
  * 작업은 한 덩어리 JSON이 아니라 **작업마다 한 칸**에 넣는다 — 열린 작업 여러 개 중
  * 바뀐 것만 쓰고, 나중에 클라우드도 작업 단위로 올린다(기본계획 8-2).
  *
- * 실패는 조용히 삼킨다(storage/idb와 같은 원칙). 쓰기가 안 됐다고 앱이 멈추면 안 된다.
+ * 읽기·쓰기 실패는 호출자에게 알린다. 빈 저장소와 실패를 구분하고, 화면은 저장 실패를 표시한다.
  */
 import { idbEntries, idbGet } from './idb';
 import { readProject, toTemplates, type SavedFont, type SavedImage, type SavedProject } from '../core/project';
@@ -20,6 +20,7 @@ import type { Diary } from '../core/diary';
 import type { Folder } from '../core/library';
 import type { SavedTextStyle } from '../core/textStyles';
 import type { Tabs } from '../core/workspace';
+import type { Cursor } from '../store';
 
 const DB_NAME = 'rings-v2';
 const DB_VERSION = 1;
@@ -40,17 +41,14 @@ function openV2(): Promise<IDBDatabase> {
 }
 
 async function run<T>(store: V2Store, mode: IDBTransactionMode, body: (s: IDBObjectStore) => IDBRequest | void): Promise<T | null> {
-  try {
-    const db = await openV2();
-    return await new Promise<T | null>((resolve, reject) => {
-      const tx = db.transaction(store, mode);
-      const req = body(tx.objectStore(store));
-      tx.oncomplete = () => resolve(req ? ((req.result as T | undefined) ?? null) : null);
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch {
-    return null;
-  }
+  const db = await openV2();
+  return new Promise<T | null>((resolve, reject) => {
+    const tx = db.transaction(store, mode);
+    const req = body(tx.objectStore(store));
+    tx.oncomplete = () => resolve(req ? ((req.result as T | undefined) ?? null) : null);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('저장소 작업이 중단됐어요.'));
+  });
 }
 
 export async function v2Put(store: V2Store, key: string, value: unknown): Promise<void> {
@@ -99,6 +97,8 @@ export interface V2Meta {
   /** 옮기지 않은 노트 이름 — 처음 한 번 알려준다. */
   skippedNotebooks?: string[];
   tabs?: Tabs;
+  /** 탭마다 편집 위치·확대·스크롤. 되돌리기 기록은 이번 실행에서만 보관한다. */
+  cursors?: Record<string, Cursor>;
   /**
    * 등록한 글꼴·이미지의 id와 파일 이름. 객체는 글꼴·이미지를 id(`f1`, `img1`)로 가리키는데,
    * 파일 캐시는 이름으로 남는다 — 다시 열 때 이 표로 같은 이름에 같은 id를 돌려준다
@@ -227,5 +227,5 @@ export async function migrateFromV1(now: string): Promise<void> {
       } satisfies V2Meta,
     ],
   ];
-  await putMany(entries);
+  if (!(await putMany(entries))) throw new Error('기존 작업을 옮기지 못했어요.');
 }

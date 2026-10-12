@@ -10,6 +10,33 @@ export interface Folder {
   name: string;
 }
 
+export type ProjectSort = 'updated' | 'created' | 'name';
+
+/** undefined는 모든 작업, null은 폴더 밖, 문자열은 해당 폴더. */
+export interface ProjectView {
+  folderId?: string | null;
+  diaryId: string | null;
+  query: string;
+  sort: ProjectSort;
+}
+
+export const DEFAULT_PROJECT_VIEW: ProjectView = { diaryId: null, query: '', sort: 'updated' };
+
+/** 폴더·다이어리·이름 검색은 함께 적용하며 휴지통은 Projects에서 늘 제외한다. */
+export function projectsFor(works: Work[], view: ProjectView): Work[] {
+  const query = view.query.trim().normalize('NFC').toLocaleLowerCase('ko');
+  const nameOrder = (a: Work, b: Work) => a.name.localeCompare(b.name, 'ko', { numeric: true, sensitivity: 'base' });
+  return works.filter((w) => !isTrashed(w)
+    && (view.folderId === undefined || (view.folderId === null ? !w.folderId : w.folderId === view.folderId))
+    && (view.diaryId === null || w.diaryId === view.diaryId)
+    && w.name.normalize('NFC').toLocaleLowerCase('ko').includes(query))
+    .sort((a, b) => {
+      if (view.sort === 'name') return nameOrder(a, b) || a.id.localeCompare(b.id);
+      const key = view.sort === 'created' ? 'createdAt' : 'updatedAt';
+      return b[key].localeCompare(a[key]) || nameOrder(a, b) || a.id.localeCompare(b.id);
+    });
+}
+
 /** 휴지통에 머무는 기간. 지나면 완전히 지운다(사용자 결정). */
 export const TRASH_DAYS = 30;
 

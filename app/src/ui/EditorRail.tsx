@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useFaces, useHasBack, useSide, useStore, type Tool } from '../store';
+import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useFaces, useHasBack, usePalette, useSide, useStore, type Tool } from '../store';
 import { isCalendar, isCheckbox, isMoon, isText, type TextObject } from '../core/objects';
 import { familyOf } from '../fonts/registry';
 import { mmToPt } from '../core/units';
@@ -7,7 +7,7 @@ import { TEXT_SIZE } from '../core/style';
 import { chipPatch, FIELD_CHIPS, tileOf } from '../core/fieldFormat';
 import { AutoFieldTiles, FieldSettings, MoonPanel, type AutoTile } from './AutoFieldPanel';
 import { CalendarPanelControls, CheckboxIconGrid, FieldToggle } from './ObjectControls';
-import { BASE_KEYS, colorOfKey, keyLabel, keyOfRef, nextPointKey, refOf } from '../core/colors';
+import { BASE_KEYS, DEFAULT_BASE, colorOfKey, keyLabel, keyOfRef, nextPointKey, refOf } from '../core/colors';
 import type { RuleKey } from '../core/colorRules';
 import { HOLIDAY_YEARS, holidayCovered } from '../core/holidays';
 import { PopRow } from './Popover';
@@ -170,21 +170,39 @@ function ToolTiles({ items }: { items: { tool: Tool; label: string; icon: React.
 function ColorsPanel() {
   const work = useActiveWork();
   const today = useStore((s) => s.today);
-  const setPaletteColor = useStore((s) => s.setPaletteColor);
-  const addPaletteColor = useStore((s) => s.addPaletteColor);
+  const previewPaletteColor = useStore((s) => s.previewPaletteColor);
+  const finishPalettePreview = useStore((s) => s.finishPalettePreview);
+  const palette = usePalette();
   const removePaletteColor = useStore((s) => s.removePaletteColor);
   const [editing, setEditing] = useState<{ key: string; original: string } | null>(null);
+  const [replacement, setReplacement] = useState('fixed');
   const boxRef = useRef<HTMLDivElement>(null);
 
-  // 창 밖을 누르면 확정(저장)한다 — 미리보기로 이미 바뀌어 있으므로 닫기만 하면 된다.
+  useEffect(() => () => finishPalettePreview(true), [work?.id, finishPalettePreview]);
+
+  const start = (key: string, color: string) => {
+    finishPalettePreview(true);
+    previewPaletteColor(key, color);
+    setReplacement('fixed');
+    setEditing({ key, original: color });
+  };
+  const finish = (save: boolean) => {
+    finishPalettePreview(save);
+    setEditing(null);
+  };
+
+  // 창 밖을 누르면 미리보기를 작업 팔레트로 확정한다.
   useEffect(() => {
     if (!editing) return;
     function onDown(e: PointerEvent) {
-      if (!boxRef.current?.contains(e.target as Node)) setEditing(null);
+      if (!boxRef.current?.contains(e.target as Node)) {
+        finishPalettePreview(true);
+        setEditing(null);
+      }
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape' && editing) {
-        setPaletteColor(editing.key, editing.original);
+        finishPalettePreview(false);
         setEditing(null);
       }
     }
@@ -194,10 +212,9 @@ function ColorsPanel() {
       document.removeEventListener('pointerdown', onDown);
       window.removeEventListener('keydown', onKey);
     };
-  }, [editing, setPaletteColor]);
+  }, [editing, finishPalettePreview]);
 
-  if (!work) return null;
-  const palette = work.palette;
+  if (!work || !palette) return null;
   const colorOf = (key: string) =>
     (BASE_KEYS as readonly string[]).includes(key)
       ? palette.base[key as (typeof BASE_KEYS)[number]]
@@ -215,7 +232,7 @@ function ColorsPanel() {
             className={`color-slot ${editing?.key === key ? 'on' : ''}`}
             style={{ background: palette.base[key] }}
             title={keyLabel(key)}
-            onClick={() => setEditing({ key, original: palette.base[key] })}
+            onClick={() => start(key, palette.base[key])}
           />
         ))}
       </div>
@@ -227,7 +244,7 @@ function ColorsPanel() {
               className={`color-slot round ${editing?.key === p.key ? 'on' : ''}`}
               style={{ background: p.color }}
               title={`포인트 ${p.key}`}
-              onClick={() => setEditing({ key: p.key, original: p.color })}
+              onClick={() => start(p.key, p.color)}
             />
             <span className="color-point-key">{p.key}</span>
           </span>
@@ -237,8 +254,7 @@ function ColorsPanel() {
           title="포인트 색 추가"
           onClick={() => {
             const next = nextPointKey(palette.points);
-            addPaletteColor('#8ea8c6');
-            setEditing({ key: next, original: '#8ea8c6' });
+            start(next, '#8ea8c6');
           }}
         >
           +
@@ -260,14 +276,28 @@ function ColorsPanel() {
           <ColorDefiner
             key={editing.key}
             initial={colorOf(editing.key)}
-            onCommit={(c) => setPaletteColor(editing.key, c)}
+            live
+            onCommit={(c) => previewPaletteColor(editing.key, c)}
           />
+          {(BASE_KEYS as readonly string[]).includes(editing.key) ? (
+            <button className="ghost" onClick={() => previewPaletteColor(editing.key, DEFAULT_BASE[editing.key as keyof typeof DEFAULT_BASE])}>
+              기본값으로 되돌리기
+            </button>
+          ) : work.palette.points.some((p) => p.key === editing.key) && (
+            <PopRow label="지울 때">
+              <select value={replacement} onChange={(e) => setReplacement(e.target.value)}>
+                <option value="fixed">지금 색으로 고정</option>
+                {[...BASE_KEYS, ...palette.points.map((p) => p.key)].filter((key) => key !== editing.key).map((key) => (
+                  <option key={key} value={refOf(key)}>{keyLabel(key)}로 옮기기</option>
+                ))}
+              </select>
+            </PopRow>
+          )}
           <div className="color-editor-actions">
             <button
               className="ghost"
               onClick={() => {
-                setPaletteColor(editing.key, editing.original);
-                setEditing(null);
+                finish(false);
               }}
             >
               취소
@@ -276,15 +306,17 @@ function ColorsPanel() {
               <button
                 className="ghost danger"
                 onClick={() => {
-                  if (!window.confirm(`${editing.key}를 지울까요? ${editing.key}를 쓰던 요소는 지금 색으로 고정돼요.`)) return;
-                  removePaletteColor(editing.key, colorOf(editing.key));
-                  setEditing(null);
+                  if (!work.palette.points.some((p) => p.key === editing.key)) return finish(false);
+                  if (!window.confirm(`${editing.key}를 지울까요? 쓰던 요소는 ${replacement === 'fixed' ? '지금 색으로 고정돼요' : '고른 이름표로 옮겨요'}.`)) return;
+                  const color = colorOf(editing.key);
+                  finish(false);
+                  removePaletteColor(editing.key, replacement === 'fixed' ? color : replacement);
                 }}
               >
                 지우기
               </button>
             )}
-            <button className="primary" onClick={() => setEditing(null)}>
+            <button className="primary" onClick={() => finish(true)}>
               저장
             </button>
           </div>

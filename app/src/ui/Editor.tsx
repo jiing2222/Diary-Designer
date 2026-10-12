@@ -159,13 +159,26 @@ export function Editor() {
   const showToast = useStore((s) => s.showToast);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
-  const [zoom, setZoom] = useState(100);
+  const rememberViewport = useStore((s) => s.rememberViewport);
   const svgRef = useRef<SVGSVGElement>(null);
   // 지금 펼침면이 바뀌면(한눈에 보기·Print에서 페이지를 골라 오면) 그 자리가 보이게 — 이미 보이면
   // 움직이지 않는다(block: 'nearest').
   const cursorNow = useCursor();
+  const zoom = cursorNow?.zoom ?? 100;
+  const setZoom = (value: number) => rememberViewport({ zoom: value });
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const initialViewport = useRef(cursorNow);
   const spreadKey = `${cursorNow?.spread}:${cursorNow?.view}:${cursorNow?.source?.itemId ?? ''}`;
+  const previousSpread = useRef(spreadKey);
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.scrollTop = initialViewport.current?.scrollTop ?? 0;
+    canvas.scrollLeft = initialViewport.current?.scrollLeft ?? 0;
+  }, []);
   useEffect(() => {
+    if (previousSpread.current === spreadKey && initialViewport.current?.scrollTop !== undefined) return;
+    previousSpread.current = spreadKey;
     svgRef.current?.scrollIntoView({ block: 'nearest' });
   }, [spreadKey]);
 
@@ -1154,6 +1167,8 @@ export function Editor() {
 
       <div
         className="editor-canvas"
+        ref={canvasRef}
+        onScroll={(e) => rememberViewport({ scrollTop: e.currentTarget.scrollTop, scrollLeft: e.currentTarget.scrollLeft })}
         onPointerDown={onOutsideDown}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -2040,7 +2055,7 @@ function FaceActions({ face, index }: { face: ResolvedFace; index: number }) {
   return (
     <span className="face-label">
       <span className="face-label-name">{faceLabel(face, index)}</span>
-      <span className="face-label-actions">
+      <span className="face-label-actions" onPointerDown={(e) => e.stopPropagation()}>
         {dated && face.period && (
           <button className="ghost" title="원본 편집 — 이 묶음의 모든 날짜가 바뀝니다" onClick={() => enterSourceEdit(face.itemId, face.period!.faceIndex)}>
             원본
