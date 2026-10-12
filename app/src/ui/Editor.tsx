@@ -177,6 +177,11 @@ export function Editor() {
     canvas.scrollTop = initialViewport.current?.scrollTop ?? 0;
     canvas.scrollLeft = initialViewport.current?.scrollLeft ?? 0;
   }, []);
+  // 다른 펼침면으로 가면 긋다 만 선(첫 점)을 버린다 — 남겨두면 앞 페이지에서 찍은 좌표가
+  // 새 페이지로 따라와, 다음 클릭에 엉뚱한 자리에서 시작하는 선이 생겼다.
+  useEffect(() => {
+    setPending(null);
+  }, [spreadKey]);
   useEffect(() => {
     if (previousSpread.current === spreadKey && initialViewport.current?.scrollTop !== undefined) return;
     previousSpread.current = spreadKey;
@@ -517,6 +522,14 @@ export function Editor() {
     });
   }
 
+  /** 선 끝점을 잡는다. 아직 움직이지 않았으니 미리보기도 끝점 그대로다(gestures의 Drag 'handle'). */
+  function startGrip(grip: { id: string; end: 1 | 2 }, raw: Point) {
+    const line = objects.find((o) => o.id === grip.id);
+    if (!line || !isLine(line)) return;
+    const at = grip.end === 1 ? { x: line.x1, y: line.y1 } : { x: line.x2, y: line.y2 };
+    setDragBoth({ kind: 'handle', id: grip.id, end: grip.end, to: at, origin: raw, moved: false });
+  }
+
   function onDown(e: React.PointerEvent) {
     const raw = rawMm(e);
     const snap = snapped(e);
@@ -541,7 +554,7 @@ export function Editor() {
     if (tool === 'draw' && !pending) {
       const grip = anyLineHandleAt(objects, raw);
       if (grip) {
-        setDragBoth({ kind: 'handle', id: grip.id, end: grip.end, to: raw });
+        startGrip(grip, raw);
         return;
       }
     }
@@ -621,7 +634,7 @@ export function Editor() {
     // 늘이려다 매번 통째로 옮겨진다.
     const grip = handleAt(lone, raw);
     if (grip) {
-      setDragBoth({ kind: 'handle', id: grip.id, end: grip.end, to: raw });
+      startGrip(grip, raw);
       return;
     }
 
@@ -655,7 +668,13 @@ export function Editor() {
       const snap = snapped(e);
       if (!snap) return;
       setDragBoth({ ...d, to: snap });
-    } else if (d.kind === 'draw' || d.kind === 'handle' || d.kind === 'textbox') {
+    } else if (d.kind === 'handle') {
+      // 손떨림으로 끝점이 움직이지 않게, 한 번 넘기기 전까지는 누른 것으로 둔다(옮기기와 같은 문턱).
+      const moved = d.moved || Math.hypot(raw.x - d.origin.x, raw.y - d.origin.y) > DRAG_START;
+      const snap = snapped(e);
+      if (!moved || !snap) return;
+      setDragBoth({ ...d, moved, to: snap });
+    } else if (d.kind === 'draw' || d.kind === 'textbox') {
       const snap = snapped(e);
       if (!snap) return;
       setDragBoth({ ...d, to: snap });
@@ -713,6 +732,12 @@ export function Editor() {
     }
 
     if (d.kind === 'handle') {
+      if (!d.moved) {
+        // 끌지 않고 끝점을 누르기만 했다 — 그리기 도구라면 그 끝점에서 새 선을 시작한다
+        // (이어지는 대각선·삼각형). 고르기 도구라면 아무것도 바꾸지 않는다.
+        if (tool === 'draw') setPending(d.to);
+        return;
+      }
       reshapeSelected(d.id, d.end, d.to);
       return;
     }
@@ -1473,6 +1498,17 @@ export function Editor() {
             {noGrid
               ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
               : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
+          </span>
+        )}
+        {/*
+          그리기는 조작이 곧 종류라(위 Editor 주석) 대각선은 끌어서가 아니라 점을 두 번
+          눌러 긋는다 — 대각선으로 끌었다가 네모가 나오면 고장으로 보였다.
+        */}
+        {tool === 'draw' && !noGrid && (
+          <span className="foot-hint">
+            {pending
+              ? '다음 점을 누르면 선이 그어집니다(대각선도). Esc로 취소.'
+              : '점을 누르고 다음 점을 누르면 선(대각선 포함), 점에서 끌면 네모.'}
           </span>
         )}
         {/*

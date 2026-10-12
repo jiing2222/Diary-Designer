@@ -144,7 +144,12 @@ export type Drag =
       free: boolean;
       moved: boolean;
     }
-  | { kind: 'handle'; id: string; end: 1 | 2; to: Point }
+  /**
+   * 선 끝점을 잡은 중. `to`는 처음에 그 끝점 자신이고, 손이 DRAG_START를 넘게
+   * 움직인 뒤에야(`moved`) 격자 점을 따라간다 — 누른 자리(`origin`)를 그대로
+   * 쓰면 끝점을 살짝 빗나가 누르기만 해도 선이 도트 밖으로 끌려가 비뚤어졌다.
+   */
+  | { kind: 'handle'; id: string; end: 1 | 2; to: Point; origin: Point; moved: boolean }
   /**
    * 상자(달력 등)의 모서리 손잡이를 끄는 중. `preview()`의 상자 버전은 `previewBox`.
    *
