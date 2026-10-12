@@ -10,6 +10,12 @@ describe('핀 글', () => {
     expect(pinText({ presetId: 'DA6', width: 95, height: 171, holeCount: 6 }, 1, 1).board).toBe(PIN_BOARDS.personal);
   });
 
+  it('양식 이름이 있으면 제목·설명에 넣는다', () => {
+    const t = pinText({ presetId: 'A5', width: 148, height: 210, holeCount: 6 }, 1, 1, 'Habit Tracker');
+    expect(t.title).toBe('A5 Habit Tracker Planner Insert');
+    expect(t.description).toContain('Printable A5 habit tracker planner insert');
+  });
+
   it('여러 면이면 페이지 번호를 붙이고, 모르는 규격은 크기로 부른다', () => {
     const t = pinText({ presetId: 'custom', width: 100, height: 160, holeCount: 6 }, 2, 3);
     expect(t.title).toBe('100 x 160 mm Planner Insert – Page 2');

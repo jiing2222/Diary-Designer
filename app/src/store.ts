@@ -266,6 +266,8 @@ interface Store extends Settings {
 
   /* ── 작업 ── */
   createWork: (name?: string) => string | null;
+  /** 다 만든 작업들을 탭을 열지 않고 Library에 더한다(Pin Studio의 기본 속지 세트). */
+  addWorks: (works: Work[]) => void;
   /**
    * 화면의 ‘새 작업’(홈의 행성·탭의 +·Projects). 다이어리가 하나도 없으면 작업을 만들지 않고 첫 다이어리
    * 온보딩을 띄운다(null). 있으면 기본 다이어리로 만든다.
@@ -811,6 +813,8 @@ export const useStore = create<Store>((set, get) => ({
   closeWorkTab: (id) => set((s) => withTabs(s, closeTab(s.tabs, id))),
 
   activateTab: (id) => set((s) => withTabs(s, activate(s.tabs, id))),
+
+  addWorks: (works) => set((s) => ({ works: [...s.works, ...works] })),
 
   createWork: (name) => {
     const s = get();

@@ -4,7 +4,9 @@ import { isTrashed } from '../core/library';
 import { resolveObjectColors } from '../core/colors';
 import { resolveRuleColors } from '../core/colorRules';
 import { holeMarks } from '../core/punch';
-import { sheetSideOf, type ResolvedFace, type Work } from '../core/work';
+import { newWork, sheetSideOf, type PageItem, type ResolvedFace, type Work } from '../core/work';
+import { DEFAULT_DOT_GRID, gridArea, gridLattice } from '../core/grid';
+import { starterSet } from '../core/starterSet';
 import type { Diary } from '../core/diary';
 import { pinText, titleLines } from '../core/pins';
 import { fontBytes } from '../fonts/registry';
@@ -38,7 +40,7 @@ export function PinStudio() {
   const diary = diaries.find((d) => d.id === work?.diaryId);
   const faces = useMemo(() => (work ? facesOf(work, today) : []), [work, today]);
 
-  if (!work || !diary) return <div className="library-pane"><h2>Pins</h2><p className="muted">작업이 없어요.</p></div>;
+  if (!work || !diary) return <div className="library-pane"><h2>Pins</h2><p className="muted">작업이 없어요.</p><StarterButton /></div>;
 
   const shown = faces.slice(0, MAX_FACES);
   return (
@@ -48,6 +50,7 @@ export function PinStudio() {
         <select value={work.id} onChange={(e) => setWorkId(e.target.value)}>
           {live.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>
+        <StarterButton />
       </div>
       <p className="muted">
         면 하나가 핀 하나예요(1000×1500). PNG를 저장해 핀터레스트에 올리고, 제목·설명·보드는 복사해 붙여넣으세요.
@@ -62,10 +65,37 @@ export function PinStudio() {
   );
 }
 
+/**
+ * 기본 속지 세트(core/starterSet 12종)를 기본 다이어리 크기로 만들어 Library에 넣는다. 다이어리마다
+ * 격자가 달라 그 격자에서 다시 계산한다 — 다른 규격으로 만들려면 기본 다이어리를 바꾸고 다시 누른다.
+ */
+function StarterButton() {
+  const diaries = useStore((s) => s.diaries);
+  const defaultId = useStore((s) => s.defaultDiaryId);
+  const addWorks = useStore((s) => s.addWorks);
+  const diary = diaries.find((d) => d.id === defaultId) ?? diaries[0];
+  if (!diary) return null;
+  const make = () => {
+    const g = DEFAULT_DOT_GRID;
+    const lattice = gridLattice(gridArea(diary, g, diary.punch.safeZoneWidth, false), g.spacing, g.minMargin, g.toEdge);
+    const now = new Date().toISOString();
+    const works = starterSet(lattice).map((t) => {
+      // 홍보용 속지는 한 면짜리라 단면으로 — 양면이면 인쇄에 빈 뒷면이 따라 나온다.
+      const w = newWork({ name: t.name, diaryId: diary.id, now, duplex: false });
+      const page = w.items[0] as PageItem;
+      return { ...w, items: [{ ...page, face: { ...page.face, objects: t.objects } }] };
+    });
+    if (window.confirm(`${diary.name} 크기로 기본 속지 ${works.length}종을 Library에 넣을까요?`)) addWorks(works);
+  };
+  return <button className="ghost" onClick={make}>기본 속지 세트 넣기</button>;
+}
+
 function PinCard({ work, diary, face, index, count }: { work: Work; diary: Diary; face: ResolvedFace; index: number; count: number }) {
   const ref = useRef<SVGSVGElement>(null);
   const userFonts = useStore((s) => s.userFonts);
-  const auto = pinText({ ...diary, holeCount: diary.punch.holeCount }, index + 1, count);
+  // 영어 이름의 작업(기본 세트 등)이면 그 이름이 양식 이름이다. 한글 이름은 미국 핀에 넣지 않는다.
+  const kind = /^[ -~]+$/.test(work.name) ? work.name : undefined;
+  const auto = pinText({ ...diary, holeCount: diary.punch.holeCount }, index + 1, count, kind);
   const [title, setTitle] = useState(auto.title);
   const [busy, setBusy] = useState(false);
   const mirror = sheetSideOf(index, work.duplex).side === 'back';

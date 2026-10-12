@@ -44,16 +44,19 @@ export function pinText(
   diary: { presetId: string; width: Mm; height: Mm; holeCount: number },
   page: number,
   pageCount: number,
+  /** 양식 이름(예: 'Weekly Vertical'). 있으면 제목·설명에 넣는다 — 사람들은 양식 이름으로 검색한다. */
+  kind?: string,
 ): PinText {
   const known = SIZE_NAMES[diary.presetId];
   const size = known?.name ?? `${diary.width} x ${diary.height} mm`;
   const board = known?.board ?? PIN_BOARDS.pocket;
   const dims = `${diary.width} x ${diary.height} mm / ${inches(diary.width)} x ${inches(diary.height)} in`;
   const suffix = pageCount > 1 ? ` – Page ${page}` : '';
+  const what = kind ? `${kind} ` : '';
   return {
-    title: `${size} Planner Insert${suffix}`,
+    title: `${size} ${what}Planner Insert${suffix}`,
     description:
-      `Printable ${size} planner insert (${dims}) for ${diary.holeCount}-ring binders. ` +
+      `Printable ${size} ${what.toLowerCase()}planner insert (${dims}) for ${diary.holeCount}-ring binders. ` +
       'Designed with Rings: a dot grid editor with punch holes that line up and double-sided pages that print the right way around. Launching soon.',
     board,
     sizeLine: `${size} · ${dims}`,
