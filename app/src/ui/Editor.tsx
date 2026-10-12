@@ -12,6 +12,7 @@ import {
   isBoxResizable,
   isImage,
   isLine,
+  distanceToSegment,
   isLocked,
   isShape,
   isText,
@@ -77,6 +78,7 @@ import {
   toggleId,
   withCells,
   DRAG_START,
+  GRAB,
   HANDLE_SIZE,
   type Drag,
   type Editing,
@@ -98,6 +100,12 @@ export const IMAGE_RESIZE_SNAP_DIST: Mm = 2;
  * 멀어야 한다(도트 사이 몸통). 더 가까우면 그리기로 친다. 5mm 격자면 1.5mm.
  */
 const MOVE_ZONE = 0.3;
+
+/**
+ * 그리기 도구에서 고른 선을 잡는 너그러움 — 화면 px. 선에서 2mm(GRAB)만 보면 100% 화면에서
+ * 7px 남짓이라 거의 정확히 눌러야 했다(사용자 신고). 화면 기준이라 확대해도 손에 느껴지는 폭이 같다.
+ */
+const MOVE_GRAB_PX = 12;
 
 /**
  * 양식 만들기 화면.
@@ -194,6 +202,8 @@ export function Editor() {
 
   /** 마우스가 붙을 자리 */
   const [hover, setHover] = useState<Point | null>(null);
+  /** 그리기 도구에서 지금 마우스 아래 것을 잡아 옮길 수 있는가 — 커서를 이동 모양으로. */
+  const [canGrab, setCanGrab] = useState(false);
   /** 선의 첫 점을 찍어둔 상태. 다음 클릭에서 선이 완성된다. */
   const [pending, setPending] = useState<Point | null>(null);
   // 자동 필드 도구로 다음에 찍을 순번과 ‘찍을 때마다 다음 날짜로’ — AutoField 패널과 같이 쓴다.
@@ -483,6 +493,29 @@ export function Editor() {
     });
   }
 
+  /**
+   * 그리기 도구 그대로 옮길 수 있는 것 — 고른 것 중 이 자리에 있는 것. 도트 근처는 그리기 몫이다
+   * (MOVE_ZONE). 선은 화면 px로 너그럽게(MOVE_GRAB_PX), 네모·글자·이미지는 테두리뿐 아니라 안쪽
+   * 어디든 잡힌다 — 안쪽에서 새로 그리는 것은 어차피 도트에서 시작한다.
+   */
+  function grabbableAt(raw: Point, snap: Point | null): DiaryObject | null {
+    if (tool !== 'draw' || pending || !snap || selectedIds.length === 0) return null;
+    if (Math.hypot(raw.x - snap.x, raw.y - snap.y) <= grid.spacing * MOVE_ZONE) return null;
+    const tol = Math.max(GRAB, MOVE_GRAB_PX / scale);
+    for (const o of objects) {
+      if (!selectedIds.includes(o.id) || isLocked(o)) continue;
+      if (isLine(o)) {
+        if (distanceToSegment(o, raw.x, raw.y) <= tol) return o;
+        continue;
+      }
+      const b = screenBoundsOfObjects([o]);
+      if (b && raw.x >= b.x - tol && raw.x <= b.x + b.width + tol && raw.y >= b.y - tol && raw.y <= b.y + b.height + tol) {
+        return o;
+      }
+    }
+    return null;
+  }
+
   /** 선 끝점을 잡는다. 아직 움직이지 않았으니 미리보기도 끝점 그대로다(gestures의 Drag 'handle'). */
   function startGrip(grip: { id: string; end: 1 | 2 }, raw: Point) {
     const line = objects.find((o) => o.id === grip.id);
@@ -523,12 +556,10 @@ export function Editor() {
     // 그리기 도구 그대로 옮기기(사용자 요청) — 고른 것(방금 그린 선·네모)의 몸통을 **도트 사이에서**
     // 잡으면 옮긴다. 도트 근처를 누르면 지금처럼 그린다: 네모 모서리에 붙여 다음 네모를 그리거나 선
     // 위의 도트에서 새로 시작하는 일이 흔해서, 거기까지 옮기기로 가로채면 안 된다.
-    if (tool === 'draw' && !pending && snap && Math.hypot(raw.x - snap.x, raw.y - snap.y) > grid.spacing * MOVE_ZONE) {
-      const hit = hitAt(svgRef.current, objects, raw);
-      if (hit && selectedIds.includes(hit.id) && !isLocked(hit)) {
-        startMove(hit, raw, e);
-        return;
-      }
+    const grab = grabbableAt(raw, snap);
+    if (grab) {
+      startMove(grab, raw, e);
+      return;
     }
 
     // 표도 몸짓은 그리기(면)와 똑같이 점에서 끄는 드래그다. 그 사이에서
@@ -622,6 +653,8 @@ export function Editor() {
 
   function onMove(e: React.PointerEvent) {
     setHover(snapped(e));
+    const here = rawMm(e);
+    setCanGrab(!dragRef.current && !!here && grabbableAt(here, snapped(e)) !== null);
     const d = dragRef.current;
     const raw = rawMm(e);
     if (!d || !raw) return;
@@ -1349,7 +1382,7 @@ export function Editor() {
           const activeSvg = (
             <svg
               ref={svgRef}
-              className={`insert-sheet active-canvas ${tool}`}
+              className={`insert-sheet active-canvas ${tool}${canGrab ? ' can-grab' : ''}`}
               viewBox={`0 0 ${insert.width} ${insert.height}`}
               width={insert.width * scale}
               height={insert.height * scale}

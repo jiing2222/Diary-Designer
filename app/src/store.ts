@@ -38,7 +38,6 @@ import {
   type CornerRoundness,
   type DiaryObject,
   type ImageObject,
-  type LineObject,
   type LineSeg,
   type LineStyle,
   type ShapeObject,
