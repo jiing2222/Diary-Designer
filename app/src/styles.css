@@ -5572,32 +5572,46 @@ button.danger:hover {
   background: var(--bg);
   color: var(--ink);
 }
-.overview-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  max-height: 70vh;
-  overflow-y: auto;
-}
-.overview-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 6px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
-  font: inherit;
-  font-size: 11px;
-  color: var(--muted);
-  cursor: pointer;
-}
-.overview-item:hover {
-  background: var(--panel);
-}
-.overview-item svg {
-  box-shadow: 0 0 0 1px var(--line);
+/* 다른 작업에서 가져오기·페이지 한눈에 보기(리뉴얼 7-5). */
+.page-import-layout { display: flex; gap: 20px; flex: 1; min-height: 0; }
+.page-import-works { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+.page-import-works > input, .page-import-works > select { width: 100%; }
+.page-import-work-list { overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.page-import-work { display: flex; flex-direction: column; gap: 5px; text-align: left; background: transparent; color: var(--ink); padding: 12px; border-radius: 8px; }
+.page-import-work span { color: var(--muted); font-size: 11px; }
+.page-import-work.on { background: var(--bg); }
+.page-import-content { flex: 1; min-width: 0; overflow: auto; padding-right: 4px; }
+.page-import-content h3 { margin-top: 0; }
+.page-import-units, .page-overview-grid { display: flex; gap: 12px; flex-wrap: wrap; align-content: flex-start; }
+.page-import-units { margin: 12px 0; }
+.page-import-unit, .page-overview-card { padding: 8px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: 11px; }
+.page-import-unit { cursor: pointer; }
+.page-import-unit.on, .page-overview-card.on { background: var(--bg); border-color: var(--accent); }
+.page-unit-thumbs { display: flex; gap: 6px; }
+.page-thumb { width: 146px; height: 146px; display: flex; align-items: center; justify-content: center; }
+.page-thumb svg { box-shadow: 0 0 0 1px var(--line); }
+.page-import-unit > span, .page-overview-card > label { display: flex; align-items: center; gap: 5px; margin-top: 6px; }
+.page-manager-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.page-manager-toolbar label { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.page-manager-toolbar input[type=number] { width: 66px; }
+.page-manager-toolbar select { width: auto; max-width: 100%; }
+.page-import-period { border: 1px solid var(--line); border-radius: 8px; margin: 10px 0; padding: 10px; }
+.page-import-period legend { font-size: 12px; }
+.page-import-period .modal-note { margin-top: 0; }
+.page-overview-grid { overflow: auto; flex: 1; min-height: 0; }
+.page-open { background: transparent; color: var(--ink); padding: 0; display: flex; align-items: center; flex-direction: column; gap: 4px; }
+.page-remove-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px; background: var(--bg); border-radius: 8px; }
+.page-drop-end { align-self: stretch; min-height: 180px; width: 100px; border: 1px dashed var(--line); border-radius: 8px; display: grid; place-content: center; color: var(--muted); font-size: 12px; }
+.page-import-button { font-size: 12px; }
+.page-panel > .page-import-button { width: 100%; margin-bottom: 12px; }
+.add-page-controls { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.page-add-options { position: relative; }
+.page-add-options > summary { cursor: pointer; padding: 10px; list-style: none; color: var(--muted); }
+.page-add-menu { position: absolute; right: 0; bottom: 100%; width: 220px; background: var(--panel); border: 1px solid var(--line); padding: 8px; border-radius: 8px; z-index: 20; }
+.page-add-menu .page-import-button { width: 100%; text-align: left; }
+@media (max-width: 700px) {
+  .page-import-layout { flex-direction: column; }
+  .page-import-works { width: 100%; max-height: 160px; }
 }
 
 /* 상황별 꾸미기 막대(세부계획 A0) — 옛 속성 칸을 캔버스 위 가로 한 줄로. 넘치면 다음 줄. */

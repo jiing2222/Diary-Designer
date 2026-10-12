@@ -8,12 +8,14 @@
  * **파일 자체는 이번 세션에만 메모리에 있다.** 양식 저장 파일(JSON)에는
  * 이름만 남는다 — 남의 이미지 파일을 저장 파일에 실어 옮기는 것은
  * 라이선스상으로도 애매하고, 파일 하나하나가 커서 프로젝트 파일이 그만큼
- * 무거워진다. 대신 `storage/idb.ts`로 브라우저(IndexedDB)에 파일 바이트를
- * 캐싱해두므로, 새로고침해도 `restoreCachedImages`가 같은 이름의 이미지를
+ * 무거워진다. 대신 `rings-v2`에 id별로 파일 바이트를
+ * 남기므로(옛 캐시는 읽어서 복사만 한다), 새로고침해도 `restoreCachedImages`가 같은 이름의 이미지를
  * 다시 물어보지 않고 자동으로 되살린다.
  */
 
-import { idbDelete, idbEntries, idbPut } from '../storage/idb';
+import { idbEntries } from '../storage/idb';
+import type { ImageInfo } from '../core/assets';
+import { queueAssetWrite, readAssetCache, saveAssetFile } from '../storage/assetCache';
 
 const ACCEPTED = ['.png', '.jpg', '.jpeg'];
 export const IMAGE_ACCEPT = ACCEPTED.join(',');
@@ -22,7 +24,7 @@ export type ImageKind = 'png' | 'jpg';
 
 export interface UserImage {
   id: string;
-  /** 파일 이름에서 확장자만 뗀 것. IndexedDB 키이자 되살리기(orphan) 매칭 기준이다 — 안 바뀐다. */
+  /** 파일 이름에서 확장자만 뗀 것. 되살리기(orphan) 매칭 기준이다. 파일은 id로 따로 저장한다. */
   name: string;
   /** 화면에 바로 쓸 수 있는 data URL. 저장 파일에서 이름만 살아 돌아온 경우 빈 문자열이다. */
   url: string;
@@ -73,6 +75,7 @@ async function loadImage(
   kind: ImageKind,
   reuseId?: string,
   meta?: ImageMeta,
+  persist = false,
 ): Promise<UserImage> {
   const url = await readAsDataUrl(new Blob([buffer]));
 
@@ -84,6 +87,9 @@ async function loadImage(
     id = `img${counter}`;
   }
 
+  // 새 파일은 저장에 성공한 뒤에만 화면·PDF에서 사용할 수 있게 한다.
+  if (persist) await saveAssetFile('images', { id, name, kind, buffer, ...meta });
+  reserveImageIds([id]);
   bytes.set(id, buffer);
   kinds.set(id, kind);
   return { id, name, url, ...meta };
@@ -109,9 +115,7 @@ export async function registerImage(file: File, reuseId?: string): Promise<UserI
 
   const buffer = await file.arrayBuffer();
   const usedAt = Date.now();
-  const image = await loadImage(buffer, name, kind, reuseId, { usedAt });
-  idbPut('images', name, { name, kind, buffer, usedAt });
-  return image;
+  return loadImage(buffer, name, kind, reuseId, { usedAt }, true);
 }
 
 /**
@@ -125,37 +129,50 @@ export function persistImageMeta(id: string, name: string, meta: ImageMeta): voi
   const buffer = bytes.get(id);
   const kind = kinds.get(id);
   if (!buffer || !kind) return;
-  idbPut('images', name, { name, kind, buffer, ...meta });
+  queueAssetWrite('images', { id, name, kind, buffer, ...meta });
 }
 
-const restoredNames = new Set<string>();
+let restoring: Promise<UserImage[]> | null = null;
 
-/**
- * 새로고침 뒤, 예전에 등록했던 이미지들을 다시 물어보지 않고 되살린다.
- *
- * fonts/registry의 `restoreCachedFonts`와 같은 이유·같은 규칙이다. `resolveId`도
- * 같은 이유로 있다 — 자동 저장을 불러온 뒤 그 오브젝트가 들고 있는 예전 id를
- * 물려받지 않으면, 되살린 이미지가 새 id를 받아 "파일 없음"으로 보인다.
- */
-export async function restoreCachedImages(
+/** 동시에 두 번 열어도 같은 파일을 중복 등록하지 않는다. */
+export async function restoreCachedImages(resolveId?: (name: string) => string | undefined, known: ImageInfo[] = []): Promise<UserImage[]> {
+  if (restoring) return restoring;
+  const task = restoreImages(resolveId, known);
+  restoring = task;
+  try { return await task; } finally { if (restoring === task) restoring = null; }
+}
+
+/** 새 저장소의 id별 파일을 복원하고, 옛 파일은 읽어서 복사만 한다. */
+async function restoreImages(
   resolveId?: (name: string) => string | undefined,
+  known: ImageInfo[] = [],
 ): Promise<UserImage[]> {
-  const entries = await idbEntries<{ name: string; kind: ImageKind; buffer: ArrayBuffer } & ImageMeta>('images');
+  const cached = await readAssetCache('images');
+  reserveImageIds(cached.map((i) => i.id));
+  const names = new Set(cached.map((i) => i.name));
+  const legacy = await idbEntries<{ name: string; kind: ImageKind; buffer: ArrayBuffer } & ImageMeta>('images');
   const restored: UserImage[] = [];
-  for (const [name, cached] of entries) {
-    if (restoredNames.has(name)) continue;
-    restoredNames.add(name);
+  for (const row of cached) {
+    if (row.deleted) continue;
+    const info = { ...row, ...known.find((i) => i.id === row.id) };
+    const meta = { label: info.label, hidden: info.hidden, usedAt: info.usedAt };
     try {
-      restored.push(
-        await loadImage(cached.buffer, cached.name, cached.kind, resolveId?.(name), {
-          label: cached.label,
-          usedAt: cached.usedAt,
-          hidden: cached.hidden,
-        }),
-      );
+      if (!row.buffer || !row.kind) throw new Error('파일 없음');
+      restored.push(await loadImage(row.buffer, row.name, row.kind, row.id, meta));
     } catch {
-      // 깨진 캐시 — 건너뛴다.
+      restored.push({ id: row.id, name: row.name, url: '', ...meta });
     }
+  }
+  for (const [name, row] of legacy) {
+    if (names.has(name)) continue;
+    const id = resolveId?.(name);
+    const info = { ...row, ...known.find((i) => i.id === id) };
+    const meta = { label: info.label, hidden: info.hidden, usedAt: info.usedAt };
+    let image: UserImage;
+    try { image = await loadImage(row.buffer, row.name, row.kind, id, meta); }
+    catch { continue; }
+    await saveAssetFile('images', { id: image.id, name: row.name, kind: row.kind, buffer: row.buffer, ...meta });
+    restored.push(image);
   }
   return restored;
 }
@@ -186,14 +203,9 @@ export function reserveImageIds(ids: string[]): void {
   }
 }
 
-/**
- * 이미지 파일을 실제로 지운다(아무 작업도 쓰지 않을 때만 — store가 판단한다).
- *
- * IndexedDB는 파일 이름으로 저장했으므로(`registerImage`) 이름으로 지운다.
- * 다음에 새로고침해도 다시 안 돌아온다 — `restoredNames`에서도 빼서, 혹시
- * 같은 세션에서 다시 등록하면 새 캐시로 잡히게 한다.
- */
-export function removeImage(name: string): void {
-  restoredNames.delete(name);
-  void idbDelete('images', name);
+/** 새 버전의 파일만 지운다. 옛 저장소의 원본은 그대로 둔다. */
+export function removeImage(id: string, name: string): void {
+  bytes.delete(id);
+  kinds.delete(id);
+  queueAssetWrite('images', { id, name, deleted: true });
 }

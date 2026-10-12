@@ -41,6 +41,8 @@ export interface PageItem {
   kind: 'page';
   id: string;
   face: Face;
+  /** 가져온 페이지의 원래 색 규칙(실제 색). 없으면 현재 작업의 규칙을 따른다. */
+  colorRules?: ColorRules;
 }
 
 /** 날짜 묶음 — 원본 면들을 기간의 쪽마다 펼친다(core/dated). */
@@ -53,6 +55,8 @@ export interface DatedItem {
   boundary: Boundary;
   /** 날짜별 개별 수정. 키는 `overrideKey(쪽 이름, 면 번호)`. */
   overrides: Record<string, FaceOverride>;
+  /** 가져온 양식의 원래 색 규칙(실제 색). 없으면 현재 작업의 규칙을 따른다. */
+  colorRules?: ColorRules;
 }
 
 export type WorkItem = PageItem | DatedItem;
@@ -109,7 +113,7 @@ export function cloneFace(face: Face): Face {
 }
 
 export function cloneItem(item: WorkItem): WorkItem {
-  if (item.kind === 'page') return { kind: 'page', id: newId('pg'), face: cloneFace(item.face) };
+  if (item.kind === 'page') return { ...item, id: newId('pg'), face: cloneFace(item.face) };
   // 날짜 묶음의 개별 수정은 원본 객체 id에 붙어 있다. 원본 면을 복사하며 id가
   // 바뀌므로 수정의 id도 같이 바꿔 준다.
   const idMap = new Map<string, string>();
@@ -136,7 +140,7 @@ export function cloneItem(item: WorkItem): WorkItem {
  * 기간의 쪽마다 펼쳐진다. 원본 면은 그대로 옮긴다(id도) — 지금 고른 것이 풀리지 않게.
  */
 export function spreadByDates(page: PageItem, dataset: DateDataset, boundary: Boundary): DatedItem {
-  return { kind: 'dated', id: newId('dt'), faces: [page.face], dataset, boundary, overrides: {} };
+  return { kind: 'dated', id: newId('dt'), faces: [page.face], dataset, boundary, overrides: {}, colorRules: page.colorRules };
 }
 
 /** `index` 뒤에 넣는다. `index`가 -1이면 맨 앞. */
@@ -190,6 +194,8 @@ export interface ResolvedFace {
   fieldIds: string[];
   /** 달력 객체가 그릴 달. */
   month: { year: number; month: number };
+  /** 페이지가 따로 보존한 색 규칙. 달력도 날짜 칸과 같은 규칙으로 그린다. */
+  colorRules?: ColorRules;
 }
 
 function fieldIdsOf(objects: DiaryObject[], override?: FaceOverride): string[] {
@@ -215,9 +221,9 @@ function datedEditable(source: Face, dates: (CalendarDate | null)[], override: F
  * 오늘 날짜로 보인다). 함수를 순수하게 두려고 바깥에서 받는다.
  */
 export function expandWork(work: Pick<Work, 'items'> & Partial<Pick<Work, 'colorRules'>>, today: CalendarDate): ResolvedFace[] {
-  const rules = work.colorRules;
   const out: ResolvedFace[] = [];
   for (const item of work.items) {
+    const rules = item.colorRules ?? work.colorRules;
     if (item.kind === 'page') {
       const period = todayPeriod(today, item.face.objects);
       out.push({
@@ -228,6 +234,7 @@ export function expandWork(work: Pick<Work, 'items'> & Partial<Pick<Work, 'color
         objects: resolveFieldsWithDates(item.face.objects, period.dates, undefined, rules),
         fieldIds: fieldIdsOf(item.face.objects),
         month: period.month,
+        colorRules: item.colorRules,
       });
       continue;
     }
@@ -252,6 +259,7 @@ export function expandWork(work: Pick<Work, 'items'> & Partial<Pick<Work, 'color
           ),
           fieldIds: fieldIdsOf(face.objects, override),
           month: period.month,
+          colorRules: item.colorRules,
         });
       });
     }
@@ -459,9 +467,10 @@ export function sourcePreview(item: DatedItem, faceIndex: number, rules?: ColorR
     itemId: item.id,
     faceId: face.id,
     background: face.background,
-    objects: resolveFieldsWithDates(face.objects, dates, undefined, rules),
+    objects: resolveFieldsWithDates(face.objects, dates, undefined, item.colorRules ?? rules),
     fieldIds: fieldIdsOf(face.objects),
     month: first?.month ?? { year: 1970, month: 1 },
+    colorRules: item.colorRules,
   };
   // 원본에는 순서가 없다 — 번호 칸은 시작 번호로 보인다.
   fillPageNumbers([preview]);

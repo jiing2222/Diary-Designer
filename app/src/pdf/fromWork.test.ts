@@ -37,6 +37,21 @@ function workWith(pageCount: number, duplex = true): Work {
 }
 
 describe('작업 → PDF 재료', () => {
+  it('가져온 달력의 색 규칙은 실제 PDF에서도 현재 작업의 규칙보다 우선한다', async () => {
+    const realFont = readFileSync(fileURLToPath(new URL('../../public/fonts/Pretendard-Regular.ttf', import.meta.url)));
+    const work = workWith(1, false);
+    work.colorRules = { sunday: '#ff0000' };
+    const page = work.items[0] as import('../core/work').PageItem;
+    page.colorRules = { sunday: '#00ff00' };
+    page.face.objects = [{ id: 'c1', type: 'calendar', x: 2, y: 2, width: 60, height: 80 }];
+    const input = workExportInput(work, diary, expandWork(work, today), { ...settings, printGrid: false, allowRotate: false }, null, { fontBytes: realFont });
+    const pdf = await buildPdf({ ...input, layout: { ...input.layout, slots: input.layout.slots.slice(0, 1), count: 1 } });
+    const streams = [...Buffer.from(pdf).toString('latin1').matchAll(/stream\r?\n([\s\S]*?)endstream/g)].flatMap((m) => {
+      try { return [inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1')]; } catch { return []; }
+    }).join('\n');
+    expect(streams).toContain('0 1 0 rg');
+    expect(streams).not.toContain('1 0 0 rg');
+  });
   it('양면 3페이지 → 속지 2장, 마지막 뒷면은 빈 종이(기본)', () => {
     const work = workWith(3);
     const input = workExportInput(work, diary, expandWork(work, today), settings, null);

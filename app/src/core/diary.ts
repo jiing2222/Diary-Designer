@@ -37,7 +37,7 @@ export const PRESET_TOLERANCE: Mm = 10;
  */
 export function nearestPreset(width: Mm, height: Mm): InsertPreset | null {
   let best: { preset: InsertPreset; diff: Mm } | null = null;
-  for (const preset of INSERT_PRESETS) {
+  for (const preset of DIARY_PRESETS) {
     const dw = Math.abs(preset.width - width);
     const dh = Math.abs(preset.height - height);
     if (dw > PRESET_TOLERANCE || dh > PRESET_TOLERANCE) continue;

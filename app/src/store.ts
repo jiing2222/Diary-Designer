@@ -100,6 +100,9 @@ import {
 } from './core/workspace';
 import { todayFrom, type Boundary } from './core/dated';
 import type { CalendarDate, DateDataset } from './core/dataset';
+import {
+  duplicatePages, importAfterIndex, importPages, movePages, pairedItemIds, type ImportPagesOptions,
+} from './core/pages';
 
 /**
  * 앱 상태 하나(CLAUDE.md: zustand 한 개) — 리뉴얼판.
@@ -226,6 +229,8 @@ interface Store extends Settings {
     defaultDiaryId?: string | null;
     textStyles?: SavedTextStyle[];
     savedPalettes?: SavedPalette[];
+    fonts?: UserFont[];
+    images?: UserImage[];
     /** 저장해 둔 인쇄 설정(용지·배치·표시·확인 창의 선택). */
     print?: Partial<SavedPrintSettings>;
     cursors?: Record<string, Cursor>;
@@ -284,6 +289,10 @@ interface Store extends Settings {
   duplicateItemAt: (index: number, count?: number) => void;
   removeItemAt: (index: number) => void;
   moveItemTo: (from: number, to: number) => void;
+  duplicateSelectedPages: (ids: string[], count: number) => void;
+  removeSelectedPages: (ids: string[]) => void;
+  moveSelectedPages: (ids: string[], beforeId: string | null) => void;
+  importPagesFrom: (sourceId: string, ids: string[], options: ImportPagesOptions) => boolean;
   /** 펼침면(일렬이면 면)으로 간다. 원본 편집 중이었으면 빠져나온다. */
   goTo: (spread: number, side?: Side) => void;
   setSide: (side: Side) => void;
@@ -580,12 +589,28 @@ function activeGrid(s: Settings): DotGrid | null {
 /** 붙여넣을 때 원본과 겹치지 않게 옮기는 양. */
 const PASTE_OFFSET: Mm = 5;
 
-/** 글꼴을 ‘쓰는’ 곳 — 작업들(휴지통 포함)과, 저장한 글자 스타일·다음에 놓을 글자의 글꼴. */
+/** 파일을 보존할 참조 — 작업(휴지통 포함), 실행 취소·다시 실행, 복사한 요소. */
+function assetDocuments(s: Settings): Pick<Work, 'items'>[] {
+  const history = Object.values(s.histories).flatMap((h) => [...h.past, h.present, ...h.future].map((items) => ({ items })));
+  return [...s.works, ...history, { items: [{ kind: 'page', id: 'clipboard', face: { id: 'clipboard', background: DEFAULT_DOT_GRID, objects: s.clipboard } }] }];
+}
+
+function imagesUsedBy(s: Settings): Set<string> { return imagesInUse(assetDocuments(s)); }
+
+/** 글꼴은 저장한 글자 스타일·다음에 놓을 글자 설정도 참조한다. */
 function fontsUsedBy(s: Settings): Set<string> {
-  const used = fontsInUse(s.works);
+  const used = fontsInUse(assetDocuments(s));
   for (const t of s.textStyles) if (t.style.font) used.add(t.style.font);
   if (s.textDraftStyle.font) used.add(s.textDraftStyle.font);
   return used;
+}
+
+/** 삭제 안내와 실제 파일 보존은 같은 참조를 판단한다. */
+export function assetUseOf(s: Settings, kind: 'font' | 'image', id: string): { count: number; retained: boolean } {
+  return {
+    count: s.works.filter((w) => (kind === 'font' ? fontsInUse([w]) : imagesInUse([w])).has(id)).length,
+    retained: (kind === 'font' ? fontsUsedBy(s) : imagesUsedBy(s)).has(id),
+  };
 }
 
 /** 같은 이름이 있으면 ` 2`, ` 3`…을 붙인다. */
@@ -673,7 +698,7 @@ export const useStore = create<Store>((set, get) => ({
   printRange: { mode: 'all', text: '' },
   exportChoice: { grid: true, punch: false },
 
-  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [], savedPalettes = [], print = {}, cursors = {} }) => {
+  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [], savedPalettes = [], fonts = [], images = [], print = {}, cursors = {} }) => {
     // 새로고침하면 id 카운터가 0부터 다시 시작한다 — 불러온 id들보다 위로 올려야
     // 새로 만드는 것이 불러온 것과 겹치지 않는다(옛 판 loadProject와 같은 이유).
     ensureIdCounterAbove([
@@ -695,6 +720,8 @@ export const useStore = create<Store>((set, get) => ({
       selectedIds: [],
       textStyles,
       savedPalettes,
+      userFonts: fonts,
+      userImages: images,
       ...pickPrintSettings(print),
       ready: true,
     });
@@ -960,6 +987,52 @@ export const useStore = create<Store>((set, get) => ({
       const items = moveItem(work.items, from, to);
       return items === work.items ? {} : commitItems(s, work, items);
     }),
+
+  duplicateSelectedPages: (ids, count) => set((s) => {
+    const work = activeWork(s);
+    if (!work) return {};
+    const items = duplicatePages(work.items, pairedItemIds(work, ids), count, work.duplex);
+    return items === work.items ? {} : { ...commitItems(s, work, items), ...setCursor(s, work, { source: null }) };
+  }),
+
+  removeSelectedPages: (ids) => set((s) => {
+    const work = activeWork(s);
+    if (!work) return {};
+    const chosen = pairedItemIds(work, ids);
+    const items = work.items.filter((i) => !chosen.includes(i.id));
+    return items.length === work.items.length ? {} : { ...commitItems(s, work, items), ...setCursor(s, work, { source: null }) };
+  }),
+
+  moveSelectedPages: (ids, beforeId) => set((s) => {
+    const work = activeWork(s);
+    if (!work) return {};
+    const before = beforeId === null ? null : pairedItemIds(work, [beforeId])[0] ?? beforeId;
+    const items = movePages(work.items, pairedItemIds(work, ids), before, work.duplex);
+    return items === work.items ? {} : { ...commitItems(s, work, items), ...setCursor(s, work, { source: null }) };
+  }),
+
+  importPagesFrom: (sourceId, ids, options) => {
+    const s = get();
+    const work = activeWork(s);
+    const source = s.works.find((w) => w.id === sourceId);
+    if (!work || !source) return false;
+    const target = targetOf(s);
+    const itemId = target?.kind === 'face' ? target.face.itemId : target?.itemId ?? null;
+    const result = importPages(work, source, ids, importAfterIndex(work, itemId), options);
+    if (!result) return false;
+    const next = { ...work, items: result.items };
+    const faces = facesOf(next, s.today);
+    const index = faces.findIndex((f) => f.itemId === result.firstId);
+    const cur = cursorOf(s, work);
+    const spreads = spreadsFor(next, cur, faces.length);
+    const spread = Math.max(0, spreads.findIndex((pair) => pair.includes(index)));
+    set({
+      ...commitItems(s, work, result.items),
+      ...setCursor(s, work, { source: null, spread, side: spreads[spread]?.[0] === index ? 'back' : 'front' }),
+      toast: { message: `${result.addedFaces}페이지를 사본으로 가져왔어요. 원래 작업은 그대로예요.`, key: Date.now() },
+    });
+    return true;
+  },
 
   goTo: (spread, side) =>
     set((s) => {
@@ -1354,12 +1427,12 @@ export const useStore = create<Store>((set, get) => ({
     const s = get();
     const image = s.userImages.find((i) => i.id === id);
     if (!image) return null;
-    if (imagesInUse(s.works).has(id)) {
+    if (imagesUsedBy(s).has(id)) {
       persistImageMeta(id, image.name, { label: image.label, usedAt: image.usedAt, hidden: true });
       set({ userImages: s.userImages.map((i) => (i.id === id ? { ...i, hidden: true } : i)) });
       return 'hidden';
     }
-    removeImage(image.name);
+    removeImage(image.id, image.name);
     set({ userImages: s.userImages.filter((i) => i.id !== id) });
     return 'deleted';
   },
@@ -1380,10 +1453,10 @@ export const useStore = create<Store>((set, get) => ({
 
   purgeUnusedAssets: () => {
     const s = get();
-    const images = purgeable(s.userImages, imagesInUse(s.works));
+    const images = purgeable(s.userImages, imagesUsedBy(s));
     const fonts = purgeable(s.userFonts, fontsUsedBy(s));
     if (images.length === 0 && fonts.length === 0) return;
-    images.forEach((i) => removeImage(i.name));
+    images.forEach((i) => removeImage(i.id, i.name));
     fonts.forEach((f) => removeFont(f.id, f.name));
     set({
       userImages: s.userImages.filter((i) => !images.includes(i)),

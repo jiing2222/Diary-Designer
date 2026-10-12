@@ -80,7 +80,7 @@ export function sheetSlots(
             objects: slot.objects,
             punch: slot.punch,
             calendar: slot.month
-              ? { year: slot.month.year, page: slot.month.month - 1, rules: input.colorRules }
+              ? { year: slot.month.year, page: slot.month.month - 1, rules: slot.colorRules ?? input.colorRules }
               : undefined,
             selected: f !== undefined && picked?.has(f),
           }

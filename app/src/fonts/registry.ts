@@ -7,7 +7,7 @@
  *
  * **파일 자체는 이번 세션에만 메모리에 있다.** 양식 저장 파일(JSON)에는
  * 이름만 남는다 — 2.7MB짜리 파일을 그대로 실을 수는 없다. 대신
- * `storage/idb.ts`로 브라우저(IndexedDB)에 파일 바이트를 캐싱해두므로,
+ * `rings-v2`에 id별로 파일을 남기므로(옛 캐시는 읽어서 복사만 한다),
  * 새로고침해도 `restoreCachedFonts`가 같은 이름의 글꼴을 다시 물어보지
  * 않고 자동으로 되살린다.
  *
@@ -16,7 +16,9 @@
  */
 
 import { DEFAULT_FONT_FAMILY } from '../core/style';
-import { idbDelete, idbEntries, idbPut } from '../storage/idb';
+import { idbEntries } from '../storage/idb';
+import type { FontInfo } from '../core/assets';
+import { queueAssetWrite, readAssetCache, saveAssetFile } from '../storage/assetCache';
 
 /** 브라우저가 받아주는 글꼴 파일. 이 밖의 확장자는 열어봐야 실패한다. */
 const ACCEPTED = ['.ttf', '.otf', '.woff', '.woff2'];
@@ -24,7 +26,7 @@ export const FONT_ACCEPT = ACCEPTED.join(',');
 
 export interface UserFont {
   id: string;
-  /** 파일 이름에서 확장자만 뗀 것. IndexedDB 키이자 되살리기(orphan) 매칭 기준이다 — 안 바뀐다. */
+  /** 파일 이름에서 확장자만 뗀 것. 되살리기(orphan) 매칭 기준이다. 파일은 id로 따로 저장한다. */
   name: string;
   /**
    * CSS에 심을 이름.
@@ -51,6 +53,7 @@ export function fontLabelOf(font: Pick<UserFont, 'name' | 'label'>): string {
 
 const bytes = new Map<string, ArrayBuffer>();
 let counter = 0;
+const faces = new Map<string, FontFace>();
 
 /**
  * 이름·바이트로 실제 화면에 심는 부분(등록·복원이 함께 쓴다).
@@ -58,7 +61,13 @@ let counter = 0;
  * 심기에 실패하면(글꼴 파일이 아니거나 깨졌으면) 던진다 — 목록에 넣어놓고
  * 나중에 안 그려지는 것보다 낫다.
  */
-async function loadFont(buffer: ArrayBuffer, name: string, reuseId?: string, meta?: FontMeta): Promise<UserFont> {
+async function loadFont(
+  buffer: ArrayBuffer,
+  name: string,
+  reuseId?: string,
+  meta?: FontMeta,
+  persist = false,
+): Promise<UserFont> {
   // 저장 파일을 열면 글꼴 이름만 남아 있다. 같은 이름의 파일을 다시 등록하면
   // **그때의 id를 그대로 물려받아** 그 글꼴을 쓰던 글자들이 되살아난다.
   // 새 id를 주면 글자들은 영영 없는 글꼴을 가리키게 된다.
@@ -72,7 +81,13 @@ async function loadFont(buffer: ArrayBuffer, name: string, reuseId?: string, met
   // 브라우저가 실제로 읽어낼 수 있는지 여기서 판가름 난다.
   const face = new FontFace(family, buffer);
   await face.load();
+  // 새 파일은 저장에 성공한 뒤에만 화면·PDF에서 사용할 수 있게 한다.
+  if (persist) await saveAssetFile('fonts', { id, name, buffer, ...meta });
+  const old = faces.get(id);
+  if (old) document.fonts.delete(old);
   document.fonts.add(face);
+  faces.set(id, face);
+  reserveIds([id]);
 
   bytes.set(id, buffer);
   return { id, name, family, ...meta };
@@ -91,9 +106,7 @@ export async function registerFont(file: File, reuseId?: string): Promise<UserFo
   }
 
   const buffer = await file.arrayBuffer();
-  const font = await loadFont(buffer, name, reuseId);
-  idbPut('fonts', name, { name, buffer });
-  return font;
+  return loadFont(buffer, name, reuseId, undefined, true);
 }
 
 /**
@@ -105,44 +118,50 @@ export async function registerFont(file: File, reuseId?: string): Promise<UserFo
 export function persistFontMeta(id: string, name: string, meta: FontMeta): void {
   const buffer = bytes.get(id);
   if (!buffer) return;
-  idbPut('fonts', name, { name, buffer, ...meta });
+  queueAssetWrite('fonts', { id, name, buffer, ...meta });
 }
 
-const restoredNames = new Set<string>();
+let restoring: Promise<UserFont[]> | null = null;
 
-/**
- * 새로고침 뒤, 예전에 등록했던 글꼴들을 다시 물어보지 않고 되살린다.
- *
- * 앱을 열 때 한 번만 부른다(ui/App.tsx). 실패한 것(깨진 캐시 등)은
- * 조용히 건너뛴다 — 캐싱은 없어도 그만인 기능이다. 이미 이번 세션에
- * 되살린 이름은 다시 하지 않는다 — React가 마운트 이펙트를 두 번
- * 부를 수 있어서다(개발 모드의 StrictMode).
- *
- * `resolveId`는 이 이름을 예전에 어떤 id로 쓰고 있었는지 알려준다(자동
- * 저장을 불러온 뒤 그 안의 글자들이 들고 있는 id). 넘기지 않거나 못
- * 찾으면 새 id를 받는다 — 아무 글도 그 이름을 기다리고 있지 않다는
- * 뜻이라 새로 매겨도 상관없다. 이 매칭 없이 새 id를 매기면, 자동 저장이
- * 되살린 글자들이 들고 있는 예전 id와 어긋나 "파일 없음"으로 보인다.
- */
-export async function restoreCachedFonts(
+/** 동시에 두 번 열어도 같은 파일을 중복 등록하지 않는다. */
+export async function restoreCachedFonts(resolveId?: (name: string) => string | undefined, known: FontInfo[] = []): Promise<UserFont[]> {
+  if (restoring) return restoring;
+  const task = restoreFonts(resolveId, known);
+  restoring = task;
+  try { return await task; } finally { if (restoring === task) restoring = null; }
+}
+
+/** 새 저장소의 id별 파일을 복원하고, 옛 파일은 읽어서 복사만 한다. */
+async function restoreFonts(
   resolveId?: (name: string) => string | undefined,
+  known: FontInfo[] = [],
 ): Promise<UserFont[]> {
-  const entries = await idbEntries<{ name: string; buffer: ArrayBuffer } & FontMeta>('fonts');
+  const cached = await readAssetCache('fonts');
+  reserveIds(cached.map((f) => f.id));
+  const names = new Set(cached.map((f) => f.name));
+  const legacy = await idbEntries<{ name: string; buffer: ArrayBuffer } & FontMeta>('fonts');
   const restored: UserFont[] = [];
-  for (const [name, cached] of entries) {
-    if (restoredNames.has(name)) continue;
-    restoredNames.add(name);
+  for (const row of cached) {
+    if (row.deleted) continue;
+    const info = { ...row, ...known.find((f) => f.id === row.id) };
+    const meta = { label: info.label, hidden: info.hidden, favorite: info.favorite };
     try {
-      restored.push(
-        await loadFont(cached.buffer, cached.name, resolveId?.(name), {
-          label: cached.label,
-          favorite: cached.favorite,
-          hidden: cached.hidden,
-        }),
-      );
+      if (!row.buffer) throw new Error('파일 없음');
+      restored.push(await loadFont(row.buffer, row.name, row.id, meta));
     } catch {
-      // 깨진 캐시 — 건너뛴다.
+      restored.push({ id: row.id, name: row.name, family: `user-font-${row.id}`, ...meta });
     }
+  }
+  for (const [name, row] of legacy) {
+    if (names.has(name)) continue;
+    const id = resolveId?.(name);
+    const info = { ...row, ...known.find((f) => f.id === id) };
+    const meta = { label: info.label, hidden: info.hidden, favorite: info.favorite };
+    let font: UserFont;
+    try { font = await loadFont(row.buffer, row.name, id, meta); }
+    catch { continue; }
+    await saveAssetFile('fonts', { id: font.id, name: row.name, buffer: row.buffer, ...meta });
+    restored.push(font);
   }
   return restored;
 }
@@ -180,12 +199,11 @@ export function familyOf(fonts: UserFont[], id: string | undefined): string {
   return found ? `${found.family}, ${DEFAULT_FONT_FAMILY}` : DEFAULT_FONT_FAMILY;
 }
 
-/**
- * 글꼴 파일을 실제로 지운다(아무 작업도 쓰지 않을 때만 — store가 판단한다). images/registry의
- * `removeImage`와 같은 규칙: 이름으로 캐시를 지우고, 같은 세션에 다시 올리면 새로 잡히게 한다.
- */
+/** 새 버전의 파일만 지운다. 옛 저장소의 원본은 그대로 둔다. */
 export function removeFont(id: string, name: string): void {
   bytes.delete(id);
-  restoredNames.delete(name);
-  void idbDelete('fonts', name);
+  const face = faces.get(id);
+  if (face) document.fonts.delete(face);
+  faces.delete(id);
+  queueAssetWrite('fonts', { id, name, deleted: true });
 }

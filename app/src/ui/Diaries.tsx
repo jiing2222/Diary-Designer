@@ -181,7 +181,11 @@ function DiaryEditor({ diary }: { diary: Diary }) {
             value={name}
             maxLength={40}
             onChange={(e) => setName(e.target.value)}
-            onBlur={() => name.trim() && name !== diary.name && patchDiary(diary.id, { name: name.trim() })}
+            onBlur={() => {
+              const next = name.trim() || diary.name;
+              setName(next);
+              if (next !== diary.name) patchDiary(diary.id, { name: next });
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.currentTarget.blur();
             }}
@@ -246,7 +250,7 @@ function DiaryEditor({ diary }: { diary: Diary }) {
             }
           >
             <option value="even">균등 간격</option>
-            <option value="grouped">묶음 (3 + 3)</option>
+            <option value="grouped">묶음 ({Math.ceil(punch.holeCount / 2)} + {Math.floor(punch.holeCount / 2)})</option>
           </select>
         </Row>
         {punch.groupGap !== null && (

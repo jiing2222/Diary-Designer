@@ -69,6 +69,16 @@ describe('Projects 목록', () => {
 describe('다이어리를 바꾸면 밖으로 나가는 객체', () => {
   const line = (id: string, x2: number): DiaryObject => ({ id, type: 'line', x1: 10, y1: 10, x2, y2: 10 });
 
+  it('원본은 안에 있어도 날짜별 수정으로 나간 요소를 한 번만 센다', () => {
+    const face = newFace(); face.objects = [line('a', 70)];
+    const dated = { kind: 'dated', id: 'd', faces: [face], overrides: {
+      first: { props: { a: { x2: 90 } }, added: [], removed: [] },
+      second: { props: { a: { x2: 95 } }, added: [], removed: [] },
+    } } as unknown as DatedItem;
+    expect(outsideObjects({ items: [dated] }, { width: 80, height: 125 })).toBe(1);
+    expect(outsideObjects({ items: [dated] }, { width: 148, height: 210 })).toBe(0);
+  });
+
   it('원본과 날짜별로 더한 객체를 세고, 날짜마다 반복해 세지 않는다', () => {
     const page = newPage();
     page.face.objects = [line('a', 70), line('b', 85)];

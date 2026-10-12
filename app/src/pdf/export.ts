@@ -123,6 +123,8 @@ export interface SlotContent {
    * 없으면 옛 달력 세트처럼 `calendarYear` + 칸의 쪽 번호로 정한다.
    */
   month?: { year: number; month: number };
+  /** 가져온 페이지의 원래 색 규칙. 없으면 작업 전체의 규칙을 따른다. */
+  colorRules?: ColorRules;
   /** 타공 표시를 찍을 때만 — 이 칸 속지의 구멍 설정(core/punch의 holeMarks로 자리를 정한다). */
   punch?: PunchSetting;
 }
@@ -777,7 +779,9 @@ function drawCalendars(
   rules?: ColorRules,
 ) {
   layout.slots.forEach((slot, i) => {
-    const calendars = resolveSlot(i).objects.filter(isCalendar);
+    const content = resolveSlot(i);
+    const pageRules = content.colorRules ?? rules;
+    const calendars = content.objects.filter(isCalendar);
     if (calendars.length === 0) return;
     const at = monthFor(i);
     if (at === null) return;
@@ -859,13 +863,13 @@ function drawCalendars(
 
       drawCentered(title, geo.title.cx, geo.title.baseline);
       labels.forEach((label, li) =>
-        drawCentered(label, geo.weekdays[li].cx, geo.weekdays[li].baseline, 1, weekdayHeaderColorOf(li, weekStart, rules)),
+        drawCentered(label, geo.weekdays[li].cx, geo.weekdays[li].baseline, 1, weekdayHeaderColorOf(li, weekStart, pageRules)),
       );
       geo.days.forEach((pos, di) => {
         const date = calendarCellAt(year, datasetPage, di, weekStart, showAdjacentOf(o));
         if (!date) return;
         const opacity = isInMonth(date, year, datasetPage) ? 1 : CALENDAR_ADJACENT_OPACITY;
-        drawCentered(String(date.day), pos.cx, pos.baseline, opacity, dateColorOf(date, rules));
+        drawCentered(String(date.day), pos.cx, pos.baseline, opacity, dateColorOf(date, pageRules));
       });
     }
 

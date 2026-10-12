@@ -19,6 +19,10 @@ export interface LibraryAsset {
   hidden?: boolean;
 }
 
+/** 파일이 없어도 남겨 둘 목록 정보. 파일 바이트와 독립적으로 저장한다. */
+export interface FontInfo extends LibraryAsset { favorite?: boolean }
+export interface ImageInfo extends LibraryAsset { usedAt?: number }
+
 /** 작업이 쓰는 이미지·글꼴 id — 원본 면, 날짜 묶음의 원본·날짜별로 더한 것·날짜별로 바꾼 속성까지. */
 function idsInWork(work: Pick<Work, 'items'>, key: 'imageId' | 'font', out: Set<string>): void {
   const take = (v: unknown) => {

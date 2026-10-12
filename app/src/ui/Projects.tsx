@@ -200,7 +200,7 @@ function WorkCard({ work, onAction }: { work: Work; onAction: (a: Action) => voi
                   calendarContext={{
                     year: f.month.year,
                     page: f.month.month - 1,
-                    rules: resolveRuleColors(work.colorRules, work.palette),
+                    rules: f.colorRules ?? resolveRuleColors(work.colorRules, work.palette),
                   }}
                 />
               </svg>

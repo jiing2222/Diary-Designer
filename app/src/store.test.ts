@@ -41,6 +41,48 @@ const datedItem = (): DatedItem => ({
   overrides: {},
 });
 
+describe('7-5 페이지 가져오기·여러 페이지 관리', () => {
+  it('가져오기는 현재 짝 뒤에 넣고 한 번에 되돌리며 원래 작업과 파일 참조는 유지한다', () => {
+    const sourceId = s().createWork('원본')!;
+    s().addPagesAtEnd();
+    const source = active();
+    const page = source.items[0] as PageItem;
+    page.face.objects = [{ ...dayField('import-text'), font: 'f99' }];
+    const targetId = s().createWork('대상')!;
+    const before = active().items;
+    expect(s().importPagesFrom(sourceId, [source.items[0].id], { periods: {}, colors: 'original' })).toBe(true);
+    const added = active().items;
+    expect(added.length).toBe(4);
+    expect(targetOf(s())?.kind).toBe('face');
+    const at = targetOf(s());
+    expect(at?.kind === 'face' && at.face.itemId).toBe(added[2].id);
+    expect((added[2] as PageItem).face.objects[0]).toMatchObject({ font: 'f99' });
+    expect(s().works.find((w) => w.id === sourceId)).toBe(source);
+    s().undo(); expect(active().id).toBe(targetId); expect(active().items).toBe(before);
+    s().redo(); expect(active().items).toBe(added);
+  });
+  it('복제·이동·삭제는 앞뒤 짝을 함께 처리하며 각각 한 번에 되돌린다', () => {
+    s().createWork(); s().addPagesAtEnd(); s().addPagesAtEnd();
+    const original = active().items;
+    s().duplicateSelectedPages([original[0].id], 2);
+    expect(active().items.length).toBe(9);
+    s().undo(); expect(active().items).toBe(original);
+    s().moveSelectedPages([original[0].id], original[4].id);
+    expect(active().items.map((i) => i.id)).toEqual([original[2].id, original[3].id, original[0].id, original[1].id, original[4].id]);
+    s().undo(); expect(active().items).toBe(original);
+    s().removeSelectedPages([original[0].id]); expect(active().items).toEqual(original.slice(2));
+    s().undo(); expect(active().items).toBe(original);
+  });
+  it('날짜 묶음은 기간 확인 없이 가져오지 않으며 실패 시 이력도 쌓지 않는다', () => {
+    const sourceId = s().createWork('날짜 원본')!; setItems([datedItem()]);
+    s().createWork('대상');
+    const before = active().items;
+    const history = s().histories[active().id];
+    expect(s().importPagesFrom(sourceId, ['dt1'], { periods: {}, colors: 'original' })).toBe(false);
+    expect(active().items).toBe(before); expect(s().histories[active().id]).toBe(history);
+  });
+});
+
 describe('작업 만들기와 탭', () => {
   it('새 포인트 색을 취소하면 작업 팔레트에 남지 않는다', () => {
     s().createWork();
@@ -640,6 +682,16 @@ describe('Library 이미지·글꼴 지우기 (7-3)', () => {
   it('올린 것은 저절로 지워지지 않는다(예전 최근 10개 제한 없음)', () => {
     for (let i = 3; i <= 15; i++) s().addUserImage(img(`img${i}`));
     expect(s().userImages).toHaveLength(15);
+  });
+
+  it('되돌리기·복사 기록이 쓰는 이미지도 남겨 두어 다시 복원할 수 있다', () => {
+    s().copySelected();
+    s().deleteSelected();
+    expect(s().removeUserImage('img1')).toBe('hidden');
+    s().purgeUnusedAssets();
+    expect(s().userImages.find((i) => i.id === 'img1')?.hidden).toBe(true);
+    s().undo();
+    expect((active().items[0] as PageItem).face.objects[0]).toHaveProperty('imageId', 'img1');
   });
 
   it('쓰는 중이면 목록에서만 빼고, 안 쓰면 지운다', () => {

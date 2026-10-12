@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../store';
 import { boot, flushAutosave, startAutosave } from './persist';
-import { loadAll, saveFolder, saveMeta, saveWork } from '../storage/v2';
+import { loadAll, saveFolder, saveMeta, saveWork, v2Put } from '../storage/v2';
+import { newPage } from '../core/work';
+import { queueAssetWrite } from '../storage/assetCache';
 
 vi.mock('../storage/v2', () => ({
   loadAll: vi.fn(), migrateFromV1: vi.fn(async () => {}),
   saveWork: vi.fn(async () => {}), saveMeta: vi.fn(async () => {}), saveDiary: vi.fn(async () => {}),
   saveFolder: vi.fn(async () => {}), deleteFolder: vi.fn(async () => {}), deleteWork: vi.fn(async () => {}),
-  v2Delete: vi.fn(async () => {}),
+  v2Delete: vi.fn(async () => {}), v2Put: vi.fn(async () => {}),
 }));
 vi.mock('../fonts/registry', async (original) => ({
   ...await original<typeof import('../fonts/registry')>(), restoreCachedFonts: vi.fn(async () => []),
@@ -38,6 +40,32 @@ afterEach(async () => {
 });
 
 describe('자동 저장의 실제 결과', () => {
+  it('작업 저장이 실패하면 파일부터 지우지 않고, 저장 성공 뒤에만 삭제 기록을 확정한다', async () => {
+    const s = useStore.getState();
+    s.renameWork(s.works[0].id, '바꾼 작업');
+    queueAssetWrite('images', { id: 'img1', name: '사진', deleted: true });
+    vi.mocked(saveWork).mockRejectedValueOnce(new Error('용량 초과'));
+    await flushAutosave();
+    expect(useStore.getState().saveStatus).toBe('error');
+    expect(v2Put).not.toHaveBeenCalled();
+    await flushAutosave();
+    expect(v2Put).toHaveBeenCalledWith('images', 'img1', { id: 'img1', name: '사진', deleted: true });
+    expect(useStore.getState().saveStatus).toBe('saved');
+  });
+  it('캐시 파일이 없거나 읽지 못해도 파일 이름·즐겨찾기·숨김을 복원하고 계속 저장한다', async () => {
+    stop?.();
+    const s = useStore.getState();
+    const page = newPage();
+    page.face.objects.push({ id: 'im40', type: 'image', imageId: 'img40', x: 0, y: 0, width: 10, height: 10 });
+    vi.mocked(loadAll).mockResolvedValue({ works: [{ ...s.works[0], items: [page] }], diaries: s.diaries, folders: [], meta: {
+      tabs: s.tabs,
+      fonts: [{ id: 'f40', name: '찾는 글꼴', label: '내 글꼴', favorite: true }],
+      images: [{ id: 'img40', name: '찾는 이미지', hidden: true }],
+    } });
+    await boot();
+    expect(useStore.getState().userFonts).toMatchObject([{ id: 'f40', name: '찾는 글꼴', label: '내 글꼴', favorite: true }]);
+    expect(useStore.getState().userImages).toMatchObject([{ id: 'img40', name: '찾는 이미지', url: '', hidden: true }]);
+  });
   it('폴더·작업 이동을 저장하며 폴더 쓰기 실패도 다시 저장할 수 있다', async () => {
     const s = useStore.getState();
     const folderId = s.addFolder('기록')!;

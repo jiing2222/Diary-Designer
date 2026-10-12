@@ -53,7 +53,7 @@ import { InsertView } from './InsertView';
 import { ImageThumbGrid } from './ImagePickerDialog';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
-import { Modal } from './Modal';
+import { ImportPagesButton, PageOverview } from './PageManager';
 import { measureTextBox } from './measureText';
 import { familyOf } from '../fonts/registry';
 import { PX_PER_MM_AT_100, ZOOMS } from './pixels';
@@ -1861,7 +1861,7 @@ function calendarContextOf(
   face: ResolvedFace | null,
   rules: ColorRules | undefined,
 ): { year: number; page: number; rules?: ColorRules } | undefined {
-  return face ? { year: face.month.year, page: face.month.month - 1, rules } : undefined;
+  return face ? { year: face.month.year, page: face.month.month - 1, rules: face.colorRules ?? rules } : undefined;
 }
 
 /** 작업의 색 규칙을 실제 색으로 푼 것(달력 칸이 쓴다). 날짜 칸은 core/work가 이미 칠해 둔다. */
@@ -2098,9 +2098,13 @@ function AddPageButton() {
   const addPagesAtEnd = useStore((s) => s.addPagesAtEnd);
   if (!cursor || cursor.source || !work) return null;
   return (
-    <button className="add-page" onPointerDown={(e) => e.stopPropagation()} onClick={addPagesAtEnd}>
-      + 페이지 추가{work.duplex ? ' (앞·뒤)' : ''}
-    </button>
+    <div className="add-page-controls" onPointerDown={(e) => e.stopPropagation()}>
+      <button className="add-page" onClick={addPagesAtEnd}>+ 페이지 추가{work.duplex ? ' (앞·뒤)' : ''}</button>
+      <details className="page-add-options">
+        <summary aria-label="페이지 추가 메뉴">▾</summary>
+        <div className="page-add-menu"><ImportPagesButton atEnd /></div>
+      </details>
+    </div>
   );
 }
 
@@ -2149,54 +2153,7 @@ function ViewToggles() {
       <button className="ghost" onClick={() => setOverview(true)} title="모든 페이지 한눈에 보기">
         ⊞
       </button>
-      {overview && <Overview onClose={() => setOverview(false)} />}
+      {overview && <PageOverview onClose={() => setOverview(false)} />}
     </>
-  );
-}
-
-/**
- * 한눈에 보기 — 모든 면을 작게 늘어놓고, 누르면 그 면으로 간다(세부계획 A11).
- * 순서 바꾸기·여러 장 고르기는 페이지 이름표의 버튼으로 한다(끌어 옮기기는 나중에).
- */
-function Overview({ onClose }: { onClose: () => void }) {
-  const faces = useFaces();
-  const spreads = useSpreads();
-  const insert = useInsert();
-  const palette = usePalette();
-  const calendarRules = useCalendarRules(palette);
-  const goTo = useStore((s) => s.goTo);
-  const scale = 140 / insert.height;
-  return (
-    <Modal title={`모든 페이지 · ${faces.length}면`} onClose={onClose} size="large">
-      <div className="overview-grid">
-        {faces.map((face, i) => {
-          const spread = spreads.findIndex((sp) => sp.includes(i));
-          const side: Side = spreads[spread]?.[0] === i ? 'back' : 'front';
-          return (
-            <button
-              key={face.key}
-              className="overview-item"
-              onClick={() => {
-                goTo(Math.max(0, spread), side);
-                onClose();
-              }}
-            >
-              <svg viewBox={`0 0 ${insert.width} ${insert.height}`} width={insert.width * scale} height={insert.height * scale}>
-                <rect width={insert.width} height={insert.height} className="sheet-bg" />
-                <InsertView
-                  insert={insert}
-                  grid={face.background as DotGrid}
-                  objects={palette ? resolveObjectColors(face.objects, palette) : face.objects}
-                  safeZoneWidth={insert.punch.safeZoneWidth}
-                  mode="print"
-                  calendarContext={calendarContextOf(face, calendarRules)}
-                />
-              </svg>
-              <span>{faceLabel(face, i)}</span>
-            </button>
-          );
-        })}
-      </div>
-    </Modal>
   );
 }

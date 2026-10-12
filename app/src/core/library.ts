@@ -56,15 +56,23 @@ export function worksUsingDiary(works: Work[], diaryId: string): number {
  * 날짜별로 더한 객체는 따로 센다.
  */
 export function outsideObjects(work: Pick<Work, 'items'>, size: { width: Mm; height: Mm }): number {
-  const lists: DiaryObject[][] = [];
+  let count = 0;
   for (const item of work.items) {
-    if (item.kind === 'page') lists.push(item.face.objects);
+    if (item.kind === 'page') count += outsideCount(item.face.objects, size);
     else {
-      for (const f of item.faces) lists.push(f.objects);
-      for (const ov of Object.values(item.overrides)) lists.push(ov.added);
+      const overrides = Object.values(item.overrides);
+      for (const face of item.faces) {
+        for (const o of face.objects) {
+          // 날짜별 위치·크기 수정도 검사하되 같은 원본 요소는 한 번만 센다.
+          const changedOutside = overrides.some((ov) => !ov.removed.includes(o.id)
+            && ov.props[o.id] && outsideCount([{ ...o, ...ov.props[o.id] } as DiaryObject], size));
+          if (outsideCount([o], size) || changedOutside) count++;
+        }
+      }
+      for (const ov of overrides) count += outsideCount(ov.added, size);
     }
   }
-  return lists.reduce((n, list) => n + outsideCount(list, size), 0);
+  return count;
 }
 
 /** 휴지통에 머무는 기간. 지나면 완전히 지운다(사용자 결정). */

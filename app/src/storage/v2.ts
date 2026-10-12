@@ -21,6 +21,7 @@ import type { Folder } from '../core/library';
 import type { SavedTextStyle } from '../core/textStyles';
 import type { SavedPalette } from '../core/palettes';
 import type { Cursor, Tabs } from '../core/workspace';
+import type { FontInfo, ImageInfo } from '../core/assets';
 
 const DB_NAME = 'rings-v2';
 const DB_VERSION = 1;
@@ -100,12 +101,11 @@ export interface V2Meta {
   /** 탭마다 편집 위치·확대·스크롤. 되돌리기 기록은 이번 실행에서만 보관한다. */
   cursors?: Record<string, Cursor>;
   /**
-   * 등록한 글꼴·이미지의 id와 파일 이름. 객체는 글꼴·이미지를 id(`f1`, `img1`)로 가리키는데,
-   * 파일 캐시는 이름으로 남는다 — 다시 열 때 이 표로 같은 이름에 같은 id를 돌려준다
-   * (fonts/registry의 restoreCachedFonts 주석 참고).
+   * 등록한 글꼴·이미지의 목록 정보. 파일은 별도 fonts/images 칸에 id별로 남기고,
+   * 이 목록은 파일이 없어도 이름·즐겨찾기·숨김 상태를 보존한다.
    */
-  fonts?: SavedFont[];
-  images?: SavedImage[];
+  fonts?: FontInfo[];
+  images?: ImageInfo[];
   /** 새 작업을 만들 때 쓰는 다이어리. */
   defaultDiaryId?: string | null;
   /** 저장한 글자 스타일 — 모든 작업 공통(core/textStyles). */

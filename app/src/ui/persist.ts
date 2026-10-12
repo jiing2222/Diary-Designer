@@ -17,6 +17,7 @@ import { reserveImageIds, restoreCachedImages } from '../images/registry';
 import type { Work } from '../core/work';
 import type { Diary } from '../core/diary';
 import type { Folder } from '../core/library';
+import { flushAssetWrites, hasAssetWrites } from '../storage/assetCache';
 
 /**
  * 리뉴얼 저장소(storage/v2)와 store를 잇는다 — 처음 열 때 읽고, 고칠 때마다 쓴다.
@@ -39,8 +40,7 @@ export async function boot(): Promise<{ skippedNotebooks: string[] }> {
   await Promise.all([...expired].map((id) => deleteWork(id)));
   const works = data.works.filter((w) => !expired.has(w.id));
 
-  // 글꼴·이미지 파일은 이름으로 캐시돼 있고 객체는 id로 가리킨다 — 저장해둔 표로
-  // 같은 이름에 같은 id를 돌려준다(fonts/registry의 restoreCachedFonts 주석).
+  // 파일은 새 저장소에 id별로 보관한다. 옛 이름별 캐시를 복사할 때도 기존 객체의 id를 유지한다.
   reserveIds((meta.fonts ?? []).map((f) => f.id));
   reserveImageIds((meta.images ?? []).map((i) => i.id));
 
@@ -52,14 +52,16 @@ export async function boot(): Promise<{ skippedNotebooks: string[] }> {
     defaultDiaryId: meta.defaultDiaryId,
     textStyles: meta.textStyles,
     savedPalettes: meta.savedPalettes,
+    fonts: (meta.fonts ?? []).map((f) => ({ ...f, family: `user-font-${f.id}` })),
+    images: (meta.images ?? []).map((i) => ({ ...i, url: '' })),
     print: meta.print,
     cursors: meta.cursors,
   });
   remember(useStore.getState());
 
   const [fonts, images] = await Promise.all([
-    restoreCachedFonts((name) => meta.fonts?.find((f) => f.name === name)?.id),
-    restoreCachedImages((name) => meta.images?.find((i) => i.name === name)?.id),
+    restoreCachedFonts((name) => meta.fonts?.find((f) => f.name === name)?.id, meta.fonts),
+    restoreCachedImages((name) => meta.images?.find((i) => i.name === name)?.id, meta.images),
   ]);
   fonts.forEach((f) => useStore.getState().addUserFont(f));
   images.forEach((i) => useStore.getState().addUserImage(i));
@@ -92,8 +94,8 @@ function metaOf(s: State): V2Meta {
       ? { ...s.cursors, [work.id]: { ...cursorOf(s, work), selectedIds: s.selectedIds } }
       : s.cursors,
     defaultDiaryId: s.defaultDiaryId,
-    fonts: s.userFonts.map((f) => ({ id: f.id, name: f.name })),
-    images: s.userImages.map((i) => ({ id: i.id, name: i.name })),
+    fonts: s.userFonts.map(({ id, name, label, favorite, hidden }) => ({ id, name, label, favorite, hidden })),
+    images: s.userImages.map(({ id, name, label, usedAt, hidden }) => ({ id, name, label, usedAt, hidden })),
     textStyles: s.textStyles,
     savedPalettes: s.savedPalettes,
     print: savedPrintSettingsOf(s),
@@ -148,13 +150,13 @@ export async function flushAutosave(): Promise<void> {
   }
   const s = useStore.getState();
   if (!s.ready) return;
-  if (!hasChanges(s)) {
+  if (!hasChanges(s) && !hasAssetWrites()) {
     if (s.saveStatus !== 'saved') useStore.setState({ saveStatus: 'saved' });
     return;
   }
   const next = metaOf(s);
   // 보는 위치만 바뀌었으면 조용히 저장한다(실패하면 그때는 알린다).
-  const loud = hasContentChanges(s) || s.saveStatus === 'error';
+  const loud = hasContentChanges(s) || hasAssetWrites() || s.saveStatus === 'error';
   if (loud) useStore.setState({ saveStatus: 'saving' });
   inFlight = (async () => {
     try {
@@ -169,6 +171,8 @@ export async function flushAutosave(): Promise<void> {
       // 실패한 쓰기가 있어도 나머지가 끝나야 다음 저장과 순서가 뒤집히지 않는다.
       const results = await Promise.allSettled(writes);
       if (results.some((r) => r.status === 'rejected')) throw new Error('저장 실패');
+      // 작업과 목록을 저장하지 못한 상태에서 파일부터 지우면 저장된 원본이 깨진다.
+      await flushAssetWrites();
       meta = next;
       remember(s);
       const after = useStore.getState();
@@ -211,6 +215,8 @@ export function startAutosave(): () => void {
     if (content) schedule(true);
     else if (JSON.stringify(metaOf(s)) !== JSON.stringify(metaOf(before))) schedule(false);
   });
+  // 처음 복원한 파일 목록·삭제 기록도 저장한다.
+  if (hasChanges(useStore.getState()) || hasAssetWrites()) schedule(hasContentChanges(useStore.getState()));
   window.addEventListener('pagehide', now);
   document.addEventListener('visibilitychange', onVisibility);
   return () => {

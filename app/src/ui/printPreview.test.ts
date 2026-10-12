@@ -31,6 +31,15 @@ function jobFor(work: Work, text?: string, patch: Partial<WorkPrintSettings> = {
 }
 
 describe('6-4 출력 범위와 미리보기', () => {
+  it('가져온 페이지의 날짜 색 규칙은 앞뒤 미리보기에서 작업 규칙보다 우선한다', () => {
+    const work = workWith(2);
+    work.colorRules = { sunday: '#ff0000' };
+    work.items[0].colorRules = { sunday: '#abcdef' };
+    work.items[1].colorRules = {};
+    const job = jobFor(work);
+    expect(sheetSlots(job, 0, false, diary).content.get(0)?.calendar?.rules).toEqual({ sunday: '#abcdef' });
+    expect(sheetSlots(job, 0, true, diary).content.get(0)?.calendar?.rules).toEqual({});
+  });
   it('마지막 선택까지 해제하면 전체로 돌아가지 않고 0페이지·0장', () => {
     const job = jobFor(workWith(20), '');
     expect(job).toMatchObject({ pickedCount: 0, cards: 0, sheets: 0, pickedFaces: [], rangeError: '' });

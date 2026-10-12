@@ -4,6 +4,7 @@ import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punc
 import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
+import { ImportPagesButton } from './PageManager';
 
 /**
  * Page 패널 — 속지 종이 자체의 설정(리뉴얼, 세부계획 A5). 옛 Insert 탭.
@@ -35,6 +36,7 @@ export function PagePanel() {
   const [tab, setTab] = useState<PageTab>('background');
   return (
     <div className="page-panel">
+      <ImportPagesButton />
       <div className="sub-tabs">
         {TABS.map((t) => (
           <button key={t.id} className={`sub-tab ${tab === t.id ? 'on' : ''}`} onClick={() => setTab(t.id)}>

@@ -60,6 +60,7 @@ export function workExportInput(
     objects: resolveObjectColors(face.objects, work.palette),
     safeZoneWidth: diary.punch.safeZoneWidth,
     month: face.month,
+    colorRules: face.colorRules,
     punch,
   });
 

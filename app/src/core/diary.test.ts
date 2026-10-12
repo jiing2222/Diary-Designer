@@ -11,6 +11,10 @@ import {
 } from './diary';
 
 describe('nearestPreset — ±10mm면 같은 규격', () => {
+  it('실측 폭이 3단접이와 같아도 다이어리 규격으로 붙이지 않는다', () => {
+    expect(nearestPreset(220, 125)).toBeNull();
+    expect(resizeDiary(diaryFromPreset('d', 'M6', '내 것', '#000000'), 220, 125).presetId).toBe('custom');
+  });
   it('정확히 같으면 그 규격', () => {
     expect(nearestPreset(80, 125)?.id).toBe('M6');
   });
