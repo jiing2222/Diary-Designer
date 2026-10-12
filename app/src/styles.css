@@ -3432,6 +3432,40 @@ footer b {
   font-size: 11px;
 }
 
+/* Library → Colors(ui/LibraryColors)·편집기 Colors의 보관·불러오기 */
+.palette-strip {
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.palette-strip span {
+  width: 7px;
+  height: 12px;
+}
+.palette-editor {
+  max-width: 420px;
+}
+.palette-name {
+  font-size: 18px;
+  font-weight: 600;
+}
+.palette-color-editor {
+  margin-top: 12px;
+}
+.saved-palettes {
+  margin-top: 14px;
+}
+.saved-palettes-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-palettes-row select {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Library → Images · Fonts(ui/LibraryAssets) */
 .asset-grid {
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));

@@ -7,6 +7,7 @@ import type { Align } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
 import { DEFAULT_FIELD_DRAFT, patchField, type FieldDraft, type FieldSpec } from './core/fieldFormat';
 import { applyToDraft, pickSavedStyle, stylePatchOf, type SavedTextStyle } from './core/textStyles';
+import { clonePalette, mergePalette, newSavedPalette, type SavedPalette } from './core/palettes';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import type { InsertSetting } from './core/template';
 import { persistFontMeta, removeFont } from './fonts/registry';
@@ -187,6 +188,8 @@ interface Settings {
   onboarding: boolean;
   /** 저장한 글자 스타일 — 모든 작업 공통(core/textStyles). 앱 전체 설정과 함께 저장된다(ui/persist). */
   textStyles: SavedTextStyle[];
+  /** 저장한 팔레트 — 모든 작업 공통(core/palettes). 앱 전체 설정과 함께 저장된다(ui/persist). */
+  savedPalettes: SavedPalette[];
   userFonts: UserFont[];
   userImages: UserImage[];
   pickImageFor: string | null;
@@ -222,6 +225,7 @@ interface Store extends Settings {
     tabs?: Tabs;
     defaultDiaryId?: string | null;
     textStyles?: SavedTextStyle[];
+    savedPalettes?: SavedPalette[];
     /** 저장해 둔 인쇄 설정(용지·배치·표시·확인 창의 선택). */
     print?: Partial<SavedPrintSettings>;
     cursors?: Record<string, Cursor>;
@@ -342,6 +346,15 @@ interface Store extends Settings {
   setFieldNext: (patch: Partial<{ offset: number; advance: boolean }>) => void;
   /** 글자 모양을 이름 붙여 저장한다(글꼴·크기·간격·색·B·I·U·S만). 저장한 것의 id. */
   saveTextStyle: (name: string, style: TextStyle) => string;
+  /* ── 저장한 팔레트(Library → Colors, 7-4) ── */
+  /** 지금 작업의 팔레트를 이름 붙여 보관한다(복사). 작업이 없으면 null. */
+  savePalette: (name: string) => string | null;
+  /** 새 팔레트(기본 5칸 + A)를 만든다. */
+  createPalette: (name: string) => string;
+  patchSavedPalette: (id: string, patch: Partial<Pick<SavedPalette, 'name' | 'palette'>>) => void;
+  removeSavedPalette: (id: string) => void;
+  /** 보관한 팔레트를 지금 작업에 복사해 넣는다 — 같은 칸만 덮어쓴다(core/palettes `mergePalette`). */
+  loadPalette: (id: string) => void;
   removeTextStyle: (id: string) => void;
   /**
    * 저장한 스타일을 쓴다 — 고른 글자가 있으면 그 글자에(되돌리기 됨), 없으면 다음에 놓을 글자에
@@ -633,6 +646,7 @@ export const useStore = create<Store>((set, get) => ({
   fieldNext: { offset: 0, advance: false },
   onboarding: false,
   textStyles: [],
+  savedPalettes: [],
   userFonts: [],
   userImages: [],
   pickImageFor: null,
@@ -659,7 +673,7 @@ export const useStore = create<Store>((set, get) => ({
   printRange: { mode: 'all', text: '' },
   exportChoice: { grid: true, punch: false },
 
-  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [], print = {}, cursors = {} }) => {
+  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [], savedPalettes = [], print = {}, cursors = {} }) => {
     // 새로고침하면 id 카운터가 0부터 다시 시작한다 — 불러온 id들보다 위로 올려야
     // 새로 만드는 것이 불러온 것과 겹치지 않는다(옛 판 loadProject와 같은 이유).
     ensureIdCounterAbove([
@@ -667,6 +681,7 @@ export const useStore = create<Store>((set, get) => ({
       ...diaries.map((d) => d.id),
       ...folders.map((f) => f.id),
       ...textStyles.map((t) => t.id),
+      ...savedPalettes.map((p) => p.id),
     ]);
     const exists = (id: string) => works.some((w) => w.id === id && !isTrashed(w));
     set({
@@ -679,6 +694,7 @@ export const useStore = create<Store>((set, get) => ({
       cursors,
       selectedIds: [],
       textStyles,
+      savedPalettes,
       ...pickPrintSettings(print),
       ready: true,
     });
@@ -1211,6 +1227,41 @@ export const useStore = create<Store>((set, get) => ({
   setFieldDraft: (patch) => set((s) => ({ fieldDraft: patchField(s.fieldDraft, patch) })),
 
   setFieldNext: (patch) => set((s) => ({ fieldNext: { ...s.fieldNext, ...patch } })),
+
+  savePalette: (name) => {
+    const work = activeWork(get());
+    if (!work) return null;
+    const id = newId('pl');
+    set((s) => ({
+      savedPalettes: [...s.savedPalettes, { id, name: name.trim() || '팔레트', palette: clonePalette(work.palette) }],
+    }));
+    return id;
+  },
+
+  createPalette: (name) => {
+    const id = newId('pl');
+    set((s) => ({ savedPalettes: [...s.savedPalettes, newSavedPalette(id, name.trim() || '팔레트')] }));
+    return id;
+  },
+
+  patchSavedPalette: (id, patch) =>
+    set((s) => ({
+      savedPalettes: s.savedPalettes.map((p) => {
+        if (p.id !== id) return p;
+        const name = patch.name?.trim();
+        return { ...p, ...(name ? { name } : {}), ...(patch.palette ? { palette: clonePalette(patch.palette) } : {}) };
+      }),
+    })),
+
+  removeSavedPalette: (id) => set((s) => ({ savedPalettes: s.savedPalettes.filter((p) => p.id !== id) })),
+
+  loadPalette: (id) =>
+    set((s) => {
+      const saved = s.savedPalettes.find((p) => p.id === id);
+      if (!saved) return {};
+      // 고르던 미리보기가 있으면 버린다 — 불러온 색 위에 옛 미리보기가 덮이지 않게.
+      return { palettePreview: null, ...patchActiveWork(s, (w) => ({ palette: mergePalette(w.palette, saved.palette) })) };
+    }),
 
   saveTextStyle: (name, style) => {
     const id = newId('ts');

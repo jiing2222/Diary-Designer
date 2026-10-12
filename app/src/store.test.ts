@@ -674,6 +674,42 @@ describe('Library 이미지·글꼴 지우기 (7-3)', () => {
   });
 });
 
+describe('저장한 팔레트 (7-4)', () => {
+  beforeEach(() => {
+    s().addDiary('M6', 'm6');
+    s().createWork();
+  });
+
+  it('보관은 복사 — 작업 색을 바꿔도 보관한 것은 그대로', () => {
+    s().addPaletteColor('#aaaaaa');
+    const id = s().savePalette('봄')!;
+    s().setPaletteColor('A', '#000000');
+    expect(s().savedPalettes.find((p) => p.id === id)?.palette.points).toEqual([{ key: 'A', color: '#aaaaaa' }]);
+  });
+
+  it('불러오기는 같은 칸만 덮어쓰고, 보관한 것을 나중에 고쳐도 작업은 그대로', () => {
+    s().addPaletteColor('#aaaaaa'); // A
+    s().addPaletteColor('#cccccc'); // B
+    const id = s().createPalette('가을'); // 기본 5칸 + A(#8ea8c6)
+    s().loadPalette(id);
+    expect(active().palette.points).toEqual([
+      { key: 'A', color: '#8ea8c6' },
+      { key: 'B', color: '#cccccc' },
+    ]);
+    const saved = s().savedPalettes.find((p) => p.id === id)!;
+    s().patchSavedPalette(id, { palette: { ...saved.palette, points: [{ key: 'A', color: '#123456' }] } });
+    expect(active().palette.points[0].color).toBe('#8ea8c6');
+  });
+
+  it('이름은 비우면 안 바뀌고, 지우면 목록에서 빠진다', () => {
+    const id = s().createPalette('겨울');
+    s().patchSavedPalette(id, { name: '  ' });
+    expect(s().savedPalettes[0].name).toBe('겨울');
+    s().removeSavedPalette(id);
+    expect(s().savedPalettes).toEqual([]);
+  });
+});
+
 describe('색 규칙', () => {
   beforeEach(() => {
     s().createWork();

@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { daysLeft, isTrashed } from '../core/library';
 import { LibraryFonts, LibraryImages } from './LibraryAssets';
+import { LibraryColors } from './LibraryColors';
 import { Projects } from './Projects';
 import { Diaries } from './Diaries';
 
 /**
  * Library 탭(리뉴얼, 세부계획 B). 맨 앞에 고정된 탭이다(디자인.md ‘탭’).
  *
- * Projects는 7-1, Diaries는 7-2, Images·Fonts는 7-3(ui/LibraryAssets)에서 채웠다.
- * 팔레트(Colors)는 7-4에서 채운다.
+ * Projects는 7-1, Diaries는 7-2, Images·Fonts는 7-3(ui/LibraryAssets), Colors는 7-4(ui/LibraryColors)에서 채웠다.
  */
 export type LibrarySection = 'projects' | 'diaries' | 'images' | 'fonts' | 'colors' | 'trash' | 'learn';
 
@@ -29,7 +29,7 @@ export function LibraryMain({ section }: { section: LibrarySection }) {
   if (section === 'fonts') return <LibraryFonts />;
   if (section === 'learn') return <Soon title="Learn" note="앱 사용법, 인쇄 팁, 다이어리 종이 이야기를 준비하고 있어요." />;
   if (section === 'diaries') return <Diaries />;
-  return <Soon title="Colors" note="팔레트를 저장해 두는 곳이에요. 곧 열려요." />;
+  return <LibraryColors />;
 }
 
 function Soon({ title, note }: { title: string; note: string }) {

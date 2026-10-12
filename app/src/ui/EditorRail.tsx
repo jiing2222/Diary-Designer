@@ -262,6 +262,13 @@ function ColorsPanel() {
       </div>
 
       <ColorRulesSection />
+      <SavedPalettesSection
+        beforeChange={() => {
+          // 고르던 색이 있으면 먼저 확정한다(창 밖을 누른 것과 같다).
+          finishPalettePreview(true);
+          setEditing(null);
+        }}
+      />
 
       {editing && (
         <div className="color-editor">
@@ -322,6 +329,59 @@ function ColorsPanel() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 팔레트 보관·불러오기(리뉴얼 7-4). 보관은 지금 작업의 팔레트를 Library → Colors에 복사하고,
+ * 불러오기는 보관한 팔레트를 이 작업에 복사한다 — **같은 칸만 덮어쓴다**(core/palettes `mergePalette`).
+ * 팔레트 바꾸기는 되돌리기 기록에 들지 않으므로 불러오기 전에 묻는다.
+ */
+function SavedPalettesSection({ beforeChange }: { beforeChange: () => void }) {
+  const palettes = useStore((s) => s.savedPalettes);
+  return (
+    <div className="saved-palettes">
+      <div className="colors-label">팔레트</div>
+      <div className="saved-palettes-row">
+        <button
+          className="ghost"
+          onClick={() => {
+            beforeChange();
+            const name = window.prompt('보관할 팔레트 이름', `팔레트 ${palettes.length + 1}`);
+            if (name === null) return;
+            const s = useStore.getState();
+            if (s.savePalette(name)) s.showToast('Library → Colors에 보관했어요.');
+          }}
+        >
+          이 팔레트 보관
+        </button>
+        <select
+          aria-label="팔레트 불러오기"
+          value=""
+          disabled={palettes.length === 0}
+          title={palettes.length === 0 ? '보관한 팔레트가 없어요' : undefined}
+          onChange={(e) => {
+            const saved = palettes.find((p) => p.id === e.target.value);
+            if (!saved) return;
+            beforeChange();
+            if (
+              !window.confirm(
+                `‘${saved.name}’을(를) 불러올까요? 기본 5칸과 같은 이름의 포인트 색이 바뀌고, 이 작업에만 있는 포인트는 그대로 남아요. 되돌리기로는 취소되지 않아요.`,
+              )
+            )
+              return;
+            useStore.getState().loadPalette(saved.id);
+          }}
+        >
+          <option value="">팔레트 불러오기…</option>
+          {palettes.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }
