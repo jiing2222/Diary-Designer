@@ -49,6 +49,7 @@ function usePrintSettings(): WorkPrintSettings {
   const blankBackGrid = useStore((s) => s.blankBackGrid);
   const sides = useStore((s) => s.printSides);
   const choice = useStore((s) => s.exportChoice);
+  const copies = useStore((s) => s.printCopies);
   return useMemo(
     () => ({
       paper,
@@ -66,6 +67,7 @@ function usePrintSettings(): WorkPrintSettings {
       // 미리보기도 PDF 전 확인 창에서 지난번에 고른 대로 그린다 — 화면에서 본 대로 인쇄된다.
       printGrid: choice.grid,
       printPunch: choice.punch,
+      copies,
     }),
     [
       paper,
@@ -81,6 +83,7 @@ function usePrintSettings(): WorkPrintSettings {
       blankBackGrid,
       sides,
       choice,
+      copies,
     ],
   );
 }
@@ -229,6 +232,42 @@ function RangeSection() {
           </p>
         </>
       )}
+      <CopiesRow />
+    </>
+  );
+}
+
+/**
+ * 속지마다 몇 부 — 양식 하나를 용지에 가득(칸이 4개면 4부) 찍을 때 쓴다(옛 ‘반복 인쇄’ 자리).
+ * 같은 속지가 이어서 놓이므로 4부면 한 장이 그 속지 4개로 찬다.
+ */
+function CopiesRow() {
+  const copies = useStore((s) => s.printCopies);
+  const patch = useStore((s) => s.patch);
+  const job = usePrintJob();
+  const perSheet = job?.slots ?? 0;
+  const set = (n: number) => patch({ printCopies: Math.min(999, Math.max(1, Math.floor(n) || 1)) });
+  return (
+    <>
+      <h3 className="panel-sub">속지마다</h3>
+      <span className="copies-row">
+        <input
+          className="range-input copies-input"
+          type="number"
+          min={1}
+          max={999}
+          value={copies}
+          onChange={(e) => set(Number(e.target.value))}
+          aria-label="속지마다 몇 부"
+        />
+        <span>부</span>
+        {perSheet > 1 && copies !== perSheet && (
+          <button className="ghost" onClick={() => set(perSheet)} title="용지 한 장을 같은 속지로 가득 채운다">
+            한 장 가득({perSheet}부)
+          </button>
+        )}
+      </span>
+      {copies > 1 && <p className="tool-panel-note">속지 {job?.cards}장 → 용지 {job?.sheets}장. 같은 속지가 이어서 놓여요.</p>}
     </>
   );
 }

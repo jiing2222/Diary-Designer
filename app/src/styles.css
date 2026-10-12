@@ -6328,3 +6328,14 @@ button.danger:hover {
   font-size: 13px;
   line-height: 1.8;
 }
+
+/* Print → 출력 범위 아래 ‘속지마다 n부’. */
+.copies-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.copies-input {
+  width: 64px;
+}

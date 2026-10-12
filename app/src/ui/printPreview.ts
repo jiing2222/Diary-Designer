@@ -17,7 +17,7 @@ export function printJob(
   // 잘못 쓴 범위는 전체를 임시로 보여주고, 빈 선택은 0장으로 센다. 둘 다 Export는 막는다.
   const rangeError = parsed && 'error' in parsed ? parsed.error : pickedFaces?.length === 0 ? '' : null;
   const input = workExportInput(work, diary, faces, settings, pickedFaces);
-  const printed = cardsToPrint(work, faces.length, pickedFaces);
+  const printed = cardsToPrint(work, faces.length, pickedFaces, settings.copies);
   const slots = input.layout.slots.length;
   const cards = input.datasetPages ?? 0;
   return {
@@ -31,7 +31,8 @@ export function printJob(
     rangeError,
     slots,
     cards,
-    pickedCount: printed.reduce((n, card) => n + (card.back === null ? 1 : 2), 0),
+    // 부수를 늘리기 전의 페이지 수 — ‘몇 페이지를 찍나’는 부수와 따로 센다.
+    pickedCount: cardsToPrint(work, faces.length, pickedFaces).reduce((n, card) => n + (card.back === null ? 1 : 2), 0),
     sheets: sheetCount(cards, slots),
     backLayout: backLayoutOf(input.layout, input.paperWidth, input.paperHeight, settings.backTurn180),
   };

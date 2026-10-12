@@ -316,16 +316,6 @@ describe('편집 — 보통 페이지', () => {
     expect(right?.kind === 'face' && facesOf(active(), s().today).indexOf(right.face)).toBe(2);
   });
 
-  it('펼침면 두 면을 잇는 선은 한 번에 그려지고 한 번에 되돌려진다', () => {
-    s().duplicateItemAt(0, 2);
-    s().goTo(1, 'back');
-    s().commitCrossBoundaryLine({ x1: 70, y1: 10, x2: 80, y2: 10 }, { x1: 0, y1: 10, x2: 10, y2: 10 }, 'front');
-    const count = () => active().items.map((i) => (i as PageItem).face.objects.length);
-    expect(count()).toEqual([0, 1, 1]);
-    s().undo();
-    expect(count()).toEqual([0, 0, 0]);
-  });
-
   it('다른 작업에 붙여넣으면 같은 자리에', () => {
     s().drawLines([{ x1: 0, y1: 0, x2: 10, y2: 0 }]);
     const line = (active().items[0] as PageItem).face.objects[0];

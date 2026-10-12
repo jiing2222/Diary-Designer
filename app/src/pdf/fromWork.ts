@@ -7,7 +7,7 @@ import type { Mm } from '../core/units';
 import { DEFAULT_DOT_GRID } from '../core/grid';
 import { resolveObjectColors } from '../core/colors';
 import { resolveRuleColors } from '../core/colorRules';
-import { cardsForFaces, paperSize, printCards, printLayout, type PrintCard, type PrintPaper } from '../core/print';
+import { cardsForFaces, paperSize, printCards, printLayout, repeatCards, type PrintCard, type PrintPaper } from '../core/print';
 
 /**
  * 작업을 PDF 재료로(리뉴얼 6단계). pdf/export의 세트형 경로 — 칸 하나가 속지 한 장(앞·뒤)이고,
@@ -37,11 +37,18 @@ export interface WorkPrintSettings {
    */
   printGrid: boolean;
   printPunch: boolean;
+  /** 속지마다 몇 부(기본 1). 저장하지 않는 이번 인쇄만의 값이다 — 다음에 열었을 때 4배로 나오면 안 된다. */
+  copies?: number;
 }
 
 /** 이번에 찍을 속지들 — 고른 페이지(면 번호)가 있으면 그것이 든 속지만. */
-export function cardsToPrint(work: Pick<Work, 'duplex'>, faceCount: number, pickedFaces: number[] | null): PrintCard[] {
-  return cardsForFaces(printCards(faceCount, work.duplex), pickedFaces);
+export function cardsToPrint(
+  work: Pick<Work, 'duplex'>,
+  faceCount: number,
+  pickedFaces: number[] | null,
+  copies = 1,
+): PrintCard[] {
+  return repeatCards(cardsForFaces(printCards(faceCount, work.duplex), pickedFaces), copies);
 }
 
 export function workExportInput(
@@ -52,7 +59,7 @@ export function workExportInput(
   pickedFaces: number[] | null,
   files: Pick<ExportInput, 'fontBytes' | 'userFonts' | 'userImages'> = {},
 ): ExportInput {
-  const cards = cardsToPrint(work, faces.length, pickedFaces);
+  const cards = cardsToPrint(work, faces.length, pickedFaces, settings.copies);
   const grid = (g: ResolvedFace['background']) => (settings.printGrid ? g : { ...g, print: false });
   const punch = settings.printPunch ? diary.punch : undefined;
   const content = (face: ResolvedFace): SlotContent => ({

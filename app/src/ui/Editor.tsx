@@ -20,7 +20,6 @@ import {
   rectLines,
   resizeBox,
   rotationOf,
-  splitAtBoundary,
   type DiaryObject,
   type TextStyle,
 } from '../core/objects';
@@ -135,7 +134,6 @@ export function Editor() {
   const selectedIds = useStore((s) => s.selectedIds);
   const setTool = useStore((s) => s.setTool);
   const drawLines = useStore((s) => s.drawLines);
-  const commitCrossBoundaryLine = useStore((s) => s.commitCrossBoundaryLine);
   const select = useStore((s) => s.select);
   const deleteSelected = useStore((s) => s.deleteSelected);
   const copySelected = useStore((s) => s.copySelected);
@@ -223,14 +221,6 @@ export function Editor() {
     grid.spacing,
     grid.minMargin,
     grid.toEdge,
-  );
-  // 비활성 쪽의 격자 — 경계를 넘어 잇는 선의 둘째 점을 그 쪽 격자에 앉히려고
-  // 있다. 없으면(빈 뒷면 등) 그 점은 안 붙는다.
-  const inactiveLattice = gridLattice(
-    gridArea(insert, inactiveGrid, insert.punch.safeZoneWidth, inactiveSide === 'back'),
-    inactiveGrid.spacing,
-    inactiveGrid.minMargin,
-    inactiveGrid.toEdge,
   );
   const scale = (zoom / 100) * PX_PER_MM_AT_100;
   const noGrid = lattice.xs.length === 0 || lattice.ys.length === 0;
@@ -446,41 +436,6 @@ export function Editor() {
     finishEditing();
     select([]);
     setSide(next);
-  }
-
-  /**
-   * 뒷면 끝에서 앞면 끝으로(또는 반대로) 한 번에 그은 선 — 두 쪽 경계에서
-   * 만나는 반쪽 두 개로 쪼개 각자의 쪽에 커밋한다. 실행취소가 앞뒤로 따로
-   * 붙는 원칙(설계문서 8장) 그대로, 반쪽씩 두 번 커밋된다.
-   *
-   * `pending`은 activeSide 로컬, `clickLocal`은 inactiveSide(따로 있는 svg 자신의
-   * viewBox) 로컬이다 — 두 svg가 떨어져 있어(뒷면·앞면 각자 0~insert.width) 하나로
-   * 합친 좌표가 없다. 대신 **경계까지의 거리**로 비율을 구한다 — 어느 쪽
-   * 좌표계인지와 무관하게, "경계에서 몇 mm 떨어졌는지"는 두 쪽 다 셀 수 있다.
-   */
-  function completeCrossBoundaryLine(clickLocal: Point) {
-    if (!pending) return;
-    const edgeXOf = (s: Side) => (s === 'back' ? insert.width : 0);
-    const { aSeg, bSeg } = splitAtBoundary(
-      {
-        ...pending,
-        distToBoundary: activeSide === 'back' ? insert.width - pending.x : pending.x,
-        edgeX: edgeXOf(activeSide),
-      },
-      {
-        ...clickLocal,
-        distToBoundary: inactiveSide === 'back' ? insert.width - clickLocal.x : clickLocal.x,
-        edgeX: edgeXOf(inactiveSide),
-      },
-    );
-
-    // 반쪽 둘을 한 번에 커밋한다 — 되돌리기가 하나로 묶이려면(store.ts의
-    // crossBoundaryPairs) 두 쪽 다 같은 액션 안에서 새로 생겨야 한다.
-    const backSeg = activeSide === 'back' ? aSeg : bSeg;
-    const frontSeg = activeSide === 'back' ? bSeg : aSeg;
-    commitCrossBoundaryLine(backSeg, frontSeg, inactiveSide);
-
-    setPending(null);
   }
 
   /**
@@ -960,17 +915,7 @@ export function Editor() {
   }
 
   /**
-   * 비활성 쪽(따로 있는, 정적으로만 그려진 svg)의 pointerDown.
-   *
-   * 그리기 도구로 선의 첫 점(pending)을 찍어둔 채로 여기를 클릭하면 경계를
-   * 넘어 선을 잇는다. 그 외에는 초점만 옮긴다 — 오늘까지의 탭 클릭과 같다.
-   * 캔버스 자신의 CTM으로 좌표를 재는 것은 rawMm과 같은 방식이지만, 이
-   * svg는 활성 쪽이 아니라서 rawMm(activeSide 기준)을 그대로 쓸 수 없다.
-   *
-   * **격자에 앉힌다.** 활성 쪽에서 선을 그을 때(onDown)는 늘
-   * snapToLattice를 거치는데, 처음 이 함수를 짤 때 그걸 빠뜨려서 경계를
-   * 넘는 선의 둘째 점만 격자에 안 붙고 클릭한 픽셀 그대로 박혔다 — 왼쪽은
-   * 점에 딱 붙는데 오른쪽으로 갈수록 살짝 기울어 보이던 버그가 이거였다.
+   * 비활성 쪽(따로 있는, 정적으로만 그려진 svg)의 pointerDown — 초점만 옮긴다(탭 클릭과 같다).
    *
    * stopPropagation을 꼭 해야 한다 — 안 그러면 이 클릭이 .editor-canvas의
    * onOutsideDown까지 거품처럼 올라가, select 도구일 때 활성 쪽 좌표계로
@@ -978,56 +923,21 @@ export function Editor() {
    */
   function onInactivePointerDown(e: React.PointerEvent<SVGSVGElement>) {
     e.stopPropagation();
-    const svg = e.currentTarget;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) {
-      switchSide(inactiveSide);
-      return;
-    }
-    const p = svg.createSVGPoint();
-    p.x = e.clientX;
-    p.y = e.clientY;
-    const local = p.matrixTransform(ctm.inverse());
-    const snap = snapToLattice(inactiveLattice, local.x, local.y);
-
-    if (tool === 'draw' && pending && snap) {
-      completeCrossBoundaryLine(snap);
+    // 첫 점을 찍은 채 옆 페이지를 누르면 막는다(사용자 결정 2026-10-12). 두 페이지에 걸친
+    // 선은 실제로는 반쪽 둘이라 한쪽만 옮기면 끊어지고, 경계에서 만나는 점이 도트 위가 아니었다.
+    // 첫 점은 그대로 두어 같은 페이지 안에서 마저 그을 수 있게 한다.
+    if (tool === 'draw' && pending) {
+      showToast('선은 페이지 경계를 넘을 수 없어요. 같은 페이지 안에서 다음 점을 눌러 주세요.');
       return;
     }
     switchSide(inactiveSide);
   }
 
   /**
-   * 비활성 쪽 위에서 마우스가 움직일 때 — 선을 잇는 중(pending)이면 활성
-   * 쪽의 잇는 선 미리보기(hover)가 경계를 넘어서도 커서를 계속 따라가게 한다.
-   *
-   * hover는 activeSide 로컬 좌표다. 비활성 쪽의 로컬 좌표를, "경계에서 몇
-   * mm 떨어졌는지"를 거쳐 activeSide 좌표계로 그대로 연장한 값(insert.width를
-   * 넘거나 0보다 작아짐)으로 바꿔치기한다 — completeCrossBoundaryLine이
-   * 두 좌표계를 잇는 것과 같은 방식이다.
-   *
-   * pending이 없을 때는(다른 도구, 또는 그냥 지나가는 중) 아무 일도 하지
-   * 않는다 — 비활성 쪽은 평소엔 정적이다.
-   */
-  function onInactivePointerMove(e: React.PointerEvent<SVGSVGElement>) {
-    if (!(tool === 'draw' && pending)) return;
-    const svg = e.currentTarget;
-    const ctm = svg.getScreenCTM();
-    if (!ctm) return;
-    const p = svg.createSVGPoint();
-    p.x = e.clientX;
-    p.y = e.clientY;
-    const local = p.matrixTransform(ctm.inverse());
-    const distFromBoundary = inactiveSide === 'back' ? insert.width - local.x : local.x;
-    const activeLocalX = activeSide === 'back' ? insert.width + distFromBoundary : -distFromBoundary;
-    setHover({ x: activeLocalX, y: local.y });
-  }
-
-  /**
    * 비활성 쪽 — 정적으로만 그린다(손댈 수 없다). 클릭하면
-   * onInactivePointerDown이 초점을 옮기거나 경계를 넘는 선을 잇는다.
+   * onInactivePointerDown이 초점을 옮긴다.
    *
-   * 오버플로가 활성 쪽 위로 보이도록(예: 경계를 넘어가는 pending 선 미리보기),
+   * 오버플로가 활성 쪽 위로 보이도록(예: 페이지 밖으로 넘친 글자),
    * 활성 쪽 svg를 항상 나중에 그려 위로 올린다 — CSS의 z-index로 한다
    * (뒷면이 활성일 땐 왼쪽 svg가 먼저라 그냥 두면 오른쪽 정적 앞면에 가려진다).
    */
@@ -1039,7 +949,6 @@ export function Editor() {
         width={insert.width * scale}
         height={insert.height * scale}
         onPointerDown={onInactivePointerDown}
-        onPointerMove={onInactivePointerMove}
         onPointerLeave={() => setHover(null)}
       >
         <rect x={0} y={0} width={insert.width} height={insert.height} className="sheet-bg" />

@@ -212,6 +212,8 @@ interface Settings {
   printSides: 'both' | 'front' | 'back';
   /** 출력 범위(Paper) — 전체 / 페이지 선택(`1-5, 8`). 작업마다가 아니라 지금 Print에 쓰는 값. */
   printRange: { mode: 'all' | 'pick'; text: string };
+  /** 속지마다 몇 부 찍을지 — 출력 범위처럼 이번 실행에만 기억한다(저장하지 않는다). */
+  printCopies: number;
   /** PDF 전 확인 창에서 지난번에 고른 것 — 다음에 미리 체크해 둔다(기능후보 9). 미리보기도 이대로 그린다. */
   exportChoice: { grid: boolean; punch: boolean };
 }
@@ -323,7 +325,6 @@ interface Store extends Settings {
   setTool: (t: Tool) => void;
   drawLines: (segs: LineSeg[]) => void;
   /** 펼침면의 두 면을 잇는 선 — 양쪽 반쪽을 한 번에 그린다(되돌리기도 한 번). */
-  commitCrossBoundaryLine: (backSeg: LineSeg, frontSeg: LineSeg, focusSide: Side) => void;
   select: (ids: string[]) => void;
   deleteSelected: () => void;
   copySelected: () => void;
@@ -671,6 +672,7 @@ export const useStore = create<Store>((set, get) => ({
   blankBackGrid: false,
   printSides: 'both',
   printRange: { mode: 'all', text: '' },
+  printCopies: 1,
   exportChoice: { grid: true, punch: false },
 
   hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [], savedPalettes = [], print = {}, cursors = {} }) => {
@@ -1141,26 +1143,6 @@ export const useStore = create<Store>((set, get) => ({
       const next = toggleLines(cur, segs, s.drawStyle);
       if (next === cur) return {};
       return commitObjects(s, next);
-    }),
-
-  commitCrossBoundaryLine: (backSeg, frontSeg, focusSide) =>
-    set((s) => {
-      const work = activeWork(s);
-      const back = targetOf(s, 'back');
-      const front = targetOf(s, 'front');
-      if (!work || !back || !front) return {};
-      const backLine: LineObject = { id: newId('l'), type: 'line', ...backSeg, ...s.drawStyle };
-      const frontLine: LineObject = { id: newId('l'), type: 'line', ...frontSeg, ...s.drawStyle };
-      // 두 면을 한 번에 쓰고 되돌리기는 한 칸만 쌓는다 — 하나의 선으로 보이므로
-      // 되돌리면 양쪽이 함께 사라져야 한다(옛 판은 이를 위해 짝을 따로 기억했다).
-      const afterBack = writeObjects(work, back, [...editableObjects(work, back), backLine]);
-      const items = writeObjects({ items: afterBack }, front, [...editableObjects(work, front), frontLine]);
-      const cursor = cursorOf(s, work);
-      return {
-        ...commitItems(s, work, items),
-        cursors: { ...s.cursors, [work.id]: { ...cursor, side: focusSide } },
-        selectedIds: [focusSide === 'back' ? backLine.id : frontLine.id],
-      };
     }),
 
   setDrawStyle: (patch) => set((s) => ({ drawStyle: { ...s.drawStyle, ...patch } })),
