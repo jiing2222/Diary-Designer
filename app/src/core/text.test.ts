@@ -4,7 +4,9 @@ import {
   baselineY,
   blockHeight,
   boldOf,
+  decorationLines,
   fakeBoldStrokeOf,
+  italicSkewOf,
   letterSpacingOfText,
   linePieces,
   lineWidthOf,
@@ -332,5 +334,27 @@ describe('자간', () => {
     const pieces = linePieces('가나다라', 3, measure, 0.4);
     const last = pieces[pieces.length - 1];
     expect(last.dx + measure(last.text) * 3).toBeCloseTo(lineWidthOf('가나다라', 3, measure, 0.4));
+  });
+});
+
+describe('기울임·밑줄·취소선', () => {
+  it('기울임은 12도, 끄면 0', () => {
+    expect(italicSkewOf({ italic: true })).toBe(12);
+    expect(italicSkewOf({})).toBe(0);
+  });
+
+  it('밑줄은 기준선 아래, 취소선은 위 — 줄 왼쪽 끝부터 폭만큼, 굵기는 크기의 비율', () => {
+    const lines = decorationLines({ underline: true, strike: true }, 4, 10, 20, 50);
+    expect(lines).toHaveLength(2);
+    const [u, st] = lines;
+    expect(u).toMatchObject({ x1: 10, x2: 30 });
+    expect(u.y).toBeGreaterThan(50);
+    expect(st.y).toBeLessThan(50);
+    expect(u.thickness).toBeCloseTo(0.24);
+  });
+
+  it('켜지 않았거나 빈 줄이면 긋지 않는다', () => {
+    expect(decorationLines({}, 4, 0, 20, 50)).toEqual([]);
+    expect(decorationLines({ underline: true }, 4, 0, 0, 50)).toEqual([]);
   });
 });

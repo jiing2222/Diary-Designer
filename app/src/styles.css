@@ -771,28 +771,41 @@ button.ghost:disabled {
 }
 
 /* 굵게 토글. 눌린 상태가 한눈에 보여야 해서 도구 버튼과 같은 방식으로 칠한다. */
-.bold-btn {
-  width: 28px;
-  padding: 4px 0;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: #fff;
-  font-size: 13px;
-  font-weight: 700;
+/* B·I·U·S — 글자 모양 단추 네 개. 고른 것은 브라운 알약(디자인.md: 고른 항목의 진한 알약). */
+.biu-group {
+  display: inline-flex;
+  gap: 2px;
+}
+.biu-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: 14px;
   color: inherit;
   cursor: pointer;
 }
-
-.bold-btn.on {
-  border-color: var(--accent);
+.biu-btn:hover {
+  background: var(--hover-bg);
+}
+.biu-btn.bold {
+  font-weight: 700;
+}
+.biu-btn.italic {
+  font-style: italic;
+}
+.biu-btn.underline {
+  text-decoration: underline;
+}
+.biu-btn.strike {
+  text-decoration: line-through;
+}
+.biu-btn.on {
   background: var(--accent);
   color: #fff;
-}
-
-/* 등록 글꼴에는 Bold 파일이 없어 굵게를 쓸 수 없다. 왜 안 되는지는 title에 있다. */
-.bold-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 /* 글꼴 파일을 못 읽었을 때. 무슨 일인지는 title에 적어둔다. */

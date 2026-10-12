@@ -45,7 +45,9 @@ import { useStore } from '../store';
 import {
   alignOf,
   anchorX,
+  decorationLines,
   fakeBoldStrokeOf,
+  italicSkewOf,
   leftOf,
   letterSpacingOfText,
   lineWidthOf,
@@ -366,38 +368,65 @@ function TextLayer({ objects, hiddenId }: { objects: TextObject[]; hiddenId?: st
         const lineX = (line: string) => (measure ? leftOf(t, align, lineWidthOf(line, size, measure, spacing)) : x);
         const boldStroke = fakeBoldStrokeOf(t, size);
         const rotate = rotateOf(t);
+        const color = t.color ?? TEXT_COLOR;
+        const skew = italicSkewOf(t);
+        const textProps: React.SVGProps<SVGTextElement> & { 'data-id': string } = {
+          'data-id': t.id,
+          x,
+          fontSize: size,
+          // 등록한 글꼴이 있으면 그것으로. 새로고침 뒤 등록소가 비었으면
+          // 기본 글꼴로 돌아간다 — 안 보이는 것보다 낫다.
+          fontFamily: familyOf(userFonts, t.font),
+          fontWeight: FONT_WEIGHT.regular,
+          fill: color,
+          // 굵게는 모든 글꼴에서 가짜 굵게 — 같은 색 테두리를 덧그린다(core/text). 폭은 그대로다.
+          stroke: boldStroke > 0 ? color : undefined,
+          strokeWidth: boldStroke > 0 ? boldStroke : undefined,
+          strokeLinejoin: boldStroke > 0 ? 'round' : undefined,
+          textAnchor: measure ? 'start' : align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start',
+          // 감추되 좌표는 남긴다 — visibility는 getBBox를 그대로 두므로 클릭 판정이 산다.
+          visibility: t.id === hiddenId ? 'hidden' : undefined,
+          // white-space: pre는 원래 상속되는 CSS 속성인데, SVG text에서는
+          // 위 <g>에 줘도 이 <text>까지 안 내려간다(getComputedStyle로 확인,
+          // 2026-09-02) — xml:space="preserve"도 대신하지 못한다. 그래서
+          // 여러 칸 띄어쓰기가 글자 수는 그대로인데 그려지는 폭만 한 칸으로
+          // 줄어 보였다(사용자가 "외부에 노출되는 건 띄어쓰기 한 번"이라고
+          // 신고한 것). text 자신에 직접 줘야 실제로 적용된다.
+          style: { whiteSpace: 'pre' },
+        };
+        const lineSpan = (line: string, i: number) => (
+          <tspan key={i} x={lineX(line)} y={baselines[i]}>
+            {spacedChars(line || '\u00a0', spacing)}
+          </tspan>
+        );
+        // 기울임은 줄마다 그 줄의 기준선을 축으로 민다(PDF가 줄마다 기울이는 것과 같게) —
+        // 한 덩어리로 밀면 위 줄일수록 오른쪽으로 밀려 줄끼리 계단이 진다.
+        const texts =
+          skew === 0
+            ? [<text key="all" {...textProps}>{lines.map(lineSpan)}</text>]
+            : lines.map((line, i) => (
+                <text
+                  key={i}
+                  {...textProps}
+                  transform={`translate(0 ${baselines[i]}) skewX(${-skew}) translate(0 ${-baselines[i]})`}
+                >
+                  {lineSpan(line, i)}
+                </text>
+              ));
+        // 밑줄·취소선 — 자리·길이는 core(측정기로 잰 줄 폭). 글꼴을 읽기 전에는 폭을 몰라 잠깐 안 긋는다.
+        const decorations =
+          measure && (t.underline || t.strike)
+            ? lines.flatMap((line, i) =>
+                decorationLines(t, size, lineX(line), lineWidthOf(line, size, measure, spacing), baselines[i]),
+              )
+            : [];
         const el = (
-          <text
-            key={rotate === 0 ? t.id : undefined}
-            data-id={t.id}
-            x={x}
-            fontSize={size}
-            // 등록한 글꼴이 있으면 그것으로. 새로고침 뒤 등록소가 비었으면
-            // 기본 글꼴로 돌아간다 — 안 보이는 것보다 낫다.
-            fontFamily={familyOf(userFonts, t.font)}
-            fontWeight={FONT_WEIGHT.regular}
-            fill={t.color ?? TEXT_COLOR}
-            // 굵게는 모든 글꼴에서 가짜 굵게 — 같은 색 테두리를 덧그린다(core/text). 폭은 그대로다.
-            stroke={boldStroke > 0 ? (t.color ?? TEXT_COLOR) : undefined}
-            strokeWidth={boldStroke > 0 ? boldStroke : undefined}
-            strokeLinejoin={boldStroke > 0 ? 'round' : undefined}
-            textAnchor={measure ? 'start' : align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start'}
-            // 감추되 좌표는 남긴다 — visibility는 getBBox를 그대로 두므로 클릭 판정이 산다.
-            visibility={t.id === hiddenId ? 'hidden' : undefined}
-            // white-space: pre는 원래 상속되는 CSS 속성인데, SVG text에서는
-            // 위 <g>에 줘도 이 <text>까지 안 내려간다(getComputedStyle로 확인,
-            // 2026-09-02) — xml:space="preserve"도 대신하지 못한다. 그래서
-            // 여러 칸 띄어쓰기가 글자 수는 그대로인데 그려지는 폭만 한 칸으로
-            // 줄어 보였다(사용자가 "외부에 노출되는 건 띄어쓰기 한 번"이라고
-            // 신고한 것). text 자신에 직접 줘야 실제로 적용된다.
-            style={{ whiteSpace: 'pre' }}
-          >
-            {lines.map((line, i) => (
-              <tspan key={i} x={lineX(line)} y={baselines[i]}>
-                {spacedChars(line || ' ', spacing)}
-              </tspan>
+          <g key={rotate === 0 ? t.id : undefined} visibility={t.id === hiddenId ? 'hidden' : undefined}>
+            {texts}
+            {decorations.map((d, i) => (
+              <line key={`d${i}`} x1={d.x1} x2={d.x2} y1={d.y} y2={d.y} stroke={color} strokeWidth={d.thickness} />
             ))}
-          </text>
+          </g>
         );
         // 회전은 자기 상자 가운데를 축으로 그린 결과를 통째로 돌리는 마지막
         // 한 단계다 — 위의 자리 계산(x·baselines)은 회전과 무관하게 그대로다.

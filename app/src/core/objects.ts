@@ -94,6 +94,10 @@ export interface TextObject {
    * (등록 글꼴에는 Bold 파일이 없어서 하나로 통일했다).
    */
   bold?: boolean;
+  /** 기울임·밑줄·취소선 — 모든 글꼴에서 core/text가 정한 대로 그린다(굵게와 같은 이유). 정하지 않았으면 끔. */
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
   /**
    * 사용자가 등록한 글꼴의 id. 없으면 기본 글꼴(Pretendard)이다.
    *
@@ -446,7 +450,10 @@ export type LineStyle = Partial<Pick<LineObject, 'width' | 'color' | 'dash'>>;
  * 똑같이 객체에 새겨져 따라다닌다.
  */
 export type TextStyle = Partial<
-  Pick<TextObject, 'size' | 'align' | 'valign' | 'color' | 'lineHeight' | 'letterSpacing' | 'bold' | 'font' | 'rotate'>
+  Pick<
+    TextObject,
+    'size' | 'align' | 'valign' | 'color' | 'lineHeight' | 'letterSpacing' | 'bold' | 'italic' | 'underline' | 'strike' | 'font' | 'rotate'
+  >
 >;
 /** 달력마다 따로 정할 수 있는 것들. */
 export type CalendarStyle = Partial<

@@ -5,7 +5,7 @@ import { inflateSync } from 'node:zlib';
 import { Buffer } from 'node:buffer';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { buildPdf, type SlotContent } from './export';
+import { buildPdf, italicMatrix, type SlotContent } from './export';
 import { computeLayout } from '../core/layout';
 import { DEFAULT_DOT_GRID } from '../core/grid';
 import { sheetSlotKey } from '../core/sheetSlots';
@@ -14,7 +14,7 @@ import { MM_TO_PT, mmToPt, ptToMm } from '../core/units';
 import type { CalendarObject, TextObject } from '../core/objects';
 import fontkit from '@pdf-lib/fontkit';
 import { measureOf, NO_LIGATURES } from '../fonts/measure';
-import { fakeBoldStrokeOf, lineWidthOf } from '../core/text';
+import { decorationLines, fakeBoldStrokeOf, lineWidthOf } from '../core/text';
 
 /**
  * 완성된 PDF 바이트에서 `w`(선 굵기 지정) 연산자의 값을 전부 꺼낸다.
@@ -1096,6 +1096,48 @@ describe('세트형 — 데이터셋', () => {
       const plain = await count({});
       expect(plain).toBeGreaterThan(0);
       expect(await count({ letterSpacing: 0.5 })).toBe(plain * 4);
+    });
+
+    it('기울임은 글자 방향으로 미는 좌표 변환(tan 12°)으로 그린다 — 보통 글자는 없다', async () => {
+      const shears = async (patch: Partial<TextObject>) => {
+        const bytes = await buildPdf({ ...base, dotGrid: noGrid, fontBytes: realFont, objects: [text(patch)] });
+        const streams = (await pageStreams(bytes)).join('\n');
+        return [...streams.matchAll(/([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+) [-\d.]+ [-\d.]+ cm/g)]
+          .map((m) => m.slice(1, 5).map(Number))
+          .filter(([, , c]) => c !== 0);
+      };
+      expect(await shears({})).toEqual([]);
+      const italic = await shears({ italic: true });
+      expect(italic.length).toBeGreaterThan(0);
+      // 돌지 않은 글자: (1, 0, tan, 1)
+      for (const [a, b, c, d] of italic) {
+        expect([a, b, d]).toEqual([1, 0, 1]);
+        expect(c).toBeCloseTo(Math.tan((12 * Math.PI) / 180), 3);
+      }
+    });
+
+    it('기울임 변환은 회전한 글자에도 맞다 — 글자의 가로 방향으로 민다', () => {
+      // 90도 돈 글자: 글자의 가로 = 위쪽(0,1), 글자의 위 = 왼쪽(-1,0). 위쪽 점이 글자 가로 방향(위)으로 밀려야 한다.
+      const [a, b, c, d, e, f] = italicMatrix(0, 0, 90, 12);
+      const map = (x: number, y: number) => [a * x + c * y + e, b * x + d * y + f];
+      const t = Math.tan((12 * Math.PI) / 180);
+      const [x, y] = map(-1, 0); // 글자 위쪽 1
+      expect(x).toBeCloseTo(-1);
+      expect(y).toBeCloseTo(t);
+      const [bx, by] = map(0, 5); // 기준선 위의 점은 그대로
+      expect(bx).toBeCloseTo(0);
+      expect(by).toBeCloseTo(5);
+    });
+
+    it('밑줄·취소선은 화면과 같은 굵기의 선으로 그린다', async () => {
+      const bytes = await buildPdf({
+        ...base,
+        dotGrid: noGrid,
+        fontBytes: realFont,
+        objects: [text({ underline: true, strike: true })],
+      });
+      const t = mmToPt(decorationLines({ underline: true }, 4, 0, 1, 0)[0].thickness);
+      expect(contentStreamWidths(bytes).filter((w) => Math.abs(w - t) < 1e-3).length).toBeGreaterThanOrEqual(2);
     });
 
     it('보통 글자는 테두리를 그리지 않는다', async () => {

@@ -5,6 +5,7 @@ import {
   TextRenderingMode,
   clip,
   closePath,
+  concatTransformationMatrix,
   degrees,
   endPath,
   lineTo,
@@ -26,7 +27,9 @@ import { sanitizeForFont } from '../core/fontCoverage';
 import { mmToPt, type Mm } from '../core/units';
 import {
   alignOf,
+  decorationLines,
   fakeBoldStrokeOf,
+  italicSkewOf,
   letterSpacingOfText,
   linePieces,
   lineWidthOf,
@@ -592,6 +595,23 @@ function coverageFontFor(t: TextObject, fonts: Fonts): FontkitFont {
 }
 
 /**
+ * 기울임 변환 — 점 (px, py)(pt, PDF 좌표)를 지나는 기준선을 축으로, `rotDeg`만큼 돌아간 글자의
+ * 가로 방향으로 `skewDeg`만큼 민다. 회전 R, 밀기 S일 때 p + R·S·R⁻¹·(v − p).
+ * 돌지 않은 글자면 (1, 0, tan, 1)로 화면의 skewX와 같다.
+ */
+export function italicMatrix(px: number, py: number, rotDeg: number, skewDeg: number): [number, number, number, number, number, number] {
+  const th = (rotDeg * Math.PI) / 180;
+  const c = Math.cos(th);
+  const s = Math.sin(th);
+  const t = Math.tan((skewDeg * Math.PI) / 180);
+  const l11 = 1 - t * c * s;
+  const l12 = t * c * c;
+  const l21 = -t * s * s;
+  const l22 = 1 + t * s * c;
+  return [l11, l21, l12, l22, px - (l11 * px + l12 * py), py - (l21 * px + l22 * py)];
+}
+
+/**
  * 칸 배치 때문에 글자·그림 자체를 pdf-lib의 `rotate:`로 얼마나 돌려 그려야
  * 하는지. `place.map`이 옮기는 자리와 반드시 같은 조건(`rotated`·`turn180`)을
  * 봐야 한다 — 자리만 옮기고 이 각도를 안 맞추면 넓은 글자일수록 앵커점 기준
@@ -646,6 +666,7 @@ function drawTexts(
       const measure = measureOf(coverage);
       const boldStroke = fakeBoldStrokeOf(t, size);
       const spacing = letterSpacingOfText(t);
+      const skew = italicSkewOf(t);
       const fill = t.color ? color(t.color) : TEXT;
 
       const rotate = rotateOf(t);
@@ -677,6 +698,12 @@ function drawTexts(
               setStrokingColor(fill),
             );
           }
+          // 기울임 — 글자 자리(기준선 위의 점)를 축으로, 글자 자신의 가로 방향으로 민다(core/text).
+          // pdf-lib의 xSkew·ySkew는 회전과 함께 쓰면 맞지 않아 좌표 변환을 직접 준다(italicMatrix).
+          if (skew) {
+            const m = italicMatrix(mmToPt(p.x), mmToPt(flipY(p.y)), layoutRotateDeg(layout) + pdfRotateOf(rotate), skew);
+            page.pushOperators(pushGraphicsState(), concatTransformationMatrix(...m));
+          }
           page.drawText(piece.text, {
             x: mmToPt(p.x),
             y: mmToPt(flipY(p.y)),
@@ -691,7 +718,21 @@ function drawTexts(
             // 그냥 더하면 합쳐진 회전이 나온다.
             rotate: degrees(layoutRotateDeg(layout) + pdfRotateOf(rotate)),
           });
+          if (skew) page.pushOperators(popGraphicsState());
           if (boldStroke > 0) page.pushOperators(popGraphicsState());
+        }
+        // 밑줄·취소선 — 화면과 같은 자리·길이(core/text의 decorationLines). 글자처럼 두 map()으로 옮긴다.
+        for (const d of decorationLines(t, size, left, width, baselines[i])) {
+          const la = localRotation.map({ x: d.x1, y: d.y });
+          const lb = localRotation.map({ x: d.x2, y: d.y });
+          const a = place.map(la.x, la.y);
+          const b = place.map(lb.x, lb.y);
+          page.drawLine({
+            start: { x: mmToPt(a.x), y: mmToPt(flipY(a.y)) },
+            end: { x: mmToPt(b.x), y: mmToPt(flipY(b.y)) },
+            thickness: mmToPt(d.thickness),
+            color: fill,
+          });
         }
       });
     }

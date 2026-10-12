@@ -173,6 +173,18 @@ export const FONT_WEIGHT = { regular: 400, bold: 700 } as const;
  */
 export const FAKE_BOLD_STROKE_RATIO = 0.05;
 
+/**
+ * 기울임·밑줄·취소선(리뉴얼 5단계, 세부계획 A4.5) — 글꼴과 무관하게 그린다. 값은 글자 크기에
+ * 대한 비율이고 화면·PDF가 core/text를 거쳐 같이 쓴다. **인쇄해봐야 아는 값**(진행상황.md).
+ * - 기울기: 글자를 기준선 축으로 오른쪽으로 기울이는 각도(도).
+ * - 밑줄: 기준선 아래로 얼마나, 선 굵기.
+ * - 취소선: 기준선 위로 얼마나(대략 한글·소문자 가운데 높이).
+ */
+export const ITALIC_SKEW_DEG = 12;
+export const UNDERLINE_OFFSET_RATIO = 0.12;
+export const STRIKE_OFFSET_RATIO = 0.3;
+export const DECORATION_THICKNESS_RATIO = 0.06;
+
 /** 재단선·십자 마크. 인쇄되지만 자르고 나면 대부분 사라진다. 너무 눈에 띈다는
  *  피드백으로 한 번 더 연하게 했다. */
 export const CROP_COLOR = '#bcd4eb';

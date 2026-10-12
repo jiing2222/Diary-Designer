@@ -26,7 +26,7 @@ import {
 } from '../core/objects';
 import { FONT_WEIGHT, SNAP_COLOR, SNAP_DOT_SIZE, TEXT_SIZE } from '../core/style';
 import { roundMm, type Mm } from '../core/units';
-import { fakeBoldStrokeOf, letterSpacingOfText, newTextStyle, rotateOf } from '../core/text';
+import { fakeBoldStrokeOf, italicSkewOf, letterSpacingOfText, newTextStyle, rotateOf } from '../core/text';
 import {
   useActiveWork,
   useCursor,
@@ -1608,6 +1608,11 @@ export function TextInput({
         fontFamily: family,
         fontWeight: FONT_WEIGHT.regular,
         letterSpacing: spacing ? `${spacing * scale}px` : undefined,
+        // 기울임·밑줄·취소선도 다 쓴 뒤 그려질 모습과 비슷하게(정확한 자리는 확정 후 core가 정한다).
+        fontStyle: editing.style.italic ? `oblique ${italicSkewOf(editing.style)}deg` : undefined,
+        textDecoration:
+          [editing.style.underline && 'underline', editing.style.strike && 'line-through'].filter(Boolean).join(' ') ||
+          undefined,
         // 가짜 굵게 — 다 쓴 뒤 그려질 모습(core/text의 fakeBoldStrokeOf)과 같게 테두리를 덧그린다.
         WebkitTextStroke: editing.style.bold ? `${fakeBoldStrokeOf(editing.style, size) * scale}px currentColor` : undefined,
         // 이 글자에 새겨둔 줄 간격을 그대로 쓴다 — 타이핑 중과 커밋 후가

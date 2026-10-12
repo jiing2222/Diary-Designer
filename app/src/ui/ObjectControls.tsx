@@ -24,7 +24,7 @@ import {
   TEXT_COLOR,
   TEXT_SIZE,
 } from '../core/style';
-import { boldOf, letterSpacingOfText, naturalLineHeight } from '../core/text';
+import { letterSpacingOfText, naturalLineHeight } from '../core/text';
 import { DEFAULT_FIELD_DRAFT } from '../core/fieldFormat';
 import {
   letterSpacingOf,
@@ -844,9 +844,9 @@ export function TextControls({
     ? null
     : roundMm(items[0].lineHeight ?? naturalLineHeight(sizeMm ?? TEXT_SIZE), 2);
 
-  // 하나라도 보통 굵기면 눌렀을 때 전부 굵어진다. 여러 개가 섞여 있을 때
-  // 무엇이 될지 예측하기 쉬운 쪽이다.
-  const allBold = !mixed('bold') && boldOf(items[0]);
+  // 하나라도 꺼져 있으면 눌렀을 때 전부 켜진다. 여러 개가 섞여 있을 때
+  // 무엇이 될지 예측하기 쉬운 쪽이다. B·I·U·S 넷 다 같은 규칙.
+  const allOn = (key: 'bold' | 'italic' | 'underline' | 'strike') => !mixed(key) && !!items[0][key];
 
   return (
     <>
@@ -855,16 +855,30 @@ export function TextControls({
         onPick={(font) => pick({ font })}
       />
 
-      <button
-        type="button"
-        className={`bold-btn ${allBold ? 'on' : ''}`}
-        // 보통 굵기로 되돌릴 때는 값을 아예 지운다. 그래야 기본값을 따라간다.
-        onClick={() => pick({ bold: allBold ? undefined : true })}
-        // 모든 글꼴에서 가짜 굵게(core/text) — 등록한 글꼴도 굵게 할 수 있다.
-        title="굵게"
-      >
-        가
-      </button>
+      {/* B·I·U·S — 모든 글꼴에서 core/text가 정한 대로 그린다(굵게는 가짜 굵게). 끌 때는 값을
+          아예 지운다. 그래야 기본값을 따라간다. */}
+      <span className="biu-group">
+        {(
+          [
+            ['bold', 'B', '굵게'],
+            ['italic', 'I', '기울임'],
+            ['underline', 'U', '밑줄'],
+            ['strike', 'S', '취소선'],
+          ] as const
+        ).map(([key, label, title]) => (
+          <button
+            key={key}
+            type="button"
+            className={`biu-btn ${key} ${allOn(key) ? 'on' : ''}`}
+            onClick={() => pick({ [key]: allOn(key) ? undefined : true })}
+            title={title}
+            aria-label={title}
+            aria-pressed={allOn(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </span>
 
       <NumField
         value={sizePt}

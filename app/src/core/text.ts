@@ -1,5 +1,15 @@
 import { cleanStyle, type Align, type TextObject, type TextStyle, type VAlign } from './objects';
-import { FAKE_BOLD_STROKE_RATIO, TEXT_ASCENT, TEXT_DESCENT, TEXT_LETTER_SPACING, TEXT_SIZE } from './style';
+import {
+  DECORATION_THICKNESS_RATIO,
+  FAKE_BOLD_STROKE_RATIO,
+  ITALIC_SKEW_DEG,
+  STRIKE_OFFSET_RATIO,
+  TEXT_ASCENT,
+  TEXT_DESCENT,
+  TEXT_LETTER_SPACING,
+  TEXT_SIZE,
+  UNDERLINE_OFFSET_RATIO,
+} from './style';
 import type { Mm } from './units';
 
 /**
@@ -49,6 +59,39 @@ export function fakeBoldStrokeOf(t: { bold?: boolean }, size: Mm): Mm {
  * 자리 계산(아래 `lineWidthOf`·`leftOf`)이 두 뷰에서 같다.
  */
 export type Measure = (text: string) => number;
+
+/** 기울임 각도(도) — 기울이지 않으면 0. 기준선을 축으로 오른쪽으로 기운다. */
+export function italicSkewOf(t: { italic?: boolean }): number {
+  return t.italic ? ITALIC_SKEW_DEG : 0;
+}
+
+/** 밑줄·취소선 한 줄(mm). 글자 회전 전(자기 상자 기준) 자리다 — 회전은 그리는 쪽이 글자와 같이 돌린다. */
+export interface DecorationLine {
+  x1: Mm;
+  x2: Mm;
+  y: Mm;
+  thickness: Mm;
+}
+
+/**
+ * 한 줄 글자의 밑줄·취소선 — 줄 왼쪽 끝(`left`)에서 폭(`width`)만큼, 기준선(`baseline`) 기준.
+ * 폭은 측정기로 잰 값(`lineWidthOf`)이라 화면과 PDF의 선이 같은 자리·같은 길이다.
+ * 빈 줄에는 긋지 않는다.
+ */
+export function decorationLines(
+  t: { underline?: boolean; strike?: boolean },
+  size: Mm,
+  left: Mm,
+  width: Mm,
+  baseline: Mm,
+): DecorationLine[] {
+  if (width <= 0) return [];
+  const thickness = size * DECORATION_THICKNESS_RATIO;
+  const out: DecorationLine[] = [];
+  if (t.underline) out.push({ x1: left, x2: left + width, y: baseline + size * UNDERLINE_OFFSET_RATIO, thickness });
+  if (t.strike) out.push({ x1: left, x2: left + width, y: baseline - size * STRIKE_OFFSET_RATIO, thickness });
+  return out;
+}
 
 /** 자간(mm). 정하지 않았으면 0. */
 export function letterSpacingOfText(t: { letterSpacing?: Mm }): Mm {
