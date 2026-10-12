@@ -48,6 +48,7 @@ import { resolveRuleColors, type ColorRules } from '../core/colorRules';
 import type { DotGrid } from '../core/grid';
 import type { InsertSetting } from '../core/template';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
+import { libraryImages, reusableIdFor } from '../core/assets';
 import { InsertView } from './InsertView';
 import { ImageThumbGrid } from './ImagePickerDialog';
 import { PunchGuide } from './PunchGuide';
@@ -1713,7 +1714,8 @@ export function ImageCategoryBody() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const usable = userImages.filter((i) => i.url);
+  // Library와 같은 목록·순서(최신순, 목록에서 뺀 것 제외) 중 바로 쓸 수 있는 것.
+  const usable = libraryImages(userImages).filter((i) => i.url);
 
   /**
    * `url`은 방금 등록해 아직 `userImages`(store) 반영 전인 이미지를 놓을 때
@@ -1760,8 +1762,7 @@ export function ImageCategoryBody() {
     setError(null);
     try {
       const name = file.name.replace(/\.[^.]+$/, '');
-      const orphan = userImages.find((i) => i.name === name && !hasImage(i.id));
-      const image = await registerImage(file, orphan?.id);
+      const image = await registerImage(file, reusableIdFor(userImages, name, hasImage));
       addUserImage(image);
       await placeCentered(image.id, image.url);
     } catch (e) {

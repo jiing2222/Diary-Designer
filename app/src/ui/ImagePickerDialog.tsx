@@ -1,4 +1,5 @@
 import { imageLabelOf, type UserImage } from '../images/registry';
+import { libraryImages } from '../core/assets';
 import { useStore } from '../store';
 import { Modal } from './Modal';
 
@@ -70,7 +71,7 @@ export function ImagePickerDialog({
   // 파일 없이 이름만 남은 것(저장 파일에서 막 열어 다시 등록 안 한 것)은
   // 썸네일을 그릴 수 없으니 뺀다 — 지금 이 창의 목적은 "바로 쓸 수 있는"
   // 이미지를 고르는 것이다.
-  const usable = userImages.filter((i) => i.url);
+  const usable = libraryImages(userImages).filter((i) => i.url);
 
   return (
     <Modal title="이미지 고르기" onClose={onClose}>

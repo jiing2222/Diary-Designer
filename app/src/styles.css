@@ -3366,28 +3366,6 @@ footer b {
   opacity: 1;
 }
 
-/* 디자인 관리 창의 이미지/글꼴 탭. */
-.design-tabs {
-  display: flex;
-  gap: 4px;
-  margin: -4px 0 2px;
-  border-bottom: 1px solid var(--line);
-}
-
-.design-tabs button {
-  padding: 6px 12px;
-  border-radius: 6px 6px 0 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.design-tabs button.on {
-  background: var(--hover-bg);
-  color: var(--ink);
-  font-weight: 600;
-}
-
 /*
  * 이미지 그리드 — 사진 원본 비율과 무관하게 칸 하나하나가 늘 같은
  * 정사각 크기다(매소너리는 사진 크기에 따라 화면 전체 높이가 들쭉날쭉
@@ -3454,33 +3432,80 @@ footer b {
   font-size: 11px;
 }
 
-.design-save.on {
-  border-color: var(--accent);
-  color: var(--accent);
+/* Library → Images · Fonts(ui/LibraryAssets) */
+.asset-grid {
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
 }
-
-/* 한 줄에 셋 — 글꼴이 많아지면 목록이 너무 길어져서 옆으로도 채운다. */
-.font-manage-list {
+.asset-empty {
+  margin-top: 24px;
+}
+.design-thumb .asset-missing {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  place-items: center;
+  height: 100%;
+  font-size: 12px;
+  color: var(--warn);
 }
-
-.font-manage-row {
+.asset-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  overflow: hidden;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
 }
-
-.font-manage-preview {
-  flex-shrink: 0;
-  min-width: 80px;
-  font-size: 15px;
+.asset-remove {
+  padding: 2px 6px;
+  font-size: 11px;
+}
+.asset-warn {
+  font-size: 12px;
+  color: var(--warn);
+}
+.font-sample-input {
+  width: min(360px, 100%);
+  margin: 4px 0 8px;
+}
+.font-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+.font-line {
+  display: grid;
+  grid-template-columns: 28px minmax(100px, 180px) 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.font-line .design-name {
+  margin: 0;
   color: var(--ink);
+}
+.font-line .design-name-input {
+  margin: 0;
+}
+.font-line-name {
+  grid-column: 2;
+  font-weight: 600;
+}
+.font-line-sample {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 20px;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.font-fav {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+}
+.font-fav.on {
+  color: var(--accent);
 }
 
 /* 가로·세로 칸 수를 나란히. 설정 패널의 한 줄 안에 둘이 들어간다. */

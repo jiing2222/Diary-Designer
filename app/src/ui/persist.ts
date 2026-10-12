@@ -62,6 +62,8 @@ export async function boot(): Promise<{ skippedNotebooks: string[] }> {
   ]);
   fonts.forEach((f) => useStore.getState().addUserFont(f));
   images.forEach((i) => useStore.getState().addUserImage(i));
+  // 목록에서 뺐고 이제 아무도 안 쓰는 파일(휴지통 기간이 지나 지운 작업만 쓰던 것 등)은 여기서 지운다.
+  useStore.getState().purgeUnusedAssets();
 
   return { skippedNotebooks: meta.skippedNotebooks ?? [] };
 }

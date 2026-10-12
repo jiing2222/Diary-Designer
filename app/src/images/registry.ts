@@ -28,10 +28,10 @@ export interface UserImage {
   url: string;
   /** 목록에 보일 이름. 사용자가 따로 바꾸지 않았으면 `name`을 그대로 쓴다. */
   label?: string;
-  /** 디자인 관리에서 명시적으로 저장했는가. 켜져 있으면 "최근 사용" 개수 제한에서 빠진다. */
-  saved?: boolean;
-  /** 마지막으로 등록되거나 오브젝트에 씌워진 시각(ms). "최근 사용" 순서를 정한다. */
+  /** 마지막으로 등록되거나 오브젝트에 씌워진 시각(ms). Library의 최신순을 정한다(core/assets). */
   usedAt?: number;
+  /** Library 목록에서 뺐지만 쓰는 작업이 있어 파일은 남겨둔 것(core/assets). */
+  hidden?: boolean;
 }
 
 /** 목록·저장 파일에 보일 이름. */
@@ -59,11 +59,11 @@ function readAsDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-/** 이미지의 디자인 관리 부가정보. IndexedDB에도 파일 바이트와 함께 얹어 남긴다. */
+/** 이미지의 Library 부가정보. IndexedDB에도 파일 바이트와 함께 얹어 남긴다. */
 interface ImageMeta {
   label?: string;
-  saved?: boolean;
   usedAt?: number;
+  hidden?: boolean;
 }
 
 /** 이름·바이트·종류로 실제로 등록하는 부분(등록·복원이 함께 쓴다). */
@@ -97,9 +97,8 @@ async function loadImage(
  * IndexedDB에도 같이 남겨서, 다음에 새로고침해도 이 파일을 다시 고르지
  * 않게 한다.
  *
- * 등록한 순간을 `usedAt`으로 남긴다 — 디자인 관리에서 명시적으로 저장하지
- * 않은 이미지는 이 시각 기준 "최근 사용" 10개 안에 들어야 살아남는다
- * (store.ts의 `addUserImage`가 넘치는 만큼 오래된 것부터 지운다).
+ * 등록한 순간을 `usedAt`으로 남긴다 — Library는 이 시각으로 최신순을 정한다.
+ * 다시 올리면 목록에서 뺀 표시(hidden)도 풀린다.
  */
 export async function registerImage(file: File, reuseId?: string): Promise<UserImage> {
   const name = file.name.replace(/\.[^.]+$/, '');
@@ -118,7 +117,7 @@ export async function registerImage(file: File, reuseId?: string): Promise<UserI
 /**
  * 이름·저장 여부·최근 사용 시각을 IndexedDB에 다시 남긴다.
  *
- * 이름 바꾸기·저장 켜기/끄기·다시 쓰기(usedAt 갱신)가 함께 쓴다 — 파일
+ * 이름 바꾸기·목록에서 빼기·다시 쓰기(usedAt 갱신)가 함께 쓴다 — 파일
  * 바이트는 그대로 두고 부가정보만 갈아 끼운다. 파일이 없는(저장 파일에서
  * 이름만 살아 돌아온) 이미지는 다시 저장할 바이트가 없으니 아무 일도 안 한다.
  */
@@ -150,8 +149,8 @@ export async function restoreCachedImages(
       restored.push(
         await loadImage(cached.buffer, cached.name, cached.kind, resolveId?.(name), {
           label: cached.label,
-          saved: cached.saved,
           usedAt: cached.usedAt,
+          hidden: cached.hidden,
         }),
       );
     } catch {
@@ -188,7 +187,7 @@ export function reserveImageIds(ids: string[]): void {
 }
 
 /**
- * 자주 쓰는 이미지 목록(캐시)에서 하나를 뺀다.
+ * 이미지 파일을 실제로 지운다(아무 작업도 쓰지 않을 때만 — store가 판단한다).
  *
  * IndexedDB는 파일 이름으로 저장했으므로(`registerImage`) 이름으로 지운다.
  * 다음에 새로고침해도 다시 안 돌아온다 — `restoredNames`에서도 빼서, 혹시

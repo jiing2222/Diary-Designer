@@ -37,6 +37,7 @@ import {
 import { fillColorOf, fillOpacityOf, roundnessOf, strokeColorOf, strokeDashOf, strokeWidthOf } from '../core/shape';
 import { FONT_ACCEPT, fontLabelOf, hasFont, registerFont } from '../fonts/registry';
 import { IMAGE_ACCEPT, hasImage, imageLabelOf, registerImage } from '../images/registry';
+import { libraryFonts, libraryImages, reusableIdFor } from '../core/assets';
 import { mmToPt, ptToMm, roundMm, type Mm } from '../core/units';
 import { useStore } from '../store';
 import { ColorField } from './ColorControls';
@@ -629,9 +630,7 @@ export function ImageControls({ images }: { images: ImageObject[] }) {
       // 저장 파일을 열면 이미지가 이름만 남는다. 같은 이름의 파일을 다시
       // 등록하면 그때의 id를 물려받아 그 이미지를 쓰던 오브젝트가 되살아난다.
       const name = file.name.replace(/\.[^.]+$/, '');
-      const orphan = userImages.find((i) => i.name === name && !hasImage(i.id));
-
-      const image = await registerImage(file, orphan?.id);
+      const image = await registerImage(file, reusableIdFor(userImages, name, hasImage));
       addUserImage(image);
       // 방금 등록한 이미지를 바로 씌운다. 등록만 하고 또 고르게 하면 한 번 더 손이 간다.
       styleImage(image.id);
@@ -675,7 +674,11 @@ export function ImageControls({ images }: { images: ImageObject[] }) {
       >
         {mixed && <option value="mixed">—</option>}
         {!first && <option value="">이미지를 고르세요</option>}
-        {userImages.map((img) => (
+        {[
+          ...libraryImages(userImages),
+          // 목록에서 뺀 것이라도 고른 상자가 쓰고 있으면 보여준다(빈 칸으로 보이지 않게).
+          ...userImages.filter((i) => i.hidden && images.some((o) => o.imageId === i.id)),
+        ].map((img) => (
           <option key={img.id} value={img.id}>
             {/* 저장 파일에서 이름만 살아 돌아온 것. 다시 등록해야 보인다. */}
             {img.url ? imageLabelOf(img) : `${imageLabelOf(img)} (파일 없음)`}
@@ -997,9 +1000,9 @@ function FontPicker({
       // 저장 파일을 열면 글꼴이 이름만 남는다. 같은 이름의 파일을 다시 등록하면
       // **그때의 id를 물려받아** 그 글꼴을 쓰던 글자들이 한꺼번에 되살아난다.
       const name = file.name.replace(/\.[^.]+$/, '');
-      const orphan = userFonts.find((f) => f.name === name && !hasFont(f.id));
+      const orphan = reusableIdFor(userFonts, name, hasFont);
 
-      const font = await registerFont(file, orphan?.id);
+      const font = await registerFont(file, orphan);
       addUserFont(font);
       // 방금 등록한 글꼴을 바로 씌운다. 등록만 하고 또 고르게 하면 한 번 더 손이 간다.
       // 다만 되살린 경우에는 씌우지 않는다 — 이미 그 글꼴을 쓰던 글자들이 있다.
@@ -1027,7 +1030,11 @@ function FontPicker({
       >
         {value === null && <option value="mixed">—</option>}
         <option value="">{DEFAULT_FONT_FAMILY}</option>
-        {userFonts.map((f) => (
+        {[
+          ...libraryFonts(userFonts),
+          // 목록에서 뺀 글꼴이라도 고른 글자가 쓰고 있으면 보여준다.
+          ...userFonts.filter((f) => f.hidden && f.id === value),
+        ].map((f) => (
           <option key={f.id} value={f.id}>
             {/* 저장 파일에서 이름만 살아 돌아온 것. 지금은 기본 글꼴로 그려진다. */}
             {hasFont(f.id) ? fontLabelOf(f) : `${fontLabelOf(f)} (파일 없음)`}

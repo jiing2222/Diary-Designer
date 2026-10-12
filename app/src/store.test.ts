@@ -622,6 +622,58 @@ describe('작업의 다이어리 바꾸기 (7-2 칩)', () => {
   });
 });
 
+describe('Library 이미지·글꼴 지우기 (7-3)', () => {
+  const img = (id: string) => ({ id, name: id, url: 'data:', usedAt: 1 });
+  const font = (id: string) => ({ id, name: id, family: `user-font-${id}` });
+
+  beforeEach(() => {
+    s().addDiary('M6', 'm6');
+    s().createWork();
+    s().addUserImage(img('img1'));
+    s().addUserImage(img('img2'));
+    s().addUserFont(font('f1'));
+    s().addUserFont(font('f2'));
+    s().commitImage({ x: 0, y: 0, width: 10, height: 10 });
+    s().styleImage('img1');
+  });
+
+  it('올린 것은 저절로 지워지지 않는다(예전 최근 10개 제한 없음)', () => {
+    for (let i = 3; i <= 15; i++) s().addUserImage(img(`img${i}`));
+    expect(s().userImages).toHaveLength(15);
+  });
+
+  it('쓰는 중이면 목록에서만 빼고, 안 쓰면 지운다', () => {
+    expect(s().removeUserImage('img1')).toBe('hidden');
+    expect(s().userImages.find((i) => i.id === 'img1')?.hidden).toBe(true);
+    expect(s().removeUserImage('img2')).toBe('deleted');
+    expect(s().userImages.some((i) => i.id === 'img2')).toBe(false);
+    expect(s().removeUserImage('nope')).toBeNull();
+  });
+
+  it('글꼴은 저장한 글자 스타일이 써도 쓰는 것으로 친다', () => {
+    s().patch({ textStyles: [{ id: 'ts1', name: '제목', style: { font: 'f1' } }] });
+    expect(s().removeUserFont('f1')).toBe('hidden');
+    expect(s().removeUserFont('f2')).toBe('deleted');
+  });
+
+  it('뺀 것을 쓰던 작업을 영구 삭제하면 파일도 지운다', () => {
+    const id = active().id;
+    s().removeUserImage('img1');
+    s().trashWorkById(id);
+    s().purgeUnusedAssets();
+    expect(s().userImages.some((i) => i.id === 'img1')).toBe(true); // 휴지통도 쓰는 것
+    s().deleteWorkForever(id);
+    expect(s().userImages.some((i) => i.id === 'img1')).toBe(false);
+  });
+
+  it('즐겨찾기를 켜고 끈다', () => {
+    s().toggleFontFavorite('f2');
+    expect(s().userFonts.find((f) => f.id === 'f2')?.favorite).toBe(true);
+    s().toggleFontFavorite('f2');
+    expect(s().userFonts.find((f) => f.id === 'f2')?.favorite).toBe(false);
+  });
+});
+
 describe('색 규칙', () => {
   beforeEach(() => {
     s().createWork();

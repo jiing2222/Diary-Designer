@@ -9,17 +9,17 @@ import { DEFAULT_FIELD_DRAFT, patchField, type FieldDraft, type FieldSpec } from
 import { applyToDraft, pickSavedStyle, stylePatchOf, type SavedTextStyle } from './core/textStyles';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import type { InsertSetting } from './core/template';
-import { persistFontLabel } from './fonts/registry';
+import { persistFontMeta, removeFont } from './fonts/registry';
 import { ensureCoverageFont } from './fonts/coverage';
 import { hasUndrawableChar } from './core/fontCoverage';
 import { persistImageMeta, removeImage } from './images/registry';
+import { fontsInUse, imagesInUse, purgeable } from './core/assets';
 import {
   cloneObject,
   dedupe,
   ensureIdCounterAbove,
   expandGroupSelection,
   isDegenerate,
-  isImage,
   isLine,
   isText,
   moveObject,
@@ -353,11 +353,17 @@ interface Store extends Settings {
   styleCalendar: (patch: CalendarStyle) => void;
   addUserFont: (font: UserFont) => void;
   renameUserFont: (id: string, label: string) => void;
+  toggleFontFavorite: (id: string) => void;
   addUserImage: (image: UserImage) => void;
-  removeUserImage: (id: string) => void;
   renameUserImage: (id: string, label: string) => void;
-  saveUserImage: (id: string) => void;
-  unsaveUserImage: (id: string) => void;
+  /**
+   * Library에서 지운다(리뉴얼 7-3, core/assets). 쓰는 작업이 있으면(휴지통 포함) **목록에서만** 빼고
+   * (`'hidden'`), 없으면 파일까지 지운다(`'deleted'`). 없는 id면 null.
+   */
+  removeUserImage: (id: string) => 'hidden' | 'deleted' | null;
+  removeUserFont: (id: string) => 'hidden' | 'deleted' | null;
+  /** 목록에서 뺀 이미지·글꼴 중 이제 아무도 안 쓰는 것의 파일을 지운다 — 영구 삭제 뒤·앱을 열 때. */
+  purgeUnusedAssets: () => void;
   commitImage: (box: Box) => void;
   styleImage: (imageId: string) => void;
   requestImagePick: (id: string | null) => void;
@@ -561,30 +567,12 @@ function activeGrid(s: Settings): DotGrid | null {
 /** 붙여넣을 때 원본과 겹치지 않게 옮기는 양. */
 const PASTE_OFFSET: Mm = 5;
 
-/** "디자인 관리"에서 저장하지 않은 이미지가 이 개수를 넘으면, 안 쓰는 중인 것부터 오래된 순으로 지운다. */
-const RECENT_IMAGE_CAP = 10;
-
-/** 이 이미지를 어느 작업(휴지통 포함)이 실제로 쓰고 있는가. */
-function imageInUse(works: Work[], id: string): boolean {
-  const uses = (objs: DiaryObject[]) => objs.some((o) => isImage(o) && o.imageId === id);
-  return works.some((w) =>
-    w.items.some((item) =>
-      item.kind === 'page'
-        ? uses(item.face.objects)
-        : item.faces.some((f) => uses(f.objects)) || Object.values(item.overrides).some((ov) => uses(ov.added)),
-    ),
-  );
-}
-
-function evictExcessRecent(images: UserImage[], works: Work[]): { kept: UserImage[]; evicted: UserImage[] } {
-  const recent = images.filter((i) => !i.saved && !imageInUse(works, i.id));
-  if (recent.length <= RECENT_IMAGE_CAP) return { kept: images, evicted: [] };
-  const oldestFirst = [...recent].sort((a, b) => (a.usedAt ?? 0) - (b.usedAt ?? 0));
-  const evictIds = new Set(oldestFirst.slice(0, recent.length - RECENT_IMAGE_CAP).map((i) => i.id));
-  return {
-    kept: images.filter((i) => !evictIds.has(i.id)),
-    evicted: images.filter((i) => evictIds.has(i.id)),
-  };
+/** 글꼴을 ‘쓰는’ 곳 — 작업들(휴지통 포함)과, 저장한 글자 스타일·다음에 놓을 글자의 글꼴. */
+function fontsUsedBy(s: Settings): Set<string> {
+  const used = fontsInUse(s.works);
+  for (const t of s.textStyles) if (t.style.font) used.add(t.style.font);
+  if (s.textDraftStyle.font) used.add(s.textDraftStyle.font);
+  return used;
 }
 
 /** 같은 이름이 있으면 ` 2`, ` 3`…을 붙인다. */
@@ -810,13 +798,16 @@ export const useStore = create<Store>((set, get) => ({
 
   restoreWorkById: (id) => set((s) => ({ works: s.works.map((w) => (w.id === id ? restoreWork(w) : w)) })),
 
-  deleteWorkForever: (id) =>
+  deleteWorkForever: (id) => {
     set((s) => {
       const { [id]: _h, ...histories } = s.histories;
       const { [id]: _c, ...cursors } = s.cursors;
       const next = { ...s, works: s.works.filter((w) => w.id !== id), histories, cursors };
       return { works: next.works, histories, cursors, ...withTabs(next, closeTab(s.tabs, id)) };
-    }),
+    });
+    // 이 작업만 쓰던, 목록에서 뺀 이미지·글꼴의 파일을 이제 지운다(core/assets).
+    get().purgeUnusedAssets();
+  },
 
   moveWorkToFolder: (id, folderId) =>
     set((s) => {
@@ -1288,53 +1279,73 @@ export const useStore = create<Store>((set, get) => ({
     set((s) => {
       const font = s.userFonts.find((f) => f.id === id);
       if (!font) return {};
-      persistFontLabel(id, font.name, label);
+      persistFontMeta(id, font.name, { label, favorite: font.favorite, hidden: font.hidden });
       return { userFonts: s.userFonts.map((f) => (f.id === id ? { ...f, label } : f)) };
     }),
 
-  addUserImage: (image) =>
+  toggleFontFavorite: (id) =>
     set((s) => {
-      const next = s.userImages.some((i) => i.id === image.id)
-        ? s.userImages.map((i) => (i.id === image.id ? image : i))
-        : [...s.userImages, image];
-      const { kept, evicted } = evictExcessRecent(next, s.works);
-      for (const i of evicted) removeImage(i.name);
-      return { userImages: kept };
+      const font = s.userFonts.find((f) => f.id === id);
+      if (!font) return {};
+      const favorite = !font.favorite;
+      persistFontMeta(id, font.name, { label: font.label, favorite, hidden: font.hidden });
+      return { userFonts: s.userFonts.map((f) => (f.id === id ? { ...f, favorite } : f)) };
     }),
 
-  removeUserImage: (id) =>
-    set((s) => {
-      if (imageInUse(s.works, id)) return {};
-      const image = s.userImages.find((i) => i.id === id);
-      if (image) removeImage(image.name);
-      return { userImages: s.userImages.filter((i) => i.id !== id) };
-    }),
+  addUserImage: (image) =>
+    set((s) => ({
+      userImages: s.userImages.some((i) => i.id === image.id)
+        ? s.userImages.map((i) => (i.id === image.id ? image : i))
+        : [...s.userImages, image],
+    })),
+
+  removeUserImage: (id) => {
+    const s = get();
+    const image = s.userImages.find((i) => i.id === id);
+    if (!image) return null;
+    if (imagesInUse(s.works).has(id)) {
+      persistImageMeta(id, image.name, { label: image.label, usedAt: image.usedAt, hidden: true });
+      set({ userImages: s.userImages.map((i) => (i.id === id ? { ...i, hidden: true } : i)) });
+      return 'hidden';
+    }
+    removeImage(image.name);
+    set({ userImages: s.userImages.filter((i) => i.id !== id) });
+    return 'deleted';
+  },
+
+  removeUserFont: (id) => {
+    const s = get();
+    const font = s.userFonts.find((f) => f.id === id);
+    if (!font) return null;
+    if (fontsUsedBy(s).has(id)) {
+      persistFontMeta(id, font.name, { label: font.label, favorite: font.favorite, hidden: true });
+      set({ userFonts: s.userFonts.map((f) => (f.id === id ? { ...f, hidden: true } : f)) });
+      return 'hidden';
+    }
+    removeFont(id, font.name);
+    set({ userFonts: s.userFonts.filter((f) => f.id !== id) });
+    return 'deleted';
+  },
+
+  purgeUnusedAssets: () => {
+    const s = get();
+    const images = purgeable(s.userImages, imagesInUse(s.works));
+    const fonts = purgeable(s.userFonts, fontsUsedBy(s));
+    if (images.length === 0 && fonts.length === 0) return;
+    images.forEach((i) => removeImage(i.name));
+    fonts.forEach((f) => removeFont(f.id, f.name));
+    set({
+      userImages: s.userImages.filter((i) => !images.includes(i)),
+      userFonts: s.userFonts.filter((f) => !fonts.includes(f)),
+    });
+  },
 
   renameUserImage: (id, label) =>
     set((s) => {
       const image = s.userImages.find((i) => i.id === id);
       if (!image) return {};
-      persistImageMeta(id, image.name, { saved: image.saved, usedAt: image.usedAt, label });
+      persistImageMeta(id, image.name, { usedAt: image.usedAt, hidden: image.hidden, label });
       return { userImages: s.userImages.map((i) => (i.id === id ? { ...i, label } : i)) };
-    }),
-
-  saveUserImage: (id) =>
-    set((s) => {
-      const image = s.userImages.find((i) => i.id === id);
-      if (!image) return {};
-      persistImageMeta(id, image.name, { label: image.label, usedAt: image.usedAt, saved: true });
-      return { userImages: s.userImages.map((i) => (i.id === id ? { ...i, saved: true } : i)) };
-    }),
-
-  unsaveUserImage: (id) =>
-    set((s) => {
-      const image = s.userImages.find((i) => i.id === id);
-      if (!image) return {};
-      persistImageMeta(id, image.name, { label: image.label, usedAt: image.usedAt, saved: false });
-      const next = s.userImages.map((i) => (i.id === id ? { ...i, saved: false } : i));
-      const { kept, evicted } = evictExcessRecent(next, s.works);
-      for (const i of evicted) removeImage(i.name);
-      return { userImages: kept };
     }),
 
   commitImage: (box) =>
@@ -1354,7 +1365,7 @@ export const useStore = create<Store>((set, get) => ({
       const userImages = image
         ? (() => {
             const usedAt = Date.now();
-            persistImageMeta(imageId, image.name, { label: image.label, saved: image.saved, usedAt });
+            persistImageMeta(imageId, image.name, { label: image.label, hidden: image.hidden, usedAt });
             return s.userImages.map((i) => (i.id === imageId ? { ...i, usedAt } : i));
           })()
         : s.userImages;

@@ -16,7 +16,7 @@
  */
 
 import { DEFAULT_FONT_FAMILY } from '../core/style';
-import { idbEntries, idbPut } from '../storage/idb';
+import { idbDelete, idbEntries, idbPut } from '../storage/idb';
 
 /** 브라우저가 받아주는 글꼴 파일. 이 밖의 확장자는 열어봐야 실패한다. */
 const ACCEPTED = ['.ttf', '.otf', '.woff', '.woff2'];
@@ -35,7 +35,14 @@ export interface UserFont {
   family: string;
   /** 목록에 보일 이름. 사용자가 따로 바꾸지 않았으면 `name`을 그대로 쓴다. */
   label?: string;
+  /** 즐겨찾기 — Library·글꼴 고르기에서 맨 위(core/assets). */
+  favorite?: boolean;
+  /** Library 목록에서 뺐지만 쓰는 작업이 있어 파일은 남겨둔 것(core/assets). */
+  hidden?: boolean;
 }
+
+/** 글꼴의 Library 부가정보. IndexedDB에도 파일 바이트와 함께 얹어 남긴다. */
+type FontMeta = Pick<UserFont, 'label' | 'favorite' | 'hidden'>;
 
 /** 목록·속성 막대에 보일 이름. */
 export function fontLabelOf(font: Pick<UserFont, 'name' | 'label'>): string {
@@ -51,7 +58,7 @@ let counter = 0;
  * 심기에 실패하면(글꼴 파일이 아니거나 깨졌으면) 던진다 — 목록에 넣어놓고
  * 나중에 안 그려지는 것보다 낫다.
  */
-async function loadFont(buffer: ArrayBuffer, name: string, reuseId?: string, label?: string): Promise<UserFont> {
+async function loadFont(buffer: ArrayBuffer, name: string, reuseId?: string, meta?: FontMeta): Promise<UserFont> {
   // 저장 파일을 열면 글꼴 이름만 남아 있다. 같은 이름의 파일을 다시 등록하면
   // **그때의 id를 그대로 물려받아** 그 글꼴을 쓰던 글자들이 되살아난다.
   // 새 id를 주면 글자들은 영영 없는 글꼴을 가리키게 된다.
@@ -68,7 +75,7 @@ async function loadFont(buffer: ArrayBuffer, name: string, reuseId?: string, lab
   document.fonts.add(face);
 
   bytes.set(id, buffer);
-  return { id, name, family, label };
+  return { id, name, family, ...meta };
 }
 
 /**
@@ -90,15 +97,15 @@ export async function registerFont(file: File, reuseId?: string): Promise<UserFo
 }
 
 /**
- * 이름(라벨)을 IndexedDB에 다시 남긴다.
+ * 이름·즐겨찾기·목록에서 뺀 표시를 IndexedDB에 다시 남긴다.
  *
- * 파일 바이트는 그대로 두고 라벨만 갈아 끼운다. 파일이 없는(저장 파일에서
+ * 파일 바이트는 그대로 두고 부가정보만 갈아 끼운다. 파일이 없는(저장 파일에서
  * 이름만 살아 돌아온) 글꼴은 다시 저장할 바이트가 없으니 아무 일도 안 한다.
  */
-export function persistFontLabel(id: string, name: string, label: string): void {
+export function persistFontMeta(id: string, name: string, meta: FontMeta): void {
   const buffer = bytes.get(id);
   if (!buffer) return;
-  idbPut('fonts', name, { name, buffer, label });
+  idbPut('fonts', name, { name, buffer, ...meta });
 }
 
 const restoredNames = new Set<string>();
@@ -120,13 +127,19 @@ const restoredNames = new Set<string>();
 export async function restoreCachedFonts(
   resolveId?: (name: string) => string | undefined,
 ): Promise<UserFont[]> {
-  const entries = await idbEntries<{ name: string; buffer: ArrayBuffer; label?: string }>('fonts');
+  const entries = await idbEntries<{ name: string; buffer: ArrayBuffer } & FontMeta>('fonts');
   const restored: UserFont[] = [];
   for (const [name, cached] of entries) {
     if (restoredNames.has(name)) continue;
     restoredNames.add(name);
     try {
-      restored.push(await loadFont(cached.buffer, cached.name, resolveId?.(name), cached.label));
+      restored.push(
+        await loadFont(cached.buffer, cached.name, resolveId?.(name), {
+          label: cached.label,
+          favorite: cached.favorite,
+          hidden: cached.hidden,
+        }),
+      );
     } catch {
       // 깨진 캐시 — 건너뛴다.
     }
@@ -165,4 +178,14 @@ export function reserveIds(ids: string[]): void {
 export function familyOf(fonts: UserFont[], id: string | undefined): string {
   const found = id ? fonts.find((f) => f.id === id) : undefined;
   return found ? `${found.family}, ${DEFAULT_FONT_FAMILY}` : DEFAULT_FONT_FAMILY;
+}
+
+/**
+ * 글꼴 파일을 실제로 지운다(아무 작업도 쓰지 않을 때만 — store가 판단한다). images/registry의
+ * `removeImage`와 같은 규칙: 이름으로 캐시를 지우고, 같은 세션에 다시 올리면 새로 잡히게 한다.
+ */
+export function removeFont(id: string, name: string): void {
+  bytes.delete(id);
+  restoredNames.delete(name);
+  void idbDelete('fonts', name);
 }
