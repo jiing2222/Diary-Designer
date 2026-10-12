@@ -1,4 +1,7 @@
 import type { Work } from './work';
+import type { DiaryObject } from './objects';
+import { outsideCount } from './template';
+import type { Mm } from './units';
 
 /**
  * Library의 작업 정리 — 폴더와 휴지통(리뉴얼, 세부계획 B).
@@ -43,6 +46,25 @@ export function projectsFor(works: Work[], view: ProjectView): Work[] {
  */
 export function worksUsingDiary(works: Work[], diaryId: string): number {
   return works.filter((w) => w.diaryId === diaryId).length;
+}
+
+/**
+ * 다이어리를 바꾸면 새 크기 밖으로 나가는 객체 수(리뉴얼 7-2, 편집기 다이어리 칩). 좌표는 그대로 두므로
+ * 지우지도 옮기지도 않는다 — 몰라서 놀라지 않게 바꾸기 전에 알려줄 뿐이다.
+ *
+ * 펼친 면(날짜마다 반복)이 아니라 **원본**을 센다 — 날짜 묶음의 양식 객체 하나가 365번 세어지면 안 된다.
+ * 날짜별로 더한 객체는 따로 센다.
+ */
+export function outsideObjects(work: Pick<Work, 'items'>, size: { width: Mm; height: Mm }): number {
+  const lists: DiaryObject[][] = [];
+  for (const item of work.items) {
+    if (item.kind === 'page') lists.push(item.face.objects);
+    else {
+      for (const f of item.faces) lists.push(f.objects);
+      for (const ov of Object.values(item.overrides)) lists.push(ov.added);
+    }
+  }
+  return lists.reduce((n, list) => n + outsideCount(list, size), 0);
 }
 
 /** 휴지통에 머무는 기간. 지나면 완전히 지운다(사용자 결정). */

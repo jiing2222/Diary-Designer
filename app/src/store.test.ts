@@ -608,6 +608,20 @@ describe('다이어리 관리 (7-2)', () => {
   });
 });
 
+describe('작업의 다이어리 바꾸기 (7-2 칩)', () => {
+  it('등록한 다이어리로만 바꾸고, 사본 없이 이 작업만', () => {
+    const a = s().addDiary('M6', 'a');
+    const b = s().addDiary('A5', 'b');
+    s().setDefaultDiary(a);
+    const w = s().createWork()!;
+    s().setWorkDiary(w, 'nope');
+    expect(active().diaryId).toBe(a);
+    s().setWorkDiary(w, b);
+    expect(active().diaryId).toBe(b);
+    expect(s().works).toHaveLength(1);
+  });
+});
+
 describe('색 규칙', () => {
   beforeEach(() => {
     s().createWork();

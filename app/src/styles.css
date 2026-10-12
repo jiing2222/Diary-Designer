@@ -4625,6 +4625,60 @@ footer b {
   color: var(--accent);
   font-size: 12px;
 }
+button.diary-chip {
+  border: none;
+  cursor: pointer;
+}
+button.diary-chip:hover,
+button.diary-chip.on {
+  filter: brightness(0.95);
+}
+/* 칩 아래로 펼치는 다이어리 목록 — 위 막대 오른쪽 끝이라 오른쪽에 맞춘다 */
+.diary-chip-wrap {
+  position: relative;
+}
+.diary-chip-pop {
+  left: auto;
+  right: 0;
+  z-index: 40; /* 편집 화면 위, 가운데 창(50) 아래 */
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.diary-chip-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+}
+.diary-chip-item:hover {
+  background: var(--accent-subtle);
+}
+.diary-chip-item.on {
+  font-weight: 600;
+}
+.diary-chip-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.diary-chip-manage {
+  margin-top: 6px;
+  align-self: flex-start;
+  font-size: 12px;
+}
+.diary-change-warn {
+  color: var(--warn);
+}
 .diary-dot {
   display: inline-block;
   width: 9px;

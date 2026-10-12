@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { LIBRARY_TAB } from '../core/workspace';
-import { diarySizeLabel } from '../core/diary';
 import { useActiveDiary, useActiveWork, useCursor, useStore } from '../store';
 import { boot, flushAutosave, startAutosave } from './persist';
 import { Home } from './Home';
@@ -8,6 +7,7 @@ import { Editor } from './Editor';
 import { EditorRail } from './EditorRail';
 import { PrintMain, PrintRail } from './Print';
 import { LIBRARY_RAIL, LibraryMain, type LibrarySection } from './Library';
+import { DiaryChip } from './DiaryChip';
 import { Modal } from './Modal';
 import { Onboarding } from './Onboarding';
 import { Toast } from './Toast';
@@ -87,7 +87,14 @@ export function App() {
           />
         )}
         <div className="frame-right">
-          {screen === 'tabs' && tabs.active !== LIBRARY_TAB && <WorkStatus />}
+          {screen === 'tabs' && tabs.active !== LIBRARY_TAB && (
+            <WorkStatus
+              onManageDiaries={() => {
+                activateTab(LIBRARY_TAB);
+                setSection('diaries');
+              }}
+            />
+          )}
           {onLibrary && <SaveState />}
           <span className="account-dot" title="로그인은 8단계에서 붙어요">·</span>
         </div>
@@ -194,7 +201,7 @@ function SaveState() {
 }
 
 /** 고른 작업 탭의 이름·저장 상태·다이어리 칩·Print(상단 바 오른쪽). */
-function WorkStatus() {
+function WorkStatus({ onManageDiaries }: { onManageDiaries: () => void }) {
   const work = useActiveWork();
   const diary = useActiveDiary();
   const renameWork = useStore((s) => s.renameWork);
@@ -214,12 +221,7 @@ function WorkStatus() {
         {work.name}
       </button>
       <SaveState />
-      {diary && (
-        <span className="diary-chip" title={diarySizeLabel(diary)}>
-          <span className="diary-dot" style={{ background: diary.color }} />
-          {diary.name}
-        </span>
-      )}
+      {diary && <DiaryChip work={work} diary={diary} onManage={onManageDiaries} />}
       {!printing && (
         <button className="primary print-btn" onClick={() => openPrint()} title="종이에 어떻게 찍을지 정하고 PDF로">
           Print

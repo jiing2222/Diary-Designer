@@ -247,6 +247,8 @@ interface Store extends Settings {
   renameWork: (id: string, name: string) => void;
   /** 원본은 유지하고 등록된 다른 다이어리로도 복제할 수 있다. */
   duplicateWork: (id: string, diaryId?: string) => string | null;
+  /** 작업의 다이어리를 바꾼다(편집기 다이어리 칩의 ‘이 작업을 바꾸기’). 좌표는 그대로 — 크기에 맞춰 줄이지 않는다. */
+  setWorkDiary: (id: string, diaryId: string) => void;
   trashWorkById: (id: string) => void;
   restoreWorkById: (id: string) => void;
   deleteWorkForever: (id: string) => void;
@@ -793,6 +795,9 @@ export const useStore = create<Store>((set, get) => ({
     set({ works: [...s.works.slice(0, at), copy, ...s.works.slice(at)] });
     return copy.id;
   },
+
+  setWorkDiary: (id, diaryId) =>
+    set((s) => (s.diaries.some((d) => d.id === diaryId) ? patchWork(s, id, () => ({ diaryId })) : {})),
 
   trashWorkById: (id) =>
     set((s) => {

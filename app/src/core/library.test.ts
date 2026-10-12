@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PROJECT_VIEW, daysLeft, expiredTrash, isTrashed, projectsFor, removeFolderFrom, restoreWork, trashWork } from './library';
-import { newWork } from './work';
+import { DEFAULT_PROJECT_VIEW, daysLeft, expiredTrash, isTrashed, outsideObjects, projectsFor, removeFolderFrom, restoreWork, trashWork } from './library';
+import { newFace, newPage, newWork, type DatedItem } from './work';
+import type { DiaryObject } from './objects';
 
 const NOW = '2026-10-11T00:00:00.000Z';
 const work = () => newWork({ name: 'w', diaryId: 'd', now: NOW });
@@ -62,5 +63,25 @@ describe('Projects 목록', () => {
 
   it('최근 만든순은 최근 수정순과 독립적이다', () => {
     expect(projectsFor(works, { ...DEFAULT_PROJECT_VIEW, sort: 'created' }).map((w) => w.id)).toEqual(['b', 'c', 'a']);
+  });
+});
+
+describe('다이어리를 바꾸면 밖으로 나가는 객체', () => {
+  const line = (id: string, x2: number): DiaryObject => ({ id, type: 'line', x1: 10, y1: 10, x2, y2: 10 });
+
+  it('원본과 날짜별로 더한 객체를 세고, 날짜마다 반복해 세지 않는다', () => {
+    const page = newPage();
+    page.face.objects = [line('a', 70), line('b', 85)];
+    const face = newFace();
+    face.objects = [line('c', 85)];
+    const dated = {
+      kind: 'dated',
+      id: 'd',
+      faces: [face],
+      overrides: { k: { props: {}, added: [line('e', 90)], removed: [] } },
+    } as unknown as DatedItem;
+    // M5(80mm 폭)로 바꾸면 85·85·90mm까지 가는 선 셋이 걸친다.
+    expect(outsideObjects({ items: [page, dated] }, { width: 80, height: 125 })).toBe(3);
+    expect(outsideObjects({ items: [page, dated] }, { width: 148, height: 210 })).toBe(0);
   });
 });
