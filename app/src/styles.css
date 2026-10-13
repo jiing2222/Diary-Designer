@@ -616,6 +616,15 @@ button.ghost:disabled {
  * 가운데 두는 이유는 .insert-sheets가 맡던 것과 같다(아래 주석 참고) — 그
  * 역할을 이제 이 바깥 상자가 물려받았다.
  */
+/* 맞춤 안내선(9-2) — Alt를 누른 채 옮기는 중에 맞은 줄. 화면에서 늘 1px. */
+.align-guide {
+  stroke: #e0457b;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
 /*
  * 눈금자(리뉴얼 9-1, ui/Rulers). 캔버스를 감싼 상자의 위·왼쪽에 겹치고, 켜면 캔버스가 그만큼
  * 비켜 앉는다(RULER_PX와 같은 18px). 화면에만 보이고 인쇄되지 않는다.

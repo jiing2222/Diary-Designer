@@ -51,6 +51,7 @@ import type { InsertSetting } from '../core/template';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
 import { libraryImages, reusableIdFor } from '../core/assets';
 import { InsertView } from './InsertView';
+import { alignBox, type AlignGuide } from '../core/align';
 import { Rulers } from './Rulers';
 import { ImageThumbGrid } from './ImagePickerDialog';
 import { PunchGuide } from './PunchGuide';
@@ -108,6 +109,8 @@ const MOVE_ZONE = 0.3;
  * 7px 남짓이라 거의 정확히 눌러야 했다(사용자 신고). 화면 기준이라 확대해도 손에 느껴지는 폭이 같다.
  */
 const MOVE_GRAB_PX = 12;
+/** 맞춤 안내선이 붙는 거리 — 화면 px(확대와 무관하게 같은 손맛). */
+const ALIGN_PX = 6;
 
 /**
  * 양식 만들기 화면.
@@ -488,10 +491,13 @@ export function Editor() {
       kind: 'move',
       origin: raw,
       anchor: box ? { x: box.x, y: box.y } : raw,
+      bounds: box,
       dx: 0,
       dy: 0,
       hitId: hit.id,
       free: false,
+      align: false,
+      guides: [],
       moved: false,
     });
   }
@@ -694,14 +700,21 @@ export function Editor() {
       // ⌘(윈도우는 Ctrl)을 누른 채 끌면 격자를 벗어나 원하는 자리에 놓을 수 있다.
       // 끄는 도중에 눌러도 되고 떼도 된다 — 매번 다시 계산하므로 즉시 바뀐다.
       const free = e.metaKey || e.ctrlKey;
-      setDragBoth({
-        ...d,
-        free,
-        moved,
-        ...(moved
-          ? moveDelta(d.origin, raw, d.anchor, free ? null : gridPhase)
-          : { dx: 0, dy: 0 }),
-      });
+      // Alt를 누른 채 끌면 도트 대신 다른 객체·페이지 가운데에 맞춘다(9-2, core/align). 붙는 거리는
+      // 화면 px로 정해 확대와 무관하게 손에 느껴지는 거리가 같다.
+      const align = e.altKey && d.bounds !== null;
+      let delta = moved ? moveDelta(d.origin, raw, d.anchor, free || align ? null : gridPhase) : { dx: 0, dy: 0 };
+      let guides: AlignGuide[] = [];
+      if (moved && align && d.bounds) {
+        const others = objects
+          .filter((o) => !selectedIds.includes(o.id))
+          .map((o) => screenBoundsOfObjects([o])!);
+        const moving = { ...d.bounds, x: d.bounds.x + delta.dx, y: d.bounds.y + delta.dy };
+        const r = alignBox(moving, others, insert, ALIGN_PX / scale);
+        delta = { dx: roundMm(delta.dx + r.dx), dy: roundMm(delta.dy + r.dy) };
+        guides = r.guides;
+      }
+      setDragBoth({ ...d, free, align, guides, moved, ...delta });
     }
   }
 
@@ -735,7 +748,7 @@ export function Editor() {
       // 딱 하나 고른 텍스트·이미지를 옮기는 중이면, 그 가운데가 정렬선
       // 근처로 오는 순간 정확히 그 줄에 맞춘다. 여럿을 한꺼번에 옮길
       // 때는(lone이 없다) 어느 것 기준으로 맞출지 애매해 손대지 않는다.
-      if (lone && (isText(lone) || isImage(lone))) {
+      if (!d.align && lone && (isText(lone) || isImage(lone))) {
         const b = boxOf(lone);
         const moved = { ...b, x: b.x + dx };
         const centered = centerOnLogoLine(moved, logoLineX);
@@ -1309,6 +1322,15 @@ export function Editor() {
                   );
                 })()}
 
+              {/* 맞춤 안내선 — Alt를 누른 채 옮기는 중에 맞은 줄(9-2). */}
+              {nudge?.guides.map((g, i) =>
+                g.axis === 'x' ? (
+                  <line key={i} className="align-guide" x1={g.at} x2={g.at} y1={g.from} y2={g.to} />
+                ) : (
+                  <line key={i} className="align-guide" x1={g.from} x2={g.to} y1={g.at} y2={g.at} />
+                ),
+              )}
+
               {/* 지금 그리고 있는 것 */}
               {ghost?.map((l, i) => (
                 <line key={i} {...segProps(l)} stroke={SNAP_COLOR} strokeWidth={0.3} />
@@ -1508,9 +1530,9 @@ export function Editor() {
           전에는 있는지조차 알 수 없으므로, 여기서 지금 어느 쪽인지 알려준다.
         */}
         {nudge ? (
-          <span className={nudge.free ? 'accent' : undefined}>
+          <span className={nudge.free || nudge.align ? 'accent' : undefined}>
             옮김 {roundMm(nudge.dx, 2)} , {roundMm(nudge.dy, 2)} mm
-            {nudge.free ? ' · 격자 해제' : ' · ⌘로 격자 해제'}
+            {nudge.align ? ' · 객체 맞춤' : nudge.free ? ' · 격자 해제' : ' · ⌘로 격자 해제 · Alt로 객체 맞춤'}
           </span>
         ) : (
           hover && (

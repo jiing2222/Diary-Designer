@@ -28,6 +28,7 @@ import {
 } from '../core/objects';
 import { displayText, rotateOf } from '../core/text';
 import { roundMm, type Mm } from '../core/units';
+import type { AlignGuide } from '../core/align';
 import { tableSize, type Lattice } from '../core/grid';
 
 /**
@@ -133,15 +134,20 @@ export type Drag =
    * `anchor` — 고른 것 전체를 감싸는 네모의 왼쪽 위. **이 점이 격자에 앉는다.**
    * `free`   — ⌘(Ctrl)을 누른 채라 격자를 벗어난 자리에 놓인다.
    * `moved`  — DRAG_START를 넘겼다. 넘기기 전까지는 누른 것으로 본다.
+   * `bounds` — 처음 자리에서 고른 것 전체를 감싸는 네모(회전 반영). 맞춤 안내선이 이것을 옮겨 본다.
+   * `align`  — Alt를 누른 채라 도트 대신 다른 객체·페이지 가운데에 맞춘다(core/align). `guides`는 그 안내선.
    */
   | {
       kind: 'move';
       origin: Point;
       anchor: Point;
+      bounds: Box | null;
       dx: Mm;
       dy: Mm;
       hitId: string | null;
       free: boolean;
+      align: boolean;
+      guides: AlignGuide[];
       moved: boolean;
     }
   /**
