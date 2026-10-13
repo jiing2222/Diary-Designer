@@ -1,5 +1,5 @@
 import type { Dash, LineObject } from './objects';
-import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from './style';
+import { OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH, SKETCH_AMPLITUDE, SKETCH_STEP } from './style';
 import type { Mm } from './units';
 
 /**
@@ -53,4 +53,59 @@ export function dashPattern(dash: Dash, width: Mm): [Mm, Mm] | undefined {
 /** 그은 선 하나의 점선 간격. 굵기와 모양을 그 선에서 꺼내 쓴다. */
 export function dashPatternOf(o: LineObject): [Mm, Mm] | undefined {
   return dashPattern(dashOf(o), widthOf(o));
+}
+
+/** 문자열에서 만든 고정된 씨앗 — 같은 id면 언제나 같은 수. */
+function seedOf(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+/** 씨앗에서 0~1 수를 차례로 — 매번 같은 차례(mulberry32). */
+function random(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * 손그림 선의 꺾은선 점들(리뉴얼 9-3, 기능후보 1). 손그림이 아니면 null.
+ *
+ * 곧은 선을 `SKETCH_STEP` 남짓씩 나눠, 선에 수직으로 `SKETCH_AMPLITUDE` 안에서 부드럽게 흔든다(사인 두 개의
+ * 합 — 점마다 따로 흔들면 톱니처럼 보인다). **양 끝은 그대로** — 선은 도트에서 시작해 도트에서 끝난다.
+ * **흔들림은 객체 id에서 정한다** — 다시 그리거나 PDF로 뽑아도 같은 모양이다. 화면(InsertView)과
+ * PDF(export)가 이 점들을 그대로 잇는다.
+ */
+export function sketchPoints(o: LineObject): { x: Mm; y: Mm }[] | null {
+  if (dashOf(o) !== 'sketch') return null;
+  const dx = o.x2 - o.x1;
+  const dy = o.y2 - o.y1;
+  const length = Math.hypot(dx, dy);
+  if (length === 0) return [{ x: o.x1, y: o.y1 }, { x: o.x2, y: o.y2 }];
+  const n = Math.max(2, Math.ceil(length / SKETCH_STEP));
+  const next = random(seedOf(o.id));
+  // 긴 선일수록 물결이 여러 번 — 하지만 한 물결이 너무 짧으면 떨림으로 보인다.
+  const f1 = 0.5 + next() + length / 40;
+  const f2 = 1.5 + 2 * next() + length / 15;
+  const p1 = next() * Math.PI * 2;
+  const p2 = next() * Math.PI * 2;
+  const nx = -dy / length;
+  const ny = dx / length;
+  const out: { x: Mm; y: Mm }[] = [];
+  out.push({ x: o.x1, y: o.y1 });
+  for (let i = 1; i < n; i++) {
+    const t = i / n;
+    // 끝으로 갈수록 0 — 양 끝 가까이에서 꺾이지 않게(양 끝 점 자체는 위에서 그대로 넣었다).
+    const envelope = Math.sin(Math.PI * t);
+    const wave = 0.65 * Math.sin(2 * Math.PI * f1 * t + p1) + 0.35 * Math.sin(2 * Math.PI * f2 * t + p2);
+    const off = SKETCH_AMPLITUDE * envelope * wave;
+    out.push({ x: o.x1 + dx * t + nx * off, y: o.y1 + dy * t + ny * off });
+  }
+  out.push({ x: o.x2, y: o.y2 });
+  return out;
 }

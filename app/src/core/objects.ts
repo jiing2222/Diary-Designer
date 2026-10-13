@@ -19,7 +19,8 @@ export interface LineSeg {
   y2: Mm;
 }
 
-export type Dash = 'solid' | 'dashed' | 'dotted';
+/** 선 모양. 'sketch'(손그림, 리뉴얼 9-3)는 그은 선에만 고를 수 있다 — 도형 테두리·바탕 격자 목록에는 없다. */
+export type Dash = 'solid' | 'dashed' | 'dotted' | 'sketch';
 
 export interface LineObject extends LineSeg {
   id: string;

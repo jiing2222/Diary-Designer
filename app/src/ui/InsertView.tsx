@@ -13,7 +13,7 @@ import {
   SCREEN_GRID_LINE_WIDTH,
   TEXT_COLOR,
 } from '../core/style';
-import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
+import { colorOf, dashPattern, dashPatternOf, sketchPoints, widthOf } from '../core/line';
 import {
   cornerRadiusOf,
   fillColorOf,
@@ -697,7 +697,23 @@ function ObjectLayer({
 }) {
   return (
     <g strokeLinecap={OBJECT_LINE_CAP}>
-      {objects.map((o) => (
+      {objects.map((o) => {
+        // 손그림 선은 core가 정한 꺾은선(PDF와 같은 점들).
+        const sketch = sketchPoints(o);
+        if (sketch) {
+          return (
+            <polyline
+              key={o.id}
+              points={sketch.map((p) => `${p.x},${p.y}`).join(' ')}
+              fill="none"
+              stroke={colorOf(o)}
+              strokeWidth={widthOf(o)}
+              strokeLinejoin="round"
+              visibility={hiddenLineIds?.has(o.id) ? 'hidden' : undefined}
+            />
+          );
+        }
+        return (
         <line
           key={o.id}
           x1={o.x1}
@@ -715,7 +731,8 @@ function ObjectLayer({
           // 된 게 아니라 둘 다 보인 것뿐).
           visibility={hiddenLineIds?.has(o.id) ? 'hidden' : undefined}
         />
-      ))}
+        );
+      })}
     </g>
   );
 }

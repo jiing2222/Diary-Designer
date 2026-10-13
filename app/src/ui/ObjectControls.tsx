@@ -104,6 +104,7 @@ export function LineControls({
         <option value="">실선</option>
         <option value="dashed">파선</option>
         <option value="dotted">점선</option>
+        <option value="sketch">손그림</option>
       </select>
     </>
   );

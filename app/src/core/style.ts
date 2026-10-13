@@ -231,3 +231,10 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } {
  */
 export const PUNCH_MARK_COLOR = '#b5b5b5';
 export const PUNCH_MARK_WIDTH: Mm = 0.15;
+
+/**
+ * 손그림 선(리뉴얼 9-3, core/line `sketchPoints`) — 곧은 선에서 벗어나는 최대 거리와, 선을 나누는 간격.
+ * 아직 인쇄해 보지 않은 값이다(진행상황.md ‘아직 인쇄해보지 않은 값’).
+ */
+export const SKETCH_AMPLITUDE: Mm = 0.3;
+export const SKETCH_STEP: Mm = 2;

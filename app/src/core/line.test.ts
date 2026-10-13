@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { sketchPoints } from './line';
+import { SKETCH_AMPLITUDE } from './style';
 import { colorOf, dashOf, dashPattern, dashPatternOf, widthOf } from './line';
 import type { LineObject } from './objects';
 import { GRID_LINE_WIDTH, OBJECT_LINE_COLOR, OBJECT_LINE_WIDTH } from './style';
@@ -80,5 +82,30 @@ describe('화면과 PDF가 같은 값을 쓴다', () => {
     const grid = dashPattern('dashed', GRID_LINE_WIDTH)!;
     const drawn = dashPattern('dashed', OBJECT_LINE_WIDTH)!;
     expect(grid[0] / GRID_LINE_WIDTH).toBeCloseTo(drawn[0] / OBJECT_LINE_WIDTH, 9);
+  });
+});
+
+describe('손그림 선', () => {
+  const base = { type: 'line' as const, x1: 0, y1: 10, x2: 50, y2: 10, dash: 'sketch' as const };
+
+  it('손그림이 아니면 없다', () => {
+    expect(sketchPoints({ ...base, id: 'l1', dash: undefined })).toBeNull();
+  });
+
+  it('양 끝은 그대로, 흔들림은 SKETCH_AMPLITUDE 안, 같은 id면 늘 같은 모양', () => {
+    const pts = sketchPoints({ ...base, id: 'l1' })!;
+    expect(pts[0]).toEqual({ x: 0, y: 10 });
+    expect(pts[pts.length - 1]).toEqual({ x: 50, y: 10 });
+    expect(pts.length).toBeGreaterThanOrEqual(26); // 2mm 남짓 간격
+    for (const p of pts) expect(Math.abs(p.y - 10)).toBeLessThanOrEqual(SKETCH_AMPLITUDE + 1e-9);
+    expect(pts.some((p) => Math.abs(p.y - 10) > 0.05)).toBe(true);
+    expect(sketchPoints({ ...base, id: 'l1' })).toEqual(pts);
+    expect(sketchPoints({ ...base, id: 'l2' })).not.toEqual(pts);
+  });
+
+  it('비스듬한 선도 선에 수직으로만 흔든다', () => {
+    const pts = sketchPoints({ ...base, id: 'l3', x2: 30, y2: 40 })!;
+    // 선(0,10)→(30,40) 위로의 수선 거리.
+    for (const p of pts) expect(Math.abs((p.x - 0) * 30 - (p.y - 10) * 30) / Math.hypot(30, 30)).toBeLessThanOrEqual(SKETCH_AMPLITUDE + 1e-9);
   });
 });

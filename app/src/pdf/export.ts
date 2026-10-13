@@ -49,7 +49,7 @@ import { cropModeForSide, cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import { capacityPerSheet, frontBackFilled, sheetsNeeded } from '../core/template';
 import { insertSizeOf, placeSlot } from '../core/place';
-import { colorOf, dashPattern, dashPatternOf, widthOf } from '../core/line';
+import { colorOf, dashPattern, dashPatternOf, sketchPoints, widthOf } from '../core/line';
 import {
   cornerRadiusOf,
   fillColorOf,
@@ -889,6 +889,22 @@ function drawObjects(
 
     const place = placeSlot(slot, layout.rotated, layout.turn180);
     for (const o of objects) {
+      // 손그림 선은 core가 정한 꺾은선을 짧은 선분으로 잇는다(화면의 polyline과 같은 점들). 끝이 둥글어 이음매가 없다.
+      const sketch = sketchPoints(o);
+      if (sketch) {
+        for (let k = 1; k < sketch.length; k++) {
+          const p = place.map(sketch[k - 1].x, sketch[k - 1].y);
+          const q = place.map(sketch[k].x, sketch[k].y);
+          page.drawLine({
+            start: { x: mmToPt(p.x), y: mmToPt(flipY(p.y)) },
+            end: { x: mmToPt(q.x), y: mmToPt(flipY(q.y)) },
+            thickness: mmToPt(widthOf(o)),
+            color: color(colorOf(o)),
+            lineCap: LineCapStyle.Round,
+          });
+        }
+        continue;
+      }
       const a = place.map(o.x1, o.y1);
       const b = place.map(o.x2, o.y2);
       // 굵기·색·모양은 core/line이 정한다. 화면(ui/InsertView)도 같은 함수를 부르므로
