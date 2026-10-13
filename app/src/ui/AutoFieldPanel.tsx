@@ -26,11 +26,8 @@ import { CalendarIcon } from './icons';
 export type AutoTile = FieldTile | 'calendar' | 'moon';
 
 const TILES: { id: AutoTile; label: string; glyph: React.ReactNode }[] = [
-  { id: 'year', label: 'Year', glyph: '2026' },
-  { id: 'month', label: 'Month', glyph: 'OCT' },
-  { id: 'day', label: 'Day', glyph: '15' },
-  { id: 'week', label: 'Week', glyph: 'W40' },
-  { id: 'weekday', label: 'Weekday', glyph: '월' },
+  // 해·달·날·주·요일은 Date 하나 — 형식은 코드로 정한다(2026-10-13 결정).
+  { id: 'date', label: 'Date', glyph: '10.15' },
   { id: 'dday', label: 'D-day', glyph: 'D-7' },
   { id: 'calendar', label: 'Calendar', glyph: <CalendarIcon /> },
   { id: 'page', label: 'Page No.', glyph: 'p.3' },
@@ -114,10 +111,11 @@ export function FieldSettings({
             key={formatMixed ? '' : spec.format}
             value={formatMixed ? '' : spec.format}
             preview={(code) => preview({ ...spec, format: code })}
-            hint={tile === 'page' ? 'n·nn·nnn 자릿수 · N 전체 장 수' : 'YYYY MM DD · ddd 월 · eee Mon · w 주차 · 글자는 [ ]'}
+            hint={tile === 'page' ? 'n·nn·nnn 자릿수 · N 전체 장 수' : '코드는 아래 표를 보고 섞어 써요 — 예: YYYY.MM.DD (ddd)'}
             placeholder={tile === 'page' ? 'n / N' : 'YYYY.MM.DD'}
             onCommit={(code) => apply({ format: code })}
           />
+          {tile === 'date' && <DateCodeGuide spec={spec} />}
         </>
       )}
 
@@ -262,6 +260,48 @@ export function MoonPanel({ moons, apply }: { moons: MoonObject[]; apply: (patch
 }
 
 /** 형식 코드를 직접 쓰는 칸 — 치는 동안 미리보기만 바뀌고, Enter나 칸을 떠날 때 적용한다. */
+/** 날짜 형식 코드 설명표(2026-10-13 사용자 요청: 하단에 잘 보이게) — 오늘 날짜로 실제 값을 함께 보여준다. */
+const DATE_CODES: [code: string, meaning: string][] = [
+  ['YYYY', '해'],
+  ['YY', '해 두 자리'],
+  ['M', '달'],
+  ['MM', '달 두 자리'],
+  ['MMM', '달 영어 약자'],
+  ['MMMM', '달 영어'],
+  ['D', '날'],
+  ['DD', '날 두 자리'],
+  ['ddd', '요일'],
+  ['dddd', '요일 길게'],
+  ['eee', '요일 영어'],
+  ['eeee', '요일 영어 길게'],
+  ['w', '주차(그 해의 몇째 주)'],
+];
+
+function DateCodeGuide({ spec }: { spec: FieldDraft }) {
+  const today = todayFrom(useStore((s) => s.today));
+  return (
+    <div className="date-code-guide">
+      <h3 className="panel-sub">형식 코드</h3>
+      <table>
+        <tbody>
+          {DATE_CODES.map(([code, meaning]) => (
+            <tr key={code}>
+              <td className="code">{code}</td>
+              <td>{meaning}</td>
+              <td className="example">{fieldValue({ ...spec, offset: 0, kind: undefined, format: code }, today)}</td>
+            </tr>
+          ))}
+          <tr>
+            <td className="code">[글자]</td>
+            <td colSpan={2}>코드와 겹치는 글자는 [ ]로 감싸요 — 예: [Week] w</td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="tool-panel-note">그 밖의 글자(. / - 년 월 일 등)는 쓴 그대로 나와요.</p>
+    </div>
+  );
+}
+
 function CodeInput({
   value,
   preview,

@@ -216,24 +216,35 @@ export function formatPageNo(field: FieldSpec, index: number, count: number): st
 
 /* ────────────────────────── 패널의 타일과 칩 ────────────────────────── */
 
-export type FieldTile = 'year' | 'month' | 'day' | 'week' | 'weekday' | 'dday' | 'page';
+/**
+ * 패널의 타일. 날짜를 보여주는 칸은 **Date 하나**다(2026-10-13 사용자 결정) — 형식을 코드로 직접 쓰므로
+ * 해·달·날·주·요일로 나눌 까닭이 없다. 칸이 실제로 무엇을 보여주는지(색 규칙이 칠할 칸인지 등)는
+ * `fieldKindOf`가 따로 가린다.
+ */
+export type FieldTile = 'date' | 'dday' | 'page';
+
+/** 칸이 실제로 보여주는 것 — 해·달·날·주·요일·D-day·페이지 번호. 색 규칙(core/colorRules)이 쓴다. */
+export type FieldKind = 'year' | 'month' | 'day' | 'week' | 'weekday' | 'dday' | 'page';
 
 /** 칩 하나 = 칸에 줄 설정 일부. 패널은 칩마다 오늘 날짜로 미리보기를 그린다. */
 export type FieldChip = Pick<FieldSpec, 'format' | 'kind'>;
 
 export const FIELD_CHIPS: Record<FieldTile, FieldChip[]> = {
-  year: [{ format: 'YYYY' }, { format: 'YY' }, { format: 'YYYY년' }],
-  month: [{ format: 'M' }, { format: 'MM' }, { format: 'M월' }, { format: 'MMM' }, { format: 'MMMM' }],
-  day: [
+  // 자주 쓰는 것만 — 나머지는 아래 ‘직접 입력’에 코드로(패널에 코드 설명표가 있다).
+  date: [
     { format: 'D' },
     { format: 'DD' },
     { format: 'M/D' },
     { format: 'M월 D일' },
-    { format: 'YYYY-MM-DD' },
     { format: 'YYYY.MM.DD' },
+    { format: 'ddd' },
+    { format: 'eee' },
+    { format: 'M월' },
+    { format: 'MMM' },
+    { format: 'YYYY' },
+    { format: 'w주차' },
+    { format: 'M/D', kind: 'range' },
   ],
-  week: [{ format: '주차' }, { format: 'W' }, { format: 'Week' }, { format: 'M/D', kind: 'range' }, { format: 'M.D', kind: 'range' }],
-  weekday: [{ format: 'ddd' }, { format: 'dddd' }, { format: 'eee' }, { format: 'eeee' }],
   dday: [{ format: '', kind: 'dday' }],
   page: [
     { format: 'n', kind: 'page' },
@@ -251,6 +262,13 @@ export function chipPatch(chip: FieldChip): Partial<FieldSpec> {
 
 /** 이 칸이 어느 타일에 속하나 — 칸을 고르면 패널이 그 타일을 연다. */
 export function tileOf(field: Pick<FieldSpec, 'format' | 'kind'>): FieldTile {
+  if (field.kind === 'page') return 'page';
+  if (field.kind === 'dday') return 'dday';
+  return 'date';
+}
+
+/** 이 칸이 실제로 무엇을 보여주나 — 날(D)이 있으면 날, 그다음 주차·요일·달·해 순. */
+export function fieldKindOf(field: Pick<FieldSpec, 'format' | 'kind'>): FieldKind {
   if (field.kind === 'page') return 'page';
   if (field.kind === 'dday') return 'dday';
   if (field.kind === 'range') return 'week';

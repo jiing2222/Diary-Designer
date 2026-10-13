@@ -37,7 +37,7 @@ import {
 } from '../core/calendar';
 import { calendarCellAt, isInMonth } from '../core/dataset';
 import { dateColorOf, weekdayHeaderColorOf, type ColorRules } from '../core/colorRules';
-import { moonCircle, moonLitPath, moonOutlinePath } from '../core/moon';
+import { moonCircle, moonOutlinePath, moonShadePath } from '../core/moon';
 import { measureOf } from '../fonts/measure';
 import { sanitizeForFont } from '../core/fontCoverage';
 import { familyOf } from '../fonts/registry';
@@ -260,11 +260,12 @@ function MoonLayer({ objects }: { objects: MoonObject[] }) {
       {objects.map((o) => {
         if (o.phase === undefined) return null;
         const { cx, cy, r } = moonCircle(o);
-        const lit = moonLitPath(o.phase, cx, cy, r);
+        // 어두운 부분을 칠한다(삭 ●, 보름 ○ — 호보니치와 같다).
+        const shade = moonShadePath(o.phase, cx, cy, r);
         const color = strokeColorOf(o);
         return (
           <g key={o.id}>
-            {lit && <path d={lit} fill={color} stroke="none" />}
+            {shade && <path d={shade} fill={color} stroke="none" />}
             <path d={moonOutlinePath(cx, cy, r)} fill="none" stroke={color} strokeWidth={strokeWidthOf(o)} />
           </g>
         );

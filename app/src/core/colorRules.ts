@@ -1,5 +1,5 @@
 import { dayOfWeek, type CalendarDate } from './dataset';
-import { tileOf, type FieldSpec } from './fieldFormat';
+import { fieldKindOf, type FieldSpec } from './fieldFormat';
 import { isHoliday } from './holidays';
 import { colorOfKey, keyOfRef, type WorkPalette } from './colors';
 
@@ -51,8 +51,8 @@ export function weekdayHeaderColorOf(column: number, weekStart: 'sun' | 'mon', r
  */
 export function ruleAppliesTo(field: Pick<FieldSpec, 'format' | 'kind'>): boolean {
   if (field.kind) return false;
-  const tile = tileOf(field);
-  return tile === 'day' || tile === 'weekday';
+  const kind = fieldKindOf(field);
+  return kind === 'day' || kind === 'weekday';
 }
 
 /** 규칙에서 이 색(이름표)을 다른 값으로 — 팔레트에서 포인트 색을 지울 때. */

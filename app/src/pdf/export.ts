@@ -103,7 +103,7 @@ import {
 } from '../core/calendar';
 import { calendarCellAt, isInMonth } from '../core/dataset';
 import { dateColorOf, weekdayHeaderColorOf, type ColorRules } from '../core/colorRules';
-import { moonCircle, moonLitPath, moonOutlinePath } from '../core/moon';
+import { moonCircle, moonOutlinePath, moonShadePath } from '../core/moon';
 import { measureOf, NO_LIGATURES } from '../fonts/measure';
 import { sheetSlotKey } from '../core/sheetSlots';
 
@@ -1166,8 +1166,8 @@ function drawMoons(page: PDFPage, layout: Layout, resolveSlot: (i: number) => Sl
         rotate: degrees(layoutRotateDeg(layout)),
       };
       const c = color(strokeColorOf(o));
-      const lit = moonLitPath(o.phase!, cx, cy, r);
-      if (lit) page.drawSvgPath(lit, { ...at, color: c });
+      const shade = moonShadePath(o.phase!, cx, cy, r);
+      if (shade) page.drawSvgPath(shade, { ...at, color: c });
       page.drawSvgPath(moonOutlinePath(cx, cy, r), { ...at, borderColor: c, borderWidth: strokeWidthOf(o) });
     }
   });

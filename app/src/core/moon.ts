@@ -7,8 +7,9 @@ import type { Mm } from './units';
  * 글자가 아니라 **도형**이다. 위상 계산과 모양(SVG 경로)은 여기서 한 번만 정하고
  * 화면(ui/InsertView)과 PDF(pdf/export의 `drawSvgPath`)가 같은 경로 문자열을 그린다.
  *
- * 그리는 법: 테두리 원은 늘 그리고, **빛나는 부분을 칠한다** — 보름달은 꽉 찬 원,
- * 삭(그믐 끝)은 빈 원. 한국(북반구)에서는 차오르는 달의 오른쪽이 밝다.
+ * 그리는 법: 테두리 원은 늘 그리고, **어두운 부분을 칠한다** — 삭은 꽉 찬 원 ●, 보름달은 빈 원 ○.
+ * 호보니치 수첩과 같은 방식이다(2026-10-13 사용자 결정, 처음엔 빛나는 부분을 칠했다). 한국(북반구)에서는
+ * 차오르는 달의 오른쪽이 밝다 — 그래서 칠해지는 쪽은 왼쪽이다. 화면·PDF는 `moonShadePath`를 그린다.
  */
 
 /** 0 삭 · 1 초승달 · 2 상현달 · 3 차가는 달 · 4 보름달 · 5 기우는 달 · 6 하현달 · 7 그믐달 */
@@ -75,4 +76,14 @@ export function moonLitPath(phase: MoonPhase, cx: Mm, cy: Mm, r: Mm): string | n
   const crescent = phase === 1 || phase === 7;
   const bulgeRight = waxing === crescent;
   return `${half} A ${k} ${r} 0 0 ${bulgeRight ? 0 : 1} ${top} Z`;
+}
+
+/**
+ * 어두운 부분의 경로 — 화면·PDF가 칠하는 것. 보름이면 null(칠할 것이 없다).
+ *
+ * 위상 p의 어두운 부분은 반 바퀴 뒤(p+4)의 빛나는 부분과 모양이 같다 — 상현(오른쪽 밝음)의 어두운
+ * 왼쪽 반 = 하현의 밝은 왼쪽 반, 초승달의 어두운 큰 부분 = 기우는 달의 밝은 부분.
+ */
+export function moonShadePath(phase: MoonPhase, cx: Mm, cy: Mm, r: Mm): string | null {
+  return moonLitPath(((phase + 4) % 8) as MoonPhase, cx, cy, r);
 }

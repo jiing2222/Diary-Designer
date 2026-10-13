@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { moonCircle, moonLitPath, moonPhaseOf, moonSizeOf } from './moon';
+import { moonCircle, moonLitPath, moonPhaseOf, moonShadePath, moonSizeOf } from './moon';
 
 describe('달 위상 8단계', () => {
   it('설날(음력 1일)은 삭, 추석(음력 15일)은 보름', () => {
@@ -34,5 +34,14 @@ describe('달 모양', () => {
   it('초승달은 오른쪽으로 불룩한 경계, 차가는 달은 왼쪽으로', () => {
     expect(moonLitPath(1, 5, 5, 2)).toMatch(/A 2 2 0 0 1 5 7 A [\d.]+ 2 0 0 0 5 3 Z$/);
     expect(moonLitPath(3, 5, 5, 2)).toMatch(/A 2 2 0 0 1 5 7 A [\d.]+ 2 0 0 1 5 3 Z$/);
+  });
+});
+
+describe('칠하는 부분(호보니치 방식, 2026-10-13)', () => {
+  it('삭은 꽉 찬 원, 보름은 칠하지 않고, 상현은 왼쪽 반을 칠한다', () => {
+    expect(moonShadePath(0, 5, 5, 2)).toContain('A 2 2 0 1 1');
+    expect(moonShadePath(4, 5, 5, 2)).toBeNull();
+    expect(moonShadePath(2, 5, 5, 2)).toBe('M 5 3 A 2 2 0 0 0 5 7 Z');
+    expect(moonShadePath(6, 5, 5, 2)).toBe('M 5 3 A 2 2 0 0 1 5 7 Z');
   });
 });

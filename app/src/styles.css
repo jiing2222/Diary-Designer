@@ -6474,3 +6474,25 @@ button.danger:hover {
 .insert-sheet.draw.can-grab {
   cursor: move;
 }
+
+/* AutoField → Date의 형식 코드 설명표(2026-10-13). */
+.date-code-guide table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.date-code-guide td {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+.date-code-guide td.code {
+  font-family: ui-monospace, Menlo, monospace;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.date-code-guide td.example {
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
