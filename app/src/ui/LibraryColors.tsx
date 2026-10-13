@@ -103,46 +103,48 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
         </button>
       </div>
 
-      <div className="colors-label">기본</div>
-      <div className="colors-row">
-        {BASE_KEYS.map((key) => (
-          <button
-            key={key}
-            className={`color-slot ${editing === key ? 'on' : ''}`}
-            style={{ background: palette.base[key] }}
-            title={keyLabel(key)}
-            onClick={() => setEditing(editing === key ? null : key)}
-          />
-        ))}
-      </div>
-      <div className="colors-label">POINT</div>
-      <div className="colors-row">
-        {palette.points.map((p) => (
-          <span key={p.key} className="color-point">
+      <section className="lib-card">
+        <div className="colors-label">기본</div>
+        <div className="colors-row">
+          {BASE_KEYS.map((key) => (
             <button
-              className={`color-slot round ${editing === p.key ? 'on' : ''}`}
-              style={{ background: p.color }}
-              title={`포인트 ${p.key}`}
-              onClick={() => setEditing(editing === p.key ? null : p.key)}
+              key={key}
+              className={`color-slot ${editing === key ? 'on' : ''}`}
+              style={{ background: palette.base[key] }}
+              title={keyLabel(key)}
+              onClick={() => setEditing(editing === key ? null : key)}
             />
-            <span className="color-point-key">{p.key}</span>
-          </span>
-        ))}
-        <button
-          className="color-slot round add"
-          title="포인트 색 추가"
-          onClick={() => {
-            const key = nextPointKey(palette.points);
-            patch(saved.id, { palette: addPoint(palette, '#8ea8c6') });
-            setEditing(key);
-          }}
-        >
-          +
-        </button>
-      </div>
+          ))}
+        </div>
+        <div className="colors-label">POINT</div>
+        <div className="colors-row">
+          {palette.points.map((p) => (
+            <span key={p.key} className="color-point">
+              <button
+                className={`color-slot round ${editing === p.key ? 'on' : ''}`}
+                style={{ background: p.color }}
+                title={`포인트 ${p.key}`}
+                onClick={() => setEditing(editing === p.key ? null : p.key)}
+              />
+              <span className="color-point-key">{p.key}</span>
+            </span>
+          ))}
+          <button
+            className="color-slot round add"
+            title="포인트 색 추가"
+            onClick={() => {
+              const key = nextPointKey(palette.points);
+              patch(saved.id, { palette: addPoint(palette, '#8ea8c6') });
+              setEditing(key);
+            }}
+          >
+            +
+          </button>
+        </div>
+      </section>
 
       {editing && colorOfKey(palette, editing) !== null && (
-        <div className="color-editor palette-color-editor">
+        <div className="lib-card color-editor palette-color-editor">
           <div className="color-editor-head">
             <b>{keyLabel(editing)}</b>
           </div>

@@ -6517,3 +6517,238 @@ input[type='checkbox']:disabled {
   margin: 6px 0 10px;
   font-size: 13px;
 }
+
+/* ═══════════════════════ 디자인 정리(2026-10-13) ═══════════════════════
+ * 디자인.md ‘색과 선(3차)’: Soft UI — 테두리 대신 면 색 차이와 둥근 모서리로 구분한다.
+ * 화면 곳곳에서 단추가 글자처럼 떠 있고(바탕 없는 ghost), 설정이 한 판에 늘어서 있어 ‘덜렁’ 보였다.
+ */
+
+/* 단추는 알약. 두 줄로 꺾이지 않게. */
+button {
+  border-radius: 999px;
+  white-space: nowrap;
+}
+button.ghost {
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+}
+/* 내용 화면의 보조 단추는 옅은 면을 깐다 — 아이보리 위엔 그레이지, 그레이지 위엔 아이보리. */
+:where(.library-pane, .rail-panel, .print-panel) button.ghost {
+  background: var(--panel);
+}
+:where(.modal, .lib-card, .trash-row) button.ghost {
+  background: var(--bg);
+}
+:where(.library-pane, .rail-panel, .print-panel, .modal, .lib-card, .trash-row) button.ghost:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+button.ghost.danger {
+  color: var(--warn);
+}
+button.ghost.danger:hover:not(:disabled) {
+  background: var(--danger-subtle);
+  color: var(--warn);
+}
+button.ghost.on {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+button.ghost:disabled {
+  opacity: 0.55;
+}
+
+/* 묶음 — 둥근 그레이지 면. 제목은 작은 대문자처럼. */
+.lib-card {
+  margin: 0 0 12px;
+  padding: 14px 18px 16px;
+  border-radius: 14px;
+  background: var(--panel);
+}
+.lib-card-title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+.lib-meta {
+  margin: -4px 0 14px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* 작은 꼬리표 — 남은 날, 기본 다이어리 등. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.tag.accent {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 빈 화면 — 글자 한 줄 대신 가운데 정렬한 점선 면. */
+.empty-card {
+  display: grid;
+  place-items: center;
+  min-height: 140px;
+  margin-top: 8px;
+  padding: 24px;
+  border: 1.5px dashed var(--line);
+  border-radius: 16px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Library의 입력칸 — 높이·둥글기를 맞춘다. */
+.lib-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 14px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.lib-input,
+.library-pane input[type='text'],
+.library-pane input[type='search'],
+.library-pane input:not([type]),
+.library-pane select {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+.lib-field .lib-input {
+  width: min(320px, 100%);
+}
+
+/* 휴지통 한 줄 = 카드. 단추는 오른쪽 끝. */
+.trash-row {
+  gap: 10px;
+  padding: 10px 12px 10px 16px;
+  border-radius: 14px;
+  margin-bottom: 8px;
+}
+.trash-name {
+  font-weight: 600;
+}
+.trash-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+}
+.trash-row .trash-actions button {
+  padding: 5px 12px;
+}
+
+/* 하위 탭(Page의 Background·Margin·Punch·Guide) — 한 줄 분절 단추로. 넷이 패널 폭에 다 들어간다. */
+.sub-tabs {
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--panel);
+}
+.sub-tab {
+  flex: 1;
+  padding: 4px 4px;
+  font-size: 11.5px;
+  text-align: center;
+}
+
+/* 다이어리 지우기 줄 — 단추와 이유를 나란히. */
+.diary-remove {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.diary-remove .lib-meta {
+  margin: 0;
+}
+
+/* 창(모달) — 둥글게. */
+.modal {
+  border-radius: 16px;
+}
+
+/* 작업 메뉴(⋯) — 알약 여러 개가 아니라 평평한 목록. 눌러 볼 수 있다는 건 마우스를 올리면 보인다. */
+.project-menu button.ghost {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+}
+.project-menu button.ghost:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+/* Print 위 막대(← 편집으로)와 편집 화면 아래 줄(눈금자·한눈에 보기)의 단추도 면을 깐다. */
+.print-bar button.ghost {
+  background: var(--panel);
+}
+.editor-foot button.ghost {
+  padding: 2px 10px;
+  background: var(--panel);
+  font-size: 12px;
+}
+.print-bar button.ghost:hover:not(:disabled),
+.editor-foot button.ghost:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+.editor-foot button.ghost.on {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+/* 숫자 칸 옆 단위(mm·가로·세로)가 세로로 꺾이지 않게. 숫자 칸도 둥글게. */
+.num span {
+  white-space: nowrap;
+}
+.num input,
+.rail-panel select,
+.library-pane .num input {
+  height: 30px;
+  border-radius: 8px;
+}
+
+/* 창 안의 입력칸·분절 단추 — Library와 같은 모양. 창은 그레이지라 분절 바탕은 아이보리. */
+.modal input[type='text'],
+.modal input[type='search'],
+.modal input[type='date'],
+.modal input[type='number'],
+.modal input:not([type]),
+.modal select {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+.modal .seg {
+  background: var(--bg);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}

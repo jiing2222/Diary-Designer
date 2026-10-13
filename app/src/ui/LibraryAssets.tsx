@@ -52,9 +52,11 @@ export function LibraryImages() {
         </div>
         {upload.error && <p className="modal-note warn">{upload.error}</p>}
         {shown.length === 0 ? (
-          <p className="muted asset-empty">
-            {filter === 'all' ? '아직 올린 이미지가 없어요.' : '해당하는 이미지가 없어요.'}
-          </p>
+          <div className="empty-card">
+            {filter === 'all'
+              ? '아직 올린 이미지가 없어요. 파일을 여기로 끌어다 놓아도 돼요.'
+              : '해당하는 이미지가 없어요.'}
+          </div>
         ) : (
           <div className="design-grid asset-grid">
             {shown.map((img) => (
@@ -123,14 +125,16 @@ export function LibraryFonts() {
             </button>
           )}
         </div>
-        <input
-          className="font-sample-input"
-          aria-label="견본 글자"
-          placeholder={DEFAULT_SAMPLE}
-          value={sample}
-          maxLength={60}
-          onChange={(e) => setSample(e.target.value)}
-        />
+        <label className="lib-field">
+          <span>견본 글자</span>
+          <input
+            className="lib-input"
+            placeholder={DEFAULT_SAMPLE}
+            value={sample}
+            maxLength={60}
+            onChange={(e) => setSample(e.target.value)}
+          />
+        </label>
         {which === 'builtin' ? (
           <div className="font-list">
             <div className="font-line">
@@ -142,7 +146,7 @@ export function LibraryFonts() {
           <>
             {upload.error && <p className="modal-note warn">{upload.error}</p>}
             {listed.length === 0 ? (
-              <p className="muted asset-empty">아직 등록한 글꼴이 없어요.</p>
+              <div className="empty-card">아직 등록한 글꼴이 없어요. TTF·OTF 파일을 여기로 끌어다 놓아도 돼요.</div>
             ) : (
               <div className="font-list">
                 {listed.map((f) => (

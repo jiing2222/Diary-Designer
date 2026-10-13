@@ -160,134 +160,143 @@ function DiaryEditor({ diary }: { diary: Diary }) {
             <span className="diary-dot" style={{ background: diary.color }} /> {diary.name}
           </h2>
           {diary.id === defaultId ? (
-            <span className="muted">★ 기본 다이어리</span>
+            <span className="tag accent">★ 기본 다이어리</span>
           ) : (
             <button className="ghost" onClick={() => setDefault(diary.id)}>
               기본으로 정하기
             </button>
           )}
         </div>
-        <p className="muted">
+        <p className="lib-meta">
           이 다이어리로 만든 작업 {used}개{diary.id === defaultId ? ' · 새 작업은 이 다이어리로 시작해요' : ''}
         </p>
 
-        <h3 className="panel-sub">이름 · 색</h3>
-        <Row label="이름">
-          <input
-            className="diary-name-input"
-            value={name}
-            maxLength={40}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => {
-              const next = name.trim() || diary.name;
-              setName(next);
-              if (next !== diary.name) patchDiary(diary.id, { name: next });
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur();
-            }}
-          />
-        </Row>
-        <Row label="색" hint="작업 카드의 색 점">
-          <span className="diary-colors">
-            {DIARY_COLORS.map((c) => (
-              <button
-                key={c}
-                className={`diary-color ${diary.color === c ? 'on' : ''}`}
-                style={{ background: c }}
-                onClick={() => patchDiary(diary.id, { color: c })}
-                aria-label={`색 ${c}`}
+        {/* 묶음마다 둥근 면(lib-card) — 한 판에 늘어서 있으면 어디까지가 한 설정인지 안 보였다(2026-10-13). */}
+        <section className="lib-card">
+          <h3 className="lib-card-title">이름 · 색</h3>
+          <Row label="이름">
+            <input
+              className="diary-name-input"
+              value={name}
+              maxLength={40}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => {
+                const next = name.trim() || diary.name;
+                setName(next);
+                if (next !== diary.name) patchDiary(diary.id, { name: next });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+              }}
+            />
+          </Row>
+          <Row label="색" hint="작업 카드의 색 점">
+            <span className="diary-colors">
+              {DIARY_COLORS.map((c) => (
+                <button
+                  key={c}
+                  className={`diary-color ${diary.color === c ? 'on' : ''}`}
+                  style={{ background: c }}
+                  onClick={() => patchDiary(diary.id, { color: c })}
+                  aria-label={`색 ${c}`}
+                />
+              ))}
+            </span>
+          </Row>
+        </section>
+
+        <section className="lib-card">
+          <h3 className="lib-card-title">크기</h3>
+          <Row label="가로">
+            <Num
+              value={diary.width}
+              min={30}
+              max={400}
+              step={0.5}
+              onChange={(width) => patchDiary(diary.id, { width })}
+            />
+          </Row>
+          <Row label="세로">
+            <Num
+              value={diary.height}
+              min={30}
+              max={400}
+              step={0.5}
+              onChange={(height) => patchDiary(diary.id, { height })}
+            />
+          </Row>
+          <p className="tool-panel-note">
+            인식한 규격: {diarySizeLabel(diary)}
+            {used > 0 && ` · 크기를 바꾸면 이 다이어리를 쓰는 작업 ${used}개의 속지가 함께 바뀌어요.`}
+          </p>
+        </section>
+
+        <section className="lib-card">
+          <h3 className="lib-card-title">구멍</h3>
+          <Row label="구멍 수">
+            <Num
+              value={punch.holeCount}
+              min={1}
+              max={30}
+              step={1}
+              unit="개"
+              onChange={(holeCount) => patchPunch(diary.id, { holeCount })}
+            />
+          </Row>
+          <Row label="배치">
+            <select
+              value={punch.groupGap === null ? 'even' : 'grouped'}
+              onChange={(e) =>
+                patchPunch(diary.id, {
+                  groupGap: e.target.value === 'even' ? null : suggestGroupGap(diary.height, punch.holeCount),
+                })
+              }
+            >
+              <option value="even">균등 간격</option>
+              <option value="grouped">
+                묶음 ({Math.ceil(punch.holeCount / 2)} + {Math.floor(punch.holeCount / 2)})
+              </option>
+            </select>
+          </Row>
+          {punch.groupGap !== null && (
+            <Row label="묶음 간격" hint="두 묶음 사이의 중심 간격">
+              <Num value={punch.groupGap} onChange={(groupGap) => patchPunch(diary.id, { groupGap })} />
+            </Row>
+          )}
+          <details className="diary-fine">
+            <summary>구멍 위치 미세 조정</summary>
+            <Row label="안전영역" hint="구멍 쪽에 아무것도 놓지 않는 폭">
+              <Num value={punch.safeZoneWidth} onChange={(safeZoneWidth) => patchPunch(diary.id, { safeZoneWidth })} />
+            </Row>
+            <Row label="구멍 지름">
+              <Num
+                value={punch.markSize}
+                min={3}
+                max={6}
+                step={0.5}
+                onChange={(markSize) => patchPunch(diary.id, { markSize })}
               />
-            ))}
-          </span>
-        </Row>
-
-        <h3 className="panel-sub">크기</h3>
-        <Row label="가로">
-          <Num
-            value={diary.width}
-            min={30}
-            max={400}
-            step={0.5}
-            onChange={(width) => patchDiary(diary.id, { width })}
-          />
-        </Row>
-        <Row label="세로">
-          <Num
-            value={diary.height}
-            min={30}
-            max={400}
-            step={0.5}
-            onChange={(height) => patchDiary(diary.id, { height })}
-          />
-        </Row>
-        <p className="tool-panel-note">
-          인식한 규격: {diarySizeLabel(diary)}
-          {used > 0 && ` · 크기를 바꾸면 이 다이어리를 쓰는 작업 ${used}개의 속지가 함께 바뀌어요.`}
-        </p>
-
-        <h3 className="panel-sub">구멍</h3>
-        <Row label="구멍 수">
-          <Num
-            value={punch.holeCount}
-            min={1}
-            max={30}
-            step={1}
-            unit="개"
-            onChange={(holeCount) => patchPunch(diary.id, { holeCount })}
-          />
-        </Row>
-        <Row label="배치">
-          <select
-            value={punch.groupGap === null ? 'even' : 'grouped'}
-            onChange={(e) =>
-              patchPunch(diary.id, {
-                groupGap: e.target.value === 'even' ? null : suggestGroupGap(diary.height, punch.holeCount),
-              })
-            }
-          >
-            <option value="even">균등 간격</option>
-            <option value="grouped">묶음 ({Math.ceil(punch.holeCount / 2)} + {Math.floor(punch.holeCount / 2)})</option>
-          </select>
-        </Row>
-        {punch.groupGap !== null && (
-          <Row label="묶음 간격" hint="두 묶음 사이의 중심 간격">
-            <Num value={punch.groupGap} onChange={(groupGap) => patchPunch(diary.id, { groupGap })} />
-          </Row>
-        )}
-        <details className="diary-fine">
-          <summary>구멍 위치 미세 조정</summary>
-          <Row label="안전영역" hint="구멍 쪽에 아무것도 놓지 않는 폭">
-            <Num value={punch.safeZoneWidth} onChange={(safeZoneWidth) => patchPunch(diary.id, { safeZoneWidth })} />
-          </Row>
-          <Row label="구멍 지름">
-            <Num
-              value={punch.markSize}
-              min={3}
-              max={6}
-              step={0.5}
-              onChange={(markSize) => patchPunch(diary.id, { markSize })}
-            />
-          </Row>
-          <Row label="가장자리~구멍" hint="속지 가장자리에서 구멍 가장자리까지">
-            <Num
-              value={punch.edgeToHole}
-              min={0}
-              max={20}
-              step={0.5}
-              onChange={(edgeToHole) => patchPunch(diary.id, { edgeToHole })}
-            />
-          </Row>
-          <Row label="위아래 밀기" hint="구멍 묶음 전체를 위(−)·아래(+)로">
-            <Num
-              value={punch.offsetY}
-              min={-20}
-              max={20}
-              step={0.5}
-              onChange={(offsetY) => patchPunch(diary.id, { offsetY })}
-            />
-          </Row>
-        </details>
+            </Row>
+            <Row label="가장자리~구멍" hint="속지 가장자리에서 구멍 가장자리까지">
+              <Num
+                value={punch.edgeToHole}
+                min={0}
+                max={20}
+                step={0.5}
+                onChange={(edgeToHole) => patchPunch(diary.id, { edgeToHole })}
+              />
+            </Row>
+            <Row label="위아래 밀기" hint="구멍 묶음 전체를 위(−)·아래(+)로">
+              <Num
+                value={punch.offsetY}
+                min={-20}
+                max={20}
+                step={0.5}
+                onChange={(offsetY) => patchPunch(diary.id, { offsetY })}
+              />
+            </Row>
+          </details>
+        </section>
 
         <div className="diary-remove">
           <button
@@ -300,7 +309,7 @@ function DiaryEditor({ diary }: { diary: Diary }) {
           >
             다이어리 지우기
           </button>
-          {used > 0 && <span className="muted">쓰는 작업이 없어야 지울 수 있어요(휴지통 포함).</span>}
+          {used > 0 && <span className="lib-meta">쓰는 작업이 없어야 지울 수 있어요(휴지통 포함).</span>}
         </div>
       </div>
 
