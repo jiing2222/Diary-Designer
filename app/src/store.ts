@@ -332,7 +332,6 @@ interface Store extends Settings {
   /* ── 편집 ── */
   setTool: (t: Tool) => void;
   drawLines: (segs: LineSeg[]) => void;
-  /** 펼침면의 두 면을 잇는 선 — 양쪽 반쪽을 한 번에 그린다(되돌리기도 한 번). */
   select: (ids: string[]) => void;
   deleteSelected: () => void;
   copySelected: () => void;

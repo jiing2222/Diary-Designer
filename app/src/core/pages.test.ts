@@ -134,6 +134,14 @@ describe('다른 작업에서 페이지 가져오기', () => {
     expect(result.items[0].colorRules).toBeUndefined();
     expect(expandWork({ ...target, items: result.items }, today)[0].objects[0]).toMatchObject({ color: '#ff0000' });
   });
+  it('현재 팔레트를 택해도 이 작업에 없는 이름표는 원래 색으로 고정한다(검정이 되지 않게)', () => {
+    const page = newPage();
+    page.face.objects = [{ id: 't1', type: 'text', x: 0, y: 0, width: 10, height: 5, text: 'a', color: '@C' } as TextObject];
+    const source = { ...work(0, false), items: [page], palette: { ...work(0).palette, points: [{ key: 'C', color: '#123456' }] } };
+    const target = work(0, false);
+    const result = importPages(target, source, [page.id], -1, { periods: {}, colors: 'current' })!;
+    expect((result.items[0] as PageItem).face.objects[0]).toMatchObject({ color: '#123456' });
+  });
   it('기간 누락·없는 날짜·규칙 변경·너무 긴 기간과 자기 자신/휴지통 가져오기를 거부한다', () => {
     const d = dated(); const source = { ...work(0, false), items: [d] }; const target = work();
     for (const p of [undefined, { ...period, start: '2026-02-30' }, { ...period, start: '2026-12-01' }, { ...period, perPage: 7 }, { ...period, end: '9999-12-31' }]) expect(validImportPeriod(d, p)).toBe(false);

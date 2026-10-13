@@ -1,6 +1,6 @@
 import { cloneItem, faceCount, insertItems, newPage, type Work, type WorkItem } from './work';
 import { newId } from './objects';
-import { resolveObjectColors } from './colors';
+import { colorOfKey, keyOfRef, mapColors, resolveObjectColors } from './colors';
 import { resolveRuleColors } from './colorRules';
 import { MAX_DATED_PAGES, periodSummary } from './dated';
 import { parseDate, type Dataset } from './dataset';
@@ -148,7 +148,17 @@ export function importPages(target: Work, source: Work, ids: string[], after: nu
       const faces = clean.kind === 'page' ? [clean.face] : clean.faces;
       for (const face of faces) face.objects = resolveObjectColors(face.objects, source.palette);
       clean.colorRules = resolveRuleColors(clean.colorRules ?? source.colorRules, source.palette) ?? {};
-    } else delete clean.colorRules;
+    } else {
+      delete clean.colorRules;
+      // 이 작업 팔레트에 없는 이름표(원래 작업에만 있던 C 등)는 원래 색으로 고정한다 — 그대로 두면
+      // 가리킬 칸이 없어 검정으로 그려진다.
+      const keep = (v: string) => {
+        const key = keyOfRef(v);
+        return key !== null && colorOfKey(target.palette, key) === null ? (colorOfKey(source.palette, key) ?? v) : v;
+      };
+      const faces = clean.kind === 'page' ? [clean.face] : clean.faces;
+      for (const face of faces) face.objects = mapColors(face.objects, keep);
+    }
     return clean;
   });
   const count = faceCount({ items: prepared });
