@@ -470,6 +470,16 @@ describe('작업 색상', () => {
   });
 });
 
+describe('손그림 선 (9-3)', () => {
+  it('그리기 모양이 손그림이어도 도형 테두리는 실선으로 남긴다', () => {
+    s().createWork();
+    s().setDrawStyle({ dash: 'sketch' });
+    s().commitShape({ x: 0, y: 0, width: 10, height: 10 });
+    const shape = (active().items[0] as PageItem).face.objects[0] as { dash?: string };
+    expect(shape.dash).toBeUndefined();
+  });
+});
+
 describe('도트 판 (9-4)', () => {
   beforeEach(() => {
     s().createWork();

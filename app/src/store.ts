@@ -1553,7 +1553,8 @@ export const useStore = create<Store>((set, get) => ({
       if (s.drawStyle.roundness) next.roundness = s.drawStyle.roundness;
       if (s.drawStyle.width !== undefined) next.strokeWidth = s.drawStyle.width;
       if (s.drawStyle.color !== undefined) next.color = s.drawStyle.color;
-      if (s.drawStyle.dash !== undefined) next.dash = s.drawStyle.dash;
+      // 손그림은 그은 선에만 있다(9-3) — 도형 테두리는 실선으로 남긴다.
+      if (s.drawStyle.dash !== undefined && s.drawStyle.dash !== 'sketch') next.dash = s.drawStyle.dash;
       return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
     }),
 
@@ -1563,7 +1564,7 @@ export const useStore = create<Store>((set, get) => ({
       if (s.drawStyle.roundness) borderObj.roundness = s.drawStyle.roundness;
       if (s.drawStyle.width !== undefined) borderObj.strokeWidth = s.drawStyle.width;
       if (s.drawStyle.color !== undefined) borderObj.color = s.drawStyle.color;
-      if (s.drawStyle.dash !== undefined) borderObj.dash = s.drawStyle.dash;
+      if (s.drawStyle.dash !== undefined && s.drawStyle.dash !== 'sketch') borderObj.dash = s.drawStyle.dash;
       const withBorder = [...activeObjects(s), borderObj];
       const withLines = toggleLines(withBorder, innerLines, s.drawStyle);
       const lineIds = withLines
