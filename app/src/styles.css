@@ -6754,6 +6754,8 @@ button.ghost:disabled {
   justify-content: flex-end;
   align-items: center;
   gap: 10px;
+}
+
 /* Library → Pins(개발용, ui/PinStudio) */
 .pin-grid {
   display: grid;
