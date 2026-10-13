@@ -9,6 +9,7 @@ import { Editor } from './Editor';
 import { EditorRail } from './EditorRail';
 import { PrintMain, PrintRail } from './Print';
 import { LIBRARY_RAIL, LibraryMain, type LibrarySection } from './Library';
+import { PINS_RAIL_ITEM, useIsDeveloper } from './developer';
 import { DiaryChip } from './DiaryChip';
 import { Modal } from './Modal';
 import { Onboarding } from './Onboarding';
@@ -240,9 +241,11 @@ function WorkStatus({ onManageDiaries }: { onManageDiaries: () => void }) {
 }
 
 function LibraryRail({ section, setSection }: { section: LibrarySection; setSection: (s: LibrarySection) => void }) {
+  // 개발자 계정이면 개발자 도구(Pins)가 붙는다 — 다른 사람에게는 메뉴 자체가 없다.
+  const items = useIsDeveloper() ? [...LIBRARY_RAIL, PINS_RAIL_ITEM] : LIBRARY_RAIL;
   return (
     <div className="rail-icons">
-      {LIBRARY_RAIL.map((it) => (
+      {items.map((it) => (
         <button
           key={it.id}
           className={`rail-icon ${section === it.id ? 'on' : ''}`}

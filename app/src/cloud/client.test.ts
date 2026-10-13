@@ -42,12 +42,20 @@ describe('리뉴얼 계정 연결', () => {
     const old = savedLogin(); const next = token('next');
     const fetch = vi.fn(async () => reply({ token: next, record: user })); vi.stubGlobal('fetch', fetch);
     const c = await import('./client');
-    expect(c.currentUser()).toEqual({ id: user.id, email: user.email });
-    expect(await c.refreshSession()).toEqual({ id: user.id, email: user.email });
+    expect(c.currentUser()).toEqual({ id: user.id, email: user.email, developer: false });
+    expect(await c.refreshSession()).toEqual({ id: user.id, email: user.email, developer: false });
     expect(fetch).toHaveBeenCalledWith('http://localhost:8090/api/collections/users/auth-refresh', expect.objectContaining({
       method: 'POST', headers: expect.objectContaining({ Authorization: old }),
     }));
     expect(JSON.parse(stored.get('pocketbase_auth')!).token).toBe(next);
+  });
+
+  it('관리자가 켠 개발자 표시를 읽는다 — 앱을 열 때 서버에서 다시 받는다', async () => {
+    savedLogin();
+    vi.stubGlobal('fetch', vi.fn(async () => reply({ token: token('next'), record: { ...user, developer: true } })));
+    const c = await import('./client');
+    expect(c.currentUser()?.developer).toBe(false);
+    expect((await c.refreshSession())?.developer).toBe(true);
   });
 
   it('만료된 토큰은 서버 요청 없이 비우며 작업 저장소는 건드리지 않는다', async () => {

@@ -27,11 +27,16 @@ const pb = cloudEnabled ? new PocketBase(URL) : null;
 export interface CloudUser {
   id: string;
   email: string;
+  /**
+   * 개발자 계정인가 — 관리자 화면에서만 켤 수 있다(server/pb_migrations/3_developer.js). 켜진 계정에만
+   * 개발자 도구가 보인다. 앱을 열 때 refreshSession이 서버에서 다시 받으므로 켜고 끈 것이 다음에 반영된다.
+   */
+  developer: boolean;
 }
 
 function userOf(record: RecordModel | null): CloudUser | null {
   if (!record) return null;
-  return { id: record.id, email: (record.email as string) ?? '' };
+  return { id: record.id, email: (record.email as string) ?? '', developer: record.developer === true };
 }
 
 /** 지금 로그인한 사람. 안 했거나 서버가 없으면 `null`. */

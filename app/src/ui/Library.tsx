@@ -7,6 +7,7 @@ import { Projects } from './Projects';
 import { Diaries } from './Diaries';
 import { DiaryIcon, FontsIcon, ImageIcon, PaletteIcon, ProjectsIcon, TrashIcon } from './icons';
 import { PinStudio } from './PinStudio';
+import { useIsDeveloper } from './developer';
 
 /**
  * Library 탭(리뉴얼, 세부계획 B). 맨 앞에 고정된 탭이다(디자인.md ‘탭’).
@@ -22,8 +23,6 @@ export const LIBRARY_RAIL: { id: LibrarySection; label: string; icon: React.Reac
   { id: 'fonts', label: 'Fonts', icon: <FontsIcon /> },
   { id: 'colors', label: 'Colors', icon: <PaletteIcon /> },
   { id: 'trash', label: 'Trash', icon: <TrashIcon /> },
-  // 핀터레스트 홍보 이미지 만들기 — 개발 서버에서만(사용자에게 보일 기능이 아니다).
-  ...(import.meta.env.DEV ? [{ id: 'pins' as const, label: 'Pins', icon: '📌' }] : []),
 ];
 
 export function LibraryMain({ section }: { section: LibrarySection }) {
@@ -33,8 +32,13 @@ export function LibraryMain({ section }: { section: LibrarySection }) {
   if (section === 'fonts') return <LibraryFonts />;
   if (section === 'learn') return <Soon title="Learn" note="앱 사용법, 인쇄 팁, 다이어리 종이 이야기를 준비하고 있어요." />;
   if (section === 'diaries') return <Diaries />;
-  if (section === 'pins') return <PinStudio />;
+  if (section === 'pins') return <DeveloperOnly />;
   return <LibraryColors />;
+}
+
+/** 개발자 계정이 아니면(로그아웃 등) Pins 자리를 비운다 — 레일에서 빠져도 이 자리에 머물러 있을 수 있다. */
+function DeveloperOnly() {
+  return useIsDeveloper() ? <PinStudio /> : <Soon title="Pins" note="개발자 계정으로 로그인하면 보여요." />;
 }
 
 function Soon({ title, note }: { title: string; note: string }) {
