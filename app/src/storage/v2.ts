@@ -112,6 +112,8 @@ export interface V2Meta {
   textStyles?: SavedTextStyle[];
   /** 저장한 팔레트 — 모든 작업 공통(core/palettes). */
   savedPalettes?: SavedPalette[];
+  /** 편집 화면의 눈금자를 켰는가. */
+  rulers?: boolean;
   /** 인쇄 설정(용지·배치·표시·PDF 전 확인 창의 선택) — store의 SAVED_PRINT_KEYS. */
   print?: Record<string, unknown>;
 }

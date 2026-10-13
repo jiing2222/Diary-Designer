@@ -4,6 +4,7 @@ import { cellAt, cellsIn, gridArea, gridLattice, tableLines, tableSize, tableSpl
 import { holeCenterX } from '../core/punch';
 import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
 import {
+  boundsOfObjects,
   boxOf,
   cleanStyle,
   groupIdOf,
@@ -50,6 +51,7 @@ import type { InsertSetting } from '../core/template';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
 import { libraryImages, reusableIdFor } from '../core/assets';
 import { InsertView } from './InsertView';
+import { Rulers } from './Rulers';
 import { ImageThumbGrid } from './ImagePickerDialog';
 import { PunchGuide } from './PunchGuide';
 import { StyleBar } from './StyleBar';
@@ -239,6 +241,7 @@ export function Editor() {
     grid.toEdge,
   );
   const scale = (zoom / 100) * PX_PER_MM_AT_100;
+  const showRulers = useStore((s) => s.showRulers);
   const noGrid = lattice.xs.length === 0 || lattice.ys.length === 0;
 
   // 옮길 때 격자에 앉히는 기준. 격자점 목록이 아니라 첫 점과 간격만 넘긴다 —
@@ -1037,6 +1040,11 @@ export function Editor() {
       : null;
   const nudge = drag?.kind === 'move' ? drag : null;
   const grip = drag?.kind === 'handle' ? drag : null;
+  // 눈금자에 띠로 보일 고른 것의 범위 — 옮기는 중이면 갈 자리.
+  const rulerBand = (() => {
+    const b = boundsOfObjects(objects.filter((o) => selectedIds.includes(o.id)));
+    return b && { ...b, x: b.x + (nudge?.dx ?? 0), y: b.y + (nudge?.dy ?? 0) };
+  })();
   const hiddenLineIds = hiddenLineIdsFor(objects, selectedIds, grip, nudge);
   const boxGrip = drag?.kind === 'boxHandle' ? drag : null;
   const textDrag = drag?.kind === 'textbox' ? drag : null;
@@ -1156,6 +1164,7 @@ export function Editor() {
           )}
       </div>
 
+      <div className={`canvas-wrap${showRulers ? ' with-rulers' : ''}`}>
       <div
         className="editor-canvas"
         ref={canvasRef}
@@ -1440,6 +1449,19 @@ export function Editor() {
         </div>
         <SpreadPreviews where="after" insert={insert} scale={scale} />
         <AddPageButton />
+      </div>
+      {showRulers && (
+        <Rulers
+          canvasRef={canvasRef}
+          sheetRef={svgRef}
+          width={insert.width}
+          height={insert.height}
+          scale={scale}
+          band={rulerBand}
+          mark={hover}
+          layoutKey={`${spreadKey}:${activeSide}:${hasBack}`}
+        />
+      )}
       </div>
 
       <div className="editor-foot">
@@ -2133,6 +2155,7 @@ function ViewToggles() {
   const cursor = useCursor();
   const setView = useStore((s) => s.setView);
   const setDuplex = useStore((s) => s.setDuplex);
+  const showRulers = useStore((s) => s.showRulers);
   const [overview, setOverview] = useState(false);
   if (!work || !cursor) return null;
   return (
@@ -2151,6 +2174,14 @@ function ViewToggles() {
           </button>
         </span>
       )}
+      <button
+        className={`ghost${showRulers ? ' on' : ''}`}
+        onClick={() => useStore.getState().patch({ showRulers: !showRulers })}
+        title="위·왼쪽에 mm 눈금자(인쇄되지 않아요)"
+        aria-pressed={showRulers}
+      >
+        눈금자
+      </button>
       <button className="ghost" onClick={() => setOverview(true)} title="모든 페이지 한눈에 보기">
         ⊞
       </button>

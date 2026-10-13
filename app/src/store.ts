@@ -155,6 +155,8 @@ interface Settings {
   cloudStatus: { kind: 'local' } | { kind: 'syncing' } | { kind: 'saved'; at: number } | { kind: 'error'; text: string };
   /** 처음 로그인했을 때 이 기기 작업을 올릴지 묻는 창 — 열려 있으면 그 수. 답은 ui/cloudSync가 받는다. */
   syncAsk: { works: number; total: number } | null;
+  /** 편집 화면의 눈금자(리뉴얼 9-1). 앱 설정과 함께 저장된다(ui/persist). */
+  showRulers: boolean;
   /** Colors에서 고르는 동안만 쓰는 팔레트. 작업·자동 저장에는 확정 전까지 넣지 않는다. */
   palettePreview: { workId: string; palette: WorkPalette } | null;
   /** 오늘 날짜 `YYYY-MM-DD`. 날짜 묶음이 아닌 페이지의 자동 필드가 보여준다. */
@@ -238,6 +240,7 @@ interface Store extends Settings {
     defaultDiaryId?: string | null;
     textStyles?: SavedTextStyle[];
     savedPalettes?: SavedPalette[];
+    rulers?: boolean;
     fonts?: UserFont[];
     images?: UserImage[];
     /** 저장해 둔 인쇄 설정(용지·배치·표시·확인 창의 선택). */
@@ -674,6 +677,7 @@ export const useStore = create<Store>((set, get) => ({
   saveStatus: 'saved',
   cloudStatus: { kind: 'local' },
   syncAsk: null,
+  showRulers: false,
   palettePreview: null,
   today: localToday(),
   works: [],
@@ -727,7 +731,7 @@ export const useStore = create<Store>((set, get) => ({
   printCopies: 1,
   exportChoice: { grid: true, punch: false },
 
-  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [], savedPalettes = [], fonts = [], images = [], print = {}, cursors = {} }) => {
+  hydrate: ({ works, diaries, folders, tabs, defaultDiaryId, textStyles = [], savedPalettes = [], rulers = false, fonts = [], images = [], print = {}, cursors = {} }) => {
     // 새로고침하면 id 카운터가 0부터 다시 시작한다 — 불러온 id들보다 위로 올려야
     // 새로 만드는 것이 불러온 것과 겹치지 않는다(옛 판 loadProject와 같은 이유).
     ensureIdCounterAbove([
@@ -749,6 +753,7 @@ export const useStore = create<Store>((set, get) => ({
       selectedIds: [],
       textStyles,
       savedPalettes,
+      showRulers: rulers,
       userFonts: fonts,
       userImages: images,
       ...pickPrintSettings(print),

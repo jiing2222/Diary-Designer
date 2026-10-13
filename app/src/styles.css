@@ -616,6 +616,75 @@ button.ghost:disabled {
  * 가운데 두는 이유는 .insert-sheets가 맡던 것과 같다(아래 주석 참고) — 그
  * 역할을 이제 이 바깥 상자가 물려받았다.
  */
+/*
+ * 눈금자(리뉴얼 9-1, ui/Rulers). 캔버스를 감싼 상자의 위·왼쪽에 겹치고, 켜면 캔버스가 그만큼
+ * 비켜 앉는다(RULER_PX와 같은 18px). 화면에만 보이고 인쇄되지 않는다.
+ */
+.canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+}
+.canvas-wrap.with-rulers > .editor-canvas {
+  margin: 18px 0 0 18px;
+}
+.ruler {
+  position: absolute;
+  overflow: hidden;
+  background: var(--panel);
+  z-index: 2;
+  pointer-events: none;
+}
+.ruler-top {
+  top: 0;
+  right: 0;
+  border-bottom: 1px solid var(--line);
+}
+.ruler-left {
+  left: 0;
+  bottom: 0;
+  border-right: 1px solid var(--line);
+}
+.ruler-corner {
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  font-size: 8px;
+  color: var(--muted);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.ruler-svg {
+  display: block;
+}
+.ruler-sheet {
+  fill: var(--bg);
+}
+.ruler-band {
+  fill: var(--accent-subtle);
+}
+.ruler-tick {
+  stroke: var(--muted);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.ruler-tick.major {
+  stroke: var(--ink);
+}
+.ruler-label {
+  font-size: 8px;
+  fill: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ruler-mark {
+  stroke: var(--accent);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
 .canvas-rotate-frame {
   display: flex;
   align-items: center;

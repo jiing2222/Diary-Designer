@@ -52,6 +52,7 @@ export async function boot(): Promise<{ skippedNotebooks: string[] }> {
     defaultDiaryId: meta.defaultDiaryId,
     textStyles: meta.textStyles,
     savedPalettes: meta.savedPalettes,
+    rulers: meta.rulers,
     fonts: (meta.fonts ?? []).map((f) => ({ ...f, family: `user-font-${f.id}` })),
     images: (meta.images ?? []).map((i) => ({ ...i, url: '' })),
     print: meta.print,
@@ -98,6 +99,7 @@ function metaOf(s: State): V2Meta {
     images: s.userImages.map(({ id, name, label, usedAt, hidden }) => ({ id, name, label, usedAt, hidden })),
     textStyles: s.textStyles,
     savedPalettes: s.savedPalettes,
+    rulers: s.showRulers,
     print: savedPrintSettingsOf(s),
   };
 }
