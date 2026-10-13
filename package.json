@@ -5,6 +5,6 @@
     "dev": "npm --prefix app run dev",
     "build": "npm --prefix app run build",
     "test": "npm --prefix app run test",
-    "typecheck": "npm --prefix app exec tsc -- --noEmit"
+    "typecheck": "cd app && npx tsc -b"
   }
 }
