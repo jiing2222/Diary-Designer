@@ -6762,3 +6762,37 @@ button.ghost:disabled {
   gap: 6px;
   margin-left: auto;
 }
+
+/* Library → Pins(개발용, ui/PinStudio) */
+.pin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.pin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pin-preview {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.pin-title {
+  width: 100%;
+}
+
+.pin-board {
+  margin: 0;
+  font-size: 12px;
+}
+
+.pin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
