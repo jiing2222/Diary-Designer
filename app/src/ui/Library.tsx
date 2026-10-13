@@ -5,6 +5,7 @@ import { LibraryFonts, LibraryImages } from './LibraryAssets';
 import { LibraryColors } from './LibraryColors';
 import { Projects } from './Projects';
 import { Diaries } from './Diaries';
+import { DiaryIcon, FontsIcon, ImageIcon, PaletteIcon, ProjectsIcon, TrashIcon } from './icons';
 
 /**
  * Library 탭(리뉴얼, 세부계획 B). 맨 앞에 고정된 탭이다(디자인.md ‘탭’).
@@ -13,13 +14,13 @@ import { Diaries } from './Diaries';
  */
 export type LibrarySection = 'projects' | 'diaries' | 'images' | 'fonts' | 'colors' | 'trash' | 'learn';
 
-export const LIBRARY_RAIL: { id: LibrarySection; label: string; icon: string }[] = [
-  { id: 'projects', label: 'Projects', icon: '▤' },
-  { id: 'diaries', label: 'Diaries', icon: '◎' },
-  { id: 'images', label: 'Images', icon: '▣' },
-  { id: 'fonts', label: 'Fonts', icon: 'Aa' },
-  { id: 'colors', label: 'Colors', icon: '◐' },
-  { id: 'trash', label: 'Trash', icon: '⌫' },
+export const LIBRARY_RAIL: { id: LibrarySection; label: string; icon: React.ReactNode }[] = [
+  { id: 'projects', label: 'Projects', icon: <ProjectsIcon /> },
+  { id: 'diaries', label: 'Diaries', icon: <DiaryIcon /> },
+  { id: 'images', label: 'Images', icon: <ImageIcon /> },
+  { id: 'fonts', label: 'Fonts', icon: <FontsIcon /> },
+  { id: 'colors', label: 'Colors', icon: <PaletteIcon /> },
+  { id: 'trash', label: 'Trash', icon: <TrashIcon /> },
 ];
 
 export function LibraryMain({ section }: { section: LibrarySection }) {

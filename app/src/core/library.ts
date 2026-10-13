@@ -15,7 +15,7 @@ export interface Folder {
 
 export type ProjectSort = 'updated' | 'created' | 'name';
 
-/** undefined는 모든 작업, null은 폴더 밖, 문자열은 해당 폴더. */
+/** undefined는 모든 작업, null은 ‘분류 없음’(폴더 없음), 문자열은 해당 폴더. */
 export interface ProjectView {
   folderId?: string | null;
   diaryId: string | null;
@@ -105,7 +105,7 @@ export function expiredTrash(works: Pick<Work, 'id' | 'trashedAt'>[], now: strin
   return works.filter((w) => daysLeft(w, now) === 0).map((w) => w.id);
 }
 
-/** 폴더를 지우면 그 안의 작업은 폴더 밖으로 나온다(작업은 지우지 않는다). */
+/** 폴더를 지우면 그 안의 작업은 ‘분류 없음’으로 나온다(작업은 지우지 않는다). */
 export function removeFolderFrom(works: Work[], folderId: string): Work[] {
   return works.map((w) => {
     if (w.folderId !== folderId) return w;

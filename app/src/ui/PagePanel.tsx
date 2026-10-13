@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useActiveDiary, useDotGrid, useHasBack, useInsert, useSide, useStore, type Side } from '../store';
+import { useActiveDiary, useActiveSide, useDotGrid, useInsert, useStore } from '../store';
 import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
 import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
 import type { Dash } from '../core/objects';
@@ -25,12 +25,6 @@ const TABS: { id: PageTab; label: string }[] = [
   { id: 'guide', label: 'Guide' },
 ];
 
-/** 편집 화면 본체와 같은 규칙 — 뒷면 자리에 면이 없으면 앞면이 지금 고치는 쪽이다. */
-function useActiveSide(): Side {
-  const side = useSide();
-  const hasBack = useHasBack();
-  return hasBack ? side : 'front';
-}
 
 export function PagePanel() {
   const [tab, setTab] = useState<PageTab>('background');

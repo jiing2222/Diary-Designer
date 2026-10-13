@@ -37,6 +37,8 @@ import {
   useEditObjects,
   useFaces,
   useHasBack,
+  useHasFront,
+  useActiveSide,
   useInsert,
   usePalette,
   useSide,
@@ -130,12 +132,11 @@ export function Editor() {
   const [stylePanelSlot, setStylePanelSlot] = useState<HTMLDivElement | null>(null);
   // 속지·격자·그린 것은 지금 고르고 있는 양식의, 지금 보는 쪽(앞/뒤)의 것이다.
   const insert = useInsert();
-  const side = useSide();
   const hasBack = useHasBack();
-  // 뒷면이 없으면 side가 어떻든 무조건 앞면이 활성이다 — 뒷면 없이 'back'
-  // 상태가 남아 있어도(이론상만 가능하다) 방어한다. 앞뒤를 나란히 그리는
-  // 지금 화면에서, "지금 그리기·선택이 실제로 향하는 쪽"이 activeSide다.
-  const activeSide: Side = hasBack ? side : 'front';
+  const hasFront = useHasFront();
+  // 지금 그리기·선택이 실제로 향하는 쪽(store `useActiveSide`) — 뒷면이 없으면 앞면, 마지막 면이
+  // 왼쪽에 홀로 남으면(오른쪽 면을 지웠을 때) 왼쪽.
+  const activeSide = useActiveSide();
   const inactiveSide: Side = activeSide === 'back' ? 'front' : 'back';
   // 리뉴얼: 펼침면의 두 면은 서로 다른 페이지라 격자도 면마다 따로다.
   const grid = useDotGrid(activeSide);
@@ -1476,7 +1477,9 @@ export function Editor() {
 
           // 뒷면이 없으면 앞면만 보여준다 — "아직 뒷면이 없습니다" 안내는
           // 없앴다(사용자 요청). 뒷면은 도구막대의 "뒷면 만들기" 버튼으로 만든다.
-          if (!hasBack) return activeSvg;
+          // 오른쪽 면이 없으면(마지막 면이 왼쪽에 홀로) 빈 속지를 그리지 않는다 — 지운 면이
+          // 남아 있는 것처럼 보였다(2026-10-13 사용자 신고).
+          if (!hasBack || !hasFront) return activeSvg;
           // 뒷면이 왼쪽, 앞면이 오른쪽 — activeSvg가 어느 쪽이냐에 따라 순서가 바뀐다.
           return activeSide === 'back' ? (
             <>
@@ -1527,7 +1530,7 @@ export function Editor() {
           scale={scale}
           band={rulerBand}
           mark={hover}
-          layoutKey={`${spreadKey}:${activeSide}:${hasBack}`}
+          layoutKey={`${spreadKey}:${activeSide}:${hasBack}:${hasFront}`}
         />
       )}
       </div>
@@ -1797,10 +1800,8 @@ export function ImageCategoryBody() {
   const commitImage = useStore((s) => s.commitImage);
   const styleImage = useStore((s) => s.styleImage);
   const insert = useInsert();
-  const side = useSide();
-  const hasBack = useHasBack();
-  // 편집 화면 본체와 같은 규칙 — 뒷면 자리에 면이 없으면 앞면이 지금 그리는 쪽이다.
-  const activeSide: Side = hasBack ? side : 'front';
+  // 편집 화면 본체와 같은 규칙(store `useActiveSide`).
+  const activeSide = useActiveSide();
   const grid = useDotGrid(activeSide);
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -2003,9 +2004,12 @@ function ScopeNote() {
       <span>{label} · 이 날짜만 고치는 중</span>
       {changed.length > 0 && (
         <>
-          <span className="scope-changed">● 고른 것 중 {changed.length}개를 이 날짜에서 바꿨어요</span>
-          <button className="ghost" onClick={revertSelectedToSource}>
-            원본으로 되돌리기
+          {/* 짧게(2026-10-13 사용자 요청) — 길면 막대가 두 줄이 되어 꾸미기 줄이 밀렸다. 자세한 뜻은 마우스를 올리면. */}
+          <span className="scope-changed" title={`고른 것 중 ${changed.length}개를 이 날짜에서만 바꿨어요`}>
+            ● {changed.length}개 바꿈
+          </span>
+          <button className="ghost" onClick={revertSelectedToSource} title="고른 것을 이 날짜에서 바꾸기 전(원본)으로">
+            되돌리기
           </button>
         </>
       )}

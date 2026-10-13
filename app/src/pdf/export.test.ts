@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { describe, expect, it } from 'vitest';
+import { beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
 import { PDFDocument, PDFArray, PDFRawStream } from 'pdf-lib';
 import { inflateSync } from 'node:zlib';
 import { Buffer } from 'node:buffer';
@@ -15,6 +15,18 @@ import type { CalendarObject, TextObject } from '../core/objects';
 import fontkit from '@pdf-lib/fontkit';
 import { measureOf, NO_LIGATURES } from '../fonts/measure';
 import { decorationLines, fakeBoldStrokeOf, lineWidthOf } from '../core/text';
+
+/*
+ * 시계를 고정한다 — pdf-lib이 만든 때(CreationDate·ModDate)를 넣고 그것까지 압축하므로, 같은 내용이라도 시각에
+ * 따라 파일 크기가 1바이트씩 달라져 ‘크기가 같다’를 보는 검사가 가끔 떨어졌다(2026-10-13에 잡음).
+ */
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 /**
  * 완성된 PDF 바이트에서 `w`(선 굵기 지정) 연산자의 값을 전부 꺼낸다.

@@ -77,6 +77,16 @@ export const DIARY_PRESETS: InsertPreset[] = INSERT_PRESETS.filter((p) => !p.id.
  * 실측 크기를 바꾼다 — 기준 규격 이름표(`presetId`)는 ±10mm 안의 가장 가까운 규격으로 다시 붙인다.
  * 구멍 설정은 그대로다(구멍 자리는 세로 길이에서 그때그때 계산된다, core/punch).
  */
+/**
+ * 다이어리 이름이 겹치지 않게 — 이미 있으면 뒤에 ` (1)`, ` (2)`…(2026-10-13 사용자 요청: 같은 M6를 또 만들면
+ * ‘M6 (미니6) (1)’). 목록에서 이름으로 구별하므로 같은 이름이 둘이면 어느 것인지 알 수 없다.
+ */
+export function uniqueDiaryName(taken: string[], name: string): string {
+  const names = new Set(taken);
+  if (!names.has(name)) return name;
+  for (let n = 1; ; n++) if (!names.has(`${name} (${n})`)) return `${name} (${n})`;
+}
+
 export function resizeDiary(d: Diary, width: Mm, height: Mm): Diary {
   return { ...d, width, height, presetId: nearestPreset(width, height)?.id ?? 'custom' };
 }

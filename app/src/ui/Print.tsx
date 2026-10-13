@@ -117,7 +117,7 @@ export function PrintRail() {
             key={t.id}
             className={`rail-icon ${open === t.id ? 'on' : ''}`}
             onClick={() => setOpen(open === t.id ? null : t.id)}
-            title={t.label}
+            data-tip={t.label}
             aria-label={t.label}
           >
             {t.icon}

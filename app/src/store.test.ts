@@ -852,6 +852,41 @@ describe('계정에서 받은 것 적용하기 (8-2)', () => {
   });
 });
 
+describe('2026-10-13 수정사항', () => {
+  it('같은 이름의 다이어리를 또 만들면 (1), (2)…를 붙이고, 이름을 바꿔도 겹치지 않는다', () => {
+    const a = s().addDiary('M6', 'M6 (미니6)');
+    s().addDiary('M6', 'M6 (미니6)');
+    const c = s().addDiary('M6', 'M6 (미니6)');
+    expect(s().diaries.map((d) => d.name)).toEqual(['M6 (미니6)', 'M6 (미니6) (1)', 'M6 (미니6) (2)']);
+    s().patchDiary(c, { name: 'M6 (미니6)' });
+    expect(s().diaries.find((d) => d.id === c)?.name).toBe('M6 (미니6) (2)');
+    s().patchDiary(a, { name: 'M6 (미니6)' });
+    expect(s().diaries.find((d) => d.id === a)?.name).toBe('M6 (미니6)');
+  });
+
+  it('폴더를 지워도 작업의 ‘수정한 때’는 그대로', () => {
+    s().addDiary('M6', 'm6');
+    const id = s().createWork()!;
+    const folder = s().addFolder('f')!;
+    s().moveWorkToFolder(id, folder);
+    const before = s().works[0].updatedAt;
+    s().removeFolder(folder);
+    expect(s().works[0].folderId).toBeUndefined();
+    expect(s().works[0].updatedAt).toBe(before);
+  });
+
+  it('양면에서 오른쪽 면을 지우면 남은 왼쪽 면을 고친다', () => {
+    s().addDiary('M6', 'm6');
+    s().createWork();
+    s().setDuplex(true);
+    s().addPagesAtEnd(); // 면 3개: [ ,1] [2,3]
+    s().setSide('front');
+    s().removeItemAt(2); // p.3을 지움 → [2, ]
+    const t = targetOf(s());
+    expect(t?.kind === 'face' && t.face.itemId).toBe(active().items[1].id);
+  });
+});
+
 describe('색 규칙', () => {
   beforeEach(() => {
     s().createWork();

@@ -6,7 +6,6 @@ import { resolveRuleColors } from '../core/colorRules';
 import { resolveObjectColors } from '../core/colors';
 import type { Work } from '../core/work';
 import { InsertView } from './InsertView';
-import { LegacyLibrary } from './LegacyLibrary';
 import { Modal } from './Modal';
 
 type ActionKind = 'folder-new' | 'folder-name' | 'folder-remove' | 'menu' | 'name' | 'move' | 'copy-diary';
@@ -25,7 +24,7 @@ export function Projects() {
   const shown = useMemo(() => projectsFor(works, view), [works, view]);
   const setView = (p: Partial<typeof view>) => patch({ projectView: { ...view, ...p } });
   const folder = folders.find((f) => f.id === view.folderId);
-  const title = view.folderId === null ? '폴더 밖' : (folder?.name ?? 'Projects');
+  const title = view.folderId === null ? '분류 없음' : (folder?.name ?? 'Projects');
 
   return (
     <div className="library-projects">
@@ -42,7 +41,7 @@ export function Projects() {
           className={`project-filter ${view.folderId === null ? 'on' : ''}`}
           onClick={() => setView({ folderId: null })}
         >
-          <span>폴더 밖</span>
+          <span>분류 없음</span>
           <span className="filter-count">{live.filter((w) => !w.folderId).length}</span>
         </button>
         <div className="projects-panel-heading">
@@ -134,7 +133,6 @@ export function Projects() {
             <option value="name">이름순</option>
           </select>
         </div>
-        <LegacyLibrary />
         {shown.length > 0 ? (
           <div className="work-grid">
             {shown.map((w) => (
@@ -346,13 +344,13 @@ function ProjectDialog({
           {action.kind === 'folder-remove' ? (
             <p>
               ‘{folder?.name}’ 폴더를 지워요. 그 안의 작업 {works.filter((w) => w.folderId === folder?.id).length}개는
-              폴더 밖으로 옮겨지며 그대로 남아요.
+              ‘분류 없음’으로 옮겨지며 그대로 남아요.
             </p>
           ) : action.kind === 'move' ? (
             <label>
               이동할 폴더
               <select value={choice} onChange={(e) => setChoice(e.target.value)}>
-                <option value="">폴더 밖</option>
+                <option value="">분류 없음</option>
                 {folders.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}

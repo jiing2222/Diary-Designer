@@ -75,7 +75,7 @@ import {
   type Work,
   type WorkItem,
 } from './core/work';
-import { diaryFromPreset, nextDiaryColor, resizeDiary, type Diary } from './core/diary';
+import { diaryFromPreset, nextDiaryColor, resizeDiary, uniqueDiaryName, type Diary } from './core/diary';
 import { addPoint, colorOfKey, mapColors, refOf, setKeyColor, type WorkPalette } from './core/colors';
 import { mapRuleColors, type RuleKey } from './core/colorRules';
 import {
@@ -551,7 +551,9 @@ export function targetOf(s: Pick<Settings, 'works' | 'tabs' | 'cursors' | 'today
   }
   const spread = spreadsFor(work, cursor, faces.length)[cursor.spread];
   if (!spread) return null;
-  const index = (side ?? cursor.side) === 'back' ? spread[0] : spread[1];
+  // 쪽을 정하지 않았으면 커서의 쪽 — 그 쪽에 면이 없으면(왼쪽에 홀로 남은 마지막 면 등) 있는 쪽.
+  const want = side ?? cursor.side;
+  const index = want === 'back' ? spread[0] : side === undefined ? (spread[1] ?? spread[0]) : spread[1];
   const face = index === null ? undefined : faces[index];
   return face ? { kind: 'face', face } : null;
 }
@@ -937,13 +939,15 @@ export const useStore = create<Store>((set, get) => ({
   removeFolder: (id) =>
     set((s) => ({
       folders: s.folders.filter((f) => f.id !== id),
-      works: removeFolderFrom(s.works, id).map((w, i) => w === s.works[i] ? w : { ...w, updatedAt: new Date().toISOString() }),
+      // 작업을 고친 것이 아니므로 ‘수정한 때’는 그대로 — 최근 수정순이 흐트러지지 않게(2026-10-13 사용자 결정).
+      works: removeFolderFrom(s.works, id),
       projectView: s.projectView.folderId === id ? { ...s.projectView, folderId: undefined } : s.projectView,
     })),
 
   addDiary: (presetId, name, size) => {
     const s = get();
-    const base = diaryFromPreset(newId('d'), presetId, name.trim() || presetId, nextDiaryColor(s.diaries.map((x) => x.color)));
+    const label = uniqueDiaryName(s.diaries.map((x) => x.name), name.trim() || presetId);
+    const base = diaryFromPreset(newId('d'), presetId, label, nextDiaryColor(s.diaries.map((x) => x.color)));
     const d = size && (size.width !== base.width || size.height !== base.height) ? resizeDiary(base, size.width, size.height) : base;
     set({ diaries: [...s.diaries, d], defaultDiaryId: s.defaultDiaryId ?? d.id });
     return d.id;
@@ -954,6 +958,9 @@ export const useStore = create<Store>((set, get) => ({
       diaries: s.diaries.map((d) => {
         if (d.id !== id) return d;
         const next = { ...d, ...patch };
+        if (patch.name !== undefined) {
+          next.name = uniqueDiaryName(s.diaries.filter((x) => x.id !== id).map((x) => x.name), patch.name.trim() || d.name);
+        }
         return patch.width !== undefined || patch.height !== undefined ? resizeDiary(next, next.width, next.height) : next;
       }),
     })),
@@ -2020,6 +2027,23 @@ export const useSide = (): Side => useCursor()?.side ?? 'front';
 export const useHasBack = (): boolean => {
   const core = useEditCore();
   return useMemo(() => targetOf(core, 'back') !== null, [core]);
+};
+
+/** 지금 펼침면에 오른쪽(앞면) 면이 있는가 — 마지막 면이 왼쪽에 홀로 남으면 없다. */
+export const useHasFront = (): boolean => {
+  const core = useEditCore();
+  return useMemo(() => targetOf(core, 'front') !== null, [core]);
+};
+
+/**
+ * 지금 그리기·고르기가 향하는 쪽 — 커서의 쪽, 그 쪽에 면이 없으면 있는 쪽(`targetOf`와 같은 규칙).
+ * 화면 곳곳이 이것 하나를 쓴다.
+ */
+export const useActiveSide = (): Side => {
+  const side = useSide();
+  const hasBack = useHasBack();
+  const hasFront = useHasFront();
+  return !hasBack ? 'front' : !hasFront ? 'back' : side;
 };
 
 export const usePalette = (): WorkPalette | null => useStore((s) => {

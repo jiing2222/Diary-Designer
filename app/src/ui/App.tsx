@@ -13,7 +13,7 @@ import { DiaryChip } from './DiaryChip';
 import { Modal } from './Modal';
 import { Onboarding } from './Onboarding';
 import { Toast } from './Toast';
-import { RingsLogo } from './icons';
+import { LearnIcon, RingsLogo } from './icons';
 import { CloudPanel } from './CloudPanel';
 
 /**
@@ -245,17 +245,22 @@ function LibraryRail({ section, setSection }: { section: LibrarySection; setSect
       {LIBRARY_RAIL.map((it) => (
         <button
           key={it.id}
-          className={`rail-icon text ${section === it.id ? 'on' : ''}`}
+          className={`rail-icon ${section === it.id ? 'on' : ''}`}
           onClick={() => setSection(it.id)}
-          title={it.label}
+          data-tip={it.label}
           aria-label={it.label}
         >
           {it.icon}
         </button>
       ))}
       <div className="rail-spacer" />
-      <button className={`rail-icon text ${section === 'learn' ? 'on' : ''}`} onClick={() => setSection('learn')} title="Learn" aria-label="Learn">
-        ?
+      <button
+        className={`rail-icon ${section === 'learn' ? 'on' : ''}`}
+        onClick={() => setSection('learn')}
+        data-tip="Learn"
+        aria-label="Learn"
+      >
+        <LearnIcon />
       </button>
     </div>
   );

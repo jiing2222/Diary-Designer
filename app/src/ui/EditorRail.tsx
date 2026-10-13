@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useFaces, useHasBack, usePalette, useSide, useStore, type Tool } from '../store';
+import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useFaces, useActiveSide, usePalette, useStore, type Tool } from '../store';
 import { isCalendar, isCheckbox, isDots, isMoon, isText, type TextObject } from '../core/objects';
 import { familyOf } from '../fonts/registry';
 import { mmToPt } from '../core/units';
@@ -92,7 +92,7 @@ export function EditorRail() {
   }
 
   const btn = (cat: Category | 'select', title: string, icon: React.ReactNode, onClick: () => void, on: boolean) => (
-    <button key={cat} className={`rail-icon ${on ? 'on' : ''}`} onClick={onClick} title={title} aria-label={title}>
+    <button key={cat} className={`rail-icon ${on ? 'on' : ''}`} onClick={onClick} data-tip={title} aria-label={title}>
       {icon}
     </button>
   );
@@ -447,9 +447,8 @@ const RULES: { key: RuleKey; label: string }[] = [
 
 /** 지금 고른 객체들(편집 화면 본체와 같은 쪽 규칙). */
 function usePicked() {
-  const side = useSide();
-  const hasBack = useHasBack();
-  const objects = useEditObjects(hasBack ? side : 'front');
+  const activeSide = useActiveSide();
+  const objects = useEditObjects(activeSide);
   const selectedIds = useStore((s) => s.selectedIds);
   return objects.filter((o) => selectedIds.includes(o.id));
 }
@@ -459,9 +458,8 @@ function usePicked() {
  * 객체만 보고는 모른다 — 보일 면이 알려주는 `fieldIds`로 본다(core/work).
  */
 function usePickedFieldIds(): string[] {
-  const side = useSide();
-  const hasBack = useHasBack();
-  const face = useDisplayFace(hasBack ? side : 'front');
+  const activeSide = useActiveSide();
+  const face = useDisplayFace(activeSide);
   const picked = usePicked();
   return picked.filter((o) => face?.fieldIds.includes(o.id)).map((o) => o.id);
 }
@@ -485,9 +483,8 @@ function AutoFieldPanel() {
   const styleMoon = useStore((s) => s.styleMoon);
   const fields = picked.filter(isText).filter((t) => t.field);
   const fieldIds = usePickedFieldIds();
-  const side = useSide();
-  const hasBack = useHasBack();
-  const face = useDisplayFace(hasBack ? side : 'front');
+  const activeSide = useActiveSide();
+  const face = useDisplayFace(activeSide);
   // 날짜 페이지에서 원본의 날짜 칸을 고른 것 — 날짜가 채워져 field가 없다. 형식은 원본에 있다.
   const sourceFieldOnDatePage = fields.length === 0 && fieldIds.length > 0 && !!face?.period;
 

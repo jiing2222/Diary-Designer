@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useActiveWork, useCursor, useDisplayFace, useHasBack, useSide, useStore } from '../store';
+import { useActiveWork, useCursor, useDisplayFace, useActiveSide, useStore } from '../store';
 import { dateKey, MAX_DATED_PAGES, periodSummary, suggestPerPage, todayFrom, type Boundary } from '../core/dated';
 import { addDays, addMonths, type DateDataset } from '../core/dataset';
 import type { DatedItem, PageItem } from '../core/work';
@@ -15,9 +15,8 @@ import { PopRow } from './Popover';
 export function PeriodPanel() {
   const work = useActiveWork();
   const cursor = useCursor();
-  const side = useSide();
-  const hasBack = useHasBack();
-  const face = useDisplayFace(hasBack ? side : 'front');
+  const activeSide = useActiveSide();
+  const face = useDisplayFace(activeSide);
   const enterSourceEdit = useStore((s) => s.enterSourceEdit);
   const item = work?.items.find((i) => i.id === face?.itemId);
   if (!item || !face) return null;

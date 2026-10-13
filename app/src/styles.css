@@ -2428,16 +2428,17 @@ body.resizing-col {
 }
 
 /* 타공 안내. 편집 화면과 인쇄 미리보기가 같이 쓰므로 부모에 매이지 않는다. */
+/* 리뉴얼 색(--blue 계열)에 맞춘다 — 빨강은 경고처럼 보여 작업 화면에서 튀었다(2026-10-13 사용자 요청). */
 .safe-zone {
-  fill: #e8462c;
-  opacity: 0.07;
+  fill: var(--blue);
+  opacity: 0.12;
 }
 
 .safe-zone-edge {
-  stroke: #e8462c;
+  stroke: var(--blue-deep);
   stroke-width: 0.2;
   stroke-dasharray: 1.5 1.5;
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
 .hole {
@@ -2604,7 +2605,7 @@ body.resizing-col {
 
 /* 로고·텍스트 정렬선(구멍과 같은 세로줄). 글자 도구와 같은 파란색 계열이다. */
 .logo-line {
-  stroke: #3568c9;
+  stroke: var(--blue-deep);
   stroke-width: 0.25;
   stroke-dasharray: 1.5 1;
   opacity: 0.6;
@@ -4909,6 +4910,30 @@ button.diary-chip.on {
 .rail-icon.on {
   background: var(--accent);
   color: #fff;
+}
+/*
+ * 레일 아이콘에 마우스를 올리면 오른쪽에 이름(2026-10-13 사용자 요청) — 브라우저 기본 title은 1초쯤
+ * 기다려야 떠서 없는 것처럼 보였다. 이름은 `data-tip`에 둔다.
+ */
+.rail-icon[data-tip] {
+  position: relative;
+}
+.rail-icon[data-tip]:hover::after,
+.rail-icon[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 60;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--bg);
+  font-family: var(--font-display);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
 }
 .rail-gap {
   height: 6px;

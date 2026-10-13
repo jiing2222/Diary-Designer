@@ -72,7 +72,7 @@ export interface Work {
   duplex: boolean;
   palette: WorkPalette;
   items: WorkItem[];
-  /** Library 폴더. 없으면 폴더 밖. */
+  /** Library 폴더. 없으면 ‘분류 없음’. */
   folderId?: string;
   /** 휴지통에 넣은 시각. 30일 뒤 완전히 지운다(세부계획 B). */
   trashedAt?: string;

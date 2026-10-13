@@ -301,6 +301,63 @@ export function PaletteIcon() {
   );
 }
 
+/* ── Library 레일(2026-10-13 — 편집 화면 레일과 같은 선 아이콘으로) ── */
+
+/** Projects — 겹친 카드 두 장. */
+export function ProjectsIcon() {
+  return (
+    <svg {...box24}>
+      <rect x={4} y={7} width={13} height={13} rx={1.5} />
+      <path d="M8 4h10.5A1.5 1.5 0 0 1 20 5.5V16" />
+    </svg>
+  );
+}
+
+/** Diaries — 링이 달린 다이어리. */
+export function DiaryIcon() {
+  return (
+    <svg {...box24}>
+      <rect x={6} y={4} width={13} height={16} rx={1.5} />
+      <line x1={4} y1={8} x2={8} y2={8} />
+      <line x1={4} y1={12} x2={8} y2={12} />
+      <line x1={4} y1={16} x2={8} y2={16} />
+    </svg>
+  );
+}
+
+/** Fonts — 큰 A와 작은 a. */
+export function FontsIcon() {
+  return (
+    <svg {...box24}>
+      <path d="M3.5 18L8.5 5l5 13M5.4 13.5h6.2" />
+      <circle cx={17.5} cy={15.2} r={2.6} />
+      <line x1={20.1} y1={12.4} x2={20.1} y2={18} />
+    </svg>
+  );
+}
+
+/** Trash — 휴지통. */
+export function TrashIcon() {
+  return (
+    <svg {...box24}>
+      <path d="M5 7h14M10 7V5h4v2M7 7l1 12.5h8L17 7" />
+      <line x1={10.5} y1={10.5} x2={10.5} y2={16} />
+      <line x1={13.5} y1={10.5} x2={13.5} y2={16} />
+    </svg>
+  );
+}
+
+/** Learn — 물음표가 든 동그라미. */
+export function LearnIcon() {
+  return (
+    <svg {...box24}>
+      <circle cx={12} cy={12} r={8} />
+      <path d="M9.7 9.6a2.4 2.4 0 1 1 3.4 2.2c-.7.4-1.1.9-1.1 1.7v.4" />
+      <circle cx={12} cy={16.6} r={0.9} fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 /* ── Print 레일(Paper · Sides · Layout · Marks) — Paper·Layout은 위의 PaperIcon·LayoutIcon ── */
 
 /** Sides — 앞·뒤 두 장이 겹친 모양. */

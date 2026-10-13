@@ -28,7 +28,7 @@ describe('휴지통', () => {
 });
 
 describe('폴더', () => {
-  it('폴더를 지우면 작업은 폴더 밖으로', () => {
+  it('폴더를 지우면 작업은 분류 없음으로', () => {
     const a = { ...work(), folderId: 'f1' };
     const b = { ...work(), folderId: 'f2' };
     const out = removeFolderFrom([a, b], 'f1');
