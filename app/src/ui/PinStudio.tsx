@@ -13,7 +13,7 @@ import { fontBytes } from '../fonts/registry';
 import { InsertView } from './InsertView';
 
 /**
- * Pin Studio — 핀터레스트 홍보 이미지 만들기(개발용, Library → Pins. 개발 서버에서만 보인다).
+ * Pin Studio — 핀터레스트 홍보 이미지 만들기(홍보용, Library → Pins. 개발자 계정에만 보인다 — ui/developer).
  *
  * 면 하나가 핀 하나다. 속지는 편집기·작업 카드와 **같은 InsertView**로 그려서, 화면에서 본 것과
  * 핀 이미지가 어긋나지 않는다. PNG로 바꿀 때는 SVG를 그림으로 그리는데, 그림 안에서는 문서의
