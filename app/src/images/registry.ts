@@ -15,7 +15,7 @@
 
 import { idbEntries } from '../storage/idb';
 import type { ImageInfo } from '../core/assets';
-import { queueAssetWrite, readAssetCache, saveAssetFile } from '../storage/assetCache';
+import { dropAssetWrite, queueAssetWrite, readAssetCache, saveAssetFile } from '../storage/assetCache';
 
 const ACCEPTED = ['.png', '.jpg', '.jpeg'];
 export const IMAGE_ACCEPT = ACCEPTED.join(',');
@@ -215,4 +215,18 @@ export function removeImage(id: string, name: string): void {
   bytes.delete(id);
   kinds.delete(id);
   queueAssetWrite('images', { id, name, deleted: true });
+}
+
+/**
+ * 계정 동기화에서 이 기기 이미지에 새 id를 줄 때(fonts/registry의 `rekeyFont`와 같은 이유). 파일을 새 id로
+ * 옮기고 옛 id 칸은 비운다.
+ */
+export async function rekeyImage(from: string, to: string, name: string, meta: ImageMeta): Promise<void> {
+  const buffer = bytes.get(from);
+  const kind = kinds.get(from);
+  bytes.delete(from);
+  kinds.delete(from);
+  dropAssetWrite('images', from);
+  if (buffer && kind) await loadImage(buffer, name, kind, to, meta, true);
+  await saveAssetFile('images', { id: from, name, deleted: true });
 }

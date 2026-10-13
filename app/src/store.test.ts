@@ -761,6 +761,46 @@ describe('저장한 팔레트 (7-4)', () => {
   });
 });
 
+describe('계정에서 받은 것 적용하기 (8-2)', () => {
+  it('새 id를 받은 작업은 탭·편집 위치가 따라가고, 같은 자리에 받은 작업이 들어온다', () => {
+    s().addDiary('M6', 'm6');
+    const id = s().createWork()!;
+    const remote = { ...active(), name: '다른 기기' };
+    s().applySyncOps([
+      { type: 'rekey', kind: 'work', from: id, to: `${id}~x`, conflict: true },
+      { type: 'put', kind: 'work', key: id, data: remote },
+    ]);
+    expect(s().tabs.active).toBe(`${id}~x`);
+    expect(s().works.map((w) => w.name)).toEqual([expect.stringContaining('(이 기기 사본)'), '다른 기기']);
+    expect(s().cursors[id]).toBeUndefined();
+  });
+
+  it('다른 기기에서 지운 작업은 탭이 닫히고, 기본 다이어리가 없어지면 남은 첫 다이어리로', () => {
+    const d = s().addDiary('M6', 'm6');
+    const d2 = s().addDiary('A5', 'a5');
+    s().setDefaultDiary(d);
+    const id = s().createWork()!;
+    s().applySyncOps([
+      { type: 'remove', kind: 'work', key: id },
+      { type: 'remove', kind: 'diary', key: d },
+    ]);
+    expect(s().tabs.open).toEqual([]);
+    expect(s().defaultDiaryId).toBe(d2);
+  });
+
+  it('새 id를 받은 글꼴은 화면용 이름도 새 id로, 그 자리에 받은 글꼴은 이 기기 것을 물려받지 않는다', () => {
+    s().addUserFont({ id: 'f1', name: 'Mine', family: 'user-font-f1' });
+    s().applySyncOps([
+      { type: 'rekey', kind: 'font', from: 'f1', to: 'f1~x', conflict: false },
+      { type: 'put', kind: 'font', key: 'f1', data: { id: 'f1', name: 'Theirs' } },
+    ]);
+    expect(s().userFonts).toEqual([
+      { id: 'f1~x', name: 'Mine', family: 'user-font-f1~x' },
+      { id: 'f1', name: 'Theirs', family: 'user-font-f1' },
+    ]);
+  });
+});
+
 describe('색 규칙', () => {
   beforeEach(() => {
     s().createWork();

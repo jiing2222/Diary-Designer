@@ -18,7 +18,7 @@
 import { DEFAULT_FONT_FAMILY } from '../core/style';
 import { idbEntries } from '../storage/idb';
 import type { FontInfo } from '../core/assets';
-import { queueAssetWrite, readAssetCache, saveAssetFile } from '../storage/assetCache';
+import { dropAssetWrite, queueAssetWrite, readAssetCache, saveAssetFile } from '../storage/assetCache';
 
 /** 브라우저가 받아주는 글꼴 파일. 이 밖의 확장자는 열어봐야 실패한다. */
 const ACCEPTED = ['.ttf', '.otf', '.woff', '.woff2'];
@@ -213,4 +213,19 @@ export function removeFont(id: string, name: string): void {
   if (face) document.fonts.delete(face);
   faces.delete(id);
   queueAssetWrite('fonts', { id, name, deleted: true });
+}
+
+/**
+ * 계정 동기화에서 이 기기 글꼴에 새 id를 줄 때(core/sync — 다른 기기의 글꼴과 id가 겹쳤다). 파일과 화면용
+ * 이름(`user-font-<id>`)을 새 id로 옮기고, 옛 id 칸은 비운다 — 그 자리는 계정의 다른 글꼴이 쓴다.
+ */
+export async function rekeyFont(from: string, to: string, name: string, meta: FontMeta): Promise<void> {
+  const buffer = bytes.get(from);
+  const face = faces.get(from);
+  if (face) document.fonts.delete(face);
+  faces.delete(from);
+  bytes.delete(from);
+  dropAssetWrite('fonts', from);
+  if (buffer) await loadFont(buffer, name, to, meta, true);
+  await saveAssetFile('fonts', { id: from, name, deleted: true });
 }

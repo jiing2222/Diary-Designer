@@ -8,6 +8,7 @@ import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
 import { DEFAULT_FIELD_DRAFT, patchField, type FieldDraft, type FieldSpec } from './core/fieldFormat';
 import { applyToDraft, pickSavedStyle, stylePatchOf, type SavedTextStyle } from './core/textStyles';
 import { clonePalette, mergePalette, newSavedPalette, type SavedPalette } from './core/palettes';
+import { applyOps, type SyncOp, type SyncSnapshot } from './core/sync';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import type { InsertSetting } from './core/template';
 import { persistFontMeta, removeFont } from './fonts/registry';
@@ -147,6 +148,13 @@ interface Settings {
   ready: boolean;
   /** 브라우저 저장 결과(ui/persist가 갱신). 이 값 자체는 저장하지 않는다. */
   saveStatus: 'saved' | 'pending' | 'saving' | 'error';
+  /**
+   * 계정 동기화 상태(리뉴얼 8-2, ui/cloudSync가 정한다). 로그인하지 않았거나 서버가 없으면 'local'.
+   * 저장하지 않는다.
+   */
+  cloudStatus: { kind: 'local' } | { kind: 'syncing' } | { kind: 'saved'; at: number } | { kind: 'error'; text: string };
+  /** 처음 로그인했을 때 이 기기 작업을 올릴지 묻는 창 — 열려 있으면 그 수. 답은 ui/cloudSync가 받는다. */
+  syncAsk: { works: number; total: number } | null;
   /** Colors에서 고르는 동안만 쓰는 팔레트. 작업·자동 저장에는 확정 전까지 넣지 않는다. */
   palettePreview: { workId: string; palette: WorkPalette } | null;
   /** 오늘 날짜 `YYYY-MM-DD`. 날짜 묶음이 아닌 페이지의 자동 필드가 보여준다. */
@@ -407,6 +415,11 @@ interface Store extends Settings {
   setPaperPreset: (id: string) => void;
   patchPaper: (p: Partial<PaperState>) => void;
   patch: (p: Partial<Settings>) => void;
+  /**
+   * 계정에서 받은 것을 이 기기 자료에 적용한다(core/sync `applyOps`). 새 id를 받은 작업은 탭·편집 위치·
+   * 되돌리기 기록이 따라가고, 다른 기기에서 지운 작업은 탭에서도 닫힌다.
+   */
+  applySyncOps: (ops: SyncOp[]) => void;
   patchUnprintable: (p: Partial<UnprintableSetting>) => void;
 }
 
@@ -454,6 +467,20 @@ export function activeWork(s: Pick<Settings, 'works' | 'tabs'>): Work | null {
 
 function defaultCursor(work: Work): Cursor {
   return { spread: 0, side: 'front', source: null, view: work.duplex ? 'spread' : 'single' };
+}
+
+/** 계정 동기화가 보는 이 기기 자료(core/sync). 휴지통 작업도 함께 — 휴지통도 기기 사이에 맞춘다. */
+export function syncSnapshotOf(s: Settings): SyncSnapshot {
+  return {
+    works: s.works,
+    diaries: s.diaries,
+    folders: s.folders,
+    textStyles: s.textStyles,
+    savedPalettes: s.savedPalettes,
+    fonts: s.userFonts.map(({ id, name, label, favorite, hidden }) => ({ id, name, label, favorite, hidden })),
+    images: s.userImages.map(({ id, name, label, usedAt, hidden }) => ({ id, name, label, usedAt, hidden })),
+    defaultDiaryId: s.defaultDiaryId,
+  };
 }
 
 export function cursorOf(s: Pick<Settings, 'cursors'>, work: Work): Cursor {
@@ -645,6 +672,8 @@ const firstPaper = PAPER_PRESETS[0];
 export const useStore = create<Store>((set, get) => ({
   ready: false,
   saveStatus: 'saved',
+  cloudStatus: { kind: 'local' },
+  syncAsk: null,
   palettePreview: null,
   today: localToday(),
   works: [],
@@ -1755,6 +1784,71 @@ export const useStore = create<Store>((set, get) => ({
     }),
 
   patch: (p) => set(p),
+
+  applySyncOps: (ops) =>
+    set((s) => {
+      if (ops.length === 0) return {};
+      const next = applyOps(syncSnapshotOf(s), ops);
+      let { tabs } = s;
+      let cursors = s.cursors;
+      let histories = s.histories;
+      for (const op of ops) {
+        if (op.kind !== 'work' || op.type !== 'rekey') continue;
+        // 새 id를 받은 작업 — 탭·편집 위치·되돌리기 기록을 새 id로 옮긴다.
+        const swap = (id: string) => (id === op.from ? op.to : id);
+        tabs = {
+          open: tabs.open.map(swap),
+          active: swap(tabs.active),
+          seen: Object.fromEntries(Object.entries(tabs.seen).map(([k, v]) => [swap(k), v])),
+        };
+        const move = <T,>(rec: Record<string, T>) => {
+          if (!(op.from in rec)) return rec;
+          const { [op.from]: v, ...rest } = rec;
+          return { ...rest, [op.to]: v };
+        };
+        cursors = move(cursors);
+        histories = move(histories);
+      }
+      // 다른 기기에서 지운 작업은 탭을 닫는다(휴지통으로 간 것도).
+      tabs = keepExisting(tabs, (id) => next.works.some((w) => w.id === id && !isTrashed(w)));
+      const fontById = new Map(s.userFonts.map((f) => [f.id, f]));
+      const imageById = new Map(s.userImages.map((i) => [i.id, i]));
+      const renamed = new Map(ops.flatMap((op) => (op.type === 'rekey' ? [[`${op.kind}:${op.to}`, op.from]] : [])));
+      const away = new Set(ops.flatMap((op) => (op.type === 'rekey' ? [`${op.kind}:${op.from}`] : [])));
+      // 이 기기의 글꼴·이미지(파일·화면용 이름)는 새 id를 따라가고, 그 자리에 받은 것은 이 기기 파일을 물려받지 않는다.
+      const old = <T,>(map: Map<string, T>, kind: string, id: string) =>
+        renamed.has(`${kind}:${id}`) ? map.get(renamed.get(`${kind}:${id}`)!) : away.has(`${kind}:${id}`) ? undefined : map.get(id);
+      for (const op of ops) {
+        // 받은 작업은 되돌리기 기록을 새로 시작한다 — 옛 기록으로 되돌리면 받은 것을 덮는다.
+        if (op.type !== 'put' || op.kind !== 'work' || !(op.key in histories)) continue;
+        const { [op.key]: _drop, ...rest } = histories;
+        histories = rest;
+      }
+      return {
+        works: next.works,
+        diaries: next.diaries,
+        folders: next.folders,
+        textStyles: next.textStyles,
+        savedPalettes: next.savedPalettes,
+        defaultDiaryId: next.diaries.some((d) => d.id === next.defaultDiaryId)
+          ? next.defaultDiaryId
+          : (next.diaries[0]?.id ?? null),
+        userFonts: next.fonts.map((info) => {
+          const was = old(fontById, 'font', info.id);
+          // 새 id를 받은 글꼴은 등록소가 화면용 이름도 새 id로 옮겼다(fonts/registry `rekeyFont`).
+          const moved = renamed.has(`font:${info.id}`);
+          return { ...was, ...info, family: moved || !was ? `user-font-${info.id}` : was.family };
+        }),
+        userImages: next.images.map((info) => {
+          const was = old(imageById, 'image', info.id);
+          return { ...was, ...info, url: was?.url ?? '' };
+        }),
+        tabs,
+        cursors,
+        histories,
+        selectedIds: tabs.active === s.tabs.active ? s.selectedIds : [],
+      };
+    }),
   patchUnprintable: (p) => set((s) => ({ unprintable: { ...s.unprintable, ...p } })),
 }));
 

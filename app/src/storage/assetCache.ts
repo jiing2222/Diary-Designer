@@ -24,6 +24,11 @@ export function queueAssetWrite(store: FileStore, file: CachedAsset): void {
 
 export function hasAssetWrites(): boolean { return pending.size > 0; }
 
+/** 기다리던 쓰기를 버린다 — 그 id의 칸을 곧바로 다른 내용으로 바꿀 때(계정 동기화의 새 id 주기). */
+export function dropAssetWrite(store: FileStore, id: string): void {
+  pending.delete(`${store}:${id}`);
+}
+
 export async function flushAssetWrites(): Promise<void> {
   const entries = [...pending.entries()];
   const results = await Promise.allSettled(entries.map(async ([key, job]) => {

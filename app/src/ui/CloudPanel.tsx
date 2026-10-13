@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useStore } from '../store';
 import {
   changePassword,
   cloudEnabled,
@@ -25,10 +26,9 @@ import {
   type CloudUser,
 } from '../cloud/client';
 
-/** 지금 동기화가 어디까지 갔는지. App.tsx가 정하고 여기서 보여주기만 한다. */
+/** 지금 동기화가 어디까지 갔는지. ui/cloudSync가 정하고(store의 cloudStatus) 여기서 보여주기만 한다. */
 export type SyncState =
   | { kind: 'local' }
-  | { kind: 'idle' }
   | { kind: 'syncing' }
   | { kind: 'saved'; at: Date }
   | { kind: 'error'; text: string };
@@ -38,17 +38,17 @@ function statusText(sync: SyncState): string {
     case 'local':
       return '이 기기에 저장';
     case 'syncing':
-      return '올리는 중…';
+      return '계정과 맞추는 중…';
     case 'saved':
       return `${sync.at.getHours()}시 ${String(sync.at.getMinutes()).padStart(2, '0')}분에 저장됨`;
     case 'error':
       return sync.text;
-    case 'idle':
-      return '';
   }
 }
 
-export function CloudPanel({ sync = { kind: 'local' } }: { sync?: SyncState }) {
+export function CloudPanel() {
+  const status = useStore((s) => s.cloudStatus);
+  const sync: SyncState = status.kind === 'saved' ? { kind: 'saved', at: new Date(status.at) } : status;
   const [user, setUser] = useState<CloudUser | null>(() => currentUser());
   const [checking, setChecking] = useState(() => currentUser() !== null);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -101,7 +101,7 @@ export function CloudPanel({ sync = { kind: 'local' } }: { sync?: SyncState }) {
         {checking ? '계정 확인 중…' : user ? '계정' : '로그인'}
       </button>
 
-      {user && sync.kind !== 'idle' && sync.kind !== 'local' && (
+      {user && sync.kind !== 'local' && (
         <span className={`cloud-status ${sync.kind === 'error' ? 'bad' : ''}`}>
           {statusText(sync)}
         </span>

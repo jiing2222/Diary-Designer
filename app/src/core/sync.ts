@@ -300,3 +300,31 @@ export function removeLocal(s: SyncSnapshot, kind: SyncKind, key: string): SyncS
 
 /** 둘 다 고친 작업의 이 기기 쪽 이름. */
 export const CONFLICT_SUFFIX = ' (이 기기 사본)';
+
+/* ───────────────────────── 이 기기에 적용하기 ───────────────────────── */
+
+/**
+ * 이 기기 자료에 할 일 하나. `planSync`의 결과를 cloud 쪽이 이것으로 바꿔 store에 넘긴다 —
+ * 받는 사이에 사용자가 고친 것을 덮지 않도록, 옛 사본이 아니라 **지금 자료**에 차례로 적용한다.
+ */
+export type SyncOp =
+  | { type: 'rekey'; kind: SyncKind; from: string; to: string; conflict: boolean }
+  | { type: 'put'; kind: SyncKind; key: string; data: unknown }
+  | { type: 'remove'; kind: SyncKind; key: string };
+
+export function applyOps(s: SyncSnapshot, ops: SyncOp[]): SyncSnapshot {
+  let next = s;
+  for (const op of ops) {
+    if (op.type === 'rekey') {
+      next = rekeySnapshot(next, op.kind, op.from, op.to);
+      if (op.conflict && op.kind === 'work') {
+        next = {
+          ...next,
+          works: next.works.map((w) => (w.id === op.to ? { ...w, name: `${w.name}${CONFLICT_SUFFIX}` } : w)),
+        };
+      }
+    } else if (op.type === 'put') next = applyRemote(next, op.kind, op.key, op.data);
+    else next = removeLocal(next, op.kind, op.key);
+  }
+  return next;
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyOps,
   applyRemote,
   docKey,
   docsOf,
@@ -142,5 +143,29 @@ describe('새 id로 바꾸기', () => {
     expect(removeLocal(snap, 'work', 'w1').works).toEqual([]);
     expect(freshKey('w1~abcde', () => 0)).toBe('w1~aaaaa');
     expect(docsOf(snap).has('prefs:prefs')).toBe(true);
+  });
+});
+
+describe('이 기기에 적용하기', () => {
+  it('둘 다 고친 작업: 이 기기 것은 새 id·사본 이름, 원래 자리는 서버 것', () => {
+    const base: SyncSnapshot = {
+      works: [w('w1', '여기')],
+      diaries: [],
+      folders: [],
+      textStyles: [],
+      savedPalettes: [],
+      fonts: [],
+      images: [],
+      defaultDiaryId: null,
+    };
+    const next = applyOps(base, [
+      { type: 'rekey', kind: 'work', from: 'w1', to: 'w1~x', conflict: true },
+      { type: 'put', kind: 'work', key: 'w1', data: w('w1', '저기') },
+    ]);
+    expect(next.works.map((x) => [x.id, x.name])).toEqual([
+      ['w1~x', '여기 (이 기기 사본)'],
+      ['w1', '저기'],
+    ]);
+    expect(applyOps(next, [{ type: 'remove', kind: 'work', key: 'w1' }]).works).toHaveLength(1);
   });
 });

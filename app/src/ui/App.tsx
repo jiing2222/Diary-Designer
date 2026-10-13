@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { LIBRARY_TAB } from '../core/workspace';
 import { useActiveDiary, useActiveWork, useCursor, useStore } from '../store';
 import { boot, flushAutosave, startAutosave } from './persist';
+import { startCloudSync } from './cloudSync';
+import { SyncAsk } from './SyncAsk';
 import { Home } from './Home';
 import { Editor } from './Editor';
 import { EditorRail } from './EditorRail';
@@ -37,10 +39,13 @@ export function App() {
 
   useEffect(() => {
     let stop: (() => void) | null = null;
+    let stopSync: (() => void) | null = null;
     let alive = true;
     void boot().then(({ skippedNotebooks }) => {
       if (!alive) return;
       stop = startAutosave();
+      // 계정 동기화는 이 기기 자료를 다 읽은 뒤에 시작한다(빈 상태를 서버와 맞추지 않게).
+      stopSync = startCloudSync();
       if (skippedNotebooks.length > 0) {
         setNotice(`노트 ${skippedNotebooks.length}개(${skippedNotebooks.join(', ')})는 새 버전으로 옮기지 않았어요. 옛 버전에는 그대로 있어요.`);
       }
@@ -50,6 +55,7 @@ export function App() {
     return () => {
       alive = false;
       stop?.();
+      stopSync?.();
     };
   }, []);
 
@@ -129,6 +135,7 @@ export function App() {
 
       <PendingOpen />
       <Onboarding />
+      <SyncAsk />
       {notice && (
         <Modal title="옮기기 안내" onClose={() => setNotice(null)}>
           <p className="modal-note">{notice}</p>
