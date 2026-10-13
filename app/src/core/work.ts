@@ -313,6 +313,9 @@ export function sheetSideOf(faceIndex: number, duplex: boolean): { sheet: number
  */
 export function spreadsOf(count: number): [number | null, number | null][] {
   if (count <= 0) return [];
+  // 2쪽뿐이면 한 줄에 [p.2 | p.1] — 양면 양식 하나를 앞뒤 함께 보며 만든다(2026-10-13 결정). 왼쪽이 뒷면이라는
+  // 규칙은 그대로라 구멍은 가운데로 모인다. 3쪽부터는 다이어리를 펼친 모습(p.1 혼자, 그다음 [p.2 | p.3]…).
+  if (count === 2) return [[1, 0]];
   const out: [number | null, number | null][] = [[null, 0]];
   for (let left = 1; left < count; left += 2) out.push([left, left + 1 < count ? left + 1 : null]);
   return out;

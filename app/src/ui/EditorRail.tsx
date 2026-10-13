@@ -106,9 +106,9 @@ export function EditorRail() {
         }, tool === 'select' && open === null)}
         <div className="rail-gap" />
         {btn('page', 'Page', <InsertIcon />, () => toggle('page'), open === 'page')}
-        {btn('draw', 'Draw', <LineIcon />, () => toggle('draw', 'draw'), open === 'draw')}
+        {btn('draw', 'Draw (D)', <LineIcon />, () => toggle('draw', 'draw'), open === 'draw')}
         {btn('text', 'Text (T)', <TextIcon />, () => toggle('text', 'text'), open === 'text')}
-        {btn('auto', 'AutoField', <BracesIcon />, () => toggle('auto', 'field'), open === 'auto')}
+        {btn('auto', 'AutoField (F)', <BracesIcon />, () => toggle('auto', 'field'), open === 'auto')}
         {btn('image', 'Image (I)', <ImageIcon />, () => toggle('image', 'image'), open === 'image')}
         <div className="rail-spacer" />
         {btn('colors', 'Colors', <PaletteIcon />, () => toggle('colors'), open === 'colors')}

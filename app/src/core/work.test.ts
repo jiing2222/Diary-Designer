@@ -179,6 +179,15 @@ describe('종이와 펼침면', () => {
       [3, null],
     ]);
     expect(spreadsOf(0)).toEqual([]);
+    expect(spreadsOf(1)).toEqual([[null, 0]]);
+  });
+
+  it('2쪽뿐이면 한 줄에 (뒷면 p.2 | 앞면 p.1)', () => {
+    expect(spreadsOf(2)).toEqual([[1, 0]]);
+    expect(spreadsOf(3)).toEqual([
+      [null, 0],
+      [1, 2],
+    ]);
   });
 });
 

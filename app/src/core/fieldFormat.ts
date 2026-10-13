@@ -20,7 +20,8 @@ import { addDays, dayOfWeek, daysBetween, parseDate, weekOfYear, type CalendarDa
  * | M | 3 | | eee | Mon |
  * | ww | 05 (주차) | | w | 5 (주차) |
  *
- * 나머지 글자는 그대로 나온다. 기호와 겹치는 글자는 `[ ]`로 감싼다(`[Mon]`, `[Week] w`).
+ * 나머지 글자는 그대로 나온다. 기호와 겹치는 글자는 `{ }`로 감싼다(`{Mon}`, `{Week} w`) — 2026-10-13
+ * 사용자 결정. 그 전에 저장한 `[ ]`도 그대로 읽는다.
  */
 
 const WEEKDAY_KR = ['일', '월', '화', '수', '목', '금', '토'];
@@ -38,8 +39,8 @@ const LEGACY: Record<string, string> = {
   'ddd-en': 'eee',
   'dddd-en': 'eeee',
   주차: 'w주차',
-  W: '[W]w',
-  Week: '[Week] w',
+  W: '{W}w',
+  Week: '{Week} w',
 };
 
 /** 형식(옛 id 또는 코드)을 코드로. */
@@ -52,13 +53,17 @@ type DateToken = (typeof DATE_TOKENS)[number];
 
 type Piece = { token: string } | { text: string };
 
-/** 코드를 기호와 글자로 쪼갠다. `[ ]` 안은 글자. */
+/** 감싸면 글자가 되는 괄호 — `{ }`(2026-10-13부터). 그 전에 저장한 `[ ]`도 그대로 읽는다. */
+const QUOTES: Record<string, string> = { '{': '}', '[': ']' };
+
+/** 코드를 기호와 글자로 쪼갠다. `{ }`(옛 `[ ]`) 안은 글자. */
 function tokenize(code: string, tokens: readonly string[]): Piece[] {
   const out: Piece[] = [];
   let i = 0;
   while (i < code.length) {
-    if (code[i] === '[') {
-      const end = code.indexOf(']', i + 1);
+    const close = QUOTES[code[i]];
+    if (close) {
+      const end = code.indexOf(close, i + 1);
       if (end > i) {
         out.push({ text: code.slice(i + 1, end) });
         i = end + 1;

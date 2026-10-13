@@ -62,8 +62,10 @@ describe('7-5 페이지 가져오기·여러 페이지 관리', () => {
     s().redo(); expect(active().items).toBe(added);
   });
   it('복제·이동·삭제는 앞뒤 짝을 함께 처리하며 각각 한 번에 되돌린다', () => {
-    s().createWork(); s().addPagesAtEnd(); s().addPagesAtEnd();
+    // 면 1 → 2(옆자리 하나) → 4(앞·뒤) → 5(지금 면 뒤에 하나).
+    s().createWork(); s().addPagesAtEnd(); s().addPagesAtEnd(); s().addPageAfterCurrent();
     const original = active().items;
+    expect(original).toHaveLength(5);
     s().duplicateSelectedPages([original[0].id], 2);
     expect(active().items.length).toBe(9);
     s().undo(); expect(active().items).toBe(original);
@@ -315,11 +317,15 @@ describe('편집 — 보통 페이지', () => {
     expect(active().items).toHaveLength(1);
   });
 
-  it('+ 페이지 추가는 맨 뒤에, 양면이면 앞·뒤 두 면, 새 페이지로 간다', () => {
+  it('+ 페이지 추가는 맨 뒤에 — 양면이면 마지막 면이 홀수일 땐 옆자리 하나, 짝수일 땐 앞·뒤 둘, 새 페이지로 간다', () => {
     s().addPagesAtEnd();
-    expect(active().items).toHaveLength(3);
-    // 면 0(오른쪽 혼자) | (1|2) — 새 첫 면 1은 펼침면 1의 왼쪽
-    expect(s().cursors[active().id]).toMatchObject({ spread: 1, side: 'back' });
+    expect(active().items).toHaveLength(2);
+    // 2쪽뿐이면 한 줄 (p.2 | p.1) — 새 면 1은 펼침면 0의 왼쪽
+    expect(s().cursors[active().id]).toMatchObject({ spread: 0, side: 'back' });
+    s().addPagesAtEnd();
+    expect(active().items).toHaveLength(4);
+    // 3쪽부터는 (·|0) (1|2) (3|·) — 새 첫 면 2는 펼침면 1의 오른쪽
+    expect(s().cursors[active().id]).toMatchObject({ spread: 1, side: 'front' });
   });
 
   it('단면이면 한 면만', () => {
@@ -879,11 +885,11 @@ describe('2026-10-13 수정사항', () => {
     s().addDiary('M6', 'm6');
     s().createWork();
     s().setDuplex(true);
-    s().addPagesAtEnd(); // 면 3개: [ ,1] [2,3]
-    s().setSide('front');
-    s().removeItemAt(2); // p.3을 지움 → [2, ]
+    s().addPagesAtEnd();
+    s().addPagesAtEnd(); // 면 4개: (·|0) (1|2) (3|·) — 마지막 면 3이 왼쪽에 홀로
+    s().goTo(2, 'front');
     const t = targetOf(s());
-    expect(t?.kind === 'face' && t.face.itemId).toBe(active().items[1].id);
+    expect(t?.kind === 'face' && t.face.itemId).toBe(active().items[3].id);
   });
 });
 

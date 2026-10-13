@@ -47,7 +47,7 @@ import {
   type Side,
 } from '../store';
 import { resolveObjectColors } from '../core/colors';
-import { changedIds, faceLabel, type ResolvedFace } from '../core/work';
+import { changedIds, faceCount, faceLabel, type ResolvedFace } from '../core/work';
 import { resolveRuleColors, type ColorRules } from '../core/colorRules';
 import type { DotGrid } from '../core/grid';
 import type { InsertSetting } from '../core/template';
@@ -2194,7 +2194,9 @@ function AddPageButton() {
   if (!cursor || cursor.source || !work) return null;
   return (
     <div className="add-page-controls" onPointerDown={(e) => e.stopPropagation()}>
-      <button className="add-page" onClick={addPagesAtEnd}>+ 페이지 추가{work.duplex ? ' (앞·뒤)' : ''}</button>
+      <button className="add-page" onClick={addPagesAtEnd}>
+        + 페이지 추가{work.duplex && faceCount(work) % 2 === 0 ? ' (앞·뒤)' : ''}
+      </button>
       <details className="page-add-options">
         <summary aria-label="페이지 추가 메뉴">▾</summary>
         <div className="page-add-menu"><ImportPagesButton atEnd /></div>

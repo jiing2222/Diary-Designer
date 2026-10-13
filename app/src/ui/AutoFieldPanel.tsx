@@ -1,12 +1,9 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import {
-  chipPatch,
-  FIELD_CHIPS,
   fieldValue,
   formatPageNo,
   usesDate,
-  type FieldChip,
   type FieldDraft,
   type FieldSpec,
   type FieldTile,
@@ -25,11 +22,11 @@ import { CalendarIcon } from './icons';
  */
 export type AutoTile = FieldTile | 'calendar' | 'moon';
 
-const TILES: { id: AutoTile; label: string; glyph: React.ReactNode }[] = [
+const TILES: { id: AutoTile; label: string; glyph: React.ReactNode; key?: string }[] = [
   // 해·달·날·주·요일은 Date 하나 — 형식은 코드로 정한다(2026-10-13 결정).
-  { id: 'date', label: 'Date', glyph: '10.15' },
+  { id: 'date', label: 'Date', glyph: '10.15', key: 'F' },
   { id: 'dday', label: 'D-day', glyph: 'D-7' },
-  { id: 'calendar', label: 'Calendar', glyph: <CalendarIcon /> },
+  { id: 'calendar', label: 'Calendar', glyph: <CalendarIcon />, key: 'C' },
   { id: 'page', label: 'Page No.', glyph: 'p.3' },
   { id: 'moon', label: 'Moon', glyph: '◐' },
 ];
@@ -42,7 +39,7 @@ export function AutoFieldTiles({ active, onPick }: { active: AutoTile | null; on
           key={t.id}
           className={`tool-tile ${active === t.id ? 'on' : ''}`}
           onClick={() => onPick(t.id)}
-          title={t.label}
+          title={t.key ? `${t.label} (${t.key})` : t.label}
         >
           <span className="auto-glyph">{t.glyph}</span>
           <span>{t.label}</span>
@@ -50,11 +47,6 @@ export function AutoFieldTiles({ active, onPick }: { active: AutoTile | null; on
       ))}
     </div>
   );
-}
-
-/** 지금 설정에 칩을 얹은 것 — 칩에 종류가 없으면 종류도 없다(미리보기용). */
-function chipSpec(spec: FieldDraft, chip: FieldChip): FieldDraft {
-  return { ...spec, format: chip.format, kind: chip.kind };
 }
 
 /**
@@ -79,7 +71,6 @@ export function FieldSettings({
   formatMixed?: boolean;
 }) {
   const today = todayFrom(useStore((s) => s.today));
-  const chips = FIELD_CHIPS[tile];
   const preview = (f: FieldDraft) =>
     f.kind === 'page' ? formatPageNo({ offset: 0, ...f }, 2, 33) : fieldValue({ offset: 0, ...f }, today) || '—';
 
@@ -87,35 +78,25 @@ export function FieldSettings({
     <div className="field-settings">
       {tile !== 'dday' && (
         <>
-          <h3 className="panel-sub">표시</h3>
-          <div className="field-chips">
-            {chips.map((chip) => {
-              const on = !formatMixed && chip.format === spec.format && chip.kind === spec.kind;
-              const text = preview(chipSpec(spec, chip));
-              // 오늘 날짜로는 같아 보이는 칩(11일의 D·DD, 10월의 M·MM)은 코드를 덧붙여 구별한다.
-              const twin = chips.some((c) => c !== chip && preview(chipSpec(spec, c)) === text);
-              return (
-                <button
-                  key={`${chip.kind ?? ''}${chip.format}`}
-                  className={`field-chip ${on ? 'on' : ''}`}
-                  title={chip.format}
-                  onClick={() => apply(chipPatch(chip))}
-                >
-                  {text}
-                  {twin && <span className="chip-code">{chip.format}</span>}
-                </button>
-              );
-            })}
-          </div>
+          {/* 표시 형식 버튼은 없앴다 — 코드로 직접 쓴다(2026-10-13 사용자 결정). 코드 표는 단추로 열고 닫는다. */}
           <CodeInput
             key={formatMixed ? '' : spec.format}
             value={formatMixed ? '' : spec.format}
             preview={(code) => preview({ ...spec, format: code })}
-            hint={tile === 'page' ? 'n·nn·nnn 자릿수 · N 전체 장 수' : '코드는 아래 표를 보고 섞어 써요 — 예: YYYY.MM.DD (ddd)'}
-            placeholder={tile === 'page' ? 'n / N' : 'YYYY.MM.DD'}
+            placeholder={tile === 'page' ? 'n / N' : 'YYYY.MM.DD (ddd)'}
             onCommit={(code) => apply({ format: code })}
           />
-          {tile === 'date' && <DateCodeGuide spec={spec} />}
+          {tile === 'date' && (
+            <label className="field-toggle" title="이 페이지 날짜가 든 한 주를 ‘시작~끝’으로(예: 10/12~10/18)">
+              <input
+                type="checkbox"
+                checked={spec.kind === 'range'}
+                onChange={(e) => apply({ kind: e.target.checked ? 'range' : undefined })}
+              />
+              한 주 범위(시작~끝)
+            </label>
+          )}
+          <CodeGuide tile={tile} spec={spec} />
         </>
       )}
 
@@ -260,7 +241,7 @@ export function MoonPanel({ moons, apply }: { moons: MoonObject[]; apply: (patch
 }
 
 /** 형식 코드를 직접 쓰는 칸 — 치는 동안 미리보기만 바뀌고, Enter나 칸을 떠날 때 적용한다. */
-/** 날짜 형식 코드 설명표(2026-10-13 사용자 요청: 하단에 잘 보이게) — 오늘 날짜로 실제 값을 함께 보여준다. */
+/** 형식 코드 표 — 단추로 열고 닫는다(2026-10-13). 오늘 날짜로 실제 값을 함께 보여준다. */
 const DATE_CODES: [code: string, meaning: string][] = [
   ['YYYY', '해'],
   ['YY', '해 두 자리'],
@@ -274,30 +255,45 @@ const DATE_CODES: [code: string, meaning: string][] = [
   ['dddd', '요일 길게'],
   ['eee', '요일 영어'],
   ['eeee', '요일 영어 길게'],
-  ['w', '주차(그 해의 몇째 주)'],
+  ['w', '주차'],
 ];
 
-function DateCodeGuide({ spec }: { spec: FieldDraft }) {
+const PAGE_CODES: [code: string, meaning: string, example: string][] = [
+  ['n', '번호', '3'],
+  ['nn', '번호 두 자리', '03'],
+  ['nnn', '번호 세 자리', '003'],
+  ['N', '전체 장 수', '33'],
+];
+
+function CodeGuide({ tile, spec }: { tile: FieldTile; spec: FieldDraft }) {
   const today = todayFrom(useStore((s) => s.today));
+  const [open, setOpen] = useState(false);
+  const rows: [string, string, string][] =
+    tile === 'page'
+      ? PAGE_CODES
+      : DATE_CODES.map(([code, meaning]) => [code, meaning, fieldValue({ ...spec, offset: 0, kind: undefined, format: code }, today)]);
   return (
-    <div className="date-code-guide">
-      <h3 className="panel-sub">형식 코드</h3>
-      <table>
-        <tbody>
-          {DATE_CODES.map(([code, meaning]) => (
-            <tr key={code}>
-              <td className="code">{code}</td>
-              <td>{meaning}</td>
-              <td className="example">{fieldValue({ ...spec, offset: 0, kind: undefined, format: code }, today)}</td>
+    <div className="code-guide">
+      <button className="ghost code-guide-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
+        형식 코드 {open ? '▴' : '▾'}
+      </button>
+      {open && (
+        <table>
+          <tbody>
+            {rows.map(([code, meaning, example]) => (
+              <tr key={code}>
+                <td className="code">{code}</td>
+                <td>{meaning}</td>
+                <td className="example">{example}</td>
+              </tr>
+            ))}
+            <tr>
+              <td className="code">{'{글자}'}</td>
+              <td colSpan={2}>코드와 겹치는 글자는 그대로</td>
             </tr>
-          ))}
-          <tr>
-            <td className="code">[글자]</td>
-            <td colSpan={2}>코드와 겹치는 글자는 [ ]로 감싸요 — 예: [Week] w</td>
-          </tr>
-        </tbody>
-      </table>
-      <p className="tool-panel-note">그 밖의 글자(. / - 년 월 일 등)는 쓴 그대로 나와요.</p>
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
@@ -305,13 +301,11 @@ function DateCodeGuide({ spec }: { spec: FieldDraft }) {
 function CodeInput({
   value,
   preview,
-  hint,
   placeholder,
   onCommit,
 }: {
   value: string;
   preview: (code: string) => string;
-  hint: string;
   placeholder: string;
   onCommit: (code: string) => void;
 }) {
@@ -334,7 +328,6 @@ function CodeInput({
         />
       </PopRow>
       {draft.trim() !== '' && <div className="code-preview">미리보기 {preview(draft)}</div>}
-      <div className="code-hint">{hint}</div>
     </div>
   );
 }

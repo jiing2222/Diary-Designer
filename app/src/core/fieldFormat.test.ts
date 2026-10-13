@@ -17,7 +17,8 @@ describe('형식 코드', () => {
     expect(formatDate(d, 'ww w')).toBe('40 40');
   });
 
-  it('[ ] 안은 글자 그대로', () => {
+  it('{ } 안은 글자 그대로, 옛 [ ]도 읽는다', () => {
+    expect(formatDate(d, '{Mon} D')).toBe('Mon 5');
     expect(formatDate(d, '[Mon] D')).toBe('Mon 5');
   });
 

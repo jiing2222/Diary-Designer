@@ -1003,7 +1003,10 @@ export const useStore = create<Store>((set, get) => ({
       const faces = facesOf(work, s.today);
       const background =
         (target ? editableBackground(work, target) : null) ?? faces[faces.length - 1]?.background ?? undefined;
-      const added = Array.from({ length: work.duplex ? 2 : 1 }, () => newPage(background));
+      // 양면이면 종이 한 장(앞·뒤) — 다만 마지막 면이 홀수 쪽(앞면)이라 그 뒷면이 비어 있으면 그 자리 하나만
+      // (2026-10-13 사용자 요청: 마지막 페이지 옆에 붙게).
+      const count = work.duplex && faces.length % 2 === 0 ? 2 : 1;
+      const added = Array.from({ length: count }, () => newPage(background));
       const items = [...work.items, ...added];
       const next = commitItems(s, work, items);
       // 새 면(첫 번째)이 든 펼침면으로 간다.

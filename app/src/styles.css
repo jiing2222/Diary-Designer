@@ -5970,30 +5970,6 @@ button.danger:hover {
 .field-settings .panel-sub {
   margin: 4px 0 0;
 }
-.field-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.field-chip {
-  height: 28px;
-  padding: 0 10px;
-  border: none;
-  border-radius: 999px;
-  background: var(--bg);
-  color: var(--ink);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.field-chip:hover {
-  background: var(--hover-bg);
-}
-.field-chip.on {
-  background: var(--blue-subtle);
-  color: var(--blue-deep);
-  font-weight: 600;
-}
 .field-settings .pop-row-field input {
   box-sizing: border-box;
   height: 28px;
@@ -6027,17 +6003,6 @@ button.danger:hover {
   font-weight: 600;
   color: var(--blue-deep);
   text-align: right;
-}
-.code-hint {
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.5;
-}
-.chip-code {
-  margin-left: 4px;
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--muted);
 }
 
 /* Colors 패널의 색 규칙 — 칸 색 견본 + 팔레트 이름 목록(세부계획 A13 스케치 `일요일 → [ B ▾ ]`). */
@@ -6475,23 +6440,27 @@ button.danger:hover {
   cursor: move;
 }
 
-/* AutoField → Date의 형식 코드 설명표(2026-10-13). */
-.date-code-guide table {
+/* AutoField의 형식 코드 표(2026-10-13) — 단추로 열고 닫는다. */
+.code-guide-toggle {
+  font-size: 12px;
+  padding: 2px 6px;
+}
+.code-guide table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
 }
-.date-code-guide td {
+.code-guide td {
   padding: 3px 4px;
   border-bottom: 1px solid var(--line);
   color: var(--ink);
 }
-.date-code-guide td.code {
+.code-guide td.code {
   font-family: ui-monospace, Menlo, monospace;
   font-weight: 600;
   white-space: nowrap;
 }
-.date-code-guide td.example {
+.code-guide td.example {
   color: var(--muted);
   text-align: right;
   white-space: nowrap;
