@@ -50,13 +50,25 @@ const saveRecord = (userId: string, rec: SyncRecord) => v2Put('meta', recordKey(
 /* ── 처음 올릴지 묻기 ── */
 
 let answer: ((upload: boolean) => void) | null = null;
+let cancelAsk: (() => void) | null = null;
+
+/** 묻는 중에 로그아웃하면 답을 기다리지 않고 그만둔다 — 안 그러면 맞추기가 영영 끝나지 않는다. */
+class AskCancelled extends Error {}
 
 function ask(works: number, total: number): Promise<boolean> {
   useStore.setState({ syncAsk: { works, total } });
-  return new Promise((resolve) => {
-    answer = (upload) => {
+  return new Promise((resolve, reject) => {
+    const done = () => {
       answer = null;
+      cancelAsk = null;
       useStore.setState({ syncAsk: null });
+    };
+    cancelAsk = () => {
+      done();
+      reject(new AskCancelled());
+    };
+    answer = (upload) => {
+      done();
       resolve(upload);
     };
   });
@@ -126,6 +138,8 @@ async function syncOnce(): Promise<void> {
         if (!upload) skip = new Set([...skip, ...fresh, docKey('prefs', 'prefs')]);
       }
       rec.asked = true;
+      // 답은 바로 남긴다 — 뒤에서 실패해도 다시 묻지 않게.
+      await saveRecord(user.id, { state, skip: [...skip], asked: true });
       local = docsOf(syncSnapshotOf(useStore.getState()));
     }
 
@@ -182,6 +196,10 @@ async function syncOnce(): Promise<void> {
     await saveRecord(user.id, { state, skip: [...skip], asked: rec.asked });
     useStore.setState({ cloudStatus: { kind: 'saved', at: Date.now() } });
   } catch (err) {
+    if (err instanceof AskCancelled) {
+      useStore.setState({ cloudStatus: { kind: 'local' } });
+      return;
+    }
     // 400은 서버가 받은 자료를 거절한 것 — 로그인 오류 문구(cloudErrorText의 기본)와 구분한다.
     const text = (err as { status?: number })?.status === 400 ? '서버가 자료를 받지 못했어요.' : cloudErrorText(err);
     useStore.setState({ cloudStatus: { kind: 'error', text } });
@@ -291,7 +309,10 @@ export function startCloudSync(): () => void {
   };
   const stopAuth = onAuthChange((user) => {
     if (user) soon(0);
-    else useStore.setState({ cloudStatus: { kind: 'local' }, syncAsk: null });
+    else {
+      cancelAsk?.();
+      useStore.setState({ cloudStatus: { kind: 'local' }, syncAsk: null });
+    }
   });
   // 이 기기 저장이 끝나면(‘저장됨’) 조금 기다렸다 올린다 — 손을 멈출 때마다 서버에 가지 않게.
   const stopSaved = useStore.subscribe((s, before) => {

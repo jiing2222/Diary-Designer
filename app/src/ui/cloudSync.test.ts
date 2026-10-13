@@ -5,12 +5,17 @@ import type { RemoteDoc, SyncKind } from '../core/sync';
 const server = new Map<string, RemoteDoc>();
 let clock = 0;
 const user = { id: 'u1', email: 'a@b.c' };
+let signedIn = true;
+let authListener: ((u: unknown) => void) | null = null;
 const local = new Map<string, unknown>();
 
 vi.mock('../cloud/client', () => ({
   cloudEnabled: true,
-  currentUser: () => user,
-  onAuthChange: () => () => {},
+  currentUser: () => (signedIn ? user : null),
+  onAuthChange: (l: (u: unknown) => void) => {
+    authListener = l;
+    return () => {};
+  },
   cloudErrorText: (e: unknown) => String(e),
 }));
 vi.mock('../cloud/docs', () => ({
@@ -58,7 +63,7 @@ vi.mock('../images/registry', async (original) => ({
 }));
 
 const { useStore } = await import('../store');
-const { answerSyncAsk, syncNow } = await import('./cloudSync');
+const { answerSyncAsk, startCloudSync, syncNow } = await import('./cloudSync');
 
 const initial = useStore.getState();
 const s = () => useStore.getState();
@@ -174,5 +179,29 @@ describe('계정 동기화 순서', () => {
     files.clear();
     await syncNow();
     expect(s().userImages).toEqual([expect.objectContaining({ id: 'img1', name: 'cat', url: 'data:받음' })]);
+  });
+
+  it('묻는 중에 로그아웃하면 기다리지 않고 그만두고, 다음에 다시 묻는다', async () => {
+    // 테스트 환경에는 화면이 없다 — 창으로 돌아오기 신호만 흉내 낸다.
+    vi.stubGlobal('document', {
+      visibilityState: 'visible',
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    });
+    const stop = startCloudSync();
+    s().addDiary('M6', 'm6');
+    const done = syncNow();
+    await vi.waitFor(() => expect(s().syncAsk).not.toBeNull());
+    signedIn = false;
+    authListener?.(null);
+    await done;
+    signedIn = true;
+    stop();
+    vi.unstubAllGlobals();
+    expect(s().syncAsk).toBeNull();
+    expect(s().cloudStatus.kind).toBe('local');
+    expect(server.size).toBe(0);
+    await syncAnswering(true);
+    expect([...server.values()].some((d) => d.kind === 'diary')).toBe(true);
   });
 });
