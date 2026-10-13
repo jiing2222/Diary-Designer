@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { facesOf, useStore } from '../store';
 import { DEFAULT_PROJECT_VIEW, isTrashed, projectsFor, type ProjectSort } from '../core/library';
 import { diarySizeLabel } from '../core/diary';
@@ -7,6 +7,7 @@ import { resolveObjectColors } from '../core/colors';
 import type { Work } from '../core/work';
 import { InsertView } from './InsertView';
 import { Modal } from './Modal';
+import { loadWorksFromFile, saveWorksToFile } from './fileIO';
 
 type ActionKind = 'folder-new' | 'folder-name' | 'folder-remove' | 'menu' | 'name' | 'move' | 'copy-diary';
 type Action = { kind: ActionKind; id?: string };
@@ -20,6 +21,8 @@ export function Projects() {
   const patch = useStore((s) => s.patch);
   const startNewWork = useStore((s) => s.startNewWork);
   const [action, setAction] = useState<Action | null>(null);
+  const showToast = useStore((s) => s.showToast);
+  const fileInput = useRef<HTMLInputElement>(null);
   const live = useMemo(() => works.filter((w) => !isTrashed(w)), [works]);
   const shown = useMemo(() => projectsFor(works, view), [works, view]);
   const setView = (p: Partial<typeof view>) => patch({ projectView: { ...view, ...p } });
@@ -111,6 +114,36 @@ export function Projects() {
           <h2>
             {title} <span className="projects-count">{shown.length}개</span>
           </h2>
+          {/*
+            작업 파일(.rings) — 다른 사람에게 보내거나 백업한다. 저장은 **지금 보이는 목록**(폴더·다이어리·검색을
+            건 그대로)을 한 파일로. 하나만 보내려면 카드의 ⋯에서.
+          */}
+          <span className="projects-file">
+            <button className="ghost" onClick={() => fileInput.current?.click()}>
+              파일 불러오기
+            </button>
+            <button
+              className="ghost"
+              disabled={shown.length === 0}
+              onClick={() => {
+                const n = saveWorksToFile(shown.map((w) => w.id), title === 'Projects' ? 'Rings 작업' : title);
+                showToast(n ? `작업 ${n}개를 파일로 저장했어요.` : '저장할 작업이 없어요.');
+              }}
+            >
+              목록을 파일로 저장
+            </button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".rings,.json"
+              hidden
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f) showToast(await loadWorksFromFile(f));
+              }}
+            />
+          </span>
           <button className="primary" onClick={() => startNewWork()}>
             + 새 작업
           </button>
@@ -322,6 +355,15 @@ function ProjectDialog({
           </button>
           <button className="ghost" onClick={() => onAction({ kind: 'move', id: work.id })}>
             폴더로 이동
+          </button>
+          <button
+            className="ghost"
+            onClick={() => {
+              saveWorksToFile([work.id], work.name);
+              onClose();
+            }}
+          >
+            파일로 저장
           </button>
           <button
             className="ghost danger"

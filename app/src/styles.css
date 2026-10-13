@@ -6755,3 +6755,10 @@ button.ghost:disabled {
   align-items: center;
   gap: 10px;
 }
+
+/* Projects 머리줄의 작업 파일 저장·불러오기(ui/fileIO). */
+.projects-file {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
