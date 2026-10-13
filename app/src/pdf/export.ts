@@ -50,6 +50,7 @@ import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
 import { capacityPerSheet, frontBackFilled, sheetsNeeded } from '../core/template';
 import { insertSizeOf, placeSlot } from '../core/place';
 import { colorOf, dashPattern, dashPatternOf, sketchPoints, widthOf } from '../core/line';
+import { dotsColorOf, dotsOf } from '../core/dots';
 import {
   cornerRadiusOf,
   fillColorOf,
@@ -80,6 +81,7 @@ import {
   imageRotateOf,
   isCalendar,
   isCheckbox,
+  isDots,
   isMoon,
   isImage,
   isLine,
@@ -415,13 +417,14 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
      */
     pageFor: ((i: number) => number | null) | null,
   ) {
-    // 층 순서가 화면과 같아야 한다. 도트 → (타공 표시) → 선 → 도형 → 체크박스 → 달 → 이미지 → 글자.
+    // 층 순서가 화면과 같아야 한다. 도트 → (타공 표시) → 선 → 도형 → 체크박스 → 도트 판 → 달 → 이미지 → 글자.
     // 인쇄 여부(dotGrid.print)는 칸마다 다를 수 있으므로 각 함수 안에서 칸별로 본다.
     drawDotGrid(page, layout, resolveForSheet, flipY, mirror);
     drawPunchMarks(page, layout, resolveForSheet, flipY, mirror);
     drawObjects(page, layout, resolveForSheet, flipY);
     drawShapes(page, layout, resolveForSheet, flipY);
     drawCheckboxes(page, layout, resolveForSheet, flipY);
+    drawDots(page, layout, resolveForSheet, flipY);
     drawMoons(page, layout, resolveForSheet, flipY);
     drawImages(page, layout, resolveForSheet, embeddedImages, flipY);
     if (bodyFont && bodyCoverage) {
@@ -1129,6 +1132,23 @@ function drawCheckboxes(
  * 달 모양 — 화면(ui/InsertView의 `MoonLayer`)과 같은 경로(core/moon)를 그린다. 빛나는
  * 부분은 칠하고, 테두리 원은 선으로. 위상이 없으면(날짜가 없는 칸) 그리지 않는다.
  */
+/** 도트 판(9-4) — 화면(ui/InsertView의 `DotsLayer`)과 같은 core/dots의 자리·지름. 지름 0은 없다. */
+function drawDots(page: PDFPage, layout: Layout, resolveSlot: (i: number) => SlotContent, flipY: (y: Mm) => Mm) {
+  layout.slots.forEach((slot, i) => {
+    const objects = resolveSlot(i).objects.filter(isDots);
+    if (objects.length === 0) return;
+    const place = placeSlot(slot, layout.rotated, layout.turn180);
+    for (const o of objects) {
+      const fill = color(dotsColorOf(o));
+      for (const d of dotsOf(o)) {
+        if (d.size <= 0) continue;
+        const c = place.map(d.x, d.y);
+        page.drawCircle({ x: mmToPt(c.x), y: mmToPt(flipY(c.y)), size: mmToPt(d.size / 2), color: fill });
+      }
+    }
+  });
+}
+
 function drawMoons(page: PDFPage, layout: Layout, resolveSlot: (i: number) => SlotContent, flipY: (y: Mm) => Mm) {
   const PT_PER_MM = mmToPt(1);
   layout.slots.forEach((slot, i) => {

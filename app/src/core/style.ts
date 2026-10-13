@@ -238,3 +238,6 @@ export const PUNCH_MARK_WIDTH: Mm = 0.15;
  */
 export const SKETCH_AMPLITUDE: Mm = 0.3;
 export const SKETCH_STEP: Mm = 2;
+
+/** 도트 판(리뉴얼 9-4)의 도트 기본 지름. 아직 인쇄해 보지 않은 값이다. */
+export const DOTS_SIZE: Mm = 0.6;

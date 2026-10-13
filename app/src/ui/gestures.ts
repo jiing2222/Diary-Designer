@@ -149,6 +149,8 @@ export type Drag =
       align: boolean;
       guides: AlignGuide[];
       moved: boolean;
+      /** 이미 고른 도트 판 하나를 다시 눌렀다 — 끌지 않고 떼면 그 안의 도트를 고른다(9-4). */
+      dotPick?: boolean;
     }
   /**
    * 선 끝점을 잡은 중. `to`는 처음에 그 끝점 자신이고, 손이 DRAG_START를 넘게

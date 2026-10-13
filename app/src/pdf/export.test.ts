@@ -127,6 +127,34 @@ describe('PDF 출력', () => {
   });
 });
 
+describe('도트 판·손그림 선 (9단계)', () => {
+  const base = {
+    paperWidth: 210,
+    paperHeight: 297,
+    layout,
+    dotGrid: noGrid,
+    safeZoneWidth: 10,
+    cropMark: 'none' as const,
+    showRuler: false,
+  };
+  const board = { id: 'dg1', type: 'dots' as const, x: 10, y: 10, width: 30, height: 20, cols: 6, rows: 4 };
+
+  it('도트 판이 찍히고, 지름 0인 도트는 빠진다', async () => {
+    const none = await buildPdf({ ...base, objects: [] });
+    const full = await buildPdf({ ...base, objects: [board] });
+    const holes = await buildPdf({ ...base, objects: [{ ...board, sizes: { '0,0': 0, '0,1': 0, '1,1': 0 } }] });
+    expect(full.byteLength).toBeGreaterThan(holes.byteLength);
+    expect(holes.byteLength).toBeGreaterThan(none.byteLength);
+  });
+
+  it('손그림 선은 곧은 선보다 많은 선분으로 찍힌다', async () => {
+    const line = { id: 'l1', type: 'line' as const, x1: 10, y1: 10, x2: 60, y2: 10 };
+    const straight = await buildPdf({ ...base, objects: [line] });
+    const sketch = await buildPdf({ ...base, objects: [{ ...line, dash: 'sketch' as const }] });
+    expect(sketch.byteLength).toBeGreaterThan(straight.byteLength);
+  });
+});
+
 describe('도트 격자 인쇄', () => {
   const base = {
     paperWidth: 210,

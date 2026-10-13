@@ -344,6 +344,34 @@ export interface MoonObject {
   groupId?: string;
 }
 
+/**
+ * 도트 판(리뉴얼 9-4, 기능후보 2) — 표처럼 칸 범위를 끌어 만들고, 칸마다 가운데에 도트 하나.
+ * 속지 바탕의 도트 격자(Page → Background)와는 별개로, 원하는 곳에 놓는 객체다.
+ *
+ * 도트 하나하나의 지름은 **바꾼 것만** `sizes`에 남는다(키는 `행,열`, core/dots `dotKey`) — 나머지는
+ * `size`(없으면 기본값)를 따른다. 0이면 그 도트는 없다.
+ */
+export interface DotsObject {
+  id: string;
+  type: 'dots';
+  x: Mm;
+  y: Mm;
+  width: Mm;
+  height: Mm;
+  cols: number;
+  rows: number;
+  /** 도트 지름. 정하지 않았으면 core/style의 기본값. */
+  size?: Mm;
+  /** 도트 색. 정하지 않았으면 기본 선 색. 팔레트 이름표(`@A`)일 수 있다. */
+  color?: string;
+  /** 바꾼 도트의 지름 — 키는 `행,열`. */
+  sizes?: Record<string, Mm>;
+  /** 잠갔는가. LineObject의 `locked` 참고. */
+  locked?: boolean;
+  /** 그룹 id. LineObject의 `groupId` 참고. */
+  groupId?: string;
+}
+
 export type DiaryObject =
   | LineObject
   | TextObject
@@ -351,7 +379,8 @@ export type DiaryObject =
   | ImageObject
   | ShapeObject
   | CheckboxObject
-  | MoonObject;
+  | MoonObject
+  | DotsObject;
 
 export function isLine(o: DiaryObject): o is LineObject {
   return o.type === 'line';
@@ -381,6 +410,10 @@ export function isMoon(o: DiaryObject): o is MoonObject {
   return o.type === 'moon';
 }
 
+export function isDots(o: DiaryObject): o is DotsObject {
+  return o.type === 'dots';
+}
+
 /**
  * 저장하지 않는 화면용 값을 걷어낸다 — 지금은 달의 `phase`(날짜를 채울 때 넣는 값). 날짜 페이지에서
  * 복사해 붙인 달처럼, 보이는 그대로의 객체가 저장 쪽으로 넘어올 때 core/work가 부른다.
@@ -394,12 +427,14 @@ export function withoutDisplayOnly(o: DiaryObject): DiaryObject {
 /** 모서리 손잡이로 크기를 바꿀 수 있는 오브젝트인가. 체크박스는 아직 아니다(찍을 때만 크기가 정해진다). */
 export function isBoxResizable(
   o: DiaryObject,
-): o is CalendarObject | ImageObject | ShapeObject | TextObject {
-  return isCalendar(o) || isImage(o) || isShape(o) || isText(o);
+): o is CalendarObject | ImageObject | ShapeObject | TextObject | DotsObject {
+  return isCalendar(o) || isImage(o) || isShape(o) || isText(o) || isDots(o);
 }
 
 /** 자기 상자(x·y·width·height)로 클릭 판정을 하는 오브젝트인가. 크기조정 가능 여부와는 다르다 — 체크박스는 상자로 골라지지만 손잡이는 없다. */
-export function isBoxShaped(o: DiaryObject): o is CalendarObject | ImageObject | ShapeObject | CheckboxObject | MoonObject {
+export function isBoxShaped(
+  o: DiaryObject,
+): o is CalendarObject | ImageObject | ShapeObject | CheckboxObject | MoonObject | DotsObject {
   return isBoxResizable(o) || isCheckbox(o) || isMoon(o);
 }
 
@@ -724,6 +759,7 @@ const ID_PREFIX: Record<DiaryObject['type'], string> = {
   shape: 'sh',
   checkbox: 'ch',
   moon: 'mo',
+  dots: 'dg',
 };
 
 /**

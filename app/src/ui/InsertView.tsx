@@ -14,6 +14,7 @@ import {
   TEXT_COLOR,
 } from '../core/style';
 import { colorOf, dashPattern, dashPatternOf, sketchPoints, widthOf } from '../core/line';
+import { dotsColorOf, dotsOf } from '../core/dots';
 import {
   cornerRadiusOf,
   fillColorOf,
@@ -63,6 +64,7 @@ import {
   imageRotateOf,
   isCalendar,
   isCheckbox,
+  isDots,
   isMoon,
   isImage,
   isLine,
@@ -71,6 +73,7 @@ import {
   rotationOf,
   type CalendarObject,
   type CheckboxObject,
+  type DotsObject,
   type MoonObject,
   type DiaryObject,
   type ImageObject,
@@ -173,6 +176,7 @@ export function InsertView({
       <g clipPath={mode === 'print' ? `url(#${clipId})` : undefined}>
         <ShapeLayer objects={objects.filter(isShape)} />
         <CheckboxLayer objects={objects.filter(isCheckbox)} />
+        <DotsLayer objects={objects.filter(isDots)} />
         <MoonLayer objects={objects.filter(isMoon)} />
         <ImageLayer objects={objects.filter(isImage)} />
         <TextLayer objects={objects.filter(isText)} hiddenId={hiddenId} />
@@ -233,6 +237,23 @@ function CheckboxLayer({ objects }: { objects: CheckboxObject[] }) {
  * 달 모양 — 테두리 원 + 빛나는 부분 칠하기. 모양은 core/moon이 정하고 PDF(pdf/export)도
  * 같은 경로를 그린다. 위상(`phase`)이 없으면(날짜가 없는 칸) 그리지 않는다.
  */
+/** 도트 판(9-4) — 자리·지름·색은 core/dots가 정한다(PDF의 drawDots와 같은 함수). 지름 0은 없다. */
+function DotsLayer({ objects }: { objects: DotsObject[] }) {
+  return (
+    <g>
+      {objects.map((o) => (
+        <g key={o.id} fill={dotsColorOf(o)}>
+          {dotsOf(o)
+            .filter((d) => d.size > 0)
+            .map((d) => (
+              <circle key={d.key} cx={d.x} cy={d.y} r={d.size / 2} />
+            ))}
+        </g>
+      ))}
+    </g>
+  );
+}
+
 function MoonLayer({ objects }: { objects: MoonObject[] }) {
   return (
     <g>

@@ -470,6 +470,47 @@ describe('작업 색상', () => {
   });
 });
 
+describe('도트 판 (9-4)', () => {
+  beforeEach(() => {
+    s().createWork();
+  });
+  const objs = () => (active().items[0] as PageItem).face.objects;
+  const board = () => objs()[0] as { cols: number; rows: number; size?: number; sizes?: Record<string, number> };
+
+  it('놓으면 고른 상태, 행·열·지름을 바꾸고 기본값이면 키를 지운다', () => {
+    s().commitDots({ x: 0, y: 0, width: 15, height: 10 }, 3, 2);
+    expect(s().selectedIds).toEqual([objs()[0].id]);
+    s().styleDots({ cols: 4.4, size: 1 });
+    expect(board()).toMatchObject({ cols: 4, rows: 2, size: 1 });
+    s().styleDots({ size: undefined });
+    expect(board().size).toBeUndefined();
+  });
+
+  it('도트를 골라 지름을 바꾸고(0은 없음), 판을 놓으면 고른 도트도 풀린다', () => {
+    s().commitDots({ x: 0, y: 0, width: 15, height: 10 }, 3, 2);
+    const id = objs()[0].id;
+    s().pickDot(id, '0,1', false);
+    s().pickDot(id, '1,2', true);
+    s().setPickedDotSize(0);
+    expect(board().sizes).toEqual({ '0,1': 0, '1,2': 0 });
+    s().pickDot(id, '1,2', true); // Shift로 다시 누르면 뺀다
+    expect(s().pickedDots).toEqual({ id, keys: ['0,1'] });
+    s().setPickedDotSize(undefined);
+    expect(board().sizes).toEqual({ '1,2': 0 });
+    s().select([]);
+    expect(s().pickedDots).toBeNull();
+  });
+
+  it('행·열을 줄이면 판 밖이 된 도트의 지름 기록도 지운다', () => {
+    s().commitDots({ x: 0, y: 0, width: 15, height: 10 }, 3, 2);
+    const id = objs()[0].id;
+    s().pickDot(id, '1,2', false);
+    s().setPickedDotSize(2);
+    s().styleDots({ cols: 2 });
+    expect(board().sizes).toBeUndefined();
+  });
+});
+
 describe('달 모양', () => {
   beforeEach(() => {
     s().createWork();

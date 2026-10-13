@@ -616,6 +616,15 @@ button.ghost:disabled {
  * 가운데 두는 이유는 .insert-sheets가 맡던 것과 같다(아래 주석 참고) — 그
  * 역할을 이제 이 바깥 상자가 물려받았다.
  */
+/* 도트 판 안에서 고른 도트(9-4) — 지름 0(없는 도트)도 보이게 테두리만. */
+.dot-picked {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
 /* 맞춤 안내선(9-2) — Alt를 누른 채 옮기는 중에 맞은 줄. 화면에서 늘 1px. */
 .align-guide {
   stroke: #e0457b;

@@ -5,6 +5,7 @@ import {
   type CalendarStyle,
   type CheckboxIcon,
   type CheckboxStyle,
+  type DotsObject,
   type ImageObject,
   type LineObject,
   type LineStyle,
@@ -14,8 +15,10 @@ import {
   type TextStyle,
 } from '../core/objects';
 import { checkboxPath } from '../core/checkbox';
+import { dotSizeAt, dotsColorOf, dotsSizeOf } from '../core/dots';
 import {
   DEFAULT_FONT_FAMILY,
+  DOTS_SIZE,
   MAX_LETTER_SPACING,
   MIN_LETTER_SPACING,
   OBJECT_LINE_COLOR,
@@ -507,6 +510,80 @@ const CHECKBOX_ICONS: { value: CheckboxIcon; label: string }[] = [
  * 아이콘은 실제로 찍히는 것과 같은 경로(core/checkbox의 `checkboxPath`)로
  * 미리 그린다 — 모양을 글자 목록이 아니라 눈으로 보고 고른다.
  */
+/**
+ * 도트 판(9-4) — 가로·세로 개수, 기본 지름, 색. 판 하나를 골라 그 안의 도트를 눌러 고르면(Shift로 여러 개)
+ * 그 도트들의 지름을 숫자로 바꾼다(2026-10-13 결정). 0이면 그 도트는 없다.
+ */
+export function DotsControls({ items }: { items: DotsObject[] }) {
+  const styleDots = useStore((s) => s.styleDots);
+  const pickedDots = useStore((s) => s.pickedDots);
+  const setPickedDotSize = useStore((s) => s.setPickedDotSize);
+  if (items.length === 0) {
+    return <span className="stylebar-note">페이지를 끌어 도트 판을 만들어요 — 칸마다 가운데에 도트 하나</span>;
+  }
+  const first = items[0];
+  const same = <T,>(f: (o: DotsObject) => T) => items.every((o) => f(o) === f(first));
+  const lone = items.length === 1 ? first : null;
+  const keys = lone && pickedDots?.id === lone.id ? pickedDots.keys : [];
+  const pickedSize = keys.length > 0 && keys.every((k) => dotSizeAt(first, k) === dotSizeAt(first, keys[0])) ? dotSizeAt(first, keys[0]) : null;
+  return (
+    <>
+      <NumField
+        value={same((o) => o.cols) ? first.cols : null}
+        unit="열"
+        title="가로 도트 수"
+        min={1}
+        max={200}
+        step={1}
+        onChange={(cols) => styleDots({ cols })}
+      />
+      <NumField
+        value={same((o) => o.rows) ? first.rows : null}
+        unit="행"
+        title="세로 도트 수"
+        min={1}
+        max={200}
+        step={1}
+        onChange={(rows) => styleDots({ rows })}
+      />
+      <NumField
+        value={same(dotsSizeOf) ? roundMm(dotsSizeOf(first), 2) : null}
+        unit="mm"
+        title="도트 지름"
+        min={0.1}
+        max={10}
+        step={0.1}
+        onChange={(size) => styleDots({ size: size === DOTS_SIZE ? undefined : size })}
+      />
+      <ColorField
+        value={dotsColorOf(first)}
+        mixed={!same(dotsColorOf)}
+        onChange={(color) => styleDots({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
+        title="도트 색"
+      />
+      {keys.length > 0 ? (
+        <>
+          <span className="stylebar-note">고른 도트 {keys.length}개</span>
+          <NumField
+            value={pickedSize === null ? null : roundMm(pickedSize, 2)}
+            unit="mm"
+            title="고른 도트의 지름 — 0이면 없음"
+            min={0}
+            max={10}
+            step={0.1}
+            onChange={(size) => setPickedDotSize(size)}
+          />
+          <button className="ghost" onClick={() => setPickedDotSize(undefined)} title="판의 기본 지름으로">
+            기본 지름으로
+          </button>
+        </>
+      ) : (
+        lone && <span className="stylebar-note">도트를 눌러 골라요(Shift로 여러 개)</span>
+      )}
+    </>
+  );
+}
+
 export function CheckboxControls({
   items,
   apply,

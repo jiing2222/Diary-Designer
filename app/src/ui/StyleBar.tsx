@@ -2,6 +2,7 @@ import {
   boundsOfObjects,
   isCalendar,
   isCheckbox,
+  isDots,
   isImage,
   isMoon,
   isLine,
@@ -21,6 +22,7 @@ import { MixedColorControls } from './ColorControls';
 import {
   CalendarControls,
   CheckboxControls,
+  DotsControls,
   ImageControls,
   LineControls,
   NumField,
@@ -103,6 +105,9 @@ export function StyleBar({
   const pickedShapes = picked.filter(isShape);
   const pickedCheckboxes = picked.filter(isCheckbox);
   const pickedMoons = picked.filter(isMoon);
+  const pickedDots = picked.filter(isDots);
+  // 도트 판은 고른 것이 전부 도트 판이거나, 아무것도 안 고르고 도트 도구일 때(9-4).
+  const showDots = picked.length > 0 ? pickedDots.length === picked.length : tool === 'dots';
   const size = boundsOfObjects(picked);
 
   // 무엇 하나를 골랐거나 그 도구를 쓰는 중이면 그 속성을, 아니면 선 속성을 보여준다.
@@ -207,6 +212,8 @@ export function StyleBar({
                     ? '이미지'
                     : tool === 'checkbox'
                       ? '체크박스'
+                      : tool === 'dots'
+                        ? '도트 판'
                       : tool === 'moon'
                         ? '달'
                       : tool === 'draw' && drawStyle.roundness
@@ -215,7 +222,9 @@ export function StyleBar({
         </span>
       )}
 
-      {tool === 'moon' && picked.length === 0 ? (
+      {showDots ? (
+        <DotsControls items={pickedDots} />
+      ) : tool === 'moon' && picked.length === 0 ? (
         // 달은 다음에 놓을 것의 꾸미기 값이 없다(기본값으로 놓인다). 여기서 선 막대를 보여주면
         // 바꿔도 달이 아니라 다음에 그릴 선이 바뀌어 헷갈린다.
         <span className="stylebar-note">놓은 달을 고르면 지름·굵기·색을 바꿔요</span>

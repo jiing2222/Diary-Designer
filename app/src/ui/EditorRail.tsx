@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useActiveWork, useCursor, useDisplayFace, useEditObjects, useFaces, useHasBack, usePalette, useSide, useStore, type Tool } from '../store';
-import { isCalendar, isCheckbox, isMoon, isText, type TextObject } from '../core/objects';
+import { isCalendar, isCheckbox, isDots, isMoon, isText, type TextObject } from '../core/objects';
 import { familyOf } from '../fonts/registry';
 import { mmToPt } from '../core/units';
 import { TEXT_SIZE } from '../core/style';
@@ -20,6 +20,7 @@ import { ColorDefiner } from './ColorControls';
 import {
   BracesIcon,
   CheckboxIcon,
+  DotsIcon,
   ImageIcon,
   InsertIcon,
   LineIcon,
@@ -42,11 +43,12 @@ const DRAW_TOOLS: { tool: Tool; label: string; icon: React.ReactNode }[] = [
   { tool: 'draw', label: 'Line · Shape (D)', icon: <LineIcon /> },
   { tool: 'table', label: 'Table (G)', icon: <TableIcon /> },
   { tool: 'checkbox', label: 'Checkbox (X)', icon: <CheckboxIcon /> },
+  { tool: 'dots', label: 'Dots', icon: <DotsIcon /> },
 ];
 
 /** 도구가 바뀌면 그 도구의 패널이 저절로 열린다 — 단축키로 바꿔도 패널이 따라온다. */
 function categoryOfTool(tool: Tool): Category | null {
-  if (tool === 'draw' || tool === 'table' || tool === 'checkbox') return 'draw';
+  if (tool === 'draw' || tool === 'table' || tool === 'checkbox' || tool === 'dots') return 'draw';
   if (tool === 'text') return 'text';
   if (tool === 'field' || tool === 'calendar' || tool === 'moon') return 'auto';
   if (tool === 'image') return 'image';
@@ -69,7 +71,7 @@ export function EditorRail() {
   const pickedKey = picked.map((o) => o.id).join(',');
   useEffect(() => {
     if (picked.some(isCalendar) || picked.some(isMoon) || fieldIds.length > 0) setOpen('auto');
-    else if (picked.length > 0 && picked.every(isCheckbox)) setOpen('draw');
+    else if (picked.length > 0 && picked.every((o) => isCheckbox(o) || isDots(o))) setOpen('draw');
     // 고른 것이 바뀔 때만 본다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickedKey]);

@@ -6,6 +6,7 @@ import { moveDelta, nudgeStep, snapToLattice } from '../core/snap';
 import {
   boundsOfObjects,
   boxOf,
+  isDots,
   cleanStyle,
   groupIdOf,
   isCalendar,
@@ -51,6 +52,7 @@ import type { InsertSetting } from '../core/template';
 import { IMAGE_ACCEPT, hasImage, registerImage } from '../images/registry';
 import { libraryImages, reusableIdFor } from '../core/assets';
 import { InsertView } from './InsertView';
+import { dotKeyAt, dotsOf } from '../core/dots';
 import { alignBox, type AlignGuide } from '../core/align';
 import { Rulers } from './Rulers';
 import { ImageThumbGrid } from './ImagePickerDialog';
@@ -170,6 +172,9 @@ export function Editor() {
   const commitShape = useStore((s) => s.commitShape);
   const commitTable = useStore((s) => s.commitTable);
   const commitCheckboxes = useStore((s) => s.commitCheckboxes);
+  const commitDots = useStore((s) => s.commitDots);
+  const pickDot = useStore((s) => s.pickDot);
+  const pickedDots = useStore((s) => s.pickedDots);
   const commitMoon = useStore((s) => s.commitMoon);
   const resizeObject = useStore((s) => s.resizeObject);
   const textDraftStyle = useStore((s) => s.textDraftStyle);
@@ -476,8 +481,12 @@ export function Editor() {
    * 방금 놓은 것을 끌어 옮길 수 없는 버그가 있었다.
    */
   function startMove(hit: DiaryObject, raw: Point, e: React.PointerEvent) {
+    // 이미 고른 도트 판 하나를 다시 누르면 그 안의 도트를 고른다(9-4) — Shift면 더하거나 빼고, 끌면 판째 옮긴다.
+    const dotsAgain = isDots(hit) && selectedIds.length === 1 && selectedIds[0] === hit.id;
     if (e.shiftKey) {
-      select(toggleId(selectedIds, hit.id));
+      const key = dotsAgain ? dotKeyAt(hit, raw) : null;
+      if (dotsAgain && key) pickDot(hit.id, key, true);
+      else select(toggleId(selectedIds, hit.id));
       return;
     }
     // 이미 고른 것 중 하나면 선택을 그대로 두고 함께 끈다.
@@ -499,6 +508,7 @@ export function Editor() {
       align: false,
       guides: [],
       moved: false,
+      dotPick: dotsAgain,
     });
   }
 
@@ -541,7 +551,7 @@ export function Editor() {
 
     // 이미 찍은 체크박스를 클릭하면(달력·이미지·도형처럼) 고르고 옮길 수
     // 있게 한다 — 빈 곳이면 표와 같은 몸짓(칸 범위 드래그)으로 새로 찍는다.
-    if (tool === 'checkbox') {
+    if (tool === 'checkbox' || tool === 'dots') {
       const hit = hitAt(svgRef.current, objects, raw);
       if (hit) {
         startMove(hit, raw, e);
@@ -741,6 +751,12 @@ export function Editor() {
           if (p) setPending(p);
           return;
         }
+        const dots = d.dotPick ? objects.find((o) => o.id === d.hitId) : undefined;
+        const key = dots && isDots(dots) ? dotKeyAt(dots, d.origin) : null;
+        if (dots && key) {
+          pickDot(dots.id, key, false);
+          return;
+        }
         if (d.hitId) select([d.hitId]);
         return;
       }
@@ -884,6 +900,20 @@ export function Editor() {
         // 아이콘이 도트에 달라붙어 보인다. 실제 아이콘은 그릴 때만
         // core/checkbox의 checkboxIconBox로 줄인다(InsertView·PDF 공통).
         commitCheckboxes(cellsIn(lattice, d.from, d.to));
+      }
+      return;
+    }
+
+    // 도트 판(9-4) — 체크박스와 같은 몸짓, 칸마다 가운데 도트 하나인 판 하나를 놓는다.
+    if (tool === 'dots') {
+      const cells = cellsIn(lattice, d.from, d.to);
+      if (cells.length > 0) {
+        const { cols, rows } = tableSize(lattice, d.from, d.to);
+        const x = Math.min(...cells.map((c) => c.x));
+        const y = Math.min(...cells.map((c) => c.y));
+        const right = Math.max(...cells.map((c) => c.x + c.width));
+        const bottom = Math.max(...cells.map((c) => c.y + c.height));
+        commitDots({ x, y, width: right - x, height: bottom - y }, cols, rows);
       }
       return;
     }
@@ -1047,7 +1077,7 @@ export function Editor() {
   // 몇 칸짜리(체크박스면 몇 개가 찍힐지)를 손을 떼기 전에 알아야 한다.
   const ghost =
     drag?.kind === 'draw'
-      ? tool === 'table' || tool === 'checkbox'
+      ? tool === 'table' || tool === 'checkbox' || tool === 'dots'
         ? tableLines(lattice, drag.from, drag.to)
         : rectLines(drag.from, drag.to)
       : null;
@@ -1080,9 +1110,9 @@ export function Editor() {
   const sizeLabel = (() => {
     if (drag?.kind === 'draw') {
       // 표·체크박스는 mm가 아니라 몇 칸인지가 더 궁금하다. 그리기(선·면)는 지금처럼 mm.
-      if (tool === 'table' || tool === 'checkbox') {
+      if (tool === 'table' || tool === 'checkbox' || tool === 'dots') {
         const { cols, rows } = tableSize(lattice, drag.from, drag.to);
-        return tool === 'checkbox' ? `${cols * rows}개` : `${cols} × ${rows}칸`;
+        return tool === 'table' ? `${cols} × ${rows}칸` : `${cols * rows}개`;
       }
       return sizeLabelOf(rectLines(drag.from, drag.to));
     }
@@ -1265,6 +1295,22 @@ export function Editor() {
                     );
                   })}
               </g>
+
+              {/* 도트 판 안에서 고른 도트(9-4). 지름 0(없는 도트)도 고를 수 있게 테두리는 늘 보인다. */}
+              {lone &&
+                isDots(lone) &&
+                pickedDots?.id === lone.id &&
+                dotsOf(lone)
+                  .filter((dot) => pickedDots.keys.includes(dot.key))
+                  .map((dot) => (
+                    <circle
+                      key={dot.key}
+                      className="dot-picked"
+                      cx={dot.x + (nudge?.dx ?? 0)}
+                      cy={dot.y + (nudge?.dy ?? 0)}
+                      r={Math.max(dot.size / 2, 0.3) + 0.5}
+                    />
+                  ))}
 
               {/* 끝점 손잡이. 선 하나만 골랐을 때만 나온다. */}
               {lone &&

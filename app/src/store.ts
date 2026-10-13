@@ -9,6 +9,7 @@ import { DEFAULT_FIELD_DRAFT, patchField, type FieldDraft, type FieldSpec } from
 import { applyToDraft, pickSavedStyle, stylePatchOf, type SavedTextStyle } from './core/textStyles';
 import { clonePalette, mergePalette, newSavedPalette, type SavedPalette } from './core/palettes';
 import { applyOps, type SyncOp, type SyncSnapshot } from './core/sync';
+import { cleanSizes, withDotSizes } from './core/dots';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import type { InsertSetting } from './core/template';
 import { persistFontMeta, removeFont } from './fonts/registry';
@@ -33,6 +34,7 @@ import {
   type CalendarObject,
   type CalendarStyle,
   type CheckboxObject,
+  type DotsObject,
   type CheckboxStyle,
   type MoonObject,
   type MoonStyle,
@@ -130,7 +132,7 @@ interface UnprintableSetting {
   width: Mm;
 }
 
-export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar' | 'image' | 'checkbox' | 'moon';
+export type Tool = 'select' | 'draw' | 'text' | 'table' | 'field' | 'calendar' | 'image' | 'checkbox' | 'moon' | 'dots';
 
 // 탭마다 기억하는 편집 위치의 모양은 core/workspace에 둔다 — 저장소(storage/v2)도 같은 모양을 읽고 쓴다.
 export type { Cursor, Side, ViewMode } from './core/workspace';
@@ -178,6 +180,11 @@ interface Settings {
 
   tool: Tool;
   selectedIds: string[];
+  /**
+   * 도트 판 하나를 고른 상태에서 그 안의 도트를 골랐으면(리뉴얼 9-4) — 그 판과 도트 키들. 고른 것이 그 판
+   * 하나가 아니게 되면 비운다(`select`).
+   */
+  pickedDots: { id: string; keys: string[] } | null;
   clipboard: DiaryObject[];
   clipboardOrigin: ClipboardOrigin | null;
   toast: { message: string; key: number } | null;
@@ -406,6 +413,14 @@ interface Store extends Settings {
   setCheckboxDraftStyle: (patch: CheckboxStyle) => void;
   setCalendarDraftStyle: (patch: CalendarStyle) => void;
   commitCheckboxes: (boxes: Box[]) => void;
+  /** 도트 판을 놓는다 — 칸 범위(box)와 행·열 수(9-4). */
+  commitDots: (box: Box, cols: number, rows: number) => void;
+  /** 고른 도트 판들의 행·열 수·지름·색. 지름·색이 undefined면 그 키를 지워 기본값으로. */
+  styleDots: (patch: { cols?: number; rows?: number; size?: Mm; color?: string }) => void;
+  /** 판 안의 도트를 고른다 — `add`면 있던 것에 넣거나 빼고(Shift), 아니면 그것만. */
+  pickDot: (id: string, key: string, add: boolean) => void;
+  /** 고른 도트들의 지름(0이면 없음). undefined면 기본 지름으로 되돌린다. */
+  setPickedDotSize: (size: Mm | undefined) => void;
   styleCheckbox: (patch: CheckboxStyle) => void;
   /** 달 모양을 놓는다 — 날짜는 `fieldNext`의 순번(날짜 칸과 같이 쓴다). 놓은 것을 고른다. */
   commitMoon: (box: Box) => void;
@@ -692,6 +707,7 @@ export const useStore = create<Store>((set, get) => ({
 
   tool: 'select',
   selectedIds: [],
+  pickedDots: null,
   clipboard: [],
   clipboardOrigin: null,
   toast: null,
@@ -1587,6 +1603,45 @@ export const useStore = create<Store>((set, get) => ({
       return { ...commitObjects(s, [...activeObjects(s), ...next]), selectedIds: next.map((o) => o.id) };
     }),
 
+  commitDots: (box, cols, rows) =>
+    set((s) => {
+      if (cols < 1 || rows < 1) return {};
+      const next: DotsObject = { id: newId('dg'), type: 'dots', ...box, cols, rows };
+      return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id], pickedDots: null };
+    }),
+
+  styleDots: (patch) =>
+    set((s) => {
+      if (s.selectedIds.length === 0) return {};
+      const next = activeObjects(s).map((o) => {
+        if (o.type !== 'dots' || !s.selectedIds.includes(o.id)) return o;
+        const merged: DotsObject = { ...o, ...patch };
+        if ('size' in patch && patch.size === undefined) delete merged.size;
+        if ('color' in patch && patch.color === undefined) delete merged.color;
+        merged.cols = Math.max(1, Math.round(merged.cols));
+        merged.rows = Math.max(1, Math.round(merged.rows));
+        return cleanSizes(merged);
+      });
+      return commitObjects(s, next);
+    }),
+
+  pickDot: (id, key, add) =>
+    set((s) => {
+      const keys = add && s.pickedDots?.id === id ? s.pickedDots.keys : [];
+      const next = keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key];
+      return { pickedDots: next.length > 0 ? { id, keys: next } : null };
+    }),
+
+  setPickedDotSize: (size) =>
+    set((s) => {
+      const picked = s.pickedDots;
+      if (!picked) return {};
+      const next = activeObjects(s).map((o) =>
+        o.type === 'dots' && o.id === picked.id ? withDotSizes(o, picked.keys, size) : o,
+      );
+      return commitObjects(s, next);
+    }),
+
   styleCheckbox: (patch) =>
     set((s) => {
       if (s.selectedIds.length === 0) return {};
@@ -1625,7 +1680,13 @@ export const useStore = create<Store>((set, get) => ({
       return commitObjects(s, next);
     }),
 
-  select: (ids) => set((s) => ({ selectedIds: expandGroupSelection(activeObjects(s), ids) })),
+  select: (ids) =>
+    set((s) => {
+      const selectedIds = expandGroupSelection(activeObjects(s), ids);
+      // 고른 도트는 그 판 하나만 고른 동안만 뜻이 있다.
+      const keepDots = s.pickedDots && selectedIds.length === 1 && selectedIds[0] === s.pickedDots.id;
+      return { selectedIds, ...(keepDots ? {} : { pickedDots: null }) };
+    }),
 
   deleteSelected: () =>
     set((s) => {

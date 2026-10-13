@@ -176,6 +176,15 @@ export function CheckboxIcon() {
   );
 }
 
+/** 도트 판(9-4) — 3×3 점. */
+export function DotsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      {[6, 12, 18].flatMap((y) => [6, 12, 18].map((x) => <circle key={`${x},${y}`} cx={x} cy={y} r={1.8} />))}
+    </svg>
+  );
+}
+
 /** 보임 — 뜬 눈. 포토샵 등에서 화면 표시를 켜고 끄는 눈알 표시와 같은 뜻이다. */
 export function EyeIcon() {
   return (
