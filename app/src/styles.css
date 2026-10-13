@@ -6523,9 +6523,12 @@ input[type='checkbox']:disabled {
  * 화면 곳곳에서 단추가 글자처럼 떠 있고(바탕 없는 ghost), 설정이 한 판에 늘어서 있어 ‘덜렁’ 보였다.
  */
 
-/* 단추는 알약. 두 줄로 꺾이지 않게. */
+/* 단추는 알약. 글자 단추(보조·주 단추)는 두 줄로 꺾이지 않게 — 목록·타일처럼 내용이 긴 단추는 그대로 둔다. */
 button {
   border-radius: 999px;
+}
+button.ghost,
+button.primary {
   white-space: nowrap;
 }
 button.ghost {
