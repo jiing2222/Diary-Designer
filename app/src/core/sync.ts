@@ -32,6 +32,8 @@ export interface RemoteDoc {
   data: unknown;
   deleted: boolean;
   updated: string;
+  /** 글꼴·이미지 칸에 올라가 있는 파일 이름(8-2c). 없으면 아직 안 올렸다. */
+  file?: string;
 }
 
 /** 칸마다 마지막으로 맞춘 때 — 서버 레코드 id·서버 시각·그때 내용의 지문. */
@@ -39,6 +41,8 @@ export interface SyncEntry {
   remoteId: string;
   updated: string;
   hash: string;
+  /** 글꼴·이미지: 마지막으로 올린 파일의 크기(byte). 다르면 다시 올린다(같은 이름으로 다시 등록한 경우). */
+  file?: number;
 }
 
 export type SyncState = Record<string, SyncEntry>;

@@ -23,6 +23,14 @@ vi.mock('../cloud/docs', () => ({
     server.set(k, { id, kind, key, data: structuredClone(data), deleted: false, updated });
     return { id, updated };
   },
+  putFile: async (remoteId: string, bytes: ArrayBuffer) => {
+    uploaded.push({ remoteId, size: bytes.byteLength });
+    const doc = [...server.values()].find((d) => d.id === remoteId)!;
+    const updated = `t${++clock}`;
+    server.set(`${doc.kind}:${doc.key}`, { ...doc, file: 'image_x.png', updated });
+    return { id: remoteId, updated };
+  },
+  getFile: async () => new ArrayBuffer(7),
   markDeleted: async (remoteId: string) => {
     const doc = [...server.values()].find((d) => d.id === remoteId)!;
     const updated = `t${++clock}`;
@@ -30,11 +38,24 @@ vi.mock('../cloud/docs', () => ({
     return { id: remoteId, updated };
   },
 }));
+const uploaded: { remoteId: string; size: number }[] = [];
 vi.mock('../storage/v2', () => ({
   v2Get: async (_s: string, k: string) => structuredClone(local.get(k) ?? null),
   v2Put: async (_s: string, k: string, v: unknown) => void local.set(k, structuredClone(v)),
 }));
 vi.mock('./persist', () => ({ flushAutosave: async () => {} }));
+/* 이미지 등록소 — 파일 바이트만 흉내 낸다(브라우저의 FileReader 없이). */
+const files = new Map<string, ArrayBuffer>();
+vi.mock('../images/registry', async (original) => ({
+  ...(await original<typeof import('../images/registry')>()),
+  imageBytes: (id: string) => files.get(id),
+  imageKind: () => 'png',
+  hasImage: (id: string) => files.has(id),
+  adoptImage: async (id: string, name: string, bytes: ArrayBuffer) => {
+    files.set(id, bytes);
+    return { id, name, url: 'data:받음' };
+  },
+}));
 
 const { useStore } = await import('../store');
 const { answerSyncAsk, syncNow } = await import('./cloudSync');
@@ -59,6 +80,8 @@ async function syncAnswering(upload: boolean) {
 
 beforeEach(() => {
   server.clear();
+  files.clear();
+  uploaded.length = 0;
   clock = 0;
   freshDevice();
 });
@@ -137,5 +160,19 @@ describe('계정 동기화 순서', () => {
     s().deleteWorkForever(id);
     await syncNow();
     expect(server.get(`work:${id}`)?.deleted).toBe(true);
+  });
+
+  it('이미지 파일: 이 기기 것은 올리고, 다른 기기에서는 받아 온다', async () => {
+    s().addUserImage({ id: 'img1', name: 'cat', url: 'data:여기' });
+    files.set('img1', new ArrayBuffer(5));
+    await syncAnswering(true);
+    expect(uploaded).toEqual([{ remoteId: server.get('image:img1')!.id, size: 5 }]);
+    await syncNow();
+    expect(uploaded).toHaveLength(1); // 같은 파일은 다시 올리지 않는다.
+
+    freshDevice();
+    files.clear();
+    await syncNow();
+    expect(s().userImages).toEqual([expect.objectContaining({ id: 'img1', name: 'cat', url: 'data:받음' })]);
   });
 });

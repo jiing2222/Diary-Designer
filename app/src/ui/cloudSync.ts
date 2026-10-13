@@ -1,6 +1,6 @@
 import { useStore, syncSnapshotOf } from '../store';
 import { cloudEnabled, cloudErrorText, currentUser, onAuthChange } from '../cloud/client';
-import { listDocs, markDeleted, putDoc, withData } from '../cloud/docs';
+import { getFile, listDocs, markDeleted, putDoc, putFile, withData } from '../cloud/docs';
 import {
   docKey,
   docsOf,
@@ -14,8 +14,8 @@ import {
 } from '../core/sync';
 import { allIdsOf, type Work } from '../core/work';
 import { ensureIdCounterAbove } from '../core/objects';
-import { rekeyFont, reserveIds } from '../fonts/registry';
-import { rekeyImage, reserveImageIds } from '../images/registry';
+import { adoptFont, fontBytes, hasFont, rekeyFont, reserveIds } from '../fonts/registry';
+import { adoptImage, hasImage, imageBytes, imageKind, rekeyImage, reserveImageIds } from '../images/registry';
 import { v2Get, v2Put } from '../storage/v2';
 import { flushAutosave } from './persist';
 
@@ -176,12 +176,74 @@ async function syncOnce(): Promise<void> {
       }
     }
 
+    // 3) 글꼴·이미지 파일 — 칸이 맞춰진 뒤에 올리고 받는다.
+    await syncFiles(state, remote, skip);
+
     await saveRecord(user.id, { state, skip: [...skip], asked: rec.asked });
     useStore.setState({ cloudStatus: { kind: 'saved', at: Date.now() } });
   } catch (err) {
     // 400은 서버가 받은 자료를 거절한 것 — 로그인 오류 문구(cloudErrorText의 기본)와 구분한다.
     const text = (err as { status?: number })?.status === 400 ? '서버가 자료를 받지 못했어요.' : cloudErrorText(err);
     useStore.setState({ cloudStatus: { kind: 'error', text } });
+  }
+}
+
+/**
+ * 글꼴·이미지 파일(8-2c, 2026-10-13 결정). 이 기기에 파일이 있고 아직 안 올렸으면(또는 크기가 달라졌으면)
+ * 올리고, 계정에는 있는데 이 기기에 파일이 없으면 받는다. 파일 하나가 실패해도 나머지는 계속한다 —
+ * 다음 맞추기에서 다시 해 본다.
+ */
+async function syncFiles(state: SyncState, remote: RemoteDoc[], skip: Set<string>): Promise<void> {
+  const s = useStore.getState();
+  const uploads = [
+    ...s.userFonts.map((f) => ({ k: docKey('font', f.id), bytes: fontBytes(f.id), name: 'font.bin' })),
+    ...s.userImages.map((i) => ({
+      k: docKey('image', i.id),
+      bytes: imageBytes(i.id),
+      name: `image.${imageKind(i.id) ?? 'png'}`,
+    })),
+  ];
+  for (const u of uploads) {
+    const e = state[u.k];
+    if (!e || !u.bytes || skip.has(u.k) || e.file === u.bytes.byteLength) continue;
+    try {
+      const res = await putFile(e.remoteId, u.bytes, u.name);
+      state[u.k] = { ...e, updated: res.updated, file: u.bytes.byteLength };
+    } catch {
+      // 다음에 다시.
+    }
+  }
+  for (const d of remote) {
+    if (d.deleted || !d.file || (d.kind !== 'font' && d.kind !== 'image')) continue;
+    const k = docKey(d.kind, d.key);
+    if (d.kind === 'font' ? hasFont(d.key) : hasImage(d.key)) continue;
+    try {
+      const now = useStore.getState();
+      if (d.kind === 'font') {
+        const info = now.userFonts.find((f) => f.id === d.key);
+        if (!info) continue;
+        const bytes = await getFile(d);
+        now.addUserFont(
+          await adoptFont(d.key, info.name, bytes, { label: info.label, favorite: info.favorite, hidden: info.hidden }),
+        );
+        if (state[k]) state[k] = { ...state[k], file: bytes.byteLength };
+      } else {
+        const info = now.userImages.find((i) => i.id === d.key);
+        if (!info) continue;
+        const bytes = await getFile(d);
+        const kind = /\.png$/i.test(d.file) ? 'png' : 'jpg';
+        now.addUserImage(
+          await adoptImage(d.key, info.name, bytes, kind, {
+            label: info.label,
+            usedAt: info.usedAt,
+            hidden: info.hidden,
+          }),
+        );
+        if (state[k]) state[k] = { ...state[k], file: bytes.byteLength };
+      }
+    } catch {
+      // 다음에 다시.
+    }
   }
 }
 

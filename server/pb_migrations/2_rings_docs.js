@@ -23,8 +23,8 @@ migrate(
           { name: 'data', type: 'json', maxSize: 20000000 },
           // 지움 표시 — 다른 기기에서도 지우게 칸은 남긴다.
           { name: 'deleted', type: 'bool' },
-          // 글꼴·이미지 파일(8-2c). 글꼴 한 개가 수 MB라 20MB까지.
-          { name: 'file', type: 'file', maxSelect: 1, maxSize: 20971520 },
+          // 글꼴·이미지 파일(8-2c). 글꼴 한 개가 수 MB라 20MB까지. 보호 — 주소만으로는 못 받고 본인 토큰이 있어야 한다.
+          { name: 'file', type: 'file', maxSelect: 1, maxSize: 20971520, protected: true },
           { name: 'created', type: 'autodate', onCreate: true },
           { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
         ],

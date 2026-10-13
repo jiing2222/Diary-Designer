@@ -230,3 +230,8 @@ export async function rekeyImage(from: string, to: string, name: string, meta: I
   if (buffer && kind) await loadImage(buffer, name, kind, to, meta, true);
   await saveAssetFile('images', { id: from, name, deleted: true });
 }
+
+/** 계정에서 받은 이미지 파일을 그 id로 등록하고 이 기기에도 남긴다(리뉴얼 8-2c). */
+export function adoptImage(id: string, name: string, buffer: ArrayBuffer, kind: ImageKind, meta: ImageMeta): Promise<UserImage> {
+  return loadImage(buffer, name, kind, id, meta, true);
+}

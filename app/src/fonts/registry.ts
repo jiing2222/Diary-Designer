@@ -229,3 +229,8 @@ export async function rekeyFont(from: string, to: string, name: string, meta: Fo
   if (buffer) await loadFont(buffer, name, to, meta, true);
   await saveAssetFile('fonts', { id: from, name, deleted: true });
 }
+
+/** 계정에서 받은 글꼴 파일을 그 id로 심고 이 기기에도 남긴다(리뉴얼 8-2c). */
+export function adoptFont(id: string, name: string, buffer: ArrayBuffer, meta: FontMeta): Promise<UserFont> {
+  return loadFont(buffer, name, id, meta, true);
+}

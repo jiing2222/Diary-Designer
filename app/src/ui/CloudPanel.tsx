@@ -145,18 +145,12 @@ function SignedIn({
       <p className="cloud-email">{user.email}</p>
       <p className="note">
         {sync.kind === 'local'
-          ? '작업은 지금 이 기기에 저장됩니다. 다른 기기에서 이어 쓰는 기능은 준비 중이에요.'
-          : '작업이 서버에도 저장됩니다. 다른 기기에서 같은 계정으로 로그인하면 이어서 할 수 있습니다.'}
+          ? '작업은 지금 이 기기에 저장됩니다.'
+          : '작업이 계정에도 저장됩니다. 다른 기기에서 같은 계정으로 로그인하면 이어서 할 수 있습니다.'}
       </p>
-      {/*
-        올라가지 않는 것을 미리 말해둔다. 다른 컴퓨터에서 열었을 때 글꼴이
-        기본 글꼴로 보이면 고장 난 것으로 오해하기 딱 좋다 — 그때 가서
-        알리면 늦는다.
-      */}
-      {sync.kind !== 'local' && <p className="note">
-        글꼴·이미지 <b>파일</b>은 올라가지 않습니다. 다른 기기에서는 같은 이름으로 다시 등록해야
-        합니다.
-      </p>}
+      {sync.kind !== 'local' && (
+        <p className="note">글꼴·이미지 파일도 함께 올라가요. 다른 기기에서는 처음 맞출 때 받아 와요.</p>
+      )}
       {sync.kind === 'error' && <p className="cloud-error">{sync.text}</p>}
       <AccountForm onDeleted={onSignOut} />
       <button className="ghost" onClick={onSignOut}>

@@ -18,6 +18,7 @@ interface Row {
   data?: unknown;
   deleted?: boolean;
   updated: string;
+  file?: string;
 }
 
 const docOf = (r: Row): RemoteDoc => ({
@@ -27,6 +28,7 @@ const docOf = (r: Row): RemoteDoc => ({
   data: r.data ?? null,
   deleted: !!r.deleted,
   updated: r.updated,
+  file: r.file || undefined,
 });
 
 function session() {
@@ -40,7 +42,7 @@ export async function listDocs(): Promise<RemoteDoc[]> {
   const { pb, user, col } = session();
   const rows = await col.getFullList<Row>({
     filter: pb.filter('user = {:user}', { user }),
-    fields: 'id,kind,key,deleted,updated',
+    fields: 'id,kind,key,deleted,updated,file',
     batch: 500,
     requestKey: null,
   });
@@ -58,7 +60,7 @@ export async function withData(docs: RemoteDoc[]): Promise<RemoteDoc[]> {
     ids.forEach((id, n) => (params[`id${n}`] = id));
     const rows = await col.getFullList<Row>({
       filter: pb.filter(`user = {:user} && (${ids.map((_, n) => `id = {:id${n}}`).join(' || ')})`, params),
-      fields: 'id,kind,key,data,deleted,updated',
+      fields: 'id,kind,key,data,deleted,updated,file',
       requestKey: null,
     });
     out.push(...rows.map(docOf));
@@ -86,4 +88,28 @@ export async function markDeleted(remoteId: string): Promise<{ id: string; updat
   const { col } = session();
   const row = await col.update<Row>(remoteId, { deleted: true, data: null, file: null }, { requestKey: null });
   return { id: row.id, updated: row.updated };
+}
+
+/** 글꼴·이미지 파일을 그 칸에 올린다(8-2c). 서버가 이름 뒤에 꼬리를 붙여 저장한다. */
+export async function putFile(
+  remoteId: string,
+  bytes: ArrayBuffer,
+  filename: string,
+): Promise<{ id: string; updated: string }> {
+  const { col } = session();
+  const form = new FormData();
+  form.append('file', new Blob([bytes]), filename);
+  const row = await col.update<Row>(remoteId, form, { requestKey: null });
+  return { id: row.id, updated: row.updated };
+}
+
+/** 칸의 파일을 받는다. 보호된 파일이라 본인 토큰을 붙인다. */
+export async function getFile(doc: RemoteDoc): Promise<ArrayBuffer> {
+  const { pb } = session();
+  if (!doc.file) throw new Error('파일이 없어요.');
+  const token = await pb.files.getToken({ requestKey: null });
+  const url = pb.files.getURL({ id: doc.id, collectionName: COLLECTION }, doc.file, { token });
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`파일을 받지 못했어요(${res.status}).`);
+  return res.arrayBuffer();
 }
