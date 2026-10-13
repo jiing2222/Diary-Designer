@@ -18,6 +18,7 @@ import {
   removeItem,
   sheetSideOf,
   spreadsOf,
+  pagesToAdd,
   spreadByDates,
   changedIds,
   revertToSource,
@@ -180,6 +181,11 @@ describe('종이와 펼침면', () => {
     ]);
     expect(spreadsOf(0)).toEqual([]);
     expect(spreadsOf(1)).toEqual([[null, 0]]);
+  });
+
+  it('페이지 추가는 맨 아래 줄이 두 면으로 차게: 1→2→3→5→7, 지워서 짝수면 하나', () => {
+    expect([1, 2, 3, 5].map(pagesToAdd)).toEqual([1, 1, 2, 2]);
+    expect(pagesToAdd(4)).toBe(1);
   });
 
   it('2쪽뿐이면 한 줄에 (뒷면 p.2 | 앞면 p.1)', () => {

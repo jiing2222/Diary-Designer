@@ -395,6 +395,7 @@ function SavedPalettesSection({ beforeChange }: { beforeChange: () => void }) {
 function ColorRulesSection() {
   const work = useActiveWork();
   const setColorRule = useStore((s) => s.setColorRule);
+  const setRuleHeaders = useStore((s) => s.setRuleHeaders);
   const faces = useFaces();
   if (!work) return null;
   const palette = work.palette;
@@ -430,11 +431,21 @@ function ColorRulesSection() {
           </PopRow>
         );
       })}
-      <p className="tool-panel-note">
-        날짜 칸(Day·Weekday)과 달력에 들어요. 한 날짜에서 직접 바꾼 색이 규칙보다 먼저예요. 공휴일 목록은{' '}
-        {HOLIDAY_YEARS.join('·')}년이에요.
-        {uncovered.length > 0 && ` ${uncovered.join('·')}년 날짜에는 공휴일 색이 들지 않아요.`}
-      </p>
+      {/* 달력 맨 위 줄의 일·토 글자에도 칠할지 — 사용자가 고른다(2026-10-13). */}
+      <label className="field-toggle">
+        <input
+          type="checkbox"
+          checked={!work.colorRules?.plainHeaders}
+          onChange={(e) => setRuleHeaders(e.target.checked)}
+        />
+        달력 요일 머리글도 칠하기
+      </label>
+      {/* 사용법 안내는 뺐다(2026-10-13) — 공휴일 목록이 없는 해만 경고로 남긴다. */}
+      {uncovered.length > 0 && (
+        <p className="tool-panel-note warn">
+          {uncovered.join('·')}년은 공휴일 목록이 없어요({HOLIDAY_YEARS.join('·')}년만 있어요).
+        </p>
+      )}
     </div>
   );
 }
@@ -550,14 +561,13 @@ function AutoFieldPanel() {
   } else if (tool === 'calendar') {
     body = (
       <>
-        <p className="tool-panel-note">페이지에서 끌어 달력 상자를 그려요. 아래 설정으로 그려져요.</p>
         <CalendarPanelControls items={[calendarDraftStyle]} apply={setCalendarDraftStyle} />
       </>
     );
   } else if (tool === 'field') {
     body = <FieldSettings tile={tileOf(fieldDraft)} spec={fieldDraft} apply={setFieldDraft} picked={false} />;
   } else {
-    body = <p className="tool-panel-note">종류를 고르고 페이지를 눌러 칸을 놓아요.</p>;
+    body = null;
   }
 
   return (
@@ -589,7 +599,6 @@ function TextPanel() {
   const texts = usePicked().filter(isText);
   return (
     <>
-      <p className="tool-panel-note">페이지를 눌러 그 칸에 글자를 놓아요. 끌면 여러 칸에 걸친 상자가 돼요. 글꼴·크기·색은 위쪽 막대에서 바꿔요.</p>
       <SavedTextStyles picked={texts} />
       {texts.length > 0 && <FieldToggle texts={texts} />}
     </>
@@ -618,7 +627,6 @@ function SavedTextStyles({ picked }: { picked: TextObject[] }) {
   return (
     <div className="text-styles">
       <h3 className="panel-sub">저장한 스타일</h3>
-      {textStyles.length === 0 && <p className="tool-panel-note">자주 쓰는 글자 모양을 저장해 두면 어느 작업에서나 눌러서 써요.</p>}
       {textStyles.map((t) => (
         <div key={t.id} className="text-style-row">
           <button

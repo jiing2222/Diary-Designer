@@ -45,10 +45,6 @@ export function LibraryColors() {
         ) : (
           <>
             <h2>Colors</h2>
-            <p className="muted">
-              자주 쓰는 색 조합을 보관해 두는 곳이에요. 왼쪽 ‘+ 팔레트 만들기’로 만들거나, 편집기 Colors에서 ‘이 팔레트
-              보관’으로 지금 작업의 색을 담아요.
-            </p>
           </>
         )}
       </div>
@@ -106,9 +102,6 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
           팔레트 지우기
         </button>
       </div>
-      <p className="muted">
-        작업에 넣으려면 편집기 Colors의 ‘팔레트 불러오기’를 써요. 여기서 고쳐도 이미 불러온 작업은 바뀌지 않아요.
-      </p>
 
       <div className="colors-label">기본</div>
       <div className="colors-row">

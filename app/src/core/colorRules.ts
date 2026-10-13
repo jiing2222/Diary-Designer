@@ -17,9 +17,11 @@ export interface ColorRules {
   sunday?: string;
   saturday?: string;
   holiday?: string;
+  /** 달력 머리글(일·토 요일 이름)은 칠하지 않는다 — 사용자가 고른다(2026-10-13). 없으면 칠한다. */
+  plainHeaders?: boolean;
 }
 
-export type RuleKey = keyof ColorRules;
+export type RuleKey = 'sunday' | 'saturday' | 'holiday';
 
 export const RULE_KEYS: RuleKey[] = ['sunday', 'saturday', 'holiday'];
 
@@ -38,7 +40,7 @@ export function dateColorOf(d: CalendarDate, rules: ColorRules | undefined): str
  * 맨 끝 칸이다. 공휴일은 날짜가 아니라 머리글에는 없다.
  */
 export function weekdayHeaderColorOf(column: number, weekStart: 'sun' | 'mon', rules: ColorRules | undefined): string | undefined {
-  if (!rules) return undefined;
+  if (!rules || rules.plainHeaders) return undefined;
   const w = weekStart === 'mon' ? (column + 1) % 7 : column;
   if (w === 0) return rules.sunday;
   if (w === 6) return rules.saturday;
@@ -63,6 +65,7 @@ export function mapRuleColors(rules: ColorRules | undefined, map: (v: string) =>
     const v = rules[key];
     if (v !== undefined) out[key] = map(v);
   }
+  if (rules.plainHeaders) out.plainHeaders = true;
   return out;
 }
 

@@ -9,7 +9,6 @@ import {
   type FieldTile,
 } from '../core/fieldFormat';
 import { todayFrom } from '../core/dated';
-import { MOON_PHASE_NAMES, moonPhaseOf } from '../core/moon';
 import type { MoonObject, MoonStyle } from '../core/objects';
 import { PopRow } from './Popover';
 import { CalendarIcon } from './icons';
@@ -123,11 +122,7 @@ export function FieldSettings({
               ))}
             </span>
           </PopRow>
-          {spec.target ? (
-            <div className="period-summary">{preview({ ...spec, kind: 'dday' })}</div>
-          ) : (
-            <p className="tool-panel-note">기준일을 정하면 칸을 놓을 수 있어요.</p>
-          )}
+          {spec.target && <div className="period-summary">{preview({ ...spec, kind: 'dday' })}</div>}
         </>
       )}
 
@@ -141,7 +136,6 @@ export function FieldSettings({
               onChange={(e) => apply({ start: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
             />
           </PopRow>
-          <p className="tool-panel-note">번호 칸이 있는 페이지만 세요. 표지에서 칸을 지우면 다음 페이지가 첫 번호예요.</p>
         </>
       )}
 
@@ -194,11 +188,6 @@ function NextFieldRow() {
         <input type="checkbox" checked={next.advance} onChange={(e) => setNext({ advance: e.target.checked })} />
         놓을 때마다 다음 날짜로
       </label>
-      <p className="tool-panel-note">
-        {next.advance
-          ? '위클리처럼 칸을 차례로 놓으면 첫째, 둘째 날짜…로 이어져요.'
-          : '같은 날의 월·일·요일 칸을 따로 놓아도 모두 같은 날짜예요.'}
-      </p>
     </>
   );
 }
@@ -208,16 +197,10 @@ function NextFieldRow() {
  * 고른 달이 있으면 그 달의 날짜 순번을, 없으면 다음에 놓을 달의 순번을 정한다.
  */
 export function MoonPanel({ moons, apply }: { moons: MoonObject[]; apply: (patch: MoonStyle) => void }) {
-  const today = todayFrom(useStore((s) => s.today));
-  const phase = moonPhaseOf(today);
   const first = moons[0];
   const offsetMixed = moons.some((m) => m.offset !== first?.offset);
   return (
     <div className="field-settings">
-      <p className="tool-panel-note">
-        칸을 누르면 그 칸 가운데에 그 날의 달을 놓아요(끌면 여러 칸 크기). 빛나는 부분을 칠해요 — 오늘은{' '}
-        {MOON_PHASE_NAMES[phase]}이에요.
-      </p>
       {first ? (
         <PopRow label="날짜">
           <span className="numfield" title="이 페이지에서 몇째 날짜의 달인지">

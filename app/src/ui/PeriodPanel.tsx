@@ -75,9 +75,6 @@ function PeriodForm({ item }: { item: PageItem | (DatedItem & { dataset: DateDat
   return (
     <div className="period-panel">
       <h3 className="panel-sub">{isPage ? '날짜로 펼치기' : '기간'}</h3>
-      {isPage && (
-        <p className="tool-panel-note">이 페이지를 원본으로, 기간의 날짜마다 한 장씩 만들어요. 놓아둔 날짜 칸이 그 날짜로 채워져요.</p>
-      )}
       <PopRow label="시작">
         <input type="date" value={draft.start} onChange={(e) => patch({ start: e.target.value })} />
       </PopRow>
@@ -117,11 +114,6 @@ function PeriodForm({ item }: { item: PageItem | (DatedItem & { dataset: DateDat
           ))}
         </span>
       </PopRow>
-      <p className="tool-panel-note">
-        {draft.boundary === 'continue'
-          ? '남는 칸에 다음 달 날짜를 바로 이어 채워요.'
-          : '그 달 날짜만 채우고 남는 칸은 비워요. 다음 달은 다음 장부터.'}
-      </p>
       <div className="period-summary">
         {!valid
           ? '날짜를 넣어 주세요.'

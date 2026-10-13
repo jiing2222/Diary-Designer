@@ -65,7 +65,6 @@ function Trash() {
           </button>
         )}
       </div>
-      <p className="muted">지운 작업은 30일 뒤 완전히 지워져요.</p>
       {trashed.map((w) => (
         <div key={w.id} className="trash-row">
           <span className="work-name">{w.name}</span>

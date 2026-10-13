@@ -66,6 +66,7 @@ import {
   removeItem,
   sourcePreview,
   spreadsOf,
+  pagesToAdd,
   spreadByDates,
   revertToSource,
   writeBackground,
@@ -77,7 +78,7 @@ import {
 } from './core/work';
 import { diaryFromPreset, nextDiaryColor, resizeDiary, uniqueDiaryName, type Diary } from './core/diary';
 import { addPoint, colorOfKey, mapColors, refOf, setKeyColor, type WorkPalette } from './core/colors';
-import { mapRuleColors, type RuleKey } from './core/colorRules';
+import { mapRuleColors, type ColorRules, type RuleKey } from './core/colorRules';
 import {
   DEFAULT_PROJECT_VIEW,
   isTrashed,
@@ -346,6 +347,8 @@ interface Store extends Settings {
   removePaletteColor: (key: string, replaceWith: string) => void;
   /** 색 규칙 하나를 정한다(값은 팔레트 이름표). undefined면 그 규칙을 끈다. 팔레트처럼 되돌리기 대상이 아니다. */
   setColorRule: (key: RuleKey, color: string | undefined) => void;
+  /** 달력 머리글(일·토 요일 이름)에도 규칙 색을 칠할지(2026-10-13). */
+  setRuleHeaders: (on: boolean) => void;
 
   /* ── 편집 ── */
   setTool: (t: Tool) => void;
@@ -1003,9 +1006,8 @@ export const useStore = create<Store>((set, get) => ({
       const faces = facesOf(work, s.today);
       const background =
         (target ? editableBackground(work, target) : null) ?? faces[faces.length - 1]?.background ?? undefined;
-      // 양면이면 종이 한 장(앞·뒤) — 다만 마지막 면이 홀수 쪽(앞면)이라 그 뒷면이 비어 있으면 그 자리 하나만
-      // (2026-10-13 사용자 요청: 마지막 페이지 옆에 붙게).
-      const count = work.duplex && faces.length % 2 === 0 ? 2 : 1;
+      // 양면이면 맨 아래 줄이 두 면으로 차게(core/work `pagesToAdd`).
+      const count = work.duplex ? pagesToAdd(faces.length) : 1;
       const added = Array.from({ length: count }, () => newPage(background));
       const items = [...work.items, ...added];
       const next = commitItems(s, work, items);
@@ -1261,6 +1263,16 @@ export const useStore = create<Store>((set, get) => ({
       patchActiveWork(s, (w) => {
         const next = { ...w.colorRules, [key]: color };
         if (color === undefined) delete next[key];
+        return { colorRules: next };
+      }),
+    ),
+
+  setRuleHeaders: (on) =>
+    set((s) =>
+      patchActiveWork(s, (w) => {
+        const next: ColorRules = { ...w.colorRules };
+        if (on) delete next.plainHeaders;
+        else next.plainHeaders = true;
         return { colorRules: next };
       }),
     ),

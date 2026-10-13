@@ -291,19 +291,14 @@ function SidesPanel() {
           </button>
         </span>
       </Row>
-      <p className="tool-panel-note">
-        이 작업의 설정이에요 — 양면이면 페이지 1·2가 첫 장의 앞·뒤예요(편집 화면의 양면과 같아요).
-      </p>
       {work.duplex && (
         <>
           <Check checked={backTurn180} onChange={(v) => patch({ backTurn180: v })} label="뒷면 반 바퀴 돌리기" />
-          <p className="tool-panel-note">짧은 변으로 넘기는 프린터에서 앞뒤 구멍이 어긋나면 켜요.</p>
           <Check
             checked={blankBackGrid}
             onChange={(v) => patch({ blankBackGrid: v })}
             label="빈 뒷면에 배경(도트) 찍기"
           />
-          <p className="tool-panel-note">페이지 수가 홀수일 때 마지막 장의 뒷면이에요. 끄면 빈 종이예요.</p>
         </>
       )}
     </div>
@@ -380,7 +375,6 @@ function MarksPanel() {
         <Check checked={cropFrontOnly} onChange={(v) => patch({ cropFrontOnly: v })} label="앞면에만" />
       )}
       <Check checked={showRuler} onChange={(v) => patch({ showRuler: v })} label="50mm 검증 눈금" />
-      <p className="tool-panel-note">인쇄한 뒤 눈금을 자로 재서 50mm인지 확인해요.</p>
       {duplex && (
         <>
           <Row label="출력 면">
@@ -398,7 +392,6 @@ function MarksPanel() {
               ))}
             </span>
           </Row>
-          <p className="tool-panel-note">프린터가 양면을 못 하면 앞면만 찍고, 종이를 뒤집어 넣은 뒤 뒷면만 찍어요.</p>
         </>
       )}
     </div>
@@ -699,12 +692,10 @@ function ExportDialog({ job, onClose }: { job: PrintJob; onClose: () => void }) 
           <input type="checkbox" checked={punch} onChange={(e) => setPunch(e.target.checked)} />
           타공 표시를 인쇄할까요?
         </label>
-        <p className="tool-panel-note">구멍 자리에 얇은 원을 찍어요. 타공기를 맞출 때 봐요.</p>
         <label className="check">
           <input type="checkbox" checked={grid} onChange={(e) => setGrid(e.target.checked)} />
           배경 격자(도트·그리드)를 인쇄할까요?
         </label>
-        <p className="tool-panel-note">끄면 모든 페이지의 배경을 찍지 않아요. 켜면 페이지마다 정한 대로예요.</p>
         <p className="export-summary">
           {job.pickedCount}페이지 · {job.sheets}장 (
           {job.work.duplex

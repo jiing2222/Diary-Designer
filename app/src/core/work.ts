@@ -311,6 +311,16 @@ export function sheetSideOf(faceIndex: number, duplex: boolean): { sheet: number
  * 그래서 첫 장의 앞면(0번)은 오른쪽에 혼자 놓이고, 그 뒤로 (1|2), (3|4)…로 짝짓는다.
  * 비는 자리는 null.
  */
+/**
+ * 양면에서 ‘+ 페이지 추가’로 더할 면 수 — **맨 아래 줄이 두 면으로 차게**(2026-10-13 사용자 결정).
+ * 1쪽 → 2쪽(한 줄 [p.2 | p.1]), 2쪽 → 3쪽(p.1 / [p.2 | p.3]), 그다음은 둘씩(5, 7…). 지워서 아래 줄이 한
+ * 면만 남았으면 하나만 채운다.
+ */
+export function pagesToAdd(count: number): number {
+  if (count <= 2) return 1;
+  return count % 2 === 1 ? 2 : 1;
+}
+
 export function spreadsOf(count: number): [number | null, number | null][] {
   if (count <= 0) return [];
   // 2쪽뿐이면 한 줄에 [p.2 | p.1] — 양면 양식 하나를 앞뒤 함께 보며 만든다(2026-10-13 결정). 왼쪽이 뒷면이라는

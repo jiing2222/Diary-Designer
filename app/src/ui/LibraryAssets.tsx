@@ -50,10 +50,6 @@ export function LibraryImages() {
             + 이미지 올리기
           </button>
         </div>
-        <p className="muted">
-          최근에 올리거나 쓴 것이 위에 와요. PNG·JPG를 여기로 끌어다 놓아도 돼요. 쓰는 중인 이미지를 지우면 목록에서만
-          빠지고 작업에는 남아요.
-        </p>
         {upload.error && <p className="modal-note warn">{upload.error}</p>}
         {shown.length === 0 ? (
           <p className="muted asset-empty">
@@ -140,15 +136,10 @@ export function LibraryFonts() {
             <div className="font-line">
               <span className="font-line-name">{DEFAULT_FONT_FAMILY}</span>
               <span className="font-line-sample">{text}</span>
-              <span className="muted">글꼴을 정하지 않은 글자는 이것으로 그려요</span>
             </div>
           </div>
         ) : (
           <>
-            <p className="muted">
-              즐겨찾기(★)한 글꼴이 위, 그 안에서 가나다순 — 편집기의 글꼴 고르기도 같은 순서예요. TTF·OTF를 끌어다
-              놓아도 돼요.
-            </p>
             {upload.error && <p className="modal-note warn">{upload.error}</p>}
             {listed.length === 0 ? (
               <p className="muted asset-empty">아직 등록한 글꼴이 없어요.</p>

@@ -519,7 +519,7 @@ export function DotsControls({ items }: { items: DotsObject[] }) {
   const pickedDots = useStore((s) => s.pickedDots);
   const setPickedDotSize = useStore((s) => s.setPickedDotSize);
   if (items.length === 0) {
-    return <span className="stylebar-note">페이지를 끌어 도트 판을 만들어요 — 칸마다 가운데에 도트 하나</span>;
+    return null;
   }
   const first = items[0];
   const same = <T,>(f: (o: DotsObject) => T) => items.every((o) => f(o) === f(first));
@@ -561,7 +561,7 @@ export function DotsControls({ items }: { items: DotsObject[] }) {
         onChange={(color) => styleDots({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
         title="도트 색"
       />
-      {keys.length > 0 ? (
+      {keys.length > 0 && (
         <>
           <span className="stylebar-note">고른 도트 {keys.length}개</span>
           <NumField
@@ -577,8 +577,6 @@ export function DotsControls({ items }: { items: DotsObject[] }) {
             기본 지름으로
           </button>
         </>
-      ) : (
-        lone && <span className="stylebar-note">도트를 눌러 골라요(Shift로 여러 개)</span>
       )}
     </>
   );

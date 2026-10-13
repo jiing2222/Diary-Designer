@@ -60,3 +60,13 @@ describe('규칙의 색 바꾸기·풀기', () => {
     expect(mapRuleColors({ saturday: '@A' }, (v) => (v === '@A' ? '#123456' : v))).toEqual({ saturday: '#123456' });
   });
 });
+
+describe('달력 머리글 칠하기 선택(2026-10-13)', () => {
+  it('plainHeaders면 머리글은 칠하지 않고 날짜 칸은 그대로, 색을 풀어도 선택은 남는다', () => {
+    const rules = { sunday: '#ff0000', plainHeaders: true };
+    expect(weekdayHeaderColorOf(0, 'sun', rules)).toBeUndefined();
+    expect(weekdayHeaderColorOf(0, 'sun', { sunday: '#ff0000' })).toBe('#ff0000');
+    expect(dateColorOf({ year: 2026, month: 10, day: 11 }, rules)).toBe('#ff0000');
+    expect(mapRuleColors(rules, (v) => v)).toEqual(rules);
+  });
+});

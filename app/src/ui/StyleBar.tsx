@@ -226,7 +226,7 @@ export function StyleBar({
       ) : tool === 'moon' && picked.length === 0 ? (
         // 달은 다음에 놓을 것의 꾸미기 값이 없다(기본값으로 놓인다). 여기서 선 막대를 보여주면
         // 바꿔도 달이 아니라 다음에 그릴 선이 바뀌어 헷갈린다.
-        <span className="stylebar-note">놓은 달을 고르면 지름·굵기·색을 바꿔요</span>
+        null
       ) : showMoon ? (
         // 굵기·색은 체크박스와 같은 막대(테두리 굵기·색). 달은 빛나는 부분도 이 색으로 칠한다.
         // 막대는 바꾼 키(굵기 또는 색)만 넘긴다 — 그대로 styleMoon에 준다.

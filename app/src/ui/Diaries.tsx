@@ -50,9 +50,6 @@ export function Diaries() {
         {adding ? (
           <>
             <h2>다이어리 추가</h2>
-            <p className="muted">
-              쓰는 바인더의 규격을 고르고, 자로 잰 크기가 다르면 고쳐요. 같은 규격이라도 바인더마다 따로 등록해요.
-            </p>
             <DiaryPicker
               submitLabel="추가"
               onSubmit={(presetId, name, size) => setPicked(addDiary(presetId, name, size))}

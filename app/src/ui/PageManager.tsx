@@ -101,7 +101,8 @@ function ImportSelection({ source, target, onClose }: { source: Work; target: Wo
   const importPagesFrom = useStore((s) => s.importPagesFrom);
   const [selected, setSelected] = useState<string[]>([]);
   const [periods, setPeriods] = useState(() => newPeriods(source, today));
-  const [colors, setColors] = useState<'original' | 'current'>('original');
+  // 가져올 때 묻는다 — 지금 작업의 색(팔레트·색 규칙)을 따를지, 원래 작업의 색 그대로일지(2026-10-13 결정).
+  const [colors, setColors] = useState<'original' | 'current'>('current');
   const [error, setError] = useState('');
   const changeDate = (id: string, key: 'start' | 'end', value: string) => setPeriods((current) => {
     const period = current[id];
@@ -129,9 +130,15 @@ function ImportSelection({ source, target, onClose }: { source: Work; target: Wo
     <div className="page-manager-toolbar">
       <button className="ghost" onClick={() => setSelected(source.items.map((i) => i.id))}>전체 선택</button>
       <button className="ghost" onClick={() => setSelected([])}>선택 해제</button>
-      <label>색 <select aria-label="가져온 페이지 색" value={colors} onChange={(e) => setColors(e.target.value as typeof colors)}>
-        <option value="original">원래 색 유지</option><option value="current">현재 작업 팔레트 적용</option>
-      </select></label>
+    </div>
+    <div className="page-import-colors">
+      <b>색은 어떻게 할까요?</b>
+      <span className="seg" role="radiogroup" aria-label="가져온 페이지 색">
+        <button role="radio" aria-checked={colors === 'current'} className={colors === 'current' ? 'on' : ''} onClick={() => setColors('current')}
+          title="이 작업의 팔레트와 색 규칙(일·토·공휴일)을 따라요 — 나중에 바꾸면 함께 바뀌어요">지금 작업의 색 따르기</button>
+        <button role="radio" aria-checked={colors === 'original'} className={colors === 'original' ? 'on' : ''} onClick={() => setColors('original')}
+          title="원래 작업의 색과 색 규칙을 그대로 고정해요 — 이 작업의 색을 바꿔도 안 바뀌어요">원래 색 그대로</button>
+      </span>
     </div>
     <div className="page-import-units">
       {units.map((u) => {

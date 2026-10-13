@@ -47,7 +47,7 @@ import {
   type Side,
 } from '../store';
 import { resolveObjectColors } from '../core/colors';
-import { changedIds, faceCount, faceLabel, type ResolvedFace } from '../core/work';
+import { changedIds, faceCount, faceLabel, pagesToAdd, type ResolvedFace } from '../core/work';
 import { resolveRuleColors, type ColorRules } from '../core/colorRules';
 import type { DotGrid } from '../core/grid';
 import type { InsertSetting } from '../core/template';
@@ -1551,24 +1551,8 @@ export function Editor() {
           늘 떠 있던 문구였는데, 그 자리가 지금은 탭이 열렸을 때만 보이는
           속성 칸으로 바뀌면서 조용히 사라졌었다.
         */}
-        {tool === 'select' && selectedIds.length === 0 && (
-          <span className="foot-hint">
-            {noGrid
-              ? '격자가 없어 그릴 수 없습니다. 도트 간격을 줄이세요.'
-              : '클릭해서 고르고, 빈 곳에서 끌어 여러 개를 감쌉니다.'}
-          </span>
-        )}
-        {/*
-          그리기는 조작이 곧 종류라(위 Editor 주석) 대각선은 끌어서가 아니라 점을 두 번
-          눌러 긋는다 — 대각선으로 끌었다가 네모가 나오면 고장으로 보였다.
-        */}
-        {tool === 'draw' && !noGrid && (
-          <span className="foot-hint">
-            {pending
-              ? '다음 점을 누르면 선이 그어집니다(대각선도). Esc로 취소.'
-              : '점을 누르고 다음 점을 누르면 선(대각선 포함), 점에서 끌면 네모. 방금 그린 것은 도트 사이를 잡고 끌면 옮겨져요.'}
-          </span>
-        )}
+        {/* 사용법 안내는 뺐다(2026-10-13 사용자 요청) — 그릴 수 없는 상태만 알린다. */}
+        {noGrid && <span className="foot-hint">격자가 없어 그릴 수 없어요. 도트 간격을 줄여 주세요.</span>}
         {/*
           여기서부터 오른쪽 끝 — 왼쪽은 "무엇이 있나", 오른쪽은 "어디를
           보고 있나"다(디자인의 줄 나눔 그대로).
@@ -1865,7 +1849,7 @@ export function ImageCategoryBody() {
   return (
     <>
       {usable.length === 0 ? (
-        <p className="tool-panel-note">아직 올린 이미지가 없어요. 파일을 불러오면 Library에 남아 다음부터 여기 떠요.</p>
+        <p className="tool-panel-note">아직 올린 이미지가 없어요.</p>
       ) : (
         <ImageThumbGrid images={usable} onPick={placeCentered} />
       )}
@@ -2195,7 +2179,7 @@ function AddPageButton() {
   return (
     <div className="add-page-controls" onPointerDown={(e) => e.stopPropagation()}>
       <button className="add-page" onClick={addPagesAtEnd}>
-        + 페이지 추가{work.duplex && faceCount(work) % 2 === 0 ? ' (앞·뒤)' : ''}
+        + 페이지 추가{work.duplex && pagesToAdd(faceCount(work)) === 2 ? ' (앞·뒤)' : ''}
       </button>
       <details className="page-add-options">
         <summary aria-label="페이지 추가 메뉴">▾</summary>
