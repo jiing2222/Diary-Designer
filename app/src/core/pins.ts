@@ -11,7 +11,72 @@ export const PIN_BOARDS = {
   a5: 'A5 Planner Inserts',
   personal: 'Personal Size Planner Inserts',
   pocket: 'Pocket and Mini 6 Planner Inserts',
+  weekly: 'Weekly Planner Printables',
+  grid: 'Dot Grid and Grid Inserts',
+  habit: 'Habit Tracker and To-Do Printables',
+  setup: 'Ring Planner Setup Ideas',
+  printing: 'Planner Printing Tips',
 } as const;
+
+/** 핀 세트의 한 장 — 기본 속지 세트(core/starterSet)의 양식 이름. `title`이 있으면 자동 제목 대신 쓴다. */
+export interface PinPage {
+  template: string;
+  title?: string;
+}
+
+/**
+ * 홍보용 핀 세트 — 보드마다 작업 하나, 작업마다 다섯 면(= 다섯 핀). 작업 이름이 보드 이름이라
+ * Pin Studio가 이름으로 찾아 면마다 양식 이름·보드를 붙인다.
+ * 주제 보드는 크기를 섞어 ‘모든 링 규격’을 보여준다. 인쇄 요령 보드는 앱의 강점(실제 크기·구멍 맞춤·양면)을 제목으로.
+ */
+export const PIN_SET: { board: string; presetId: string; pages: PinPage[] }[] = [
+  {
+    board: PIN_BOARDS.a5,
+    presetId: 'A5',
+    pages: ['Weekly Vertical', 'Daily Schedule', 'Monthly Calendar', 'Meal Planner', 'Budget Tracker'].map((template) => ({ template })),
+  },
+  {
+    board: PIN_BOARDS.personal,
+    presetId: 'DA6',
+    pages: ['Week at a Glance', 'To-Do List', 'Goals', 'Reading Log', 'Gratitude Journal'].map((template) => ({ template })),
+  },
+  {
+    board: PIN_BOARDS.pocket,
+    presetId: 'M6',
+    pages: ['To-Do List', 'Daily Schedule', 'Lined Notes', 'Habit Tracker', 'Weekly Vertical'].map((template) => ({ template })),
+  },
+  {
+    board: PIN_BOARDS.weekly,
+    presetId: 'A5',
+    pages: ['Weekly Vertical', 'Weekly Columns', 'Week at a Glance', 'Weekly To-Do', 'Meal Planner'].map((template) => ({ template })),
+  },
+  {
+    board: PIN_BOARDS.grid,
+    presetId: 'M6',
+    pages: ['Dot Grid', 'Grid Paper', 'Lined Notes', 'Cornell Notes', 'Two-Column Notes'].map((template) => ({ template })),
+  },
+  {
+    board: PIN_BOARDS.habit,
+    presetId: 'A5',
+    pages: ['Habit Tracker', 'To-Do List', 'Weekly To-Do', 'Cleaning Checklist', 'Goals'].map((template) => ({ template })),
+  },
+  {
+    board: PIN_BOARDS.setup,
+    presetId: 'DA6',
+    pages: ['Index', 'Monthly Calendar', 'Goals', 'Budget Tracker', 'Reading Log'].map((template) => ({ template })),
+  },
+  {
+    board: PIN_BOARDS.printing,
+    presetId: 'A5',
+    pages: [
+      { template: 'Daily Schedule', title: 'How to Print Planner Inserts at True Size' },
+      { template: 'Weekly Vertical', title: 'Planner Inserts with Punch Holes That Line Up' },
+      { template: 'Habit Tracker', title: 'Print Double-Sided Planner Pages the Right Way' },
+      { template: 'Lined Notes', title: 'A5 6-Ring Planner Hole Spacing Guide' },
+      { template: 'Dot Grid', title: 'How to Punch Planner Inserts at Home' },
+    ],
+  },
+];
 
 /** 프리셋 id → 미국에서 부르는 이름과 보드. 모르는 규격은 크기 그대로 부른다. */
 const SIZE_NAMES: Record<string, { name: string; board: string }> = {

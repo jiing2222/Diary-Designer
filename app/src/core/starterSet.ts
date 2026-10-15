@@ -1,5 +1,5 @@
 import { newId, type DiaryObject } from './objects';
-import type { Lattice } from './grid';
+import type { DotGrid, Lattice } from './grid';
 import { ptToMm, type Mm } from './units';
 
 /**
@@ -14,6 +14,8 @@ export interface StarterTemplate {
   /** 작업 이름이자 핀 제목에 들어가는 양식 이름(영어). */
   name: string;
   objects: DiaryObject[];
+  /** 바탕 격자를 바꾸는 양식(모눈 등). 없으면 다이어리 기본 도트. */
+  background?: Partial<DotGrid>;
 }
 
 const LABEL = ptToMm(8);
@@ -57,7 +59,20 @@ function split(g: G, from: number, n: number): number[] {
 
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
-const TEMPLATES: { name: string; draw: (g: G, out: DiaryObject[]) => void }[] = [
+/** 왼쪽 끝부터 오른쪽 끝까지 `n`칸으로 나눈 경계 x들(n+1개). */
+function splitX(g: G, n: number): Mm[] {
+  const last = g.xs.length - 1;
+  return Array.from({ length: n + 1 }, (_, i) => g.xs[Math.round((last * i) / n)]);
+}
+
+/** 표 — 머리줄 아래로 끝까지 줄을 긋고 `cols`의 안쪽 경계에 세로줄. */
+function table(g: G, out: DiaryObject[], top: number, cols: Mm[], heads: string[]) {
+  heads.forEach((h, i) => out.push(text(cols[i], g.ys[top], cols[i + 1] - cols[i], g.s, h)));
+  for (let r = top + 1; r < g.ys.length; r++) out.push(line(g.L, g.ys[r], g.R, g.ys[r]));
+  for (const x of cols.slice(1, -1)) out.push(line(x, g.ys[top], x, g.ys[g.ys.length - 1]));
+}
+
+const TEMPLATES: { name: string; background?: Partial<DotGrid>; draw: (g: G, out: DiaryObject[]) => void }[] = [
   {
     name: 'Weekly Vertical',
     draw: (g, out) => {
@@ -215,6 +230,78 @@ const TEMPLATES: { name: string; draw: (g: G, out: DiaryObject[]) => void }[] = 
       }
     },
   },
+  {
+    name: 'Weekly Columns',
+    draw: (g, out) => {
+      const top = header(g, out, 'WEEK OF');
+      const c = splitX(g, 7);
+      DAYS.forEach((d, i) => out.push(text(c[i], g.ys[top], c[i + 1] - c[i], g.s, d.slice(0, 2))));
+      out.push(line(g.L, g.ys[top + 1], g.R, g.ys[top + 1]));
+      for (const x of c.slice(1, -1)) out.push(line(x, g.ys[top], x, g.ys[g.ys.length - 1]));
+    },
+  },
+  {
+    name: 'Weekly To-Do',
+    draw: (g, out) => {
+      const top = header(g, out, 'WEEK OF');
+      const b = split(g, top, 7);
+      DAYS.forEach((d, i) => {
+        out.push(text(g.L, g.ys[b[i]], g.s * 3, g.s, d));
+        for (let r = b[i] + 1; r < b[i + 1]; r++) out.push(check(g.L, g.ys[r], g.s), line(g.xs[1], g.ys[r + 1], g.R, g.ys[r + 1]));
+      });
+    },
+  },
+  {
+    name: 'Cleaning Checklist',
+    draw: (g, out) => {
+      const top = header(g, out, 'CLEANING');
+      const days = Math.min(7, g.xs.length - 4);
+      const first = g.xs.length - 1 - days;
+      for (let d = 0; d < days; d++) out.push(text(g.xs[first + d], g.ys[top], g.s, g.s, DAYS[d][0]));
+      out.push(text(g.L, g.ys[top], g.s * 4, g.s, 'TASK'));
+      for (let r = top + 1; r < g.ys.length; r++) out.push(line(g.L, g.ys[r], g.R, g.ys[r]));
+      for (let d = 0; d < days; d++) out.push(line(g.xs[first + d], g.ys[top], g.xs[first + d], g.ys[g.ys.length - 1]));
+    },
+  },
+  {
+    name: 'Cornell Notes',
+    draw: (g, out) => {
+      const top = header(g, out, 'NOTES');
+      const cue = g.xs[Math.round((g.xs.length - 1) * 0.3)];
+      const sum = Math.max(top + 2, g.ys.length - 1 - Math.round((g.ys.length - 1 - top) * 0.2));
+      out.push(text(g.L, g.ys[top], cue - g.L, g.s, 'CUES'), text(cue + g.s / 2, g.ys[top], g.s * 4, g.s, 'NOTES'));
+      out.push(line(cue, g.ys[top], cue, g.ys[sum]), line(g.L, g.ys[sum], g.R, g.ys[sum]));
+      out.push(text(g.L, g.ys[sum], g.s * 5, g.s, 'SUMMARY'));
+    },
+  },
+  {
+    name: 'Dot Grid',
+    draw: (g, out) => {
+      header(g, out, 'DATE');
+    },
+  },
+  {
+    name: 'Grid Paper',
+    background: { style: 'grid' },
+    draw: (g, out) => {
+      header(g, out, 'DATE');
+    },
+  },
+  {
+    name: 'Two-Column Notes',
+    draw: (g, out) => {
+      const top = header(g, out, 'NOTES');
+      const mid = g.xs[Math.round((g.xs.length - 1) / 2)];
+      out.push(line(mid, g.ys[top], mid, g.ys[g.ys.length - 1]));
+    },
+  },
+  {
+    name: 'Index',
+    draw: (g, out) => {
+      const top = header(g, out, 'INDEX');
+      table(g, out, top, [g.L, g.xs[Math.max(1, g.xs.length - 4)], g.R], ['CONTENTS', 'PAGE']);
+    },
+  },
 ];
 
 /** 이 격자에 맞춘 기본 세트. 격자가 너무 작아(가로·세로 6점 미만) 그릴 수 없으면 빈 목록. */
@@ -225,6 +312,6 @@ export function starterSet(lattice: Pick<Lattice, 'xs' | 'ys'>): StarterTemplate
   return TEMPLATES.map((t) => {
     const out: DiaryObject[] = [];
     t.draw(g, out);
-    return { name: t.name, objects: out };
+    return { name: t.name, objects: out, ...(t.background ? { background: t.background } : {}) };
   });
 }
