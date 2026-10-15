@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LIBRARY_TAB } from '../core/workspace';
 import { useActiveDiary, useActiveWork, useCursor, useStore } from '../store';
 import { boot, flushAutosave, startAutosave } from './persist';
@@ -17,6 +17,7 @@ import { Toast } from './Toast';
 import { LearnIcon, RingsLogo } from './icons';
 import { CloudPanel } from './CloudPanel';
 import { t, useLang } from '../lang';
+import { useNavHistory, type NavState } from './navHistory';
 
 /**
  * 앱 틀(리뉴얼, design/리뉴얼/디자인.md ‘앱 틀’·‘탭’).
@@ -44,6 +45,32 @@ export function App() {
     document.documentElement.lang = lang;
     document.title = t('Rings — 시스템 다이어리 속지 만들기', 'Rings — Make your own planner inserts');
   }, [lang]);
+  const printing = useCursor()?.printing ?? false;
+  // 뒤로·앞으로로 되돌리는 중이면 아래 ‘작업 탭을 고르면 탭 화면으로’를 건너뛴다 — 홈으로 돌아간 것을 다시 끌고 가지 않게.
+  const restoringNav = useRef(false);
+
+  // 브라우저 뒤로가기 = 앱 안의 이전 화면(ui/navHistory, 2026-10-15).
+  useNavHistory(
+    ready,
+    { screen, tab: tabs.active, section, printing: tabs.active !== LIBRARY_TAB && printing },
+    (n: NavState) => {
+      restoringNav.current = true;
+      // 이번 되돌리기가 화면에 그려진 뒤에는 풀어 둔다(아래 효과가 돌지 않았어도 다음 이동에 남지 않게).
+      requestAnimationFrame(() => requestAnimationFrame(() => (restoringNav.current = false)));
+      const s = useStore.getState();
+      // 그 사이 닫은 작업 탭이면 Library로.
+      const tab = n.tab === LIBRARY_TAB || s.tabs.open.includes(n.tab) ? n.tab : LIBRARY_TAB;
+      s.activateTab(tab);
+      setSection(n.section as LibrarySection);
+      setScreen(n.screen);
+      if (tab !== LIBRARY_TAB) {
+        const now = useStore.getState();
+        const isPrinting = now.cursors[tab]?.printing ?? false;
+        if (n.printing && !isPrinting) now.openPrint(tab);
+        else if (!n.printing && isPrinting) now.closePrint();
+      }
+    },
+  );
 
   useEffect(() => {
     let stop: (() => void) | null = null;
@@ -74,6 +101,10 @@ export function App() {
 
   // 탭을 고르면(작업을 열면) 홈에서 탭 화면으로 넘어간다.
   useEffect(() => {
+    if (restoringNav.current) {
+      restoringNav.current = false;
+      return;
+    }
     if (ready && tabs.active !== LIBRARY_TAB) setScreen('tabs');
   }, [ready, tabs.active, tabs.open.length]);
 
