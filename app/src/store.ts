@@ -9,7 +9,7 @@ import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
 import { DEFAULT_FIELD_DRAFT, patchField, type FieldDraft, type FieldSpec } from './core/fieldFormat';
 import { applyToDraft, pickSavedStyle, stylePatchOf, type SavedTextStyle } from './core/textStyles';
 import { clonePalette, mergePalette, newSavedPalette, type SavedPalette } from './core/palettes';
-import { applyOps, type SyncOp, type SyncSnapshot } from './core/sync';
+import { applyOps, remapAssetItems, type SyncOp, type SyncSnapshot } from './core/sync';
 import { cleanSizes, withDotSizes } from './core/dots';
 import { canRedo, canUndo, commit, initHistory, redo, undo, type History } from './core/history';
 import type { InsertSetting } from './core/template';
@@ -76,6 +76,7 @@ import {
   type ResolvedFace,
   type Work,
   type WorkItem,
+  type PageItem,
 } from './core/work';
 import { diaryFromPreset, nextDiaryColor, resizeDiary, uniqueDiaryName, type Diary } from './core/diary';
 import { addPoint, colorOfKey, mapColors, refOf, setKeyColor, type WorkPalette } from './core/colors';
@@ -1890,6 +1891,16 @@ export const useStore = create<Store>((set, get) => ({
       let { tabs } = s;
       let cursors = s.cursors;
       let histories = s.histories;
+      let clipboard = s.clipboard;
+      for (const op of ops) {
+        if (op.type !== 'rekey' || (op.kind !== 'font' && op.kind !== 'image')) continue;
+        const remap = (items: WorkItem[]) => remapAssetItems(items, op.kind === 'font' ? 'font' : 'imageId', op.from, op.to);
+        histories = Object.fromEntries(Object.entries(histories).map(([id, h]) => [id, {
+          past: h.past.map(remap), present: remap(h.present), future: h.future.map(remap),
+        }]));
+        const page = remap([{ kind: 'page', id: 'clipboard', face: { id: 'clipboard', background: DEFAULT_DOT_GRID, objects: clipboard } }])[0] as PageItem;
+        clipboard = page.face.objects;
+      }
       for (const op of ops) {
         if (op.kind !== 'work' || op.type !== 'rekey') continue;
         // 새 id를 받은 작업 — 탭·편집 위치·되돌리기 기록을 새 id로 옮긴다.
@@ -1944,6 +1955,7 @@ export const useStore = create<Store>((set, get) => ({
         tabs,
         cursors,
         histories,
+        clipboard,
         selectedIds: tabs.active === s.tabs.active ? s.selectedIds : [],
       };
     }),

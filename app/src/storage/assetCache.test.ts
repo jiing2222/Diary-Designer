@@ -39,13 +39,23 @@ const file = (name: string, n: number) => ({ name, arrayBuffer: async () => buff
 async function registry(kind: 'font' | 'image') {
   if (kind === 'font') {
     const r = await import('../fonts/registry');
-    return { add: r.registerFont, restore: r.restoreCachedFonts, remove: r.removeFont, bytes: r.fontBytes, store: 'fonts', ext: 'ttf' };
+    return { add: r.registerFont, restore: r.restoreCachedFonts, remove: r.removeFont, rekey: r.rekeyFont, bytes: r.fontBytes, store: 'fonts', ext: 'ttf' };
   }
   const r = await import('../images/registry');
-  return { add: r.registerImage, restore: r.restoreCachedImages, remove: r.removeImage, bytes: r.imageBytes, store: 'images', ext: 'png' };
+  return { add: r.registerImage, restore: r.restoreCachedImages, remove: r.removeImage, rekey: r.rekeyImage, bytes: r.imageBytes, store: 'images', ext: 'png' };
 }
 
 describe.each(['font', 'image'] as const)('%s 파일 보존', (kind) => {
+  it('id 이동 저장이 실패하면 원래 파일과 화면 등록을 보존한다', async () => {
+    const r = await registry(kind);
+    const a = await r.add(file(`original.${r.ext}`, 8));
+    db.fail = true;
+    await expect(r.rekey(a.id, `${a.id}~copy`, a.name, {})).rejects.toThrow('용량 초과');
+    expect(new Uint8Array(r.bytes(a.id)!)).toEqual(new Uint8Array([8]));
+    expect(db.files.get(r.store)?.get(a.id)).toMatchObject({ buffer: buffer(8) });
+    if (kind === 'font') expect(document.fonts.delete).not.toHaveBeenCalled();
+  });
+
   it('첫 데이터 이전 때 이름 키로 복사된 파일도 기존 id로 복원한다', async () => {
     const r = await registry(kind);
     const id = kind === 'font' ? 'f40' : 'img40';

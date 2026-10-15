@@ -35,6 +35,13 @@ describe('무엇을 주고받을지', () => {
   const a = w('w1');
   const k = docKey('work', 'w1');
 
+  it('처음 기본 설정이 다르면 서버 것을 받고, 이 기기에만 두기로 하면 건너뛴다', () => {
+    const local = new Map([['prefs:prefs', { defaultDiaryId: 'd2' }]]);
+    const docs = [remote('prefs', 'prefs', { defaultDiaryId: 'd1' })];
+    expect(types(planSync(local, docs, {}))).toEqual(['pull:prefs:prefs']);
+    expect(planSync(local, docs, {}, new Set(['prefs:prefs']))).toEqual([]);
+  });
+
   it('맞춘 적이 없으면 — 이 기기에만 있으면 올리고, 서버에만 있으면 받는다', () => {
     expect(types(planSync(new Map([[k, a]]), [], {}))).toEqual(['push:work:w1']);
     expect(types(planSync(new Map(), [remote('work', 'w1', a)], {}))).toEqual(['pull:work:w1']);

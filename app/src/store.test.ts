@@ -823,6 +823,26 @@ describe('저장한 팔레트 (7-4)', () => {
 });
 
 describe('계정에서 받은 것 적용하기 (8-2)', () => {
+  it('파일 id를 바꾸면 되돌리기 기록과 복사한 객체도 같은 파일을 가리킨다', () => {
+    s().addDiary('M6', 'm6'); s().createWork('보존');
+    const items = active().items;
+    const page = items[0] as PageItem;
+    const text = { ...dayField('t-original'), font: 'f1' };
+    const before = [{ ...page, face: { ...page.face, objects: [text] } }];
+    const after = [{ ...page, face: { ...page.face, objects: [{ ...text, text: '고침' }] } }];
+    useStore.setState({
+      works: [{ ...active(), items: after }],
+      histories: { [active().id]: { past: [before], present: after, future: [] } },
+      clipboard: [text],
+    });
+    s().applySyncOps([{ type: 'rekey', kind: 'font', from: 'f1', to: 'f1~local', conflict: false }]);
+    s().undo();
+    expect((active().items[0] as PageItem).face.objects[0]).toMatchObject({ font: 'f1~local' });
+    s().redo();
+    expect((active().items[0] as PageItem).face.objects[0]).toMatchObject({ font: 'f1~local' });
+    expect(s().clipboard[0]).toMatchObject({ font: 'f1~local' });
+  });
+
   it('새 id를 받은 작업은 탭·편집 위치가 따라가고, 같은 자리에 받은 작업이 들어온다', () => {
     s().addDiary('M6', 'm6');
     const id = s().createWork()!;

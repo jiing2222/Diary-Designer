@@ -73,7 +73,13 @@ export async function loadWorksFromFile(file: File): Promise<string> {
   if (!data) return 'error' in read ? readErrorText(read.error) : t('파일을 읽지 못했어요.', "Couldn't read the file.");
 
   const s = useStore.getState();
-  const plan = planImport(syncSnapshotOf(s), data);
+  const plan = planImport(syncSnapshotOf(s), data, undefined, {
+    font: (id) => { const bytes = fontBytes(id); return bytes ? toBase64(bytes) : undefined; },
+    image: (id) => {
+      const bytes = imageBytes(id);
+      return bytes ? { kind: imageKind(id) ?? 'png', data: toBase64(bytes) } : undefined;
+    },
+  });
 
   // 글꼴·이미지 파일부터 등록한다 — 작업이 들어오는 순간 화면이 그 파일을 찾는다.
   for (const f of plan.fonts) {

@@ -10,12 +10,13 @@ import {
   splitDocKey,
   type RemoteDoc,
   type SyncOp,
+  type SyncEntry,
   type SyncState,
 } from '../core/sync';
 import { allIdsOf, type Work } from '../core/work';
 import { ensureIdCounterAbove } from '../core/objects';
-import { adoptFont, fontBytes, hasFont, rekeyFont, reserveIds } from '../fonts/registry';
-import { adoptImage, hasImage, imageBytes, imageKind, rekeyImage, reserveImageIds } from '../images/registry';
+import { adoptFont, fontBytes, rekeyFont, reserveIds } from '../fonts/registry';
+import { adoptImage, imageBytes, imageKind, rekeyImage, reserveImageIds } from '../images/registry';
 import { v2Get, v2Put } from '../storage/v2';
 import { flushAutosave } from './persist';
 import { t } from '../lang';
@@ -55,6 +56,8 @@ let cancelAsk: (() => void) | null = null;
 
 /** 묻는 중에 로그아웃하면 답을 기다리지 않고 그만둔다 — 안 그러면 맞추기가 영영 끝나지 않는다. */
 class AskCancelled extends Error {}
+class SessionChanged extends Error {}
+let accountGeneration = 0;
 
 function ask(works: number, total: number): Promise<boolean> {
   useStore.setState({ syncAsk: { works, total } });
@@ -104,7 +107,8 @@ export function syncNow(): Promise<void> {
   return running;
 }
 
-const entryOf = (d: { id: string; updated: string }, data: unknown) => ({
+const entryOf = (d: { id: string; updated: string }, data: unknown, previous?: SyncEntry): SyncEntry => ({
+  ...previous,
   remoteId: d.id,
   updated: d.updated,
   hash: hashOf(data),
@@ -116,17 +120,27 @@ async function syncOnce(): Promise<void> {
     useStore.setState({ cloudStatus: { kind: 'local' } });
     return;
   }
+  const generation = accountGeneration;
+  const checkSession = () => {
+    if (generation !== accountGeneration || currentUser()?.id !== user.id) throw new SessionChanged();
+  };
+  const wait = async <T,>(action: () => Promise<T>): Promise<T> => {
+    checkSession();
+    const value = await action();
+    checkSession();
+    return value;
+  };
   useStore.setState({ cloudStatus: { kind: 'syncing' } });
   try {
     // 받은 것을 적용하기 전에 이 기기에서 고친 것부터 저장해 둔다.
-    await flushAutosave();
-    const rec = await loadRecord(user.id);
+    await wait(flushAutosave);
+    const rec = await wait(() => loadRecord(user.id));
     const state: SyncState = { ...rec.state };
     let skip = new Set(rec.skip);
 
-    const listed = await listDocs();
+    const listed = await wait(listDocs);
     const changed = listed.filter((d) => !d.deleted && state[docKey(d.kind, d.key)]?.updated !== d.updated);
-    const full = new Map((await withData(changed)).map((d) => [docKey(d.kind, d.key), d]));
+    const full = new Map((await wait(() => withData(changed))).map((d) => [docKey(d.kind, d.key), d]));
     const remote: RemoteDoc[] = listed.map((d) => full.get(docKey(d.kind, d.key)) ?? d);
 
     let local = docsOf(syncSnapshotOf(useStore.getState()));
@@ -134,45 +148,77 @@ async function syncOnce(): Promise<void> {
       const fresh = [...local.keys()].filter((k) => !(k in state) && splitDocKey(k).kind !== 'prefs');
       if (fresh.length > 0) {
         const works = fresh.filter((k) => splitDocKey(k).kind === 'work').length;
-        const upload = await ask(works, fresh.length);
+        const upload = await wait(() => ask(works, fresh.length));
         // 안 올리면 지금 있는 것(기본 다이어리 설정 포함)은 이 기기에만 둔다.
         if (!upload) skip = new Set([...skip, ...fresh, docKey('prefs', 'prefs')]);
       }
       rec.asked = true;
       // 답은 바로 남긴다 — 뒤에서 실패해도 다시 묻지 않게.
-      await saveRecord(user.id, { state, skip: [...skip], asked: true });
+      await wait(() => saveRecord(user.id, { state, skip: [...skip], asked: true }));
       local = docsOf(syncSnapshotOf(useStore.getState()));
     }
 
-    // 1) 받기 — 새 id 주기·받기·지우기를 store에 적용한다.
+    // 이름과 id가 같아도 기기마다 실제 파일은 다를 수 있다. 처음 만난 파일은
+    // 바이트까지 비교해 다른 파일이면 로컬 사본과 그 참조를 함께 보존한다.
+    const downloaded = new Map<string, ArrayBuffer>();
+    const readFile = async (d: RemoteDoc) => {
+      if (!downloaded.has(d.id)) downloaded.set(d.id, await wait(() => getFile(d)));
+      return downloaded.get(d.id)!;
+    };
+    const fileCollisions = remote.filter(d => !d.deleted && d.file &&
+      (d.kind === 'font' || d.kind === 'image') && !rec.state[docKey(d.kind, d.key)] &&
+      hashOf(local.get(docKey(d.kind, d.key))) === hashOf(d.data));
+    const differentFiles = new Map<string, RemoteDoc>();
+    for (const d of fileCollisions) {
+      const bytes = d.kind === 'font' ? fontBytes(d.key) : imageBytes(d.key);
+      if (bytes && await fileHash(bytes) !== await fileHash(await readFile(d))) differentFiles.set(docKey(d.kind, d.key), d);
+      checkSession();
+    }
+
+    // 먼저 이 기기 자료의 id만 옮긴다. 파일을 옮기는 동안 계정이 바뀌더라도 현재
+    // 파일과 그 참조는 함께 옮겨야 한다. 서버 자료를 받는 일은 그 뒤 별도로 한다.
+    for (;;) {
+      checkSession();
+      local = docsOf(syncSnapshotOf(useStore.getState()));
+      const collisions = planSync(local, remote, rec.state, skip).filter(a => a.type === 'rekey');
+      for (const [key, doc] of differentFiles) {
+        if (local.has(key) && !collisions.some(a => a.key === key)) collisions.push({ type: 'rekey', key, doc, conflict: false });
+      }
+      if (!collisions.length) break;
+      for (const a of collisions) {
+        checkSession();
+        const { kind, key } = splitDocKey(a.key);
+        let to = freshKey(key);
+        while (local.has(docKey(kind, to)) || remote.some(d => d.kind === kind && d.key === to)) to += 'a';
+        const op: SyncOp = { type: 'rekey', kind, from: key, to, conflict: a.conflict };
+        await moveAssetFiles([op]);
+        useStore.getState().applySyncOps([op]);
+        differentFiles.delete(a.key);
+        if (skip.delete(a.key)) skip.add(docKey(kind, to));
+        // 로컬 id 변경과 ‘이 기기에만 두기’ 선택을 같이 남긴다. 옛 계정의 로컬
+        // 기록이며, 여기서는 새 계정 서버에 요청하거나 서버 자료를 적용하지 않는다.
+        await saveRecord(user.id, { state: rec.state, skip: [...skip], asked: rec.asked });
+        checkSession();
+        local = docsOf(syncSnapshotOf(useStore.getState()));
+      }
+    }
+
+    // 1) 받기 — 파일 이동을 기다리는 사이 고친 작업도 반영해 다시 판단한다.
     const ops: SyncOp[] = [];
-    for (const a of planSync(local, remote, state, skip)) {
+    for (const a of planSync(local, remote, rec.state, skip)) {
       const { kind, key } = splitDocKey(a.key);
-      if (a.type === 'rekey') {
-        const to = freshKey(key);
-        ops.push({ type: 'rekey', kind, from: key, to, conflict: a.conflict });
-        if (skip.has(a.key)) {
-          skip.delete(a.key);
-          skip.add(docKey(kind, to));
-        }
-        if (a.doc.deleted) delete state[a.key];
-        else {
-          ops.push({ type: 'put', kind, key, data: a.doc.data });
-          state[a.key] = entryOf(a.doc, a.doc.data);
-        }
-      } else if (a.type === 'pull') {
+      if (a.type === 'pull') {
         ops.push({ type: 'put', kind, key, data: a.doc.data });
-        state[a.key] = entryOf(a.doc, a.doc.data);
+        state[a.key] = entryOf(a.doc, a.doc.data, state[a.key]);
       } else if (a.type === 'deleteLocal') {
         ops.push({ type: 'remove', kind, key });
         delete state[a.key];
       } else if (a.type === 'same') {
         if (a.doc.deleted) delete state[a.key];
-        else state[a.key] = entryOf(a.doc, a.doc.data);
+        else state[a.key] = entryOf(a.doc, a.doc.data, state[a.key]);
       }
     }
     if (ops.length > 0) {
-      await moveAssetFiles(ops);
       useStore.getState().applySyncOps(ops);
       reserveReceivedIds(ops);
     }
@@ -183,20 +229,23 @@ async function syncOnce(): Promise<void> {
       const { kind, key } = splitDocKey(a.key);
       if (a.type === 'push') {
         const data = now.get(a.key);
-        const res = await putDoc(kind, key, data, a.remoteId);
-        state[a.key] = entryOf(res, data);
+        const res = await wait(() => putDoc(kind, key, data, a.remoteId));
+        state[a.key] = entryOf(res, data, state[a.key]);
       } else if (a.type === 'deleteRemote') {
-        await markDeleted(a.remoteId);
+        await wait(() => markDeleted(a.remoteId));
         delete state[a.key];
       }
     }
 
     // 3) 글꼴·이미지 파일 — 칸이 맞춰진 뒤에 올리고 받는다.
-    await syncFiles(state, remote, skip);
+    const failures = await syncFiles(state, rec.state, remote, skip, checkSession, readFile);
 
-    await saveRecord(user.id, { state, skip: [...skip], asked: rec.asked });
-    useStore.setState({ cloudStatus: { kind: 'saved', at: Date.now() } });
+    await wait(() => saveRecord(user.id, { state, skip: [...skip], asked: rec.asked }));
+    useStore.setState({ cloudStatus: failures
+      ? { kind: 'error', text: '일부 글꼴·이미지 파일을 맞추지 못했어요. 다음 동기화에서 다시 시도해요.' }
+      : { kind: 'saved', at: Date.now() } });
   } catch (err) {
+    if (err instanceof SessionChanged) return;
     if (err instanceof AskCancelled) {
       useStore.setState({ cloudStatus: { kind: 'local' } });
       return;
@@ -207,12 +256,52 @@ async function syncOnce(): Promise<void> {
   }
 }
 
-/**
- * 글꼴·이미지 파일(8-2c, 2026-10-13 결정). 이 기기에 파일이 있고 아직 안 올렸으면(또는 크기가 달라졌으면)
- * 올리고, 계정에는 있는데 이 기기에 파일이 없으면 받는다. 파일 하나가 실패해도 나머지는 계속한다 —
- * 다음 맞추기에서 다시 해 본다.
- */
-async function syncFiles(state: SyncState, remote: RemoteDoc[], skip: Set<string>): Promise<void> {
+async function fileHash(bytes: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** 서버에서 바뀐 파일을 먼저 받고, 그 뒤 로컬에서 바뀐 파일을 올린다. 실패 기록은 다음에 재시도한다. */
+async function syncFiles(
+  state: SyncState, previous: SyncState, remote: RemoteDoc[], skip: Set<string>,
+  checkSession: () => void, readFile: (d: RemoteDoc) => Promise<ArrayBuffer>,
+): Promise<number> {
+  let failures = 0;
+  const receiving = new Set<string>();
+  for (const d of remote) {
+    checkSession();
+    if (d.deleted || !d.file || (d.kind !== 'font' && d.kind !== 'image')) continue;
+    const k = docKey(d.kind, d.key);
+    if (skip.has(k) || !state[k]) continue;
+    const localBytes = d.kind === 'font' ? fontBytes(d.key) : imageBytes(d.key);
+    if (localBytes && previous[k]?.fileHash && previous[k]?.fileUpdated === d.updated) continue;
+    // 받기에 실패해도 옛 로컬 파일로 서버 파일을 덮어쓰지 않는다.
+    receiving.add(k);
+    try {
+      const bytes = await readFile(d);
+      const hash = await fileHash(bytes);
+      checkSession();
+      const now = useStore.getState();
+      if (d.kind === 'font') {
+        const info = now.userFonts.find(f => f.id === d.key);
+        if (!info) continue;
+        const adopted = await adoptFont(d.key, info.name, bytes, { label: info.label, favorite: info.favorite, hidden: info.hidden });
+        checkSession();
+        useStore.getState().addUserFont(adopted);
+      } else {
+        const info = now.userImages.find(i => i.id === d.key);
+        if (!info) continue;
+        const kind = /\.png$/i.test(d.file) ? 'png' : 'jpg';
+        const adopted = await adoptImage(d.key, info.name, bytes, kind, { label: info.label, usedAt: info.usedAt, hidden: info.hidden });
+        checkSession();
+        useStore.getState().addUserImage(adopted);
+      }
+      state[k] = { ...state[k], file: bytes.byteLength, fileHash: hash, fileUpdated: state[k].updated };
+    } catch (err) {
+      if (err instanceof SessionChanged) throw err;
+      failures++;
+    }
+  }
   const s = useStore.getState();
   const uploads = [
     ...s.userFonts.map((f) => ({ k: docKey('font', f.id), bytes: fontBytes(f.id), name: 'font.bin' })),
@@ -223,47 +312,25 @@ async function syncFiles(state: SyncState, remote: RemoteDoc[], skip: Set<string
     })),
   ];
   for (const u of uploads) {
+    checkSession();
     const e = state[u.k];
-    if (!e || !u.bytes || skip.has(u.k) || e.file === u.bytes.byteLength) continue;
+    if (!e || !u.bytes || skip.has(u.k) || receiving.has(u.k)) continue;
     try {
-      const res = await putFile(e.remoteId, u.bytes, u.name);
-      state[u.k] = { ...e, updated: res.updated, file: u.bytes.byteLength };
-    } catch {
-      // 다음에 다시.
-    }
-  }
-  for (const d of remote) {
-    if (d.deleted || !d.file || (d.kind !== 'font' && d.kind !== 'image')) continue;
-    const k = docKey(d.kind, d.key);
-    if (d.kind === 'font' ? hasFont(d.key) : hasImage(d.key)) continue;
-    try {
-      const now = useStore.getState();
-      if (d.kind === 'font') {
-        const info = now.userFonts.find((f) => f.id === d.key);
-        if (!info) continue;
-        const bytes = await getFile(d);
-        now.addUserFont(
-          await adoptFont(d.key, info.name, bytes, { label: info.label, favorite: info.favorite, hidden: info.hidden }),
-        );
-        if (state[k]) state[k] = { ...state[k], file: bytes.byteLength };
-      } else {
-        const info = now.userImages.find((i) => i.id === d.key);
-        if (!info) continue;
-        const bytes = await getFile(d);
-        const kind = /\.png$/i.test(d.file) ? 'png' : 'jpg';
-        now.addUserImage(
-          await adoptImage(d.key, info.name, bytes, kind, {
-            label: info.label,
-            usedAt: info.usedAt,
-            hidden: info.hidden,
-          }),
-        );
-        if (state[k]) state[k] = { ...state[k], file: bytes.byteLength };
+      const hash = await fileHash(u.bytes);
+      checkSession();
+      if (e.fileHash === hash) {
+        state[u.k] = { ...e, fileUpdated: e.updated };
+        continue;
       }
-    } catch {
-      // 다음에 다시.
+      const res = await putFile(e.remoteId, u.bytes, u.name);
+      checkSession();
+      state[u.k] = { ...e, updated: res.updated, file: u.bytes.byteLength, fileHash: hash, fileUpdated: res.updated };
+    } catch (err) {
+      if (err instanceof SessionChanged) throw err;
+      failures++;
     }
   }
+  return failures;
 }
 
 /** 새 id를 받은 글꼴·이미지는 파일도 새 id로 옮긴다 — 옛 id 자리는 계정의 다른 파일이 쓴다. */
@@ -309,6 +376,8 @@ export function startCloudSync(): () => void {
     }, ms);
   };
   const stopAuth = onAuthChange((user) => {
+    accountGeneration++;
+    cancelAsk?.();
     if (user) soon(0);
     else {
       cancelAsk?.();
@@ -325,6 +394,8 @@ export function startCloudSync(): () => void {
   document.addEventListener('visibilitychange', onVisible);
   if (currentUser()) soon(0);
   return () => {
+    accountGeneration++;
+    cancelAsk?.();
     if (timer !== null) clearTimeout(timer);
     stopAuth();
     stopSaved();

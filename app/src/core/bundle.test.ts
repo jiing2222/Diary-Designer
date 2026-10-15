@@ -28,6 +28,7 @@ describe('작업 파일로 묶기', () => {
     expect(f.works.map((w) => w.id)).toEqual(['w1']);
     expect(f.diaries.map((d) => d.id)).toEqual(['d1']);
     expect(f.fonts).toEqual([{ info: { id: 'f1', name: 'Hand' }, data: 'AAA' }]);
+    expect(readFile(JSON.stringify(f))).toEqual({ ok: f });
   });
 
   it('파일 이름에 못 쓰는 글자를 뺀다', () => {
@@ -37,6 +38,17 @@ describe('작업 파일로 묶기', () => {
 });
 
 describe('작업 파일 읽기', () => {
+  it('깨진 항목·중복 id·없는 다이어리를 저장소에 넣기 전에 거절한다', () => {
+    for (const f of [
+      fileOf({ works: [null as unknown as Work] }),
+      fileOf({ diaries: [null as unknown as Diary] }),
+      fileOf({ works: [{ ...workWith('w1', 'd1'), items: [null as never] }], diaries: [m6('d1')] }),
+      fileOf({ works: [workWith('w1', 'missing')] }),
+      fileOf({ works: [workWith('w1', 'd1'), workWith('w1', 'd1')], diaries: [m6('d1')] }),
+      fileOf({ fonts: [null as never] }),
+    ]) expect(readFile(JSON.stringify(f))).toHaveProperty('error');
+  });
+
   it('다른 파일·더 새 판은 이유와 함께 거절한다', () => {
     expect(readFile('not json')).toHaveProperty('error');
     expect(readFile('{"format":"other"}')).toHaveProperty('error');
@@ -50,6 +62,26 @@ describe('작업 파일 읽기', () => {
 });
 
 describe('불러오기 계획 — 받는 쪽을 덮어쓰지 않는다', () => {
+  it('재사용할 다이어리 id가 다른 들어오는 다이어리 id와 같아도 각각의 종이를 유지한다', () => {
+    const local = { ...empty, diaries: [m6('d1')] };
+    const plan = planImport(local, fileOf({
+      diaries: [m6('d2'), a5('d1')],
+      works: [workWith('w1', 'd2'), workWith('w2', 'd1')],
+    }), () => 0);
+    const all = [...local.diaries, ...plan.diaries];
+    expect(all.find(d => d.id === plan.works[0].diaryId)?.width).toBe(80);
+    expect(all.find(d => d.id === plan.works[1].diaryId)?.width).toBe(148);
+    expect(new Set(plan.diaries.map(d => d.id)).size).toBe(plan.diaries.length);
+  });
+
+  it('이름과 id만 같은 파일은 내용이 같다고 가정하지 않는다', () => {
+    const plan = planImport({ ...empty, fonts: [{ id: 'f1', name: 'Same' }] }, fileOf({
+      diaries: [m6('d1')], works: [workWith('w1', 'd1', [fontText('f1')])],
+      fonts: [{ info: { id: 'f1', name: 'Same' }, data: 'different-bytes' }],
+    }));
+    expect(plan.fonts).toHaveLength(1);
+    expect(plan.fonts[0].info.id).not.toBe('f1');
+  });
   it('id가 겹치는 작업은 새 id로, 폴더는 비운다', () => {
     const local = { ...empty, works: [workWith('w1', 'd1')], diaries: [m6('d1')] };
     const file = fileOf({ works: [{ ...workWith('w1', 'd9'), folderId: 'fo1' }], diaries: [a5('d9')] });
@@ -84,7 +116,7 @@ describe('불러오기 계획 — 받는 쪽을 덮어쓰지 않는다', () => {
       ],
     });
     const local = { ...empty, fonts: [{ id: 'f1', name: 'Same' }, { id: 'f2', name: 'Mine' }] };
-    const plan = planImport(local, file, () => 0);
+    const plan = planImport(local, file, () => 0, { font: id => id === 'f1' ? 'A' : 'C', image: () => undefined });
     expect(plan.fonts).toHaveLength(1);
     const id = plan.fonts[0].info.id;
     expect(id).not.toBe('f2');

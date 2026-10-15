@@ -224,11 +224,11 @@ export function removeImage(id: string, name: string): void {
 export async function rekeyImage(from: string, to: string, name: string, meta: ImageMeta): Promise<void> {
   const buffer = bytes.get(from);
   const kind = kinds.get(from);
+  if (buffer && kind) await loadImage(buffer, name, kind, to, meta, true);
+  await saveAssetFile('images', { id: from, name, deleted: true });
   bytes.delete(from);
   kinds.delete(from);
   dropAssetWrite('images', from);
-  if (buffer && kind) await loadImage(buffer, name, kind, to, meta, true);
-  await saveAssetFile('images', { id: from, name, deleted: true });
 }
 
 /** 계정에서 받은 이미지 파일을 그 id로 등록하고 이 기기에도 남긴다(리뉴얼 8-2c). */

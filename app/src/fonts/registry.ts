@@ -222,12 +222,12 @@ export function removeFont(id: string, name: string): void {
 export async function rekeyFont(from: string, to: string, name: string, meta: FontMeta): Promise<void> {
   const buffer = bytes.get(from);
   const face = faces.get(from);
+  if (buffer) await loadFont(buffer, name, to, meta, true);
+  await saveAssetFile('fonts', { id: from, name, deleted: true });
   if (face) document.fonts.delete(face);
   faces.delete(from);
   bytes.delete(from);
   dropAssetWrite('fonts', from);
-  if (buffer) await loadFont(buffer, name, to, meta, true);
-  await saveAssetFile('fonts', { id: from, name, deleted: true });
 }
 
 /** 계정에서 받은 글꼴 파일을 그 id로 심고 이 기기에도 남긴다(리뉴얼 8-2c). */

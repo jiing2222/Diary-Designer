@@ -41,8 +41,12 @@ export interface SyncEntry {
   remoteId: string;
   updated: string;
   hash: string;
-  /** 글꼴·이미지: 마지막으로 올린 파일의 크기(byte). 다르면 다시 올린다(같은 이름으로 다시 등록한 경우). */
+  /** 글꼴·이미지: 마지막으로 맞춘 파일의 크기(byte). 옛 동기화 기록과 호환한다. */
   file?: number;
+  /** 크기가 같은 다른 파일도 구분한다. */
+  fileHash?: string;
+  /** 파일까지 성공적으로 맞춘 서버 버전. 메타정보만 저장되어도 재시도할 수 있다. */
+  fileUpdated?: string;
 }
 
 export type SyncState = Record<string, SyncEntry>;
@@ -124,6 +128,13 @@ export function planSync(
 
     if (!s) {
       // 이 계정과 맞춘 적이 없다.
+      // 기본 다이어리 설정은 사본 id를 만들 수 없는 한 칸이다.
+      if (splitDocKey(key).kind === 'prefs') {
+        if (skip.has(key)) continue;
+        if (live) out.push({ type: hashOf(l) === hashOf(r.data) ? 'same' : 'pull', key, doc: r });
+        else if (has) out.push({ type: 'push', key, remoteId: r?.id });
+        continue;
+      }
       if (has && skip.has(key)) {
         if (live) out.push({ type: 'rekey', key, doc: r, conflict: false });
         continue;
@@ -179,15 +190,15 @@ export function freshKey(key: string, random: () => number = Math.random): strin
   return `${key.split('~')[0]}~${tail}`;
 }
 
-/** 작업 안의 모든 객체와 날짜별로 바꾼 속성에 `fn`을 적용한다. 바뀐 게 없으면 같은 작업. */
-function mapWorkRefs(work: Work, prop: 'font' | 'imageId', from: string, to: string): Work {
+/** 항목·날짜별 수정의 파일 참조를 함께 옮긴다. 되돌리기 기록도 같은 함수를 쓴다. */
+export function remapAssetItems(source: WorkItem[], prop: 'font' | 'imageId', from: string, to: string): WorkItem[] {
   let changed = false;
   const obj = (o: DiaryObject): DiaryObject => {
     if ((o as unknown as Record<string, unknown>)[prop] !== from) return o;
     changed = true;
     return { ...o, [prop]: to } as DiaryObject;
   };
-  const items = work.items.map((item): WorkItem => {
+  const items = source.map((item): WorkItem => {
     if (item.kind === 'page') return { ...item, face: { ...item.face, objects: item.face.objects.map(obj) } };
     return {
       ...item,
@@ -210,7 +221,12 @@ function mapWorkRefs(work: Work, prop: 'font' | 'imageId', from: string, to: str
       ),
     };
   });
-  return changed ? { ...work, items } : work;
+  return changed ? items : source;
+}
+
+function mapWorkRefs(work: Work, prop: 'font' | 'imageId', from: string, to: string): Work {
+  const items = remapAssetItems(work.items, prop, from, to);
+  return items === work.items ? work : { ...work, items };
 }
 
 /**
@@ -318,6 +334,8 @@ export type SyncOp =
 
 export function applyOps(s: SyncSnapshot, ops: SyncOp[]): SyncSnapshot {
   let next = s;
+  // 먼저 이 기기 자료의 id를 모두 옮긴다. 서버 작업을 먼저 넣으면 뒤의 다이어리·
+  // 파일 id 변경이 방금 받은 서버 작업의 참조까지 이 기기 것으로 바꿔 버린다.
   for (const op of ops) {
     if (op.type === 'rekey') {
       next = rekeySnapshot(next, op.kind, op.from, op.to);
@@ -327,8 +345,11 @@ export function applyOps(s: SyncSnapshot, ops: SyncOp[]): SyncSnapshot {
           works: next.works.map((w) => (w.id === op.to ? { ...w, name: `${w.name}${CONFLICT_SUFFIX}` } : w)),
         };
       }
-    } else if (op.type === 'put') next = applyRemote(next, op.kind, op.key, op.data);
-    else next = removeLocal(next, op.kind, op.key);
+    }
+  }
+  for (const op of ops) {
+    if (op.type === 'put') next = applyRemote(next, op.kind, op.key, op.data);
+    else if (op.type === 'remove') next = removeLocal(next, op.kind, op.key);
   }
   return next;
 }
