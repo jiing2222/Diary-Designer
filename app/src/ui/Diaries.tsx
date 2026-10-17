@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { DIARY_COLORS, DIARY_PRESETS, diarySizeLabel, type Diary } from '../core/diary';
 import { worksUsingDiary } from '../core/library';
-import { suggestGroupGap } from '../core/punch';
 import { findInsertPreset } from '../core/presets';
 import type { Mm } from '../core/units';
 import { PunchGuide } from './PunchGuide';
-import { Num, Row } from './PagePanel';
+import { Num, PunchFields, Row } from './PagePanel';
 import { t } from '../lang';
 
 /**
@@ -239,69 +238,7 @@ function DiaryEditor({ diary }: { diary: Diary }) {
 
         <section className="lib-card">
           <h3 className="lib-card-title">{t('구멍', 'Holes')}</h3>
-          <Row label={t('구멍 수', 'Number of holes')}>
-            <Num
-              value={punch.holeCount}
-              min={1}
-              max={30}
-              step={1}
-              unit={t('개', '')}
-              onChange={(holeCount) => patchPunch(diary.id, { holeCount })}
-            />
-          </Row>
-          <Row label={t('배치', 'Layout')}>
-            <select
-              value={punch.groupGap === null ? 'even' : 'grouped'}
-              onChange={(e) =>
-                patchPunch(diary.id, {
-                  groupGap: e.target.value === 'even' ? null : suggestGroupGap(diary.height, punch.holeCount),
-                })
-              }
-            >
-              <option value="even">{t('균등 간격', 'Evenly spaced')}</option>
-              <option value="grouped">
-                {t('묶음', 'Grouped')} ({Math.ceil(punch.holeCount / 2)} + {Math.floor(punch.holeCount / 2)})
-              </option>
-            </select>
-          </Row>
-          {punch.groupGap !== null && (
-            <Row label={t('묶음 간격', 'Group gap')} hint={t('두 묶음 사이의 중심 간격', 'Center distance between the two groups')}>
-              <Num value={punch.groupGap} onChange={(groupGap) => patchPunch(diary.id, { groupGap })} />
-            </Row>
-          )}
-          <details className="diary-fine">
-            <summary>{t('구멍 위치 미세 조정', 'Fine-tune hole position')}</summary>
-            <Row label={t('안전영역', 'Safe zone')} hint={t('구멍 쪽에 아무것도 놓지 않는 폭', 'Width kept clear on the hole side')}>
-              <Num value={punch.safeZoneWidth} onChange={(safeZoneWidth) => patchPunch(diary.id, { safeZoneWidth })} />
-            </Row>
-            <Row label={t('구멍 지름', 'Hole diameter')}>
-              <Num
-                value={punch.markSize}
-                min={3}
-                max={6}
-                step={0.5}
-                onChange={(markSize) => patchPunch(diary.id, { markSize })}
-              />
-            </Row>
-            <Row label={t('가장자리~구멍', 'Edge to hole')} hint={t('속지 가장자리에서 구멍 가장자리까지', 'From the insert edge to the hole edge')}>
-              <Num
-                value={punch.edgeToHole}
-                min={0}
-                max={20}
-                step={0.5}
-                onChange={(edgeToHole) => patchPunch(diary.id, { edgeToHole })}
-              />
-            </Row>
-            <Row label={t('위아래 밀기', 'Shift up/down')} hint={t('구멍 묶음 전체를 위(−)·아래(+)로', 'Move all holes up (−) or down (+)')}>
-              <Num
-                value={punch.offsetY}
-                min={-20}
-                max={20}
-                step={0.5}
-                onChange={(offsetY) => patchPunch(diary.id, { offsetY })}
-              />
-            </Row>
-          </details>
+          <PunchFields punch={punch} height={diary.height} onPatch={(p) => patchPunch(diary.id, p)} />
         </section>
 
         <div className="diary-remove">

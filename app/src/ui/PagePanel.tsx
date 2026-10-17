@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useActiveDiary, useActiveSide, useDotGrid, useInsert, useStore } from '../store';
-import { holeCentersY, holeSpan, suggestGroupGap, topMargin } from '../core/punch';
+import { holeCentersY, holeSpan, suggestGroupGap, topMargin, type PunchSetting } from '../core/punch';
 import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/grid';
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
@@ -120,34 +120,64 @@ function PunchGroup() {
           `Holes belong to the diary ${diary?.name ?? ''}. Every work using this diary changes.`,
         )}
       </p>
+      <PunchFields punch={punch} height={insert.height} onPatch={patchPunch} />
+      <PunchReadout />
+    </>
+  );
+}
+
+/**
+ * 구멍 설정 줄들 — 편집 화면의 Page 패널과 Library → Diaries가 같이 쓴다. 고친 값은 그 다이어리의 구멍이다.
+ * 위치 미세 조정(가장자리~구멍·위아래 밀기)은 드물게 쓰므로 접어 둔다.
+ */
+export function PunchFields({
+  punch,
+  height,
+  onPatch,
+}: {
+  punch: PunchSetting;
+  height: number;
+  onPatch: (p: Partial<PunchSetting>) => void;
+}) {
+  return (
+    <>
       <Row label={t('구멍 수', 'Number of holes')}>
-        <Num value={punch.holeCount} step={1} unit={t('개', '')} onChange={(holeCount) => patchPunch({ holeCount })} />
+        <Num value={punch.holeCount} min={1} max={30} step={1} unit={t('개', '')} onChange={(holeCount) => onPatch({ holeCount })} />
       </Row>
       <Row label={t('배치', 'Layout')}>
         <select
           value={punch.groupGap === null ? 'even' : 'grouped'}
-          onChange={(e) =>
-            patchPunch({
-              groupGap: e.target.value === 'even' ? null : suggestGroupGap(insert.height, punch.holeCount),
-            })
-          }
+          onChange={(e) => onPatch({ groupGap: e.target.value === 'even' ? null : suggestGroupGap(height, punch.holeCount) })}
         >
           <option value="even">{t('균등 간격', 'Evenly spaced')}</option>
-          <option value="grouped">{t('묶음 (3 + 3)', 'Grouped (3 + 3)')}</option>
+          <option value="grouped">
+            {t('묶음', 'Grouped')} ({Math.ceil(punch.holeCount / 2)} + {Math.floor(punch.holeCount / 2)})
+          </option>
         </select>
       </Row>
       {punch.groupGap !== null && (
         <Row label={t('묶음 간격', 'Group gap')} hint={t('두 묶음 사이의 중심 간격', 'Center distance between the two groups')}>
-          <Num value={punch.groupGap} onChange={(groupGap) => patchPunch({ groupGap })} />
+          <Num value={punch.groupGap} onChange={(groupGap) => onPatch({ groupGap })} />
         </Row>
       )}
-      <Row label={t('안전영역', 'Safe zone')}>
-        <Num value={punch.safeZoneWidth} onChange={(safeZoneWidth) => patchPunch({ safeZoneWidth })} />
+      <Row label={t('안전영역', 'Safe zone')} hint={t('구멍 쪽에 아무것도 놓지 않는 폭', 'Width kept clear on the hole side')}>
+        <Num value={punch.safeZoneWidth} onChange={(safeZoneWidth) => onPatch({ safeZoneWidth })} />
       </Row>
-      <Row label={t('구멍 지름', 'Hole diameter')} hint={t('타공기 구멍 크기. 화면 안내와, PDF를 만들 때 고르면 인쇄되는 타공 표시에 쓰여요', "Your punch's hole size. Used for the on-screen guide and for printed hole marks if you turn them on in the PDF")}>
-        <Num value={punch.markSize} min={3} max={6} step={0.5} onChange={(markSize) => patchPunch({ markSize })} />
+      <Row
+        label={t('구멍 지름', 'Hole diameter')}
+        hint={t('타공기 구멍 크기. 화면 안내와, PDF를 만들 때 고르면 인쇄되는 타공 표시에 쓰여요', "Your punch's hole size. Used for the on-screen guide and for printed hole marks if you turn them on in the PDF")}
+      >
+        <Num value={punch.markSize} min={3} max={6} step={0.5} onChange={(markSize) => onPatch({ markSize })} />
       </Row>
-      <PunchReadout />
+      <details className="diary-fine">
+        <summary>{t('구멍 위치 미세 조정', 'Fine-tune hole position')}</summary>
+        <Row label={t('가장자리~구멍', 'Edge to hole')} hint={t('속지 가장자리에서 구멍 가장자리까지', 'From the insert edge to the hole edge')}>
+          <Num value={punch.edgeToHole} min={0} max={20} step={0.5} onChange={(edgeToHole) => onPatch({ edgeToHole })} />
+        </Row>
+        <Row label={t('위아래 밀기', 'Shift up/down')} hint={t('구멍 묶음 전체를 위(−)·아래(+)로', 'Move all holes up (−) or down (+)')}>
+          <Num value={punch.offsetY} min={-20} max={20} step={0.5} onChange={(offsetY) => onPatch({ offsetY })} />
+        </Row>
+      </details>
     </>
   );
 }

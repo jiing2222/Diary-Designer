@@ -15,7 +15,7 @@
 | 3 | delete | cloud/projects.ts — 어디서도 import하지 않는다(옛 양식 클라우드 저장). core/project.ts의 toProject·missingFonts·missingImages도 | 없음 | 완료 |
 | 4 | delete | storage/autosave.ts — 어디서도 import하지 않는다(v2 이전 자동저장) | 없음 | 완료 |
 | 5 | delete | ui/icons.tsx의 안 쓰는 아이콘 10개(TemplateIcon·GridIcon·PunchIcon·CursorIcon·EyeIcon·EyeOffIcon·RepeatIcon·MenuIcon·DownloadIcon·ChevronIcon) | 없음 | 완료 |
-| 6 | reuse | 구멍 설정 줄(구멍 수·배치·묶음 간격·안전영역·구멍 지름)이 ui/Diaries.tsx와 ui/PagePanel.tsx에 두 벌 | 한 컴포넌트 | 남음 |
+| 6 | reuse | 구멍 설정 줄(구멍 수·배치·묶음 간격·안전영역·구멍 지름)이 ui/Diaries.tsx와 ui/PagePanel.tsx에 두 벌 | 한 컴포넌트 | 완료 |
 | 7 | reuse | 팔레트 칸 편집(포인트 추가·기본값 되돌리기)이 ui/EditorRail.tsx와 ui/LibraryColors.tsx에 두 벌 | 한 컴포넌트 | 남음 |
 | 8 | delete | core/presets.ts의 SIZE_FAMILIES·familyOf·SizeFamily — import하는 곳 없음 | 없음 | 완료 |
 | 9 | delete | ui/PaperPreview.tsx의 calendarYear 속성(넘기는 곳 없음), ui/Editor.tsx ToolBtn(안 씀) | 없음 | 완료 |
@@ -28,3 +28,4 @@
 - 2번 범위 수정: template.ts의 ‘테스트만 부르는’ 함수 대부분은 **옛 자료 옮기기 테스트가 옛 파일을 만드는 도구**다(project.test 등). 지우면 옛 자료 보호 테스트가 사라지므로 남긴다. 테스트에서도 안 쓰는 것만 지운다.
 - 2026-10-17 1 완료(-약 600줄, 테스트 포함): 낱장 조합(slotOverrides·backSlotOverrides)·반복 인쇄(totalSlots·sheets)와 core/sheetSlots·template capacityPerSheet·frontBackFilled 삭제. `defaultBack`·`calendarYear`는 세트형 경로의 대체값이고 양면 테스트가 기대므로 남김. 브라우저에서 단면 35쪽/양면 36쪽 PDF 확인.
 - 2026-10-17 2 완료: 어디서도 안 쓰는 것은 notebook NotebookSlotRef 타입 하나뿐(나머지는 옛 자료 옮기기 테스트의 도구). **다음: 6번** — ui/PagePanel.tsx에 `PunchFields({ punch, height, onPatch })`를 만들어 Diaries.tsx의 ‘구멍’ 카드와 PagePanel의 PunchGroup이 같이 쓰게(Diaries는 이미 PagePanel에서 Num·Row를 가져온다). 그다음 7번.
+- 2026-10-17 6 완료: ui/PagePanel `PunchFields` 하나를 Diaries ‘구멍’ 카드와 Page 패널이 같이 쓴다(-33줄). Page 패널에도 위치 미세 조정(접힘)이 생겼다. 두 화면에서 구멍 수 바꾸기 확인. **다음: 7번.**
