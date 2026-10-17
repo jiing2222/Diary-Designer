@@ -52,12 +52,6 @@ export function duplicateNotebookHalf(h: NotebookHalf): NotebookHalf {
 export const DEFAULT_NOTEBOOK_PAGE_COUNT = 8;
 
 /**
- * 노트 안의 반쪽 하나를 가리키는 자리 — 표지 앞/뒤, 또는 내지 몇 번째 쪽.
- * `index`는 0부터(0 = 1쪽).
- */
-export type NotebookSlotRef = { part: 'cover'; side: 'front' | 'back' } | { part: 'page'; index: number };
-
-/**
  * 종이 한 장을 접으면 쪽 4개(앞면 좌우 + 뒷면 좌우)가 나온다 — "장"은
  * 늘 4쪽 단위로만 늘어난다. 사용자가 4의 배수가 아닌 쪽수를 입력하면
  * 다음 4의 배수까지 빈 쪽으로 채운다. 최소 4쪽(한 장)이다.
