@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo } from 'react';
-import { INSERT_PRESETS, PAPER_PRESETS, findPaperPreset } from './core/presets';
+import { INSERT_PRESETS, PAPER_PRESETS, defaultPaperId, findInsertPreset, findPaperPreset } from './core/presets';
 import type { PunchSetting } from './core/punch';
 import type { Align } from './core/layout';
 import { DEFAULT_DOT_GRID, type DotGrid } from './core/grid';
@@ -692,7 +692,8 @@ function withTabs(s: Settings, tabs: Tabs): Partial<Settings> {
   };
 }
 
-const firstPaper = PAPER_PRESETS[0];
+// 처음 용지는 브라우저 언어로 — 미국이면 Letter, 한국이면 A4.
+const firstPaper = findPaperPreset(defaultPaperId(typeof navigator === 'undefined' ? 'en-US' : navigator.language))!;
 
 export const useStore = create<Store>((set, get) => ({
   ready: false,
@@ -822,7 +823,7 @@ export const useStore = create<Store>((set, get) => ({
     let diaryId = s.defaultDiaryId;
     // 다이어리가 하나도 없으면 M6로 하나 만든다 — 온보딩(7단계)이 생기기 전까지의 받침.
     if (!diaryId || !diaries.some((d) => d.id === diaryId)) {
-      const d = diaryFromPreset(newId('d'), 'M6', 'M6 (미니6)', nextDiaryColor([]));
+      const d = diaryFromPreset(newId('d'), 'M6', findInsertPreset('M6')!.name, nextDiaryColor([]));
       diaries = [...diaries, d];
       diaryId = d.id;
     }

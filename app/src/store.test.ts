@@ -864,14 +864,14 @@ describe('계정에서 받은 것 적용하기 (8-2)', () => {
 
 describe('2026-10-13 수정사항', () => {
   it('같은 이름의 다이어리를 또 만들면 (1), (2)…를 붙이고, 이름을 바꿔도 겹치지 않는다', () => {
-    const a = s().addDiary('M6', 'M6 (미니6)');
-    s().addDiary('M6', 'M6 (미니6)');
-    const c = s().addDiary('M6', 'M6 (미니6)');
-    expect(s().diaries.map((d) => d.name)).toEqual(['M6 (미니6)', 'M6 (미니6) (1)', 'M6 (미니6) (2)']);
-    s().patchDiary(c, { name: 'M6 (미니6)' });
-    expect(s().diaries.find((d) => d.id === c)?.name).toBe('M6 (미니6) (2)');
-    s().patchDiary(a, { name: 'M6 (미니6)' });
-    expect(s().diaries.find((d) => d.id === a)?.name).toBe('M6 (미니6)');
+    const a = s().addDiary('M6', 'Pocket (M6)');
+    s().addDiary('M6', 'Pocket (M6)');
+    const c = s().addDiary('M6', 'Pocket (M6)');
+    expect(s().diaries.map((d) => d.name)).toEqual(['Pocket (M6)', 'Pocket (M6) (1)', 'Pocket (M6) (2)']);
+    s().patchDiary(c, { name: 'Pocket (M6)' });
+    expect(s().diaries.find((d) => d.id === c)?.name).toBe('Pocket (M6) (2)');
+    s().patchDiary(a, { name: 'Pocket (M6)' });
+    expect(s().diaries.find((d) => d.id === a)?.name).toBe('Pocket (M6)');
   });
 
   it('폴더를 지워도 작업의 ‘수정한 때’는 그대로', () => {

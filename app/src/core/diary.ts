@@ -56,7 +56,7 @@ export function nextDiaryColor(used: string[]): string {
 }
 
 /**
- * 규격 이름표. 규격에 가까우면 "M6 (미니6) · 80×126", 아니면 "80×126".
+ * 규격 이름표. 규격에 가까우면 "Pocket (M6) · 80×126", 아니면 "80×126".
  * 규격과 정확히 같으면 치수를 덧붙이지 않는다.
  */
 export function diarySizeLabel(d: Pick<Diary, 'width' | 'height'>): string {
@@ -79,7 +79,7 @@ export const DIARY_PRESETS: InsertPreset[] = INSERT_PRESETS.filter((p) => !p.id.
  */
 /**
  * 다이어리 이름이 겹치지 않게 — 이미 있으면 뒤에 ` (1)`, ` (2)`…(2026-10-13 사용자 요청: 같은 M6를 또 만들면
- * ‘M6 (미니6) (1)’). 목록에서 이름으로 구별하므로 같은 이름이 둘이면 어느 것인지 알 수 없다.
+ * ‘Pocket (M6) (1)’). 목록에서 이름으로 구별하므로 같은 이름이 둘이면 어느 것인지 알 수 없다.
  */
 export function uniqueDiaryName(taken: string[], name: string): string {
   const names = new Set(taken);

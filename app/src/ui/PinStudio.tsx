@@ -10,6 +10,7 @@ import { DEFAULT_DOT_GRID, gridArea, gridLattice } from '../core/grid';
 import { starterSet, type StarterTemplate } from '../core/starterSet';
 import type { Diary } from '../core/diary';
 import { PIN_SET, pinText, titleLines } from '../core/pins';
+import { findInsertPreset } from '../core/presets';
 import { fontBytes } from '../fonts/registry';
 import { InsertView } from './InsertView';
 
@@ -124,7 +125,7 @@ function PinSetButton() {
     const now = new Date().toISOString();
     const works = PIN_SET.map((plan) => {
       const s = useStore.getState();
-      const id = s.diaries.find((d) => d.presetId === plan.presetId)?.id ?? s.addDiary(plan.presetId, plan.presetId);
+      const id = s.diaries.find((d) => d.presetId === plan.presetId)?.id ?? s.addDiary(plan.presetId, findInsertPreset(plan.presetId)?.name ?? plan.presetId);
       const diary = useStore.getState().diaries.find((d) => d.id === id)!;
       const byName = new Map(templatesFor(diary).map((t) => [t.name, t]));
       return workOf(plan.board, diary, plan.pages.map((p) => byName.get(p.template)!).filter(Boolean), now);

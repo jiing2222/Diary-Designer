@@ -39,7 +39,7 @@ describe('diarySizeLabel', () => {
   });
 
   it('조금 다르면 규격 이름과 실측', () => {
-    expect(diarySizeLabel({ width: 80, height: 126 })).toBe('M6 (미니6) · 80×126');
+    expect(diarySizeLabel({ width: 80, height: 126 })).toBe('Pocket (M6) · 80×126');
   });
 
   it('어느 규격에도 가깝지 않으면 실측만', () => {

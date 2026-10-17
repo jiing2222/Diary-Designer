@@ -55,7 +55,7 @@ describe('migrateTemplates', () => {
 
   it('다이어리 이름은 규격 이름', () => {
     const { diaries } = migrateTemplates([tpl()], NOW);
-    expect(diaries[0].name).toBe('M6 (미니6)');
+    expect(diaries[0].name).toBe('Pocket (M6)');
     expect(diaries[0].presetId).toBe('M6');
   });
 
