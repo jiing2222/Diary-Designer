@@ -52,6 +52,9 @@ export function keyOfRef(value: string): string | null {
 }
 
 /** 팔레트에서 칸의 지금 색. 없는 칸이면 null. */
+/** 새 포인트 칸의 처음 색 — 편집기·Library·색 말풍선이 같은 색에서 시작한다. */
+export const NEW_POINT_COLOR = '#8ea8c6';
+
 export function colorOfKey(palette: WorkPalette, key: string): string | null {
   if ((BASE_KEYS as readonly string[]).includes(key)) return palette.base[key as BaseKey];
   return palette.points.find((p) => p.key === key)?.color ?? null;

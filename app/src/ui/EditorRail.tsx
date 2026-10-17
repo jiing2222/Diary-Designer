@@ -7,7 +7,7 @@ import { TEXT_SIZE } from '../core/style';
 import { chipPatch, FIELD_CHIPS, tileOf } from '../core/fieldFormat';
 import { AutoFieldTiles, FieldSettings, MoonPanel, type AutoTile } from './AutoFieldPanel';
 import { CalendarPanelControls, CheckboxIconGrid, FieldToggle } from './ObjectControls';
-import { BASE_KEYS, DEFAULT_BASE, colorOfKey, keyLabel, keyOfRef, nextPointKey, refOf } from '../core/colors';
+import { BASE_KEYS, DEFAULT_BASE, NEW_POINT_COLOR, colorOfKey, keyLabel, keyOfRef, nextPointKey, refOf } from '../core/colors';
 import type { RuleKey } from '../core/colorRules';
 import { HOLIDAY_YEARS, holidayCovered, type HolidayRegion } from '../core/holidays';
 import { PopRow } from './Popover';
@@ -228,7 +228,7 @@ function ColorsPanel() {
         palette={palette}
         editing={editing?.key ?? null}
         onPick={(key) => start(key, colorOf(key))}
-        onAdd={() => start(nextPointKey(palette.points), '#8ea8c6')}
+        onAdd={() => start(nextPointKey(palette.points), NEW_POINT_COLOR)}
       />
 
       <ColorRulesSection />

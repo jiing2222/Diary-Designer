@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { type LineObject, type ShapeObject, type TextObject } from '../core/objects';
 import { OBJECT_LINE_COLOR, TEXT_COLOR } from '../core/style';
 import { strokeColorOf } from '../core/shape';
-import { BASE_KEYS, keyLabel, keyOfRef, nextPointKey, refOf, resolveColor, type WorkPalette } from '../core/colors';
+import { BASE_KEYS, NEW_POINT_COLOR, keyLabel, keyOfRef, nextPointKey, refOf, resolveColor, type WorkPalette } from '../core/colors';
 import { usePalette, useStore } from '../store';
 import { t } from '../lang';
 
@@ -71,6 +71,7 @@ export function ColorField({
       {open && palette && (
         <ColorPalettePopover
           palette={palette}
+          current={shown}
           onPick={(c) => {
             onChange(c);
             setOpen(false);
@@ -87,7 +88,7 @@ export function ColorField({
  * 칸의 색 자체를 바꾸는 일은 여기서 하지 않는다 — 레일 맨 아래의 Colors 탭에서 한다
  * (A의 색을 바꾸면 A를 쓰는 객체가 전부 바뀌는 일이라, 고르는 자리와 나눠 둔다).
  */
-function ColorPalettePopover({ palette, onPick }: { palette: WorkPalette; onPick: (value: string) => void }) {
+function ColorPalettePopover({ palette, current, onPick }: { palette: WorkPalette; current: string; onPick: (value: string) => void }) {
   const addPaletteColor = useStore((s) => s.addPaletteColor);
   const [defining, setDefining] = useState<'point' | 'direct' | null>(null);
 
@@ -120,6 +121,7 @@ function ColorPalettePopover({ palette, onPick }: { palette: WorkPalette; onPick
         ))}
         {defining === 'point' ? (
           <ColorDefiner
+            initial={NEW_POINT_COLOR}
             onCommit={(c) => {
               // 새 칸을 만들고 그 칸의 이름표를 바로 붙인다.
               const key = nextPointKey(palette.points);
@@ -136,7 +138,7 @@ function ColorPalettePopover({ palette, onPick }: { palette: WorkPalette; onPick
       </div>
       <div className="color-popover-row">
         {defining === 'direct' ? (
-          <ColorDefiner onCommit={(c) => onPick(c)} />
+          <ColorDefiner initial={current} onCommit={(c) => onPick(c)} />
         ) : (
           <button type="button" className="ghost color-direct" onClick={() => setDefining('direct')}>
             {t('직접 고르기 (팔레트와 연결 안 됨)', 'Custom (not linked to the palette)')}
@@ -147,10 +149,27 @@ function ColorPalettePopover({ palette, onPick }: { palette: WorkPalette; onPick
   );
 }
 
-/** 새 색을 정의하는 칸 — 색상환과 16진 입력칸. 확정되는 즉시 `onCommit`. */
+/**
+ * 새 색을 정의하는 칸 — 색상환과 16진 입력칸.
+ *
+ * `live`면 고르는 동안 계속 `onCommit`(미리보기). 아니면 **색상환을 닫을 때 한 번만** — 색상환은
+ * 움직이는 동안 input 이벤트를 쉬지 않고 보내므로, 첫 이벤트에 확정하면 처음 건드린 색(대개 검정)이
+ * 들어가고 칸이 닫혀 버렸다(2026-10-17 ‘팔레트가 계속 같은 색’).
+ */
 export function ColorDefiner({ onCommit, initial, live = false }: { onCommit: (color: string) => void; initial?: string; live?: boolean }) {
   const [draft, setDraft] = useState(initial ?? '');
   useEffect(() => setDraft(initial ?? ''), [initial]);
+  const wheel = useRef<HTMLInputElement>(null);
+  const commitRef = useRef(onCommit);
+  commitRef.current = onCommit;
+  // 색상환을 닫으면 브라우저가 change를 한 번 보낸다(React의 onChange는 input 이벤트라 따로 듣는다).
+  useEffect(() => {
+    const el = wheel.current;
+    if (!el || live) return;
+    const onClose = () => commitRef.current(el.value.toLowerCase());
+    el.addEventListener('change', onClose);
+    return () => el.removeEventListener('change', onClose);
+  }, [live]);
 
   function commit(raw: string) {
     const normalized = raw.startsWith('#') ? raw : `#${raw}`;
@@ -160,12 +179,14 @@ export function ColorDefiner({ onCommit, initial, live = false }: { onCommit: (c
   return (
     <span className="color-definer">
       <input
+        ref={wheel}
         type="color"
         className="color-swatch-sm"
-        value={initial && HEX_COLOR.test(initial) ? initial : '#000000'}
+        // 고르는 중인 값을 보여준다 — 처음 값에 묶어 두면 움직일 때마다 처음 색으로 되돌아갔다.
+        value={HEX_COLOR.test(draft) ? draft.toLowerCase() : initial && HEX_COLOR.test(initial) ? initial : '#000000'}
         onChange={(e) => {
           setDraft(e.target.value);
-          onCommit(e.target.value);
+          if (live) onCommit(e.target.value);
         }}
         title={t('색상환에서 고르기', 'Pick from the color wheel')}
       />
@@ -178,7 +199,11 @@ export function ColorDefiner({ onCommit, initial, live = false }: { onCommit: (c
           setDraft(e.target.value);
           if (live) commit(e.target.value);
         }}
-        onBlur={(e) => commit(e.target.value)}
+        // 색상환으로 옮겨 가며 떠나는 것은 확정이 아니다. 손대지 않은 처음 값도 확정하지 않는다.
+        onBlur={(e) => {
+          if (e.relatedTarget === wheel.current || e.target.value === (initial ?? '')) return;
+          commit(e.target.value);
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             commit(e.currentTarget.value);

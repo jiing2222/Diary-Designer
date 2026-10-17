@@ -1,4 +1,4 @@
-import { addPoint, defaultWorkPalette, type WorkPalette } from './colors';
+import { NEW_POINT_COLOR, addPoint, defaultWorkPalette, type WorkPalette } from './colors';
 
 /**
  * 저장한 팔레트(리뉴얼 7-4, 세부계획 A13 결정 2026-09-28 · B ‘Library 화면 시안’).
@@ -20,7 +20,7 @@ export function clonePalette(p: WorkPalette): WorkPalette {
 
 /** 새 팔레트 — 기본 5칸(블랙 계열)과 포인트 A 하나. */
 export function newSavedPalette(id: string, name: string): SavedPalette {
-  return { id, name, palette: addPoint(defaultWorkPalette(), '#8ea8c6') };
+  return { id, name, palette: addPoint(defaultWorkPalette(), NEW_POINT_COLOR) };
 }
 
 /**

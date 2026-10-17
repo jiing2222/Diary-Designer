@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
-import { BASE_KEYS, DEFAULT_BASE, addPoint, colorOfKey, keyLabel, nextPointKey, setKeyColor } from '../core/colors';
+import { BASE_KEYS, DEFAULT_BASE, NEW_POINT_COLOR, addPoint, colorOfKey, keyLabel, nextPointKey, setKeyColor } from '../core/colors';
 import type { SavedPalette } from '../core/palettes';
 import { ColorDefiner, PaletteSlots } from './ColorControls';
 import { t } from '../lang';
@@ -111,7 +111,7 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
           onPick={(key) => setEditing(editing === key ? null : key)}
           onAdd={() => {
             const key = nextPointKey(palette.points);
-            patch(saved.id, { palette: addPoint(palette, '#8ea8c6') });
+            patch(saved.id, { palette: addPoint(palette, NEW_POINT_COLOR) });
             setEditing(key);
           }}
         />
