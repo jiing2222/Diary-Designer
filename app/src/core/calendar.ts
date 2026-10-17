@@ -123,11 +123,13 @@ export function letterSpacingOf(o: { letterSpacing?: Mm }): Mm {
  * 달 제목 글자.
  *
  * `title`을 직접 정해뒀으면(빈 문자열 포함) 그 글자 그대로, 아니면
- * 연·월에서 자동으로 만든다("2026년 8월"). 화면(InsertView)과 PDF(export)가
- * 함께 불러야 한쪽만 자동 서식이 바뀌는 사고가 안 난다.
+ * 연·월에서 자동으로 만든다 — 요일 언어를 따라 한글·한자면 "2026년 8월", 영어면 "August 2026".
+ * 화면(InsertView)과 PDF(export)가 함께 불러야 한쪽만 자동 서식이 바뀌는 사고가 안 난다.
  */
-export function titleOf(o: { title?: string }, year: number, page: number): string {
-  return o.title ?? formatDate(calendarTitleAt(year, page), 'YYYY년 M월');
+export function titleOf(o: { title?: string; weekdayLang?: WeekdayLang }, year: number, page: number): string {
+  if (o.title !== undefined) return o.title;
+  const lang = weekdayLangOf(o);
+  return formatDate(calendarTitleAt(year, page), lang === 'en' || lang === 'en-short' ? 'MMMM YYYY' : 'YYYY년 M월');
 }
 
 const WEEKDAY_NAMES: Record<WeekdayLang, string[]> = {

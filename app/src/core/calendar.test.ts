@@ -153,6 +153,10 @@ describe('달 제목', () => {
 
   it('정하지 않았으면 연·월에서 자동으로 만든다', () => {
     expect(titleOf(bare, 2026, 7)).toBe('2026년 8월'); // page는 0부터(7 = 8월)
+    // 요일이 영어면 제목도 영어.
+    expect(titleOf({ ...bare, weekdayLang: 'en' }, 2026, 9)).toBe('October 2026');
+    expect(titleOf({ ...bare, weekdayLang: 'en-short' }, 2027, 0)).toBe('January 2027');
+    expect(titleOf({ ...bare, weekdayLang: 'hanja' }, 2026, 7)).toBe('2026년 8월');
   });
 
   it('정해뒀으면(빈 문자열 아니면) 그 글자 그대로다 — 달이 바뀌어도 안 바뀐다', () => {

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { appLang } from './lang';
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo } from 'react';
 import { INSERT_PRESETS, PAPER_PRESETS, defaultPaperId, findInsertPreset, findPaperPreset } from './core/presets';
@@ -1423,7 +1424,10 @@ export const useStore = create<Store>((set, get) => ({
 
   commitCalendar: (box) =>
     set((s) => {
-      const next: CalendarObject = { id: newId('c'), type: 'calendar', ...box, ...s.calendarDraftStyle };
+      // 요일 언어를 정하지 않았으면 앱 언어로 — 미국 사용자는 영어(제목도 "October 2026"), 개발자 계정은 한글.
+      // 저장된 달력에 넣어 두므로, 기본값을 바꿔도 이미 만든 달력은 그대로다.
+      const weekdayLang = appLang() === 'ko' ? 'kr' : 'en';
+      const next: CalendarObject = { id: newId('c'), type: 'calendar', weekdayLang, ...box, ...s.calendarDraftStyle };
       // 곧바로 고른 상태로 둔다 — 놓자마자 크기부터 다듬는 일이 흔하다.
       return { ...commitObjects(s, [...activeObjects(s), next]), selectedIds: [next.id] };
     }),

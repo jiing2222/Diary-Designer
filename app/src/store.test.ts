@@ -935,3 +935,21 @@ describe('hydrate', () => {
     expect(s().tabs.active).toBe(LIBRARY_TAB);
   });
 });
+
+describe('새 달력의 언어', () => {
+  beforeEach(() => {
+    s().createWork();
+  });
+  const cals = () => (active().items[0] as PageItem).face.objects.filter((o) => o.type === 'calendar');
+
+  it('로그인 안 한(일반) 사용자는 영어 — 제목도 영어로 나온다', () => {
+    s().commitCalendar({ x: 0, y: 0, width: 60, height: 50 });
+    expect(cals()[0]).toMatchObject({ weekdayLang: 'en' });
+  });
+
+  it('달력 도구에서 고른 언어가 있으면 그것을 따른다', () => {
+    s().setCalendarDraftStyle({ weekdayLang: 'hanja' });
+    s().commitCalendar({ x: 0, y: 0, width: 60, height: 50 });
+    expect(cals()[0]).toMatchObject({ weekdayLang: 'hanja' });
+  });
+});
