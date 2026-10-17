@@ -231,3 +231,53 @@ export function MixedColorControls({
     />
   );
 }
+
+/**
+ * 팔레트 칸 두 줄 — 기본 5칸과 POINT A·B·C…, 끝에 ‘+’. 편집기 Colors와 Library → Colors가 같이 쓴다.
+ * 칸을 눌렀을 때 무엇을 할지(미리보기·바로 바꾸기)는 부르는 쪽이 정한다.
+ */
+export function PaletteSlots({
+  palette,
+  editing,
+  onPick,
+  onAdd,
+}: {
+  palette: WorkPalette;
+  editing: string | null;
+  onPick: (key: string) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <>
+      <div className="colors-label">{t('기본', 'Base')}</div>
+      <div className="colors-row">
+        {BASE_KEYS.map((key) => (
+          <button
+            key={key}
+            className={`color-slot ${editing === key ? 'on' : ''}`}
+            style={{ background: palette.base[key] }}
+            title={keyLabel(key, t('기본', 'Base'))}
+            onClick={() => onPick(key)}
+          />
+        ))}
+      </div>
+      <div className="colors-label">POINT</div>
+      <div className="colors-row">
+        {palette.points.map((p) => (
+          <span key={p.key} className="color-point">
+            <button
+              className={`color-slot round ${editing === p.key ? 'on' : ''}`}
+              style={{ background: p.color }}
+              title={t(`포인트 ${p.key}`, `Accent ${p.key}`)}
+              onClick={() => onPick(p.key)}
+            />
+            <span className="color-point-key">{p.key}</span>
+          </span>
+        ))}
+        <button className="color-slot round add" title={t('포인트 색 추가', 'Add accent color')} onClick={onAdd}>
+          +
+        </button>
+      </div>
+    </>
+  );
+}

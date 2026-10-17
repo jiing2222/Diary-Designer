@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { BASE_KEYS, DEFAULT_BASE, addPoint, colorOfKey, keyLabel, nextPointKey, setKeyColor } from '../core/colors';
 import type { SavedPalette } from '../core/palettes';
-import { ColorDefiner } from './ColorControls';
+import { ColorDefiner, PaletteSlots } from './ColorControls';
 import { t } from '../lang';
 
 /**
@@ -105,43 +105,16 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
       </div>
 
       <section className="lib-card">
-        <div className="colors-label">{t('기본', 'Base')}</div>
-        <div className="colors-row">
-          {BASE_KEYS.map((key) => (
-            <button
-              key={key}
-              className={`color-slot ${editing === key ? 'on' : ''}`}
-              style={{ background: palette.base[key] }}
-              title={keyLabel(key, t('기본', 'Base'))}
-              onClick={() => setEditing(editing === key ? null : key)}
-            />
-          ))}
-        </div>
-        <div className="colors-label">POINT</div>
-        <div className="colors-row">
-          {palette.points.map((p) => (
-            <span key={p.key} className="color-point">
-              <button
-                className={`color-slot round ${editing === p.key ? 'on' : ''}`}
-                style={{ background: p.color }}
-                title={t(`포인트 ${p.key}`, `Accent ${p.key}`)}
-                onClick={() => setEditing(editing === p.key ? null : p.key)}
-              />
-              <span className="color-point-key">{p.key}</span>
-            </span>
-          ))}
-          <button
-            className="color-slot round add"
-            title={t('포인트 색 추가', 'Add accent color')}
-            onClick={() => {
-              const key = nextPointKey(palette.points);
-              patch(saved.id, { palette: addPoint(palette, '#8ea8c6') });
-              setEditing(key);
-            }}
-          >
-            +
-          </button>
-        </div>
+        <PaletteSlots
+          palette={palette}
+          editing={editing}
+          onPick={(key) => setEditing(editing === key ? null : key)}
+          onAdd={() => {
+            const key = nextPointKey(palette.points);
+            patch(saved.id, { palette: addPoint(palette, '#8ea8c6') });
+            setEditing(key);
+          }}
+        />
       </section>
 
       {editing && colorOfKey(palette, editing) !== null && (

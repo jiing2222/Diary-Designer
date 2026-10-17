@@ -16,7 +16,7 @@
 | 4 | delete | storage/autosave.ts — 어디서도 import하지 않는다(v2 이전 자동저장) | 없음 | 완료 |
 | 5 | delete | ui/icons.tsx의 안 쓰는 아이콘 10개(TemplateIcon·GridIcon·PunchIcon·CursorIcon·EyeIcon·EyeOffIcon·RepeatIcon·MenuIcon·DownloadIcon·ChevronIcon) | 없음 | 완료 |
 | 6 | reuse | 구멍 설정 줄(구멍 수·배치·묶음 간격·안전영역·구멍 지름)이 ui/Diaries.tsx와 ui/PagePanel.tsx에 두 벌 | 한 컴포넌트 | 완료 |
-| 7 | reuse | 팔레트 칸 편집(포인트 추가·기본값 되돌리기)이 ui/EditorRail.tsx와 ui/LibraryColors.tsx에 두 벌 | 한 컴포넌트 | 남음 |
+| 7 | reuse | 팔레트 칸 편집(포인트 추가·기본값 되돌리기)이 ui/EditorRail.tsx와 ui/LibraryColors.tsx에 두 벌 | 한 컴포넌트 | 완료 |
 | 8 | delete | core/presets.ts의 SIZE_FAMILIES·familyOf·SizeFamily — import하는 곳 없음 | 없음 | 완료 |
 | 9 | delete | ui/PaperPreview.tsx의 calendarYear 속성(넘기는 곳 없음), ui/Editor.tsx ToolBtn(안 씀) | 없음 | 완료 |
 | 10 | delete | 안 쓰는 상수·타입: style TEXT_SNAP_COLOR·IMAGE_SNAP_COLOR, moon MOON_PHASE_NAMES, objects ImageStyle, format resolvePageObjects(테스트만) | 없음 | 완료 |
@@ -29,3 +29,5 @@
 - 2026-10-17 1 완료(-약 600줄, 테스트 포함): 낱장 조합(slotOverrides·backSlotOverrides)·반복 인쇄(totalSlots·sheets)와 core/sheetSlots·template capacityPerSheet·frontBackFilled 삭제. `defaultBack`·`calendarYear`는 세트형 경로의 대체값이고 양면 테스트가 기대므로 남김. 브라우저에서 단면 35쪽/양면 36쪽 PDF 확인.
 - 2026-10-17 2 완료: 어디서도 안 쓰는 것은 notebook NotebookSlotRef 타입 하나뿐(나머지는 옛 자료 옮기기 테스트의 도구). **다음: 6번** — ui/PagePanel.tsx에 `PunchFields({ punch, height, onPatch })`를 만들어 Diaries.tsx의 ‘구멍’ 카드와 PagePanel의 PunchGroup이 같이 쓰게(Diaries는 이미 PagePanel에서 Num·Row를 가져온다). 그다음 7번.
 - 2026-10-17 6 완료: ui/PagePanel `PunchFields` 하나를 Diaries ‘구멍’ 카드와 Page 패널이 같이 쓴다(-33줄). Page 패널에도 위치 미세 조정(접힘)이 생겼다. 두 화면에서 구멍 수 바꾸기 확인. **다음: 7번.**
+- 2026-10-17 7 완료: ui/ColorControls `PaletteSlots`(기본 5칸·POINT·+)를 편집기 Colors와 Library → Colors가 같이 쓴다. 편집기가 손으로 다시 만들던 칸 색 찾기는 core `colorOfKey`로. 두 화면에서 칸 고르기·추가 확인.
+- **전부 끝.** 다음 단계: 실서버 배포 + 비밀번호 찾기·이메일 인증.

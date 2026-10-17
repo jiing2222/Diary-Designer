@@ -16,7 +16,7 @@ import { todayFrom } from '../core/dated';
 import { PagePanel } from './PagePanel';
 import { PeriodPanel } from './PeriodPanel';
 import { ImageCategoryBody } from './Editor';
-import { ColorDefiner } from './ColorControls';
+import { ColorDefiner, PaletteSlots } from './ColorControls';
 import {
   BracesIcon,
   CheckboxIcon,
@@ -218,51 +218,18 @@ function ColorsPanel() {
   }, [editing, finishPalettePreview]);
 
   if (!work || !palette) return null;
-  const colorOf = (key: string) =>
-    (BASE_KEYS as readonly string[]).includes(key)
-      ? palette.base[key as (typeof BASE_KEYS)[number]]
-      : (palette.points.find((p) => p.key === key)?.color ?? '#000000');
+  const colorOf = (key: string) => colorOfKey(palette, key) ?? '#000000';
 
   const usage = editing ? colorRefUsage(work, refOf(editing.key), todayFrom(today)) : null;
 
   return (
     <div className="colors-panel" ref={boxRef}>
-      <div className="colors-label">{t('기본', 'Base')}</div>
-      <div className="colors-row">
-        {BASE_KEYS.map((key) => (
-          <button
-            key={key}
-            className={`color-slot ${editing?.key === key ? 'on' : ''}`}
-            style={{ background: palette.base[key] }}
-            title={keyLabel(key, t('기본', 'Base'))}
-            onClick={() => start(key, palette.base[key])}
-          />
-        ))}
-      </div>
-      <div className="colors-label">POINT</div>
-      <div className="colors-row">
-        {palette.points.map((p) => (
-          <span key={p.key} className="color-point">
-            <button
-              className={`color-slot round ${editing?.key === p.key ? 'on' : ''}`}
-              style={{ background: p.color }}
-              title={t(`포인트 ${p.key}`, `Accent ${p.key}`)}
-              onClick={() => start(p.key, p.color)}
-            />
-            <span className="color-point-key">{p.key}</span>
-          </span>
-        ))}
-        <button
-          className="color-slot round add"
-          title={t('포인트 색 추가', 'Add accent color')}
-          onClick={() => {
-            const next = nextPointKey(palette.points);
-            start(next, '#8ea8c6');
-          }}
-        >
-          +
-        </button>
-      </div>
+      <PaletteSlots
+        palette={palette}
+        editing={editing?.key ?? null}
+        onPick={(key) => start(key, colorOf(key))}
+        onAdd={() => start(nextPointKey(palette.points), '#8ea8c6')}
+      />
 
       <ColorRulesSection />
       <SavedPalettesSection
