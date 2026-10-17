@@ -81,6 +81,7 @@ import {
 import { diaryFromPreset, nextDiaryColor, resizeDiary, uniqueDiaryName, type Diary } from './core/diary';
 import { addPoint, colorOfKey, mapColors, refOf, setKeyColor, type WorkPalette } from './core/colors';
 import { mapRuleColors, type ColorRules, type RuleKey } from './core/colorRules';
+import type { HolidayRegion } from './core/holidays';
 import {
   DEFAULT_PROJECT_VIEW,
   isTrashed,
@@ -353,6 +354,7 @@ interface Store extends Settings {
   setColorRule: (key: RuleKey, color: string | undefined) => void;
   /** 달력 머리글(일·토 요일 이름)에도 규칙 색을 칠할지(2026-10-13). */
   setRuleHeaders: (on: boolean) => void;
+  setHolidayRegion: (region: HolidayRegion) => void;
 
   /* ── 편집 ── */
   setTool: (t: Tool) => void;
@@ -830,7 +832,11 @@ export const useStore = create<Store>((set, get) => ({
       diaryId = d.id;
     }
     const now = new Date().toISOString();
-    const work = newWork({ name: uniqueWorkName(s.works, name?.trim() || t('새 작업', 'New work')), diaryId, now });
+    const work = {
+      ...newWork({ name: uniqueWorkName(s.works, name?.trim() || t('새 작업', 'New work')), diaryId, now }),
+      // 공휴일은 앱 언어의 나라로 시작한다 — 미국 사용자는 미국, 개발자 계정은 한국.
+      colorRules: { holidays: appLang() === 'ko' ? ('kr' as const) : ('us' as const) },
+    };
     const result = openTab(s.tabs, work.id);
     set({
       works: [...s.works, work],
@@ -1273,6 +1279,9 @@ export const useStore = create<Store>((set, get) => ({
         return { colorRules: next };
       }),
     ),
+
+  setHolidayRegion: (region) =>
+    set((s) => patchActiveWork(s, (w) => ({ colorRules: { ...w.colorRules, holidays: region } }))),
 
   setRuleHeaders: (on) =>
     set((s) =>

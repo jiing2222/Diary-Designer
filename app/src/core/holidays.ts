@@ -39,11 +39,45 @@ const SETS = new Map(Object.entries(HOLIDAYS).map(([y, days]) => [Number(y), new
 /** 목록이 있는 해들(오름차순). */
 export const HOLIDAY_YEARS: number[] = [...SETS.keys()].sort((a, b) => a - b);
 
-export function holidayCovered(year: number): boolean {
-  return SETS.has(year);
+/** 어느 나라 공휴일인가. 저장된 작업에 없으면 한국(미국 출시 전에 만든 작업). */
+export type HolidayRegion = 'kr' | 'us';
+
+/** 이 해의 공휴일 목록이 있는가. 미국은 규칙으로 계산하므로 언제나 있다. */
+export function holidayCovered(year: number, region: HolidayRegion = 'kr'): boolean {
+  return region === 'us' || SETS.has(year);
 }
 
-export function isHoliday(d: CalendarDate): boolean {
+export function isHoliday(d: CalendarDate, region: HolidayRegion = 'kr'): boolean {
   const pad = (n: number) => String(n).padStart(2, '0');
-  return SETS.get(d.year)?.has(`${pad(d.month)}-${pad(d.day)}`) ?? false;
+  const key = `${pad(d.month)}-${pad(d.day)}`;
+  return region === 'us' ? usHolidays(d.year).has(key) : (SETS.get(d.year)?.has(key) ?? false);
+}
+
+/**
+ * 미국 연방 공휴일 11개 — 날짜가 고정이거나 ‘몇째 무슨 요일’이라 해마다 계산한다(목록을 갱신할 필요가 없다).
+ * 주말에 겹칠 때 옮겨 쉬는 날(observed)은 넣지 않는다 — 다이어리에는 그 날짜 자체를 칠하는 것이 보통이다.
+ */
+function usHolidays(year: number): Set<string> {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const dow = (m: number, d: number) => new Date(Date.UTC(year, m - 1, d)).getUTCDay();
+  // m월의 n번째 w요일(n = -1이면 마지막).
+  const nth = (m: number, w: number, n: number) => {
+    if (n > 0) return 1 + ((w - dow(m, 1) + 7) % 7) + (n - 1) * 7;
+    const last = new Date(Date.UTC(year, m, 0)).getUTCDate();
+    return last - ((dow(m, last) - w + 7) % 7);
+  };
+  const days: [number, number][] = [
+    [1, 1], // New Year's Day
+    [1, nth(1, 1, 3)], // Martin Luther King Jr. Day — 1월 셋째 월요일
+    [2, nth(2, 1, 3)], // Presidents' Day — 2월 셋째 월요일
+    [5, nth(5, 1, -1)], // Memorial Day — 5월 마지막 월요일
+    [6, 19], // Juneteenth
+    [7, 4], // Independence Day
+    [9, nth(9, 1, 1)], // Labor Day — 9월 첫째 월요일
+    [10, nth(10, 1, 2)], // Columbus Day — 10월 둘째 월요일
+    [11, 11], // Veterans Day
+    [11, nth(11, 4, 4)], // Thanksgiving — 11월 넷째 목요일
+    [12, 25], // Christmas
+  ];
+  return new Set(days.map(([m, d]) => `${pad(m)}-${pad(d)}`));
 }

@@ -9,7 +9,7 @@ import { AutoFieldTiles, FieldSettings, MoonPanel, type AutoTile } from './AutoF
 import { CalendarPanelControls, CheckboxIconGrid, FieldToggle } from './ObjectControls';
 import { BASE_KEYS, DEFAULT_BASE, colorOfKey, keyLabel, keyOfRef, nextPointKey, refOf } from '../core/colors';
 import type { RuleKey } from '../core/colorRules';
-import { HOLIDAY_YEARS, holidayCovered } from '../core/holidays';
+import { HOLIDAY_YEARS, holidayCovered, type HolidayRegion } from '../core/holidays';
 import { PopRow } from './Popover';
 import { colorRefUsage } from '../core/work';
 import { todayFrom } from '../core/dated';
@@ -408,6 +408,7 @@ function ColorRulesSection() {
   const work = useActiveWork();
   const setColorRule = useStore((s) => s.setColorRule);
   const setRuleHeaders = useStore((s) => s.setRuleHeaders);
+  const setHolidayRegion = useStore((s) => s.setHolidayRegion);
   const faces = useFaces();
   if (!work) return null;
   const palette = work.palette;
@@ -420,7 +421,8 @@ function ColorRulesSection() {
   // 이 작업의 날짜 중 공휴일 목록이 없는 해 — 그 해에는 공휴일 색이 들지 않는다고 알린다.
   const years = new Set<number>();
   for (const f of faces) for (const d of f.period?.dates ?? []) if (d) years.add(d.year);
-  const uncovered = [...years].filter((y) => !holidayCovered(y)).sort();
+  const region = work.colorRules?.holidays ?? 'kr';
+  const uncovered = [...years].filter((y) => !holidayCovered(y, region)).sort();
 
   return (
     <div className="color-rules">
@@ -443,6 +445,12 @@ function ColorRulesSection() {
           </PopRow>
         );
       })}
+      <PopRow label={t('공휴일 기준', 'Holidays from')}>
+        <select value={region} onChange={(e) => setHolidayRegion(e.target.value as HolidayRegion)}>
+          <option value="us">{t('미국', 'United States')}</option>
+          <option value="kr">{t('한국', 'South Korea')}</option>
+        </select>
+      </PopRow>
       {/* 달력 맨 위 줄의 일·토 글자에도 칠할지 — 사용자가 고른다(2026-10-13). */}
       <label className="field-toggle">
         <input

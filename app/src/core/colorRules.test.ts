@@ -5,6 +5,32 @@ import { defaultWorkPalette } from './colors';
 
 const rules = { sunday: '@B', saturday: '@A', holiday: '@C' };
 
+describe('미국 공휴일(규칙으로 계산)', () => {
+  const us = (year: number, month: number, day: number) => isHoliday({ year, month, day }, 'us');
+  it('요일로 정해지는 날 — 2026년', () => {
+    expect([us(2026, 1, 19), us(2026, 2, 16), us(2026, 5, 25), us(2026, 9, 7), us(2026, 10, 12), us(2026, 11, 26)]).toEqual([
+      true, true, true, true, true, true,
+    ]);
+  });
+  it('해가 바뀌면 같이 움직인다 — 2027년 메모리얼(5/31)·추수감사절(11/25)', () => {
+    expect([us(2027, 5, 31), us(2027, 11, 25), us(2027, 11, 26)]).toEqual([true, true, false]);
+  });
+  it('날짜가 고정인 날, 그리고 한국 공휴일은 아니다', () => {
+    expect([us(2030, 1, 1), us(2030, 6, 19), us(2030, 7, 4), us(2030, 11, 11), us(2030, 12, 25)]).toEqual([true, true, true, true, true]);
+    expect(us(2026, 10, 3)).toBe(false); // 개천절
+    expect(holidayCovered(2099, 'us')).toBe(true);
+  });
+  it('그리기 전에 색을 바꿔도 나라는 남는다', () => {
+    expect(resolveRuleColors({ holiday: '@A', holidays: 'us' }, defaultWorkPalette())?.holidays).toBe('us');
+  });
+    it('규칙의 나라를 따른다 — 없으면 한국', () => {
+    const rules = { holiday: '#f00' };
+    expect(dateColorOf({ year: 2026, month: 10, day: 3 }, rules)).toBe('#f00');
+    expect(dateColorOf({ year: 2026, month: 10, day: 3 }, { ...rules, holidays: 'us' })).toBeUndefined();
+    expect(dateColorOf({ year: 2026, month: 11, day: 26 }, { ...rules, holidays: 'us' })).toBe('#f00');
+  });
+});
+
 describe('공휴일', () => {
   it('2026·2027 목록 — 대체공휴일 포함', () => {
     expect(HOLIDAY_YEARS).toEqual([2026, 2027]);

@@ -925,17 +925,18 @@ describe('색 규칙', () => {
   });
 
   it('규칙을 켜고 끈다', () => {
+    // 새 작업에는 공휴일 나라가 미리 들어 있다(일반 사용자는 미국).
     s().setColorRule('sunday', '@A');
-    expect(active().colorRules).toEqual({ sunday: '@A' });
+    expect(active().colorRules).toEqual({ holidays: 'us', sunday: '@A' });
     s().setColorRule('sunday', undefined);
-    expect(active().colorRules).toEqual({});
+    expect(active().colorRules).toEqual({ holidays: 'us' });
   });
 
   it('규칙이 쓰던 포인트를 지우면 규칙도 지금 색으로 고정', () => {
     s().addPaletteColor('#8ea8c6');
     s().setColorRule('holiday', '@A');
     s().removePaletteColor('A', '#8ea8c6');
-    expect(active().colorRules).toEqual({ holiday: '#8ea8c6' });
+    expect(active().colorRules).toEqual({ holidays: 'us', holiday: '#8ea8c6' });
   });
 });
 
@@ -971,5 +972,14 @@ describe('새 달력의 언어', () => {
     s().setCalendarDraftStyle({ weekdayLang: 'hanja' });
     s().commitCalendar({ x: 0, y: 0, width: 60, height: 50 });
     expect(cals()[0]).toMatchObject({ weekdayLang: 'hanja' });
+  });
+});
+
+describe('새 작업의 공휴일 나라', () => {
+  it('일반 사용자는 미국으로 시작하고, 바꿀 수 있다', () => {
+    s().createWork();
+    expect(active().colorRules?.holidays).toBe('us');
+    s().setHolidayRegion('kr');
+    expect(active().colorRules?.holidays).toBe('kr');
   });
 });

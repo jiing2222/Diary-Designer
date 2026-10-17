@@ -1,6 +1,6 @@
 import { dayOfWeek, type CalendarDate } from './dataset';
 import { fieldKindOf, type FieldSpec } from './fieldFormat';
-import { isHoliday } from './holidays';
+import { isHoliday, type HolidayRegion } from './holidays';
 import { colorOfKey, keyOfRef, type WorkPalette } from './colors';
 
 /**
@@ -19,6 +19,8 @@ export interface ColorRules {
   holiday?: string;
   /** 달력 머리글(일·토 요일 이름)은 칠하지 않는다 — 사용자가 고른다(2026-10-13). 없으면 칠한다. */
   plainHeaders?: boolean;
+  /** 어느 나라 공휴일을 칠할지. 없으면 한국(미국 출시 전에 만든 작업). 새 작업은 앱 언어로 정한다. */
+  holidays?: HolidayRegion;
 }
 
 export type RuleKey = 'sunday' | 'saturday' | 'holiday';
@@ -28,7 +30,7 @@ export const RULE_KEYS: RuleKey[] = ['sunday', 'saturday', 'holiday'];
 /** 이 날짜에 규칙이 정한 색. 해당 없으면 undefined. */
 export function dateColorOf(d: CalendarDate, rules: ColorRules | undefined): string | undefined {
   if (!rules) return undefined;
-  if (rules.holiday && isHoliday(d)) return rules.holiday;
+  if (rules.holiday && isHoliday(d, rules.holidays)) return rules.holiday;
   const w = dayOfWeek(d);
   if (w === 0 && rules.sunday) return rules.sunday;
   if (w === 6 && rules.saturday) return rules.saturday;
@@ -66,6 +68,8 @@ export function mapRuleColors(rules: ColorRules | undefined, map: (v: string) =>
     if (v !== undefined) out[key] = map(v);
   }
   if (rules.plainHeaders) out.plainHeaders = true;
+  // 색이 아닌 설정은 그대로 — 빠뜨리면 그릴 때(resolveRuleColors) 나라가 사라져 한국 공휴일로 칠해진다.
+  if (rules.holidays) out.holidays = rules.holidays;
   return out;
 }
 
