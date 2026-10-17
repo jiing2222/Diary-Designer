@@ -1908,24 +1908,6 @@ export function ZoomStepper({
   );
 }
 
-export function ToolBtn({
-  on,
-  onClick,
-  title,
-  children,
-}: {
-  on: boolean;
-  onClick: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button className={`tool-btn ${on ? 'on' : ''}`} onClick={onClick} title={title}>
-      {children}
-    </button>
-  );
-}
-
 /* ────────────────────────── 리뉴얼: 여러 페이지 편집 ────────────────────────── */
 
 /** 보일 면의 객체 — 팔레트 이름표를 실제 색으로 푼다(core/colors). 같은 면·같은 팔레트면 같은 참조. */

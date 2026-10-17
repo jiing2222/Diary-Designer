@@ -278,18 +278,3 @@ export function toTemplates(p: SavedProject): Template[] {
     };
   });
 }
-
-/**
- * 다시 등록해야 하는 글꼴 이름들.
- *
- * 파일에 이름만 담기 때문에, 열고 나면 그 글꼴을 쓰던 글자는 기본 글꼴로 보인다.
- * 무엇이 빠졌는지 알려줘야 사용자가 같은 파일을 다시 찾아올 수 있다.
- */
-export function missingFonts(p: SavedProject, have: (id: string) => boolean): string[] {
-  return (p.fonts ?? []).filter((f) => !have(f.id)).map((f) => f.name);
-}
-
-/** 다시 등록해야 하는 이미지 이름들. missingFonts와 같은 이유다. */
-export function missingImages(p: SavedProject, have: (id: string) => boolean): string[] {
-  return (p.images ?? []).filter((i) => !have(i.id)).map((i) => i.name);
-}

@@ -81,35 +81,6 @@ export const INSERT_PRESETS: InsertPreset[] = [
 
 /* ────────────────────────── 규격 계열 ────────────────────────── */
 
-/**
- * 규격을 몇 갈래로 묶은 것.
- *
- * 프리셋이 여덟 개나 되어 한 줄로 늘어놓으면 고르기 어렵다. 실제로 쓰는
- * 사람은 "내 바인더가 M6냐 A5냐"부터 정하므로, 그 갈래를 먼저 고르게 한다.
- * 양식 갤러리의 왼쪽 줄과 새 양식 만들기 창이 **같은 갈래**를 쓴다 — 두
- * 군데가 서로 다르게 묶으면 같은 규격을 찾는 길이 화면마다 달라진다.
- */
-export type SizeFamilyId = 'custom' | 'a5a6' | 'm6m5' | 'etc';
-
-export interface SizeFamily {
-  id: SizeFamilyId;
-  label: string;
-  /** 이 갈래에 드는 프리셋. `custom`은 비어 있다 — 프리셋에 없는 크기를 뜻한다. */
-  presetIds: string[];
-}
-
-export const SIZE_FAMILIES: SizeFamily[] = [
-  { id: 'custom', label: '사용자 지정', presetIds: [] },
-  { id: 'a5a6', label: 'A5/A6', presetIds: ['A5', 'TA6', 'DA6'] },
-  { id: 'm6m5', label: 'Pocket/Mini', presetIds: ['M6', 'M5'] },
-  { id: 'etc', label: 'ETC', presetIds: ['M6TRI', 'M5TRI', 'DA9'] },
-];
-
-/** 이 프리셋이 어느 갈래인지. 프리셋에 없는 id면 `custom`. */
-export function familyOf(presetId: string): SizeFamilyId {
-  return SIZE_FAMILIES.find((f) => f.presetIds.includes(presetId))?.id ?? 'custom';
-}
-
 export function findInsertPreset(id: string): InsertPreset | undefined {
   return INSERT_PRESETS.find((p) => p.id === id);
 }

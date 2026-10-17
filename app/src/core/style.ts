@@ -57,23 +57,6 @@ export const SCREEN_GRID_COLOR = '#c9c9c9';
 export const SNAP_DOT_SIZE: Mm = 1.6;
 export const SNAP_COLOR = '#2f6f4f';
 /**
- * 글자 도구의 파랑.
- *
- * 그리기 도구의 초록(SNAP_COLOR)과 짝이다. 값 자체는 styles.css의
- * `.text-hover`·`.text-drag`·`.editing-box`에 그대로 옮겨 적었다 — 선택 표시
- * (`.picked`·`.marquee`)가 이미 그렇게 하고 있어서 같은 방식을 따랐다.
- */
-export const TEXT_SNAP_COLOR = '#3568c9';
-/**
- * 이미지 도구의 보라.
- *
- * 초록(그리기)·파랑(글자)과 겹치지 않는 세 번째 색이다 — 이미지 상자를
- * 만들거나 고를 때 다른 도구와 헷갈리지 않게 한다. 값 자체는 styles.css의
- * `.image-drag`·`.image-picked`에 그대로 옮겨 적었다.
- */
-export const IMAGE_SNAP_COLOR = '#8654c9';
-
-/**
  * 사용자가 그은 선의 기본값.
  *
  * 도트와 색이 비슷해도 선은 이어져 있어서 훨씬 또렷하게 읽힌다.

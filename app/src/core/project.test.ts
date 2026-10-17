@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { missingFonts, readProject, toProject, toTemplates, PROJECT_VERSION } from './project';
+import { readProject, toProject, toTemplates, PROJECT_VERSION } from './project';
 import { insertFromPreset, newBack, newTemplate } from './template';
 import { commit } from './history';
 import type { DiaryObject, TextObject } from './objects';
@@ -469,21 +469,5 @@ describe('저장했다 다시 열기', () => {
     const frontId = restored[0].objects.present[0].id;
     const overrideId = restored[0].pageOverrides![0][0].id;
     expect(frontId).not.toBe(overrideId);
-  });
-});
-
-describe('다시 등록해야 하는 글꼴', () => {
-  const p = toProject({
-    templates: [sample([withFont])],
-    print,
-    fonts: [{ id: 'f1', name: '내글꼴' }],
-  });
-
-  it('파일이 없으면 이름을 알려준다', () => {
-    expect(missingFonts(p, () => false)).toEqual(['내글꼴']);
-  });
-
-  it('이미 들고 있으면 알리지 않는다', () => {
-    expect(missingFonts(p, () => true)).toEqual([]);
   });
 });

@@ -54,41 +54,6 @@ export function InsertIcon() {
   );
 }
 
-/** 양식 — 크기가 다른 네 칸. 클로드 디자인의 Template 아이콘과 같은 모양. */
-export function TemplateIcon() {
-  return (
-    <svg {...box24}>
-      <rect x={4} y={4} width={7} height={9} rx={1} />
-      <rect x={13} y={4} width={7} height={6} rx={1} />
-      <rect x={13} y={12} width={7} height={8} rx={1} />
-      <rect x={4} y={15} width={7} height={5} rx={1} />
-    </svg>
-  );
-}
-
-/** 도트 격자 — 3 × 3 점 */
-export function GridIcon() {
-  return (
-    <svg {...box} fill="currentColor" stroke="none">
-      {[5, 10, 15].map((y) =>
-        [5, 10, 15].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r={1.25} />),
-      )}
-    </svg>
-  );
-}
-
-/** 타공 — 구멍 세 개와 그 오른쪽의 안전영역 경계 */
-export function PunchIcon() {
-  return (
-    <svg {...box}>
-      <circle cx={6.5} cy={5} r={1.9} />
-      <circle cx={6.5} cy={10} r={1.9} />
-      <circle cx={6.5} cy={15} r={1.9} />
-      <line x1={12.5} y1={2.5} x2={12.5} y2={17.5} strokeDasharray="2 1.6" opacity={0.65} />
-    </svg>
-  );
-}
-
 /** 배치 — 용지에 속지 네 장, 모서리에 재단 표시 */
 export function LayoutIcon() {
   return (
@@ -107,15 +72,6 @@ export function TextIcon() {
     <svg {...box24}>
       <line x1={5} y1={6} x2={19} y2={6} />
       <line x1={12} y1={6} x2={12} y2={19} />
-    </svg>
-  );
-}
-
-/** 고르기 — 화살표 커서. 클로드 디자인 handoff와 같은 모양. */
-export function CursorIcon() {
-  return (
-    <svg {...box24}>
-      <path d="M5 4l14 6-6 1.8L11 18z" />
     </svg>
   );
 }
@@ -185,48 +141,6 @@ export function DotsIcon() {
   );
 }
 
-/** 보임 — 뜬 눈. 포토샵 등에서 화면 표시를 켜고 끄는 눈알 표시와 같은 뜻이다. */
-export function EyeIcon() {
-  return (
-    <svg {...box24}>
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
-      <circle cx={12} cy={12} r={2.6} />
-    </svg>
-  );
-}
-
-/** 숨김 — 감은 눈(빗금 친 눈). EyeIcon과 짝이다. */
-export function EyeOffIcon() {
-  return (
-    <svg {...box24}>
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
-      <circle cx={12} cy={12} r={2.6} />
-      <line x1={4} y1={4} x2={20} y2={20} />
-    </svg>
-  );
-}
-
-/** 반복 — 겹쳐 쌓인 종이 두 장. 여러 장 찍는다는 뜻이다. 다른 아이콘처럼 선으로만 그린다. */
-export function RepeatIcon() {
-  return (
-    <svg {...box}>
-      <rect x={6.5} y={2.5} width={10} height={13} rx={1} opacity={0.55} />
-      <rect x={3.5} y={5.5} width={10} height={13} rx={1} />
-    </svg>
-  );
-}
-
-/** 메뉴(햄버거) — 가로줄 세 개. 숨겨둔 탭 목록을 연다. */
-export function MenuIcon() {
-  return (
-    <svg {...box}>
-      <line x1={3} y1={6} x2={17} y2={6} />
-      <line x1={3} y1={10} x2={17} y2={10} />
-      <line x1={3} y1={14} x2={17} y2={14} />
-    </svg>
-  );
-}
-
 /** 로고 — 반지 두 개가 겹친 모양. 강조색·잉크색 고리 하나씩, 색은 고정이라 currentColor를 안 쓴다. */
 /** 토성 — 버터색 행성에 기울어진 링 하나(리뉴얼, design/리뉴얼/디자인.md). */
 export function RingsLogo() {
@@ -242,30 +156,6 @@ export function RingsLogo() {
         strokeWidth={1.4}
         transform="rotate(-18 20 21)"
       />
-    </svg>
-  );
-}
-
-/** 내려받기 — 아래로 향한 화살표와 받침선. 클로드 디자인의 PDF Export 아이콘과 같은 모양. */
-export function DownloadIcon() {
-  return (
-    <svg {...box24} strokeWidth={2}>
-      <path d="M12 3v13" />
-      <path d="M6.5 11.5L12 17l5.5-5.5" />
-      <path d="M5 21h14" />
-    </svg>
-  );
-}
-
-/**
- * 오른쪽을 가리키는 화살촉. 패널을 접었다 펴는 동그란 단추 안에 들어간다 —
- * 어느 쪽을 가리킬지는 CSS의 `transform: rotate(180deg)`이 정한다(디자인의
- * `leftPanelArrowTransform`과 같은 방식).
- */
-export function ChevronIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 6l6 6-6 6" />
     </svg>
   );
 }

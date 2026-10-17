@@ -506,8 +506,6 @@ export type CalendarStyle = Partial<
     | 'title'
   >
 >;
-/** 이미지마다 따로 정할 수 있는 것들. */
-export type ImageStyle = Partial<Pick<ImageObject, 'rotate'>>;
 /** 도형마다 따로 정할 수 있는 것들. */
 export type ShapeStyle = Partial<
   Pick<ShapeObject, 'roundness' | 'strokeWidth' | 'color' | 'dash' | 'fillColor' | 'fillOpacity'>

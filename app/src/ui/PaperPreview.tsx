@@ -18,9 +18,7 @@ export interface PreviewSlotContent {
   insert: InsertSetting;
   dotGrid: DotGrid;
   objects: DiaryObject[];
-  /** 세트형·월간 달력일 때만 쓴다. 이 칸이 가리키는 쪽(달, 0부터). */
-  calendarPage?: number;
-  /** 리뉴얼 Print — 이 칸의 달력이 그릴 연도·달(0부터)과 색 규칙(실제 색). 있으면 `calendarPage`보다 먼저. */
+  /** 이 칸의 달력이 그릴 연도·달(0부터)과 색 규칙(실제 색). */
   calendar?: { year: number; page: number; rules?: ColorRules };
   /** Print ‘모든 장’에서 출력할 페이지로 고른 칸 — 화면에만 보이는 표시(인쇄되지 않는다). */
   selected?: boolean;
@@ -64,8 +62,6 @@ interface Props {
    * 않으므로 호출하는 쪽이 core/layout의 mirrorLayout으로 미리 뒤집어 넘긴다.
    */
   mirror?: boolean;
-  /** 월간 달력 데이터셋의 연도. `slotOverrides`의 `calendarPage`와 함께 쓴다. */
-  calendarYear?: number;
   /**
    * 인쇄하기에서 칸을 직접 손보는 기능(24단계)용. 주면 칸마다 클릭할 수 있게
    * 되고, 클릭하면 그 칸 번호와 **지금 실제로 그려지는 내용**(slotOverrides로
@@ -94,7 +90,6 @@ export function PaperPreview({
   slotOverrides,
   mode = 'edit',
   mirror = false,
-  calendarYear,
   onSlotClick,
 }: Props) {
   const { width: pw, height: ph } = paper;
@@ -174,12 +169,7 @@ export function PaperPreview({
                 safeZoneWidth={punch.safeZoneWidth}
                 mode={mode}
                 mirror={mirror}
-                calendarContext={
-                  content.calendar ??
-                  (content.calendarPage !== undefined && calendarYear !== undefined
-                    ? { year: calendarYear, page: content.calendarPage }
-                    : undefined)
-                }
+                calendarContext={content.calendar}
               />
 
               {content.punch && (

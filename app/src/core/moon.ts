@@ -15,8 +15,6 @@ import type { Mm } from './units';
 /** 0 삭 · 1 초승달 · 2 상현달 · 3 차가는 달 · 4 보름달 · 5 기우는 달 · 6 하현달 · 7 그믐달 */
 export type MoonPhase = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
-export const MOON_PHASE_NAMES = ['삭', '초승달', '상현달', '차가는 달', '보름달', '기우는 달', '하현달', '그믐달'] as const;
-
 /** 삭망월(평균) — 일. */
 const SYNODIC_MONTH = 29.530588853;
 /** 기준 삭: 2000-01-06 18:14 UTC. */
