@@ -31,11 +31,11 @@ export function Onboarding() {
             <li>
               속지 한 장을 꺼내 <b>가로·세로</b>를 자로 재요(mm, 0.5mm까지).
             </li>
-            <li>구멍 수를 세요 — 6개면 A5·M6·TA6·DA6, 5개면 M5, 3개면 DA9 쪽이에요.</li>
+            <li>구멍 수를 세요 — 6개면 A5·A6·Personal·Pocket, 5개면 Mini, 3개면 Micro 쪽이에요.</li>
             <li>앞 화면에서 가까운 규격을 고르고 잰 크기를 넣으면, ±10mm 안의 규격을 찾아 알려줘요.</li>
           </ol>
           <p className="tool-panel-note">
-            재기 어려우면 가장 흔한 M6로 시작해도 돼요. 나중에 Library → Diaries에서 크기를 고치거나 다른 다이어리를
+            재기 어려우면 가장 흔한 Pocket(M6)으로 시작해도 돼요. 나중에 Library → Diaries에서 크기를 고치거나 다른 다이어리를
             더할 수 있어요.
           </p>
           <div className="card-dialog-actions">

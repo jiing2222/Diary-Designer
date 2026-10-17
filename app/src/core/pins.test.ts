@@ -4,9 +4,9 @@ import { PIN_BOARDS, inches, pinText, titleLines } from './pins';
 describe('핀 글', () => {
   it('규격을 미국에서 부르는 이름과 보드로 바꾼다', () => {
     const t = pinText({ presetId: 'M6', width: 80, height: 125, holeCount: 6 }, 1, 1);
-    expect(t.title).toBe('Pocket (Mini 6) Planner Insert');
+    expect(t.title).toBe('Pocket (M6) Planner Insert');
     expect(t.board).toBe(PIN_BOARDS.pocket);
-    expect(t.sizeLine).toBe('Pocket (Mini 6) · 80 x 125 mm / 3.15 x 4.92 in');
+    expect(t.sizeLine).toBe('Pocket (M6) · 80 x 125 mm / 3.15 x 4.92 in');
     expect(pinText({ presetId: 'DA6', width: 95, height: 171, holeCount: 6 }, 1, 1).board).toBe(PIN_BOARDS.personal);
   });
 

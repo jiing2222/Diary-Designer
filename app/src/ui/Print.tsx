@@ -3,7 +3,7 @@ import { useActiveDiary, useActiveWork, useFaces, useInsert, useStore } from '..
 import { formatPageRange, paperSize, parsePageRange } from '../core/print';
 import { faceLabel } from '../core/work';
 import { cropModeForSide, type CropMode } from '../core/crop';
-import { PAPER_PRESETS } from '../core/presets';
+import { PAPER_PRESETS, findInsertPreset } from '../core/presets';
 import { workExportInput, type WorkPrintSettings } from '../pdf/fromWork';
 import { buildPdf, downloadPdf, type ExportInput } from '../pdf/export';
 import { loadBodyFont } from '../fonts/load';
@@ -151,7 +151,7 @@ function PaperPanel() {
         <select value={paper.presetId} onChange={(e) => setPaperPreset(e.target.value)}>
           {PAPER_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name} ({p.width}×{p.height})
+              {p.name}
             </option>
           ))}
           {paper.presetId === 'custom' && (
@@ -676,7 +676,9 @@ function ExportDialog({ job, onClose }: { job: PrintJob; onClose: () => void }) 
       const input = workExportInput(job.work, job.diary, job.faces, settings, job.pickedFaces, files);
       const bytes = await buildPdf(input);
       const paperName = paper.presetId === 'custom' ? `${paper.width}x${paper.height}` : paper.presetId;
-      downloadPdf(bytes, `${job.work.name}_${job.diary.presetId}_${paperName}.pdf`);
+      // 파일 이름에는 화면에서 보는 규격 이름을(‘Pocket (M6)’ → ‘Pocket-M6’) — 내부 코드(DA6 등)가 아니라.
+      const sizeName = (findInsertPreset(job.diary.presetId)?.name ?? job.diary.presetId).replace(/[()]/g, '').trim().replace(/\s+/g, '-');
+      downloadPdf(bytes, `${job.work.name}_${sizeName}_${paperName}.pdf`);
       onClose();
     } catch {
       showToast('PDF를 만들지 못했어요. 다시 해 볼래요?');

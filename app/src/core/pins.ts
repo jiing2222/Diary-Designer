@@ -1,10 +1,10 @@
 import type { Mm } from './units';
+import { findInsertPreset } from './presets';
 
 /**
  * 핀터레스트 홍보용 핀의 글(미국 대상, 영어). ui/PinStudio가 이미지를 그리고, 여기서는 글만 정한다.
  *
- * 규격 이름은 미국 플래너 커뮤니티가 검색하는 말로 바꾼다 — 한국에서 쓰는 ‘M6’ 대신 ‘Pocket’,
- * ‘DA6’ 대신 ‘Personal’. 보드 이름은 계정 준비 문서에서 만든 8개 중 하나와 글자까지 같아야 한다.
+ * 규격 이름은 앱과 같은 미국식 이름(core/presets — ‘DA6’ 대신 ‘Personal’, ‘M6’ 대신 ‘Pocket (M6)’)이다. 보드 이름은 계정 준비 문서에서 만든 8개 중 하나와 글자까지 같아야 한다.
  */
 
 export const PIN_BOARDS = {
@@ -78,14 +78,14 @@ export const PIN_SET: { board: string; presetId: string; pages: PinPage[] }[] = 
   },
 ];
 
-/** 프리셋 id → 미국에서 부르는 이름과 보드. 모르는 규격은 크기 그대로 부른다. */
-const SIZE_NAMES: Record<string, { name: string; board: string }> = {
-  A5: { name: 'A5', board: PIN_BOARDS.a5 },
-  DA6: { name: 'Personal', board: PIN_BOARDS.personal },
-  TA6: { name: 'A6', board: PIN_BOARDS.pocket },
-  M6: { name: 'Pocket (Mini 6)', board: PIN_BOARDS.pocket },
-  M5: { name: 'Mini 5', board: PIN_BOARDS.pocket },
-  DA9: { name: 'Micro', board: PIN_BOARDS.pocket },
+/** 프리셋 id → 보드. 이름은 앱과 같은 규격 이름(core/presets)을 쓴다 — 핀을 보고 들어온 사람이 앱에서 같은 이름을 보게. */
+const SIZE_BOARDS: Record<string, string> = {
+  A5: PIN_BOARDS.a5,
+  DA6: PIN_BOARDS.personal,
+  TA6: PIN_BOARDS.pocket,
+  M6: PIN_BOARDS.pocket,
+  M5: PIN_BOARDS.pocket,
+  DA9: PIN_BOARDS.pocket,
 };
 
 /** 인치, 소수 둘째 자리까지(미국은 인치로 검색한다). */
@@ -112,9 +112,9 @@ export function pinText(
   /** 양식 이름(예: 'Weekly Vertical'). 있으면 제목·설명에 넣는다 — 사람들은 양식 이름으로 검색한다. */
   kind?: string,
 ): PinText {
-  const known = SIZE_NAMES[diary.presetId];
-  const size = known?.name ?? `${diary.width} x ${diary.height} mm`;
-  const board = known?.board ?? PIN_BOARDS.pocket;
+  const preset = SIZE_BOARDS[diary.presetId] ? findInsertPreset(diary.presetId) : undefined;
+  const size = preset?.name ?? `${diary.width} x ${diary.height} mm`;
+  const board = SIZE_BOARDS[diary.presetId] ?? PIN_BOARDS.pocket;
   const dims = `${diary.width} x ${diary.height} mm / ${inches(diary.width)} x ${inches(diary.height)} in`;
   const suffix = pageCount > 1 ? ` – Page ${page}` : '';
   // 'Meal Planner'처럼 이미 Planner로 끝나는 양식이면 한 번만 — "Meal Planner Planner Insert"가 되지 않게.
