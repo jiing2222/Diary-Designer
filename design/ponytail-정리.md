@@ -10,7 +10,7 @@
 
 | # | 태그 | 무엇을 | 대신 | 상태 |
 |---|---|---|---|---|
-| 1 | delete | pdf/export의 옛 입력(slotOverrides·totalSlots·defaultBack·backSlotOverrides·sheets·calendarYear) — 유일한 호출자 pdf/fromWork가 하나도 넘기지 않는다. 함께 core/sheetSlots.ts(+test) | 없음 | 남음 |
+| 1 | delete | pdf/export의 옛 입력(slotOverrides·totalSlots·defaultBack·backSlotOverrides·sheets·calendarYear) — 유일한 호출자 pdf/fromWork가 하나도 넘기지 않는다. 함께 core/sheetSlots.ts(+test) | 없음 | 완료(범위 줄임) |
 | 2 | delete | (범위 줄임) core/template.ts·core/notebook.ts의 리뉴얼 전 편집 함수(newTemplate·newBack·backFromFront·duplicateTemplate·refreshTemplateIds·groupBySize·uniqueName·defaultName·printModeOf·insertFromPreset·ensureTemplateIdCounterAbove, 노트 인쇄·크기 함수들) — 테스트만 부른다 | 옛 자료 옮기기(project→migrate)와 인쇄가 쓰는 것만 남김 | 남음 |
 | 3 | delete | cloud/projects.ts — 어디서도 import하지 않는다(옛 양식 클라우드 저장). core/project.ts의 toProject·missingFonts·missingImages도 | 없음 | 완료 |
 | 4 | delete | storage/autosave.ts — 어디서도 import하지 않는다(v2 이전 자동저장) | 없음 | 완료 |
@@ -26,3 +26,4 @@
 ## 기록
 - 2026-10-17 3·4·5·8·9·10 완료(-약 230줄): cloud/projects.ts·storage/autosave.ts 파일 삭제, project missingFonts·missingImages, presets 크기 갈래, Editor ToolBtn, 스냅 색 상수 2개, MOON_PHASE_NAMES, ImageStyle, format resolvePageObjects(+테스트), 안 쓰는 아이콘 10개, PaperPreview calendarYear 경로.
 - 2번 범위 수정: template.ts의 ‘테스트만 부르는’ 함수 대부분은 **옛 자료 옮기기 테스트가 옛 파일을 만드는 도구**다(project.test 등). 지우면 옛 자료 보호 테스트가 사라지므로 남긴다. 테스트에서도 안 쓰는 것만 지운다.
+- 2026-10-17 1 완료(-약 600줄, 테스트 포함): 낱장 조합(slotOverrides·backSlotOverrides)·반복 인쇄(totalSlots·sheets)와 core/sheetSlots·template capacityPerSheet·frontBackFilled 삭제. `defaultBack`·`calendarYear`는 세트형 경로의 대체값이고 양면 테스트가 기대므로 남김. 브라우저에서 단면 35쪽/양면 36쪽 PDF 확인.

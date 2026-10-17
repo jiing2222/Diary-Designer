@@ -47,7 +47,7 @@ import { backLayoutOf, cardAt } from '../core/print';
 import { holeMarks, type PunchSetting } from '../core/punch';
 import { cropModeForSide, cropSegments, type CropMode } from '../core/crop';
 import { gridArea, gridLattice, gridShapes, type DotGrid } from '../core/grid';
-import { capacityPerSheet, frontBackFilled, sheetsNeeded } from '../core/template';
+import { sheetsNeeded } from '../core/template';
 import { insertSizeOf, placeSlot } from '../core/place';
 import { colorOf, dashPattern, dashPatternOf, sketchPoints, widthOf } from '../core/line';
 import { dotsColorOf, dotsOf } from '../core/dots';
@@ -105,7 +105,6 @@ import { calendarCellAt, isInMonth } from '../core/dataset';
 import { dateColorOf, weekdayHeaderColorOf, type ColorRules } from '../core/colorRules';
 import { moonCircle, moonOutlinePath, moonShadePath } from '../core/moon';
 import { measureOf, NO_LIGATURES } from '../fonts/measure';
-import { sheetSlotKey } from '../core/sheetSlots';
 
 /**
  * PDF 생성.
@@ -155,30 +154,6 @@ export interface ExportInput {
   userImages?: Map<string, { bytes: ArrayBuffer | Uint8Array; kind: 'png' | 'jpg' }>;
   /** 타공 안전영역 폭. 격자가 이 영역을 피할지는 dotGrid가 정한다. */
   safeZoneWidth: Mm;
-  /**
-   * 낱장 조합 — 칸마다 다른 양식을 넣을 때, **기본값과 다른 칸만** 채운다.
-   *
-   * 키는 core/sheetSlots의 `시트:슬롯` 주소다. 여기 없는 칸은 위의 `dotGrid`·
-   * `objects`·`safeZoneWidth`를 그대로 쓴다 — 지금까지의 "모든 칸이 같은
-   * 양식"이라는 동작이 곧 이 맵이 비어 있는 경우다.
-   *
-   * 글꼴은 문서 전체에 한 번만 심는다. 칸마다 다른 양식이라도 텍스트가 있는
-   * 칸이 하나라도 있으면 같은 글꼴로 전부 그린다 — 칸마다 다른 글꼴 파일을
-   * 심으면 문서가 그만큼 무거워지고, 등록한 글꼴이 칸마다 다를 이유도 없다.
-   */
-  slotOverrides?: Map<string, SlotContent>;
-  /**
-   * 반복 인쇄 — 이 내용을 몇 칸어치 찍을지.
-   *
-   * **장수가 아니라 칸 수다.** 정하지 않으면 지금까지처럼 한 장, 모든 칸을 채운다.
-   * 정하면 `ceil(totalSlots ÷ 칸 수)`장을 만들고, 마지막 장에서 모자라는 칸은
-   * 완전히 비운다 — 내용을 억지로 채우거나 앞 칸을 복사해 늘리지 않는다.
-   *
-   * 도트 속지를 필요한 만큼만 뽑으려는 것이다. 54칸이 필요한데 한 장에 4칸씩
-   * 이면 14장(56칸)이 나오는데, 마지막 장의 남는 2칸을 채우면 못 쓰는 속지
-   * 2장이 더 생긴다.
-   */
-  totalSlots?: number;
   cropMark: CropMode;
   cropFrontOnly?: boolean;
   showRuler: boolean;
@@ -187,8 +162,7 @@ export interface ExportInput {
    *
    * 칸 위치는 core/layout의 `mirrorLayout`로 뒤집는다(회전 배치가 아니면
    * 좌우만, 회전 배치면 좌우·상하 둘 다) — 칸 안의 내용은 그대로다(설계문서
-   * 8장). 총 쪽수를 채우는 순서는 앞을 다 채운 뒤 뒤를 채운다(core/template의
-   * `frontBackFilled`).
+   * 8장).
    */
   duplex?: boolean;
   /**
@@ -202,27 +176,9 @@ export interface ExportInput {
    */
   defaultBack?: SlotContent;
   /**
-   * 낱장 조합에서 칸마다 다른 뒷면. 키는 앞면과 같은 `시트:슬롯` 주소다.
-   *
-   * 값이 `null`이면 "그 칸에 배정된 양식엔 뒷면이 없다"는 뜻으로, `defaultBack`을
-   * 대신 쓰지 않고 그 칸만 완전히 비운다. 맵에 아예 없는 칸은 `defaultBack`을 쓴다.
-   */
-  backSlotOverrides?: Map<string, SlotContent | null>;
-  /**
-   * 낱장 조합 — 이 배치를 통째로 몇 장 찍을지.
-   *
-   * `totalSlots`(반복 인쇄)와는 다르다. 반복 인쇄는 총 칸 수를 나눠 채우다가
-   * 마지막 장이 모자랄 수 있지만, 이건 **매번 완전히 채워진 장만** 나온다 —
-   * 조합 한 세트를 그대로 N번 복사하는 것뿐이다. `totalSlots`가 있으면 이 값은
-   * 무시된다(반복 인쇄가 우선). 정하지 않으면 지금까지처럼 1장이다.
-   */
-  sheets?: number;
-  /**
    * 세트형(데이터셋) — 쪽마다 다른 내용. 키는 **장을 가로지르는 전체 쪽 번호**
-   * (0부터) — `slotOverrides`(칸 위치 기준, 장마다 되풀이됨)와는 인덱싱이 다르다.
-   *
-   * 정해져 있으면 `totalSlots`·`slotOverrides`·`sheets`는 모두 무시하고 이
-   * 값과 `datasetPages`로 장 수를 정한다. **양면이어도 한 장의 용량이 늘지
+   * (0부터). 정해져 있으면 이 값과 `datasetPages`로 장 수를 정하고, 없으면 기본 내용 한 장이다.
+   * **양면이어도 한 장의 용량이 늘지
    * 않는다** — 칸 하나가 한 쪽의 앞뒤일 뿐, 앞뒤가 서로 다른 쪽을 가리키면 안
    * 되기 때문이다(예: 3주차 카드의 뒷면이 47주차이면 안 된다).
    */
@@ -294,24 +250,8 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
 
-  /** 칸 하나의 내용. 낱장 조합에서 정한 칸만 기본값을 벗어난다. */
-  const resolveSlot = (sheet: number, i: number): SlotContent =>
-    input.slotOverrides?.get(sheetSlotKey(sheet, i)) ?? {
-      dotGrid: input.dotGrid,
-      objects: input.objects,
-      safeZoneWidth: input.safeZoneWidth,
-    };
-
-  /**
-   * 뒷면 칸 하나의 내용. `null`로 정한 칸(그 칸 양식엔 뒷면이 없음)과 아예
-   * 정하지 않은 칸(기본 뒷면을 씀)을 구분한다 — 앞면의 기본값 대체와 다른
-   * 지점이다.
-   */
-  const resolveBackSlot = (sheet: number, i: number): SlotContent =>
-    (input.backSlotOverrides?.has(sheetSlotKey(sheet, i))
-      ? input.backSlotOverrides.get(sheetSlotKey(sheet, i))
-      : input.defaultBack) ??
-    BLANK_SLOT;
+  /** 세트형이 아닐 때 모든 칸의 내용. */
+  const baseSlot: SlotContent = { dotGrid: input.dotGrid, objects: input.objects, safeZoneWidth: input.safeZoneWidth };
 
   /*
    * 속지 글꼴은 필요할 때만 심는다. 글자가 하나도 없으면 1.2MB를 넣을 이유가 없다.
@@ -320,17 +260,11 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
    * 빠뜨린다 — "2027년 3월 셋째 주"가 "3월"로 나온다. 5KB와 1.2MB의 차이지만
    * 맞는 쪽을 택한다. 글꼴은 문서에 한 번만 들어가므로 쪽수가 늘어도 그대로다.
    *
-   * 낱장 조합이면 기본값과 모든 override의 글자를 함께 본다 — 어느 칸에
-   * 텍스트가 있든 글꼴은 문서 전체에 한 번만 심는다. 양면이면 뒷면 내용도 같이 본다.
+   * 어느 칸에 텍스트가 있든 글꼴은 문서 전체에 한 번만 심는다. 양면이면 뒷면 내용도 같이 본다.
    */
-  const backOverrideContents = [...(input.backSlotOverrides?.values() ?? [])].filter(
-    (c): c is SlotContent => c != null,
-  );
   const allObjects = [
     input.objects,
-    ...(input.slotOverrides ? [...input.slotOverrides.values()].map((c) => c.objects) : []),
     ...(input.defaultBack ? [input.defaultBack.objects] : []),
-    ...backOverrideContents.map((c) => c.objects),
     ...(input.datasetOverrides ? [...input.datasetOverrides.values()].map((c) => c.objects) : []),
     ...(input.datasetBackOverrides
       ? [...input.datasetBackOverrides.values()].map((c) => c.objects)
@@ -377,14 +311,8 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
   const datasetMode = !!input.datasetOverrides;
   const totalPages = input.datasetPages ?? 0;
   // 세트형은 칸 하나가 곧 한 쪽이다 — 양면이어도 용량이 늘지 않는다(앞뒤가
-  // 같은 쪽을 가리켜야 한다). 그 외는 양면이면 한 장의 용량이 앞뒤를 합쳐
-  // 두 배다(core/template의 capacityPerSheet). totalSlots(반복 인쇄)가 있으면
-  // 그걸 우선한다. 없으면 낱장 조합의 sheets — 정하지 않았으면 지금까지처럼 1장이다.
-  const sheets = datasetMode
-    ? sheetsNeeded(totalPages, slotsPerSheet)
-    : input.totalSlots && input.totalSlots > 0 && slotsPerSheet > 0
-      ? sheetsNeeded(input.totalSlots, capacityPerSheet(slotsPerSheet, duplex))
-      : Math.max(1, input.sheets ?? 1);
+  // 같은 쪽을 가리켜야 한다). 세트형이 아니면 기본 내용 한 장.
+  const sheets = datasetMode ? sheetsNeeded(totalPages, slotsPerSheet) : 1;
   // 칸 위치를 뒤집은 배치(회전 배치가 아니면 좌우만, 회전 배치면 좌우·상하
   // 둘 다 — core/layout의 mirrorLayout 주석 참고). 재단선도 여기서 다시
   // 계산해야 앞뒤가 같은 자리에서 잘린다.
@@ -500,20 +428,11 @@ export async function buildPdf(input: ExportInput): Promise<Uint8Array> {
     }
 
     const page = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
-
-    // 이 장에서 앞·뒤 각각 실제로 채울 칸 수. totalSlots가 없으면 언제나 전부다.
-    // 마지막 장만 모자랄 수 있고, 그 나머지 칸은 완전히 비운다. 화면 미리보기와
-    // 같은 core/template의 frontBackFilled를 쓴다 — 둘이 어긋나면 미리보기에서
-    // 본 빈 칸이 실제 인쇄물과 달라진다.
-    const { front, back } = input.totalSlots
-      ? frontBackFilled(sheet, input.totalSlots, slotsPerSheet, duplex)
-      : { front: slotsPerSheet, back: slotsPerSheet };
-
-    drawSide(page, input.layout, (i) => (i < front ? resolveSlot(sheet, i) : BLANK_SLOT), false, null);
+    drawSide(page, input.layout, () => baseSlot, false, null);
 
     if (duplex && backLayout) {
       const backPage = doc.addPage([mmToPt(input.paperWidth), mmToPt(input.paperHeight)]);
-      drawSide(backPage, backLayout, (i) => (i < back ? resolveBackSlot(sheet, i) : BLANK_SLOT), true, null);
+      drawSide(backPage, backLayout, () => input.defaultBack ?? BLANK_SLOT, true, null);
     }
   }
 
