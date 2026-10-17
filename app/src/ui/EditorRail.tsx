@@ -29,6 +29,7 @@ import {
   TableIcon,
   TextIcon,
 } from './icons';
+import { t } from '../lang';
 
 /**
  * 작업 탭의 레일과 패널(리뉴얼, 세부계획 A1 결정 · 디자인.md ‘탭’).
@@ -226,14 +227,14 @@ function ColorsPanel() {
 
   return (
     <div className="colors-panel" ref={boxRef}>
-      <div className="colors-label">기본</div>
+      <div className="colors-label">{t('기본', 'Base')}</div>
       <div className="colors-row">
         {BASE_KEYS.map((key) => (
           <button
             key={key}
             className={`color-slot ${editing?.key === key ? 'on' : ''}`}
             style={{ background: palette.base[key] }}
-            title={keyLabel(key)}
+            title={keyLabel(key, t('기본', 'Base'))}
             onClick={() => start(key, palette.base[key])}
           />
         ))}
@@ -245,7 +246,7 @@ function ColorsPanel() {
             <button
               className={`color-slot round ${editing?.key === p.key ? 'on' : ''}`}
               style={{ background: p.color }}
-              title={`포인트 ${p.key}`}
+              title={t(`포인트 ${p.key}`, `Accent ${p.key}`)}
               onClick={() => start(p.key, p.color)}
             />
             <span className="color-point-key">{p.key}</span>
@@ -253,7 +254,7 @@ function ColorsPanel() {
         ))}
         <button
           className="color-slot round add"
-          title="포인트 색 추가"
+          title={t('포인트 색 추가', 'Add accent color')}
           onClick={() => {
             const next = nextPointKey(palette.points);
             start(next, '#8ea8c6');
@@ -275,10 +276,10 @@ function ColorsPanel() {
       {editing && (
         <div className="color-editor">
           <div className="color-editor-head">
-            <b>{keyLabel(editing.key)}</b>
+            <b>{keyLabel(editing.key, t('기본', 'Base'))}</b>
             {usage && (
               <span className="muted">
-                요소 {usage.objects}개 · {usage.faces}페이지
+                {t(`요소 ${usage.objects}개 · ${usage.faces}페이지`, `${usage.objects} item(s) · ${usage.faces} page(s)`)}
               </span>
             )}
           </div>
@@ -290,14 +291,14 @@ function ColorsPanel() {
           />
           {(BASE_KEYS as readonly string[]).includes(editing.key) ? (
             <button className="ghost" onClick={() => previewPaletteColor(editing.key, DEFAULT_BASE[editing.key as keyof typeof DEFAULT_BASE])}>
-              기본값으로 되돌리기
+              {t('기본값으로 되돌리기', 'Reset to default')}
             </button>
           ) : work.palette.points.some((p) => p.key === editing.key) && (
-            <PopRow label="지울 때">
+            <PopRow label={t('지울 때', 'When deleted')}>
               <select value={replacement} onChange={(e) => setReplacement(e.target.value)}>
-                <option value="fixed">지금 색으로 고정</option>
+                <option value="fixed">{t('지금 색으로 고정', 'Keep the current color')}</option>
                 {[...BASE_KEYS, ...palette.points.map((p) => p.key)].filter((key) => key !== editing.key).map((key) => (
-                  <option key={key} value={refOf(key)}>{keyLabel(key)}로 옮기기</option>
+                  <option key={key} value={refOf(key)}>{t(`${keyLabel(key, t('기본', 'Base'))}로 옮기기`, `Move to ${keyLabel(key, t('기본', 'Base'))}`)}</option>
                 ))}
               </select>
             </PopRow>
@@ -309,24 +310,32 @@ function ColorsPanel() {
                 finish(false);
               }}
             >
-              취소
+              {t('취소', 'Cancel')}
             </button>
             {!(BASE_KEYS as readonly string[]).includes(editing.key) && (
               <button
                 className="ghost danger"
                 onClick={() => {
                   if (!work.palette.points.some((p) => p.key === editing.key)) return finish(false);
-                  if (!window.confirm(`${editing.key}를 지울까요? 쓰던 요소는 ${replacement === 'fixed' ? '지금 색으로 고정돼요' : '고른 이름표로 옮겨요'}.`)) return;
+                  if (
+                    !window.confirm(
+                      t(
+                        `${editing.key}를 지울까요? 쓰던 요소는 ${replacement === 'fixed' ? '지금 색으로 고정돼요' : '고른 이름표로 옮겨요'}.`,
+                        `Delete ${editing.key}? Items using it ${replacement === 'fixed' ? 'keep their current color' : 'move to the color you picked'}.`,
+                      ),
+                    )
+                  )
+                    return;
                   const color = colorOf(editing.key);
                   finish(false);
                   removePaletteColor(editing.key, replacement === 'fixed' ? color : replacement);
                 }}
               >
-                지우기
+                {t('지우기', 'Delete')}
               </button>
             )}
             <button className="primary" onClick={() => finish(true)}>
-              저장
+              {t('저장', 'Save')}
             </button>
           </div>
         </div>
@@ -344,39 +353,42 @@ function SavedPalettesSection({ beforeChange }: { beforeChange: () => void }) {
   const palettes = useStore((s) => s.savedPalettes);
   return (
     <div className="saved-palettes">
-      <div className="colors-label">팔레트</div>
+      <div className="colors-label">{t('팔레트', 'Palette')}</div>
       <div className="saved-palettes-row">
         <button
           className="ghost"
           onClick={() => {
             beforeChange();
-            const name = window.prompt('보관할 팔레트 이름', `팔레트 ${palettes.length + 1}`);
+            const name = window.prompt(t('보관할 팔레트 이름', 'Palette name'), t(`팔레트 ${palettes.length + 1}`, `Palette ${palettes.length + 1}`));
             if (name === null) return;
             const s = useStore.getState();
-            if (s.savePalette(name)) s.showToast('Library → Colors에 보관했어요.');
+            if (s.savePalette(name)) s.showToast(t('Library → Colors에 보관했어요.', 'Saved to Library → Colors.'));
           }}
         >
-          이 팔레트 보관
+          {t('이 팔레트 보관', 'Save this palette')}
         </button>
         <select
-          aria-label="팔레트 불러오기"
+          aria-label={t('팔레트 불러오기', 'Load a palette')}
           value=""
           disabled={palettes.length === 0}
-          title={palettes.length === 0 ? '보관한 팔레트가 없어요' : undefined}
+          title={palettes.length === 0 ? t('보관한 팔레트가 없어요', 'No saved palettes') : undefined}
           onChange={(e) => {
             const saved = palettes.find((p) => p.id === e.target.value);
             if (!saved) return;
             beforeChange();
             if (
               !window.confirm(
+                t(
                 `‘${saved.name}’을(를) 불러올까요? 기본 5칸과 같은 이름의 포인트 색이 바뀌고, 이 작업에만 있는 포인트는 그대로 남아요. 되돌리기로는 취소되지 않아요.`,
+                `Load “${saved.name}”? The 5 base colors and accents with the same names change; accents only in this work stay. Undo won't reverse this.`,
+              ),
               )
             )
               return;
             useStore.getState().loadPalette(saved.id);
           }}
         >
-          <option value="">팔레트 불러오기…</option>
+          <option value="">{t('팔레트 불러오기…', 'Load a palette…')}</option>
           {palettes.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -412,21 +424,21 @@ function ColorRulesSection() {
 
   return (
     <div className="color-rules">
-      <div className="colors-label">색 규칙</div>
-      {RULES.map(({ key, label }) => {
+      <div className="colors-label">{t('색 규칙', 'Color rules')}</div>
+      {rules().map(({ key, label }) => {
         const value = work.colorRules?.[key];
         const known = value === undefined || keys.some((k) => refOf(k) === value);
         return (
           <PopRow key={key} label={label}>
             <span className="rule-swatch" style={{ background: swatch(value) ?? 'transparent' }} />
             <select value={value ?? ''} onChange={(e) => setColorRule(key, e.target.value || undefined)}>
-              <option value="">없음</option>
+              <option value="">{t('없음', 'None')}</option>
               {keys.map((k) => (
                 <option key={k} value={refOf(k)}>
-                  {keyLabel(k)}
+                  {keyLabel(k, t('기본', 'Base'))}
                 </option>
               ))}
-              {!known && <option value={value}>직접 고른 색</option>}
+              {!known && <option value={value}>{t('직접 고른 색', 'Custom color')}</option>}
             </select>
           </PopRow>
         );
@@ -438,22 +450,26 @@ function ColorRulesSection() {
           checked={!work.colorRules?.plainHeaders}
           onChange={(e) => setRuleHeaders(e.target.checked)}
         />
-        달력 요일 머리글도 칠하기
+        {t('달력 요일 머리글도 칠하기', 'Also color calendar weekday headers')}
       </label>
       {/* 사용법 안내는 뺐다(2026-10-13) — 공휴일 목록이 없는 해만 경고로 남긴다. */}
       {uncovered.length > 0 && (
         <p className="tool-panel-note warn">
-          {uncovered.join('·')}년은 공휴일 목록이 없어요({HOLIDAY_YEARS.join('·')}년만 있어요).
+          {t(
+            `${uncovered.join('·')}년은 공휴일 목록이 없어요(${HOLIDAY_YEARS.join('·')}년만 있어요).`,
+            `No holiday list for ${uncovered.join(', ')} (only ${HOLIDAY_YEARS.join(', ')}).`,
+          )}
         </p>
       )}
     </div>
   );
 }
 
-const RULES: { key: RuleKey; label: string }[] = [
-  { key: 'sunday', label: '일요일' },
-  { key: 'saturday', label: '토요일' },
-  { key: 'holiday', label: '공휴일' },
+// 함수로 둔다 — 모듈을 읽을 때 한 번 정하면 언어가 바뀌어도 그대로 남는다.
+const rules = (): { key: RuleKey; label: string }[] => [
+  { key: 'sunday', label: t('일요일', 'Sunday') },
+  { key: 'saturday', label: t('토요일', 'Saturday') },
+  { key: 'holiday', label: t('공휴일', 'Holidays') },
 ];
 
 /** 지금 고른 객체들(편집 화면 본체와 같은 쪽 규칙). */
@@ -534,7 +550,7 @@ function AutoFieldPanel() {
   if (calendars.length > 0) {
     body = (
       <>
-        <h3 className="panel-sub">달력</h3>
+        <h3 className="panel-sub">{t('달력', 'Calendar')}</h3>
         <CalendarPanelControls items={calendars} apply={styleCalendar} />
       </>
     );
@@ -554,8 +570,8 @@ function AutoFieldPanel() {
   } else if (sourceFieldOnDatePage) {
     body = (
       <>
-        <h3 className="panel-sub">날짜</h3>
-        <p className="tool-panel-note">날짜 칸의 형식과 몇째 날짜인지는 원본 편집에서 정해요. 색·글꼴은 이 날짜만 바꿀 수 있어요.</p>
+        <h3 className="panel-sub">{t('날짜', 'Date')}</h3>
+        <p className="tool-panel-note">{t('날짜 칸의 형식과 몇째 날짜인지는 원본 편집에서 정해요. 색·글꼴은 이 날짜만 바꿀 수 있어요.', 'The date format and which day it shows are set in the template. You can change the color and font for this date only.')}</p>
       </>
     );
   } else if (tool === 'calendar') {
@@ -588,7 +604,7 @@ function CheckboxPanel() {
   if (picked.length === 0 && tool !== 'checkbox') return null;
   return (
     <>
-      <h3 className="panel-sub">체크박스 모양</h3>
+      <h3 className="panel-sub">{t('체크박스 모양', 'Checkbox style')}</h3>
       <CheckboxIconGrid items={picked.length > 0 ? picked : [draft]} apply={picked.length > 0 ? styleCheckbox : setDraft} />
     </>
   );
@@ -626,35 +642,35 @@ function SavedTextStyles({ picked }: { picked: TextObject[] }) {
 
   return (
     <div className="text-styles">
-      <h3 className="panel-sub">저장한 스타일</h3>
-      {textStyles.map((t) => (
-        <div key={t.id} className="text-style-row">
+      <h3 className="panel-sub">{t('저장한 스타일', 'Saved styles')}</h3>
+      {textStyles.map((ts) => (
+        <div key={ts.id} className="text-style-row">
           <button
             className="text-style-btn"
-            onClick={() => applyTextStyle(t.id)}
-            title={picked.length > 0 ? '고른 글자에 쓰기' : '다음에 놓을 글자에 쓰기'}
+            onClick={() => applyTextStyle(ts.id)}
+            title={picked.length > 0 ? t('고른 글자에 쓰기', 'Apply to selected text') : t('다음에 놓을 글자에 쓰기', 'Use for the next text')}
           >
             <span
               className="text-style-name"
               style={{
-                fontFamily: familyOf(userFonts, t.style.font),
-                fontStyle: t.style.italic ? 'italic' : undefined,
+                fontFamily: familyOf(userFonts, ts.style.font),
+                fontStyle: ts.style.italic ? 'italic' : undefined,
                 textDecoration:
-                  [t.style.underline && 'underline', t.style.strike && 'line-through'].filter(Boolean).join(' ') || undefined,
-                WebkitTextStroke: t.style.bold ? '0.6px currentColor' : undefined,
-                color: colorOf(t.style.color),
+                  [ts.style.underline && 'underline', ts.style.strike && 'line-through'].filter(Boolean).join(' ') || undefined,
+                WebkitTextStroke: ts.style.bold ? '0.6px currentColor' : undefined,
+                color: colorOf(ts.style.color),
               }}
             >
-              {t.name}
+              {ts.name}
             </span>
-            <span className="text-style-meta">{Math.round(mmToPt(t.style.size ?? TEXT_SIZE) * 10) / 10}pt</span>
+            <span className="text-style-meta">{Math.round(mmToPt(ts.style.size ?? TEXT_SIZE) * 10) / 10}pt</span>
           </button>
           <button
             className="ghost text-style-remove"
-            title="스타일 지우기"
-            aria-label={`${t.name} 스타일 지우기`}
+            title={t('스타일 지우기', 'Delete style')}
+            aria-label={t(`${ts.name} 스타일 지우기`, `Delete style ${ts.name}`)}
             onClick={() => {
-              if (window.confirm(`‘${t.name}’ 스타일을 지울까요? 이미 쓴 글자는 그대로예요.`)) removeTextStyle(t.id);
+              if (window.confirm(t(`‘${ts.name}’ 스타일을 지울까요? 이미 쓴 글자는 그대로예요.`, `Delete the style “${ts.name}”? Text that uses it stays as it is.`))) removeTextStyle(ts.id);
             }}
           >
             ×
@@ -664,12 +680,12 @@ function SavedTextStyles({ picked }: { picked: TextObject[] }) {
       <button
         className="ghost text-style-save"
         onClick={() => {
-          const name = window.prompt('스타일 이름', '');
+          const name = window.prompt(t('스타일 이름', 'Style name'), '');
           if (name === null) return;
           saveTextStyle(name, picked[0] ?? draft);
         }}
       >
-        + {picked.length > 0 ? '고른 글자 모양 저장' : '지금 모양 저장'}
+        + {picked.length > 0 ? t('고른 글자 모양 저장', 'Save selected text style') : t('지금 모양 저장', 'Save current style')}
       </button>
     </div>
   );

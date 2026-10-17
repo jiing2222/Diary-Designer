@@ -5,6 +5,7 @@ import { gridArea, gridLattice, spacingForCells, type GridStyle } from '../core/
 import type { Dash } from '../core/objects';
 import { roundMm } from '../core/units';
 import { ImportPagesButton } from './PageManager';
+import { t } from '../lang';
 
 /**
  * Page 패널 — 속지 종이 자체의 설정(리뉴얼, 세부계획 A5). 옛 Insert 탭.
@@ -51,29 +52,29 @@ function BackgroundGroup() {
   const grid = useDotGrid(useActiveSide());
   return (
     <>
-      <Row label="모양" hint="같은 격자에서 그리는 방식만 바뀐다">
+      <Row label={t('모양', 'Style')} hint={t('같은 격자에서 그리는 방식만 바뀐다', 'Only how the same grid is drawn changes')}>
         <select value={grid.style} onChange={(e) => patchDotGrid({ style: e.target.value as GridStyle })}>
-          <option value="dot">도트</option>
-          <option value="grid">그리드</option>
-          <option value="horizontal">가로줄</option>
-          <option value="vertical">세로줄</option>
+          <option value="dot">{t('도트', 'Dots')}</option>
+          <option value="grid">{t('그리드', 'Grid')}</option>
+          <option value="horizontal">{t('가로줄', 'Lines')}</option>
+          <option value="vertical">{t('세로줄', 'Vertical lines')}</option>
         </select>
       </Row>
-      <Row label="간격">
+      <Row label={t('간격', 'Spacing')}>
         <Num value={grid.spacing} min={0.5} onChange={(spacing) => patchDotGrid({ spacing })} />
       </Row>
       <CellCountRow />
       {grid.style !== 'dot' && (
-        <Row label="선 모양">
+        <Row label={t('선 모양', 'Line style')}>
           <select value={grid.dash} onChange={(e) => patchDotGrid({ dash: e.target.value as Dash })}>
-            <option value="solid">실선</option>
-            <option value="dashed">파선</option>
-            <option value="dotted">점선</option>
+            <option value="solid">{t('실선', 'Solid')}</option>
+            <option value="dashed">{t('파선', 'Dashed')}</option>
+            <option value="dotted">{t('점선', 'Dotted')}</option>
           </select>
         </Row>
       )}
-      <Row label="인쇄">
-        <Check checked={grid.print} onChange={(print) => patchDotGrid({ print })} label="인쇄물에 남기기" />
+      <Row label={t('인쇄', 'Print')}>
+        <Check checked={grid.print} onChange={(print) => patchDotGrid({ print })} label={t('인쇄물에 남기기', 'Include when printing')} />
       </Row>
       <GridReadout />
     </>
@@ -85,19 +86,19 @@ function MarginGroup() {
   const grid = useDotGrid(useActiveSide());
   return (
     <>
-      <Row label="채우기" hint="모서리에서 시작해 끝까지 나아간다. 마지막 칸은 잘린다">
-        <Check checked={grid.toEdge} onChange={(toEdge) => patchDotGrid({ toEdge })} label="여백 없이 끝까지" />
+      <Row label={t('채우기', 'Fill')} hint={t('모서리에서 시작해 끝까지 나아간다. 마지막 칸은 잘린다', 'Starts at the corner and runs to the edge. The last cell is cut off')}>
+        <Check checked={grid.toEdge} onChange={(toEdge) => patchDotGrid({ toEdge })} label={t('여백 없이 끝까지', 'Edge to edge')} />
       </Row>
       {!grid.toEdge && (
-        <Row label="최소 여백" hint="여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다">
+        <Row label={t('최소 여백', 'Minimum margin')} hint={t('여백은 간격에서 따라 나온다. 이 값은 그 하한이라 정확히 이만큼은 아니다', 'Margins follow from the spacing. This is a lower bound, not an exact value')}>
           <Num value={grid.minMargin} min={0} max={20} onChange={(minMargin) => patchDotGrid({ minMargin })} />
         </Row>
       )}
-      <Row label="타공" hint="구멍 쪽 안전영역을 비우고 그 안에서 다시 가운데 맞춘다">
+      <Row label={t('타공', 'Holes')} hint={t('구멍 쪽 안전영역을 비우고 그 안에서 다시 가운데 맞춘다', 'Keep the hole-side safe zone clear and re-center inside it')}>
         <Check
           checked={grid.avoidSafeZone}
           onChange={(avoidSafeZone) => patchDotGrid({ avoidSafeZone })}
-          label="안전영역 비우기"
+          label={t('안전영역 비우기', 'Keep safe zone clear')}
         />
       </Row>
       <MarginReadout />
@@ -114,12 +115,15 @@ function PunchGroup() {
   return (
     <>
       <p className="tool-panel-note">
-        구멍은 다이어리 <b>{diary?.name ?? ''}</b>의 설정이에요. 이 다이어리를 쓰는 작업이 모두 바뀌어요.
+        {t(
+          `구멍은 다이어리 ${diary?.name ?? ''}의 설정이에요. 이 다이어리를 쓰는 작업이 모두 바뀌어요.`,
+          `Holes belong to the diary ${diary?.name ?? ''}. Every work using this diary changes.`,
+        )}
       </p>
-      <Row label="구멍 수">
-        <Num value={punch.holeCount} step={1} unit="개" onChange={(holeCount) => patchPunch({ holeCount })} />
+      <Row label={t('구멍 수', 'Number of holes')}>
+        <Num value={punch.holeCount} step={1} unit={t('개', '')} onChange={(holeCount) => patchPunch({ holeCount })} />
       </Row>
-      <Row label="배치">
+      <Row label={t('배치', 'Layout')}>
         <select
           value={punch.groupGap === null ? 'even' : 'grouped'}
           onChange={(e) =>
@@ -128,19 +132,19 @@ function PunchGroup() {
             })
           }
         >
-          <option value="even">균등 간격</option>
-          <option value="grouped">묶음 (3 + 3)</option>
+          <option value="even">{t('균등 간격', 'Evenly spaced')}</option>
+          <option value="grouped">{t('묶음 (3 + 3)', 'Grouped (3 + 3)')}</option>
         </select>
       </Row>
       {punch.groupGap !== null && (
-        <Row label="묶음 간격" hint="두 묶음 사이의 중심 간격">
+        <Row label={t('묶음 간격', 'Group gap')} hint={t('두 묶음 사이의 중심 간격', 'Center distance between the two groups')}>
           <Num value={punch.groupGap} onChange={(groupGap) => patchPunch({ groupGap })} />
         </Row>
       )}
-      <Row label="안전영역">
+      <Row label={t('안전영역', 'Safe zone')}>
         <Num value={punch.safeZoneWidth} onChange={(safeZoneWidth) => patchPunch({ safeZoneWidth })} />
       </Row>
-      <Row label="구멍 지름" hint="타공기 구멍 크기. 화면 안내와, PDF를 만들 때 고르면 인쇄되는 타공 표시에 쓰여요">
+      <Row label={t('구멍 지름', 'Hole diameter')} hint={t('타공기 구멍 크기. 화면 안내와, PDF를 만들 때 고르면 인쇄되는 타공 표시에 쓰여요', "Your punch's hole size. Used for the on-screen guide and for printed hole marks if you turn them on in the PDF")}>
         <Num value={punch.markSize} min={3} max={6} step={0.5} onChange={(markSize) => patchPunch({ markSize })} />
       </Row>
       <PunchReadout />
@@ -156,33 +160,33 @@ function GuideGroup() {
   const insert = useInsert();
   return (
     <>
-      <Row label="격자">
+      <Row label={t('격자', 'Grid')}>
         <Check
           checked={grid.showOnScreen}
           onChange={(showOnScreen) => patchDotGrid({ showOnScreen })}
-          label="화면에 보이기"
+          label={t('화면에 보이기', 'Show on screen')}
         />
       </Row>
-      <Row label="타공">
-        <Check checked={insert.punch.show} onChange={(show) => patchPunch({ show })} label="화면에 보이기" />
+      <Row label={t('타공', 'Holes')}>
+        <Check checked={insert.punch.show} onChange={(show) => patchPunch({ show })} label={t('화면에 보이기', 'Show on screen')} />
       </Row>
       <Row
-        label="등분 안내"
-        hint="속지를 가로·세로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다"
+        label={t('등분 안내', 'Division guides')}
+        hint={t('속지를 가로·세로로 N등분한 자리를 안내선으로 보여줍니다. 화면에만 나오고 인쇄되지 않습니다. 0이면 끕니다', 'Guides that split the insert into N equal parts. Screen only, never printed. 0 turns them off')}
       >
         <div className="cells-row">
           <Num
             value={grid.divisionsX}
             step={1}
             min={0}
-            unit="가로"
+            unit={t('가로', 'across')}
             onChange={(n) => patchDotGrid({ divisionsX: Math.max(0, Math.round(n)) })}
           />
           <Num
             value={grid.divisionsY}
             step={1}
             min={0}
-            unit="세로"
+            unit={t('세로', 'down')}
             onChange={(n) => patchDotGrid({ divisionsY: Math.max(0, Math.round(n)) })}
           />
         </div>
@@ -210,10 +214,10 @@ function CellCountRow() {
   };
 
   return (
-    <Row label="칸 수" hint="고치면 간격이 거꾸로 계산된다. 간격은 하나뿐이라 다른 축도 따라 움직인다">
+    <Row label={t('칸 수', 'Cells')} hint={t('고치면 간격이 거꾸로 계산된다. 간격은 하나뿐이라 다른 축도 따라 움직인다', "Changing this recalculates the spacing. There's one spacing, so the other axis moves too")}>
       <div className="cells-row">
-        <Num value={cols} step={1} min={1} unit="가로" onChange={(n) => setCells(area.width, n)} />
-        <Num value={rows} step={1} min={1} unit="세로" onChange={(n) => setCells(area.height, n)} />
+        <Num value={cols} step={1} min={1} unit={t('가로', 'across')} onChange={(n) => setCells(area.width, n)} />
+        <Num value={rows} step={1} min={1} unit={t('세로', 'down')} onChange={(n) => setCells(area.height, n)} />
       </div>
     </Row>
   );
@@ -236,18 +240,18 @@ function MarginReadout() {
   const r = (v: number) => roundMm(v, 2);
   const same = (a: number, b: number) => Math.abs(a - b) < 1e-9;
   const margin = !same(left, right)
-    ? `좌 ${r(left)} · 우 ${r(right)} · 상하 ${r(top)}mm`
+    ? t(`좌 ${r(left)} · 우 ${r(right)} · 상하 ${r(top)}mm`, `L ${r(left)} · R ${r(right)} · T/B ${r(top)} mm`)
     : same(left, top) && same(top, bottom)
       ? `${r(left)}mm`
-      : `좌우 ${r(left)}mm · 상하 ${r(top)}mm`;
+      : t(`좌우 ${r(left)}mm · 상하 ${r(top)}mm`, `L/R ${r(left)} mm · T/B ${r(top)} mm`);
 
   return (
     <div className="readout">
       <span>
-        여백 <b>{margin}</b>
+        {t('여백', 'Margin')} <b>{margin}</b>
       </span>
       {grid.minMargin === 0 && !grid.toEdge && (
-        <span className="muted">최소 여백이 0이라 바깥쪽이 재단선에 붙습니다. 자를 때 반쯤 날아갈 수 있습니다.</span>
+        <span className="muted">{t('최소 여백이 0이라 바깥쪽이 재단선에 붙습니다. 자를 때 반쯤 날아갈 수 있습니다.', 'With a minimum margin of 0, the outer dots sit on the trim line and may get cut in half.')}</span>
       )}
     </div>
   );
@@ -263,11 +267,13 @@ function GridReadout() {
   if (xs.length > 0 && ys.length > 0) return null;
   return (
     <div className="readout readout-warn">
-      <strong>격자가 들어가지 않습니다.</strong>
+      <strong>{t('격자가 들어가지 않습니다.', "The grid doesn't fit.")}</strong>
       <span>
-        간격 {grid.spacing}mm는 격자 영역 {roundMm(area.width, 2)} × {roundMm(area.height, 2)}mm에 비해 너무
-        넓습니다.
-        {grid.avoidSafeZone && ' 안전영역 비우기를 끄면 넓어집니다.'}
+        {t(
+          `간격 ${grid.spacing}mm는 격자 영역 ${roundMm(area.width, 2)} × ${roundMm(area.height, 2)}mm에 비해 너무 넓습니다.`,
+          `A ${grid.spacing} mm spacing is too wide for the ${roundMm(area.width, 2)} × ${roundMm(area.height, 2)} mm grid area.`,
+        )}
+        {grid.avoidSafeZone && t(' 안전영역 비우기를 끄면 넓어집니다.', ' Turning off Keep safe zone clear gives more room.')}
       </span>
     </div>
   );
@@ -286,18 +292,20 @@ function PunchReadout() {
     <div className={`readout ${overflow ? 'readout-warn' : ''}`}>
       {overflow ? (
         <>
-          <strong>구멍이 속지를 벗어납니다.</strong>
+          <strong>{t('구멍이 속지를 벗어납니다.', "The holes don't fit on the insert.")}</strong>
           <span>
-            구멍 {insert.punch.holeCount}개를 {grouped ? '묶음' : '균등'} 배치하면 {roundMm(span, 1)}mm가 필요한데 속지
-            세로는 {insert.height}mm입니다. {grouped ? '묶음 간격을 줄이거나 균등 배치로 바꾸세요.' : '속지를 키우세요.'}
+            {t(
+              `구멍 ${insert.punch.holeCount}개를 ${grouped ? '묶음' : '균등'} 배치하면 ${roundMm(span, 1)}mm가 필요한데 속지 세로는 ${insert.height}mm입니다. ${grouped ? '묶음 간격을 줄이거나 균등 배치로 바꾸세요.' : '속지를 키우세요.'}`,
+              `${insert.punch.holeCount} ${grouped ? 'grouped' : 'evenly spaced'} holes need ${roundMm(span, 1)} mm, but the insert is ${insert.height} mm tall. ${grouped ? 'Reduce the group gap or space them evenly.' : 'Make the insert taller.'}`,
+            )}
           </span>
         </>
       ) : (
         <>
           <span>
-            상하 여백 <b>{roundMm(margin, 1)}mm</b> · 자동 계산됨
+            {t('상하 여백', 'Top/bottom margin')} <b>{roundMm(margin, 1)}mm</b> · {t('자동 계산됨', 'calculated')}
           </span>
-          <span className="muted">구멍 중심 {centers.map((c) => roundMm(c, 1)).join(' · ')}</span>
+          <span className="muted">{t('구멍 중심', 'Hole centers')} {centers.map((c) => roundMm(c, 1)).join(' · ')}</span>
         </>
       )}
     </div>

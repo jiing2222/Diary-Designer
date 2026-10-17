@@ -91,6 +91,7 @@ import {
   type Editing,
   type Point,
 } from './gestures';
+import { t } from '../lang';
 
 /**
  * 이미지 손잡이가 도트로 붙는 문턱값.
@@ -332,8 +333,8 @@ export function Editor() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const t = e.target as HTMLElement;
-      if (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return;
+      const el = e.target as HTMLElement;
+      if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') return;
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
@@ -839,7 +840,7 @@ export function Editor() {
       if (tool === 'field') {
         // 기준일 없는 D-day는 값이 빈칸이라 놓으면 보이지 않는 칸이 된다 — 먼저 정하게 한다.
         if (fieldDraft.kind === 'dday' && !fieldDraft.target) {
-          showToast('D-day 기준일을 먼저 정해 주세요(왼쪽 AutoField 패널).');
+          showToast(t('D-day 기준일을 먼저 정해 주세요(왼쪽 AutoField 패널).', 'Set the D-day reference date first (AutoField panel on the left).'));
           return;
         }
         // 타이핑 없이 바로 확정한다. 순번은 패널의 ‘이 페이지의 n번째’, ‘찍을 때마다 다음
@@ -1030,7 +1031,7 @@ export function Editor() {
     // 선은 실제로는 반쪽 둘이라 한쪽만 옮기면 끊어지고, 경계에서 만나는 점이 도트 위가 아니었다.
     // 첫 점은 그대로 두어 같은 페이지 안에서 마저 그을 수 있게 한다.
     if (tool === 'draw' && pending) {
-      showToast('선은 페이지 경계를 넘을 수 없어요. 같은 페이지 안에서 다음 점을 눌러 주세요.');
+      showToast(t('선은 페이지 경계를 넘을 수 없어요. 같은 페이지 안에서 다음 점을 눌러 주세요.', "Lines can't cross the page edge. Click the next point on the same page."));
       return;
     }
     switchSide(inactiveSide);
@@ -1113,7 +1114,7 @@ export function Editor() {
       // 표·체크박스는 mm가 아니라 몇 칸인지가 더 궁금하다. 그리기(선·면)는 지금처럼 mm.
       if (tool === 'table' || tool === 'checkbox' || tool === 'dots') {
         const { cols, rows } = tableSize(lattice, drag.from, drag.to);
-        return tool === 'table' ? `${cols} × ${rows}칸` : `${cols * rows}개`;
+        return tool === 'table' ? t(`${cols} × ${rows}칸`, `${cols} × ${rows}`) : t(`${cols * rows}개`, `${cols * rows}`);
       }
       return sizeLabelOf(rectLines(drag.from, drag.to));
     }
@@ -1537,14 +1538,14 @@ export function Editor() {
 
       <div className="editor-foot">
         <span>
-          속지 {insert.width} × {insert.height}mm
+          {t('속지', 'Insert')} {insert.width} × {insert.height}mm
         </span>
         <span>
-          {grid.style === 'dot' ? '도트' : '칸'} {noGrid ? '없음' : `${cellCols} × ${cellRows}개`}
+          {grid.style === 'dot' ? t('도트', 'Dots') : t('칸', 'Cells')} {noGrid ? t('없음', 'none') : `${cellCols} × ${cellRows}`}
         </span>
         <MarginReadout lattice={lattice} insert={insert} />
-        <span>그린 것 {objects.length}개</span>
-        {selectedIds.length > 0 && <span>고른 것 {selectedIds.length}개</span>}
+        <span>{t(`그린 것 ${objects.length}개`, `${objects.length} item(s)`)}</span>
+        {selectedIds.length > 0 && <span>{t(`고른 것 ${selectedIds.length}개`, `${selectedIds.length} selected`)}</span>}
         {/*
           도구도 안 쓰고 고른 것도 없을 때(왼쪽 탭이 저절로 닫혀 있는 상태)
           안내가 아예 없으면 뭘 해야 할지 알 수 없다 — 예전엔 위쪽 도구줄에
@@ -1552,7 +1553,7 @@ export function Editor() {
           속성 칸으로 바뀌면서 조용히 사라졌었다.
         */}
         {/* 사용법 안내는 뺐다(2026-10-13 사용자 요청) — 그릴 수 없는 상태만 알린다. */}
-        {noGrid && <span className="foot-hint">격자가 없어 그릴 수 없어요. 도트 간격을 줄여 주세요.</span>}
+        {noGrid && <span className="foot-hint">{t('격자가 없어 그릴 수 없어요. 도트 간격을 줄여 주세요.', "There's no grid to draw on. Reduce the dot spacing.")}</span>}
         {/*
           여기서부터 오른쪽 끝 — 왼쪽은 "무엇이 있나", 오른쪽은 "어디를
           보고 있나"다(디자인의 줄 나눔 그대로).
@@ -1564,8 +1565,12 @@ export function Editor() {
         */}
         {nudge ? (
           <span className={nudge.free || nudge.align ? 'accent' : undefined}>
-            옮김 {roundMm(nudge.dx, 2)} , {roundMm(nudge.dy, 2)} mm
-            {nudge.align ? ' · 객체 맞춤' : nudge.free ? ' · 격자 해제' : ' · ⌘로 격자 해제 · Alt로 객체 맞춤'}
+            {t('옮김', 'Moved')} {roundMm(nudge.dx, 2)} , {roundMm(nudge.dy, 2)} mm
+            {nudge.align
+              ? t(' · 객체 맞춤', ' · snapping to objects')
+              : nudge.free
+                ? t(' · 격자 해제', ' · grid off')
+                : t(' · ⌘로 격자 해제 · Alt로 객체 맞춤', ' · ⌘ to ignore the grid · Alt to snap to objects')}
           </span>
         ) : (
           hover && (
@@ -1842,14 +1847,14 @@ export function ImageCategoryBody() {
       addUserImage(image);
       await placeCentered(image.id, image.url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '이미지를 읽지 못했습니다');
+      setError(e instanceof Error ? e.message : t('이미지를 읽지 못했습니다', "Couldn't read the image"));
     }
   }
 
   return (
     <>
       {usable.length === 0 ? (
-        <p className="tool-panel-note">아직 올린 이미지가 없어요.</p>
+        <p className="tool-panel-note">{t('아직 올린 이미지가 없어요.', 'No images yet.')}</p>
       ) : (
         <ImageThumbGrid images={usable} onPick={placeCentered} />
       )}
@@ -1887,15 +1892,15 @@ export function ZoomStepper({
   const i = idx === -1 ? ZOOMS.indexOf(100) : idx;
   return (
     <div className="zoom-stepper">
-      <button className="ghost" onClick={() => onChange(ZOOMS[Math.max(0, i - 1)])} disabled={i <= 0} title="축소">
+      <button className="ghost" onClick={() => onChange(ZOOMS[Math.max(0, i - 1)])} disabled={i <= 0} title={t('축소', 'Zoom out')}>
         −
       </button>
-      <span className="zoom-readout">{zoom === 'fit' ? '맞춤' : `${ZOOMS[i]}%`}</span>
+      <span className="zoom-readout">{zoom === 'fit' ? t('맞춤', 'Fit') : `${ZOOMS[i]}%`}</span>
       <button
         className="ghost"
         onClick={() => onChange(ZOOMS[Math.min(ZOOMS.length - 1, i + 1)])}
         disabled={i >= ZOOMS.length - 1}
-        title="확대"
+        title={t('확대', 'Zoom in')}
       >
         +
       </button>
@@ -1971,9 +1976,12 @@ function ScopeNote() {
     return (
       <div className="scope-note source">
         <span>
-          ✎ 원본 편집 중 — {count}장{first ? `(${first}~${last})` : ''} 모두 바뀌어요
+          {t(
+            `✎ 원본 편집 중 — ${count}장${first ? `(${first}~${last})` : ''} 모두 바뀌어요`,
+            `✎ Editing the template: all ${count} page(s)${first ? ` (${first}–${last})` : ''} change`,
+          )}
         </span>
-        <button onClick={exitSourceEdit}>완료</button>
+        <button onClick={exitSourceEdit}>{t('완료', 'Done')}</button>
       </div>
     );
   }
@@ -1985,20 +1993,20 @@ function ScopeNote() {
   const changed = changedIds(work, { kind: 'face', face: current }).filter((id) => selectedIds.includes(id));
   return (
     <div className="scope-note">
-      <span>{label} · 이 날짜만 고치는 중</span>
+      <span>{label} · {t('이 날짜만 고치는 중', 'editing this date only')}</span>
       {changed.length > 0 && (
         <>
           {/* 짧게(2026-10-13 사용자 요청) — 길면 막대가 두 줄이 되어 꾸미기 줄이 밀렸다. 자세한 뜻은 마우스를 올리면. */}
-          <span className="scope-changed" title={`고른 것 중 ${changed.length}개를 이 날짜에서만 바꿨어요`}>
-            ● {changed.length}개 바꿈
+          <span className="scope-changed" title={t(`고른 것 중 ${changed.length}개를 이 날짜에서만 바꿨어요`, `${changed.length} of the selected item(s) changed on this date only`)}>
+            ● {t(`${changed.length}개 바꿈`, `${changed.length} changed`)}
           </span>
-          <button className="ghost" onClick={revertSelectedToSource} title="고른 것을 이 날짜에서 바꾸기 전(원본)으로">
-            되돌리기
+          <button className="ghost" onClick={revertSelectedToSource} title={t('고른 것을 이 날짜에서 바꾸기 전(원본)으로', 'Revert the selection on this date to the template')}>
+            {t('되돌리기', 'Revert')}
           </button>
         </>
       )}
       <button className="ghost" onClick={() => enterSourceEdit(current.itemId, current.period!.faceIndex)}>
-        원본 편집
+        {t('원본 편집', 'Edit template')}
       </button>
     </div>
   );
@@ -2111,7 +2119,7 @@ function SpreadHeader() {
   const spreads = useSpreads();
   const faces = useFaces();
   if (!cursor) return null;
-  if (cursor.source) return <div className="spread-labels"><span className="face-label">원본</span></div>;
+  if (cursor.source) return <div className="spread-labels"><span className="face-label">{t('원본', 'Template')}</span></div>;
   const sp = spreads[cursor.spread];
   return sp ? <FaceLabels spread={sp} faces={faces} /> : null;
 }
@@ -2137,19 +2145,19 @@ function FaceActions({ face, index }: { face: ResolvedFace; index: number }) {
       <span className="face-label-name">{faceLabel(face, index)}</span>
       <span className="face-label-actions" onPointerDown={(e) => e.stopPropagation()}>
         {dated && face.period && (
-          <button className="ghost" title="원본 편집 — 이 묶음의 모든 날짜가 바뀝니다" onClick={() => enterSourceEdit(face.itemId, face.period!.faceIndex)}>
-            원본
+          <button className="ghost" title={t('원본 편집 — 이 묶음의 모든 날짜가 바뀝니다', 'Edit template: every date in this set changes')} onClick={() => enterSourceEdit(face.itemId, face.period!.faceIndex)}>
+            {t('원본', 'Template')}
           </button>
         )}
-        <button className="ghost" title={dated ? `묶음(${groupSize}장) 복제` : '복제'} onClick={() => duplicateItemAt(itemIndex)}>
+        <button className="ghost" title={dated ? t(`묶음(${groupSize}장) 복제`, `Duplicate set (${groupSize} pages)`) : t('복제', 'Duplicate')} onClick={() => duplicateItemAt(itemIndex)}>
           ⧉
         </button>
-        <button className="ghost" title="앞으로" disabled={itemIndex <= 0} onClick={() => moveItemTo(itemIndex, itemIndex - 1)}>
+        <button className="ghost" title={t('앞으로', 'Move up')} disabled={itemIndex <= 0} onClick={() => moveItemTo(itemIndex, itemIndex - 1)}>
           ↑
         </button>
         <button
           className="ghost"
-          title="뒤로"
+          title={t('뒤로', 'Move down')}
           disabled={itemIndex >= work.items.length - 1}
           onClick={() => moveItemTo(itemIndex, itemIndex + 1)}
         >
@@ -2157,9 +2165,9 @@ function FaceActions({ face, index }: { face: ResolvedFace; index: number }) {
         </button>
         <button
           className="ghost danger"
-          title={dated ? `묶음(${groupSize}장) 지우기` : '지우기'}
+          title={dated ? t(`묶음(${groupSize}장) 지우기`, `Delete set (${groupSize} pages)`) : t('지우기', 'Delete')}
           onClick={() => {
-            if (dated && !window.confirm(`날짜 묶음 ${groupSize}장이 모두 지워져요. 지울까요?`)) return;
+            if (dated && !window.confirm(t(`날짜 묶음 ${groupSize}장이 모두 지워져요. 지울까요?`, `All ${groupSize} pages of this date set will be deleted. Delete?`))) return;
             removeItemAt(itemIndex);
           }}
         >
@@ -2179,10 +2187,11 @@ function AddPageButton() {
   return (
     <div className="add-page-controls" onPointerDown={(e) => e.stopPropagation()}>
       <button className="add-page" onClick={addPagesAtEnd}>
-        + 페이지 추가{work.duplex && pagesToAdd(faceCount(work)) === 2 ? ' (앞·뒤)' : ''}
+        {t('+ 페이지 추가', '+ Add page')}
+        {work.duplex && pagesToAdd(faceCount(work)) === 2 ? t(' (앞·뒤)', ' (front + back)') : ''}
       </button>
       <details className="page-add-options">
-        <summary aria-label="페이지 추가 메뉴">▾</summary>
+        <summary aria-label={t('페이지 추가 메뉴', 'Add page menu')}>▾</summary>
         <div className="page-add-menu"><ImportPagesButton atEnd /></div>
       </details>
     </div>
@@ -2198,8 +2207,8 @@ function MarginReadout({ lattice, insert }: { lattice: ReturnType<typeof gridLat
   const bottom = insert.height - lattice.ys[lattice.ys.length - 1];
   const r = (v: Mm) => roundMm(v, 1);
   return (
-    <span title="격자의 첫 점·끝 점까지의 거리">
-      여백 ←{r(left)} →{r(right)} ↑{r(top)} ↓{r(bottom)}mm
+    <span title={t('격자의 첫 점·끝 점까지의 거리', 'Distance to the first and last grid points')}>
+      {t('여백', 'Margin')} ←{r(left)} →{r(right)} ↑{r(top)} ↓{r(bottom)}mm
     </span>
   );
 }
@@ -2218,29 +2227,29 @@ function ViewToggles() {
   if (!work || !cursor) return null;
   return (
     <>
-      <label className="check foot-check" title="양면이면 면이 앞·뒤로 짝지어 인쇄돼요">
+      <label className="check foot-check" title={t('양면이면 면이 앞·뒤로 짝지어 인쇄돼요', 'Double-sided pages print as front/back pairs')}>
         <input type="checkbox" checked={work.duplex} onChange={(e) => setDuplex(e.target.checked)} />
-        양면
+        {t('양면', 'Double-sided')}
       </label>
       {work.duplex && (
         <span className="seg">
-          <button className={cursor.view === 'spread' ? 'on' : ''} onClick={() => setView('spread')} title="다이어리를 펼친 모습">
-            펼침면
+          <button className={cursor.view === 'spread' ? 'on' : ''} onClick={() => setView('spread')} title={t('다이어리를 펼친 모습', 'As an open planner')}>
+            {t('펼침면', 'Spread')}
           </button>
-          <button className={cursor.view === 'single' ? 'on' : ''} onClick={() => setView('single')} title="한 면씩 아래로">
-            일렬
+          <button className={cursor.view === 'single' ? 'on' : ''} onClick={() => setView('single')} title={t('한 면씩 아래로', 'One page at a time, scrolling down')}>
+            {t('일렬', 'List')}
           </button>
         </span>
       )}
       <button
         className={`ghost${showRulers ? ' on' : ''}`}
         onClick={() => useStore.getState().patch({ showRulers: !showRulers })}
-        title="위·왼쪽에 mm 눈금자(인쇄되지 않아요)"
+        title={t('위·왼쪽에 mm 눈금자(인쇄되지 않아요)', 'mm rulers on the top and left (not printed)')}
         aria-pressed={showRulers}
       >
-        눈금자
+        {t('눈금자', 'Rulers')}
       </button>
-      <button className="ghost" onClick={() => setOverview(true)} title="모든 페이지 한눈에 보기">
+      <button className="ghost" onClick={() => setOverview(true)} title={t('모든 페이지 한눈에 보기', 'See all pages')}>
         ⊞
       </button>
       {overview && <PageOverview onClose={() => setOverview(false)} />}

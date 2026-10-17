@@ -30,6 +30,7 @@ import {
   TableControls,
   TextControls,
 } from './ObjectControls';
+import { t } from '../lang';
 
 /**
  * 편집 화면 위쪽의 속성 막대.
@@ -76,7 +77,7 @@ export function StyleBar({
   if (editing) {
     return (
       <div className="stylebar">
-        <span className="picked-count">쓰는 중</span>
+        <span className="picked-count">{t('쓰는 중', 'Drawing with')}</span>
         <span className="size-readout">
           {roundMm(editing.box.width, 1)} × {roundMm(editing.box.height, 1)}mm
         </span>
@@ -152,7 +153,7 @@ export function StyleBar({
     <div className="stylebar">
       {picked.length > 0 ? (
         <>
-          <span className="picked-count">{picked.length}개</span>
+          <span className="picked-count">{picked.length}</span>
           {/* 고른 것이 전부 체크박스면 크기 읽기전용 표시 대신 직접 칠 수
               있는 칸을 준다 — 가로세로가 늘 같아서 한 번만 입력하면 된다.
               여럿을 함께 골랐어도 마찬가지다(styleCheckbox가 고른 것
@@ -169,7 +170,7 @@ export function StyleBar({
                   : null
               }
               unit="mm"
-              title="달 지름"
+              title={t('달 지름', 'Moon diameter')}
               min={MIN_FREE_BOX_SIZE}
               max={roundMm(Math.min(...pickedMoons.map((o) => Math.max(o.width, o.height))), 1)}
               step={0.1}
@@ -183,7 +184,7 @@ export function StyleBar({
                   : null
               }
               unit="mm"
-              title="아이콘 크기"
+              title={t('아이콘 크기', 'Icon size')}
               min={MIN_FREE_BOX_SIZE}
               max={roundMm(Math.min(...pickedCheckboxes.map((o) => Math.min(o.width, o.height))), 1)}
               step={0.1}
@@ -200,24 +201,24 @@ export function StyleBar({
       ) : (
         <span className="picked-count muted-label">
           {tool === 'text'
-            ? '글자'
+            ? t('글자', 'Text')
             : tool === 'table'
-              ? '표'
+              ? t('표', 'Table')
               : tool === 'field'
-                ? '자동 필드'
+                ? t('자동 필드', 'Auto field')
                 : tool === 'calendar'
-                  ? '달력'
+                  ? t('달력', 'Calendar')
                   : tool === 'image'
-                    ? '이미지'
+                    ? t('이미지', 'Image')
                     : tool === 'checkbox'
-                      ? '체크박스'
+                      ? t('체크박스', 'Checkbox')
                       : tool === 'dots'
-                        ? '도트 판'
+                        ? t('도트 판', 'Dot board')
                       : tool === 'moon'
-                        ? '달'
+                        ? t('달', 'Moon')
                       : tool === 'draw' && drawStyle.roundness
-                        ? '도형'
-                        : '선'}
+                        ? t('도형', 'Shape')
+                        : t('선', 'Line')}
         </span>
       )}
 
@@ -279,13 +280,13 @@ export function StyleBar({
                   roundness: e.target.value ? (Number(e.target.value) as CornerRoundness) : undefined,
                 })
               }
-              title="모서리 둥글기 — 사각형(또는 표 테두리)을 만들 때 쓰일 둥글기입니다"
+              title={t('모서리 둥글기 — 사각형(또는 표 테두리)을 만들 때 쓰일 둥글기입니다', 'Corner rounding for new rectangles (or table borders)')}
             >
-              <option value="">각짐</option>
-              <option value="1">둥글기 1</option>
-              <option value="2">둥글기 2</option>
-              <option value="3">둥글기 3</option>
-              <option value="4">원·타원</option>
+              <option value="">{t('각짐', 'Square')}</option>
+              <option value="1">{t('둥글기 1', 'Rounded 1')}</option>
+              <option value="2">{t('둥글기 2', 'Rounded 2')}</option>
+              <option value="3">{t('둥글기 3', 'Rounded 3')}</option>
+              <option value="4">{t('원·타원', 'Circle / ellipse')}</option>
             </select>
           )}
         </>

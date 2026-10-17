@@ -30,6 +30,7 @@ import { displayText, rotateOf } from '../core/text';
 import { roundMm, type Mm } from '../core/units';
 import type { AlignGuide } from '../core/align';
 import { tableSize, type Lattice } from '../core/grid';
+import { t } from '../lang';
 
 /**
  * 확정되기 전의 것들.
@@ -477,7 +478,7 @@ export function withCells(
 ): string | null {
   if (!mmLabel) return null;
   const { cols, rows } = tableSize(lattice, from, to);
-  const cellPart = cols === 1 ? `${rows}칸` : rows === 1 ? `${cols}칸` : `${cols} × ${rows}칸`;
+  const cellPart = cols === 1 ? t(`${rows}칸`, `${rows}`) : rows === 1 ? t(`${cols}칸`, `${cols}`) : t(`${cols} × ${rows}칸`, `${cols} × ${rows}`);
   return `${mmLabel} · ${cellPart}`;
 }
 

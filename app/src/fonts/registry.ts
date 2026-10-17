@@ -19,6 +19,7 @@ import { DEFAULT_FONT_FAMILY } from '../core/style';
 import { idbEntries } from '../storage/idb';
 import type { FontInfo } from '../core/assets';
 import { dropAssetWrite, queueAssetWrite, readAssetCache, saveAssetFile } from '../storage/assetCache';
+import { t } from '../lang';
 
 /** 브라우저가 받아주는 글꼴 파일. 이 밖의 확장자는 열어봐야 실패한다. */
 const ACCEPTED = ['.ttf', '.otf', '.woff', '.woff2'];
@@ -102,7 +103,7 @@ async function loadFont(
 export async function registerFont(file: File, reuseId?: string): Promise<UserFont> {
   const name = file.name.replace(/\.[^.]+$/, '');
   if (!ACCEPTED.some((ext) => file.name.toLowerCase().endsWith(ext))) {
-    throw new Error(`글꼴 파일이 아닙니다 (${ACCEPTED.join(', ')}만 됩니다)`);
+    throw new Error(t(`글꼴 파일이 아닙니다 (${ACCEPTED.join(', ')}만 됩니다)`, `Not a font file (only ${ACCEPTED.join(', ')})`));
   }
 
   const buffer = await file.arrayBuffer();

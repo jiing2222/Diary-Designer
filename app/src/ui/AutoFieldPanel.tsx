@@ -12,6 +12,7 @@ import { todayFrom } from '../core/dated';
 import type { MoonObject, MoonStyle } from '../core/objects';
 import { PopRow } from './Popover';
 import { CalendarIcon } from './icons';
+import { t } from '../lang';
 
 /**
  * AutoField 패널의 위쪽 — 종류 타일 3×3과 고른 종류의 설정(세부계획 A4.2·A4.3).
@@ -33,15 +34,15 @@ const TILES: { id: AutoTile; label: string; glyph: React.ReactNode; key?: string
 export function AutoFieldTiles({ active, onPick }: { active: AutoTile | null; onPick: (tile: AutoTile) => void }) {
   return (
     <div className="tool-tiles auto-tiles">
-      {TILES.map((t) => (
+      {TILES.map((tile) => (
         <button
-          key={t.id}
-          className={`tool-tile ${active === t.id ? 'on' : ''}`}
-          onClick={() => onPick(t.id)}
-          title={t.key ? `${t.label} (${t.key})` : t.label}
+          key={tile.id}
+          className={`tool-tile ${active === tile.id ? 'on' : ''}`}
+          onClick={() => onPick(tile.id)}
+          title={tile.key ? `${tile.label} (${tile.key})` : tile.label}
         >
-          <span className="auto-glyph">{t.glyph}</span>
-          <span>{t.label}</span>
+          <span className="auto-glyph">{tile.glyph}</span>
+          <span>{tile.label}</span>
         </button>
       ))}
     </div>
@@ -86,13 +87,13 @@ export function FieldSettings({
             onCommit={(code) => apply({ format: code })}
           />
           {tile === 'date' && (
-            <label className="field-toggle" title="이 페이지 날짜가 든 한 주를 ‘시작~끝’으로(예: 10/12~10/18)">
+            <label className="field-toggle" title={t('이 페이지 날짜가 든 한 주를 ‘시작~끝’으로(예: 10/12~10/18)', "The week containing this page's date as start–end (e.g. 10/12–10/18)")}>
               <input
                 type="checkbox"
                 checked={spec.kind === 'range'}
                 onChange={(e) => apply({ kind: e.target.checked ? 'range' : undefined })}
               />
-              한 주 범위(시작~끝)
+              {t('한 주 범위(시작~끝)', 'Week range (start–end)')}
             </label>
           )}
           <CodeGuide tile={tile} spec={spec} />
@@ -101,15 +102,15 @@ export function FieldSettings({
 
       {tile === 'dday' && (
         <>
-          <PopRow label="기준일">
+          <PopRow label={t('기준일', 'Reference date')}>
             <input type="date" value={spec.target ?? ''} onChange={(e) => apply({ format: '', kind: 'dday', target: e.target.value || undefined })} />
           </PopRow>
-          <PopRow label="지난 뒤">
+          <PopRow label={t('지난 뒤', 'After it passes')}>
             <span className="seg">
               {(
                 [
                   ['plus', 'D+3'],
-                  ['blank', '비우기'],
+                  ['blank', t('비우기', 'Blank')],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -128,7 +129,7 @@ export function FieldSettings({
 
       {tile === 'page' && (
         <>
-          <PopRow label="시작 번호">
+          <PopRow label={t('시작 번호', 'Start number')}>
             <input
               type="number"
               min={0}
@@ -141,9 +142,9 @@ export function FieldSettings({
 
       {usesDate(spec) &&
         (picked ? (
-          <PopRow label="날짜">
-            <span className="numfield" title="이 페이지에서 몇째 날짜를 쓸지">
-              이 페이지의
+          <PopRow label={t('날짜', 'Date')}>
+            <span className="numfield" title={t('이 페이지에서 몇째 날짜를 쓸지', 'Which date on this page to use')}>
+              {t('이 페이지의', 'Date')}
               <input
                 type="number"
                 min={1}
@@ -152,7 +153,7 @@ export function FieldSettings({
                 placeholder={offsetMixed ? '—' : undefined}
                 onChange={(e) => apply({ offset: Math.max(1, Math.round(Number(e.target.value) || 1)) - 1 })}
               />
-              번째
+              {t('번째', 'on this page')}
             </span>
           </PopRow>
         ) : (
@@ -171,9 +172,9 @@ function NextFieldRow() {
   const setNext = useStore((s) => s.setFieldNext);
   return (
     <>
-      <PopRow label="날짜">
-        <span className="numfield" title="다음에 놓을 칸이 이 페이지에서 몇째 날짜를 쓸지">
-          이 페이지의
+      <PopRow label={t('날짜', 'Date')}>
+        <span className="numfield" title={t('다음에 놓을 칸이 이 페이지에서 몇째 날짜를 쓸지', 'Which date on this page the next field uses')}>
+          {t('이 페이지의', 'Date')}
           <input
             type="number"
             min={1}
@@ -181,12 +182,12 @@ function NextFieldRow() {
             value={next.offset + 1}
             onChange={(e) => setNext({ offset: Math.max(1, Math.round(Number(e.target.value) || 1)) - 1 })}
           />
-          번째
+          {t('번째', 'on this page')}
         </span>
       </PopRow>
       <label className="field-toggle">
         <input type="checkbox" checked={next.advance} onChange={(e) => setNext({ advance: e.target.checked })} />
-        놓을 때마다 다음 날짜로
+        {t('놓을 때마다 다음 날짜로', 'Next date each time you place one')}
       </label>
     </>
   );
@@ -202,9 +203,9 @@ export function MoonPanel({ moons, apply }: { moons: MoonObject[]; apply: (patch
   return (
     <div className="field-settings">
       {first ? (
-        <PopRow label="날짜">
-          <span className="numfield" title="이 페이지에서 몇째 날짜의 달인지">
-            이 페이지의
+        <PopRow label={t('날짜', 'Date')}>
+          <span className="numfield" title={t('이 페이지에서 몇째 날짜의 달인지', "Which date's month on this page")}>
+            {t('이 페이지의', 'Date')}
             <input
               type="number"
               min={1}
@@ -213,7 +214,7 @@ export function MoonPanel({ moons, apply }: { moons: MoonObject[]; apply: (patch
               placeholder={offsetMixed ? '—' : undefined}
               onChange={(e) => apply({ offset: Math.max(1, Math.round(Number(e.target.value) || 1)) - 1 })}
             />
-            번째
+            {t('번째', 'on this page')}
           </span>
         </PopRow>
       ) : (
@@ -225,27 +226,28 @@ export function MoonPanel({ moons, apply }: { moons: MoonObject[]; apply: (patch
 
 /** 형식 코드를 직접 쓰는 칸 — 치는 동안 미리보기만 바뀌고, Enter나 칸을 떠날 때 적용한다. */
 /** 형식 코드 표 — 단추로 열고 닫는다(2026-10-13). 오늘 날짜로 실제 값을 함께 보여준다. */
-const DATE_CODES: [code: string, meaning: string][] = [
-  ['YYYY', '해'],
-  ['YY', '해 두 자리'],
-  ['M', '달'],
-  ['MM', '달 두 자리'],
-  ['MMM', '달 영어 약자'],
-  ['MMMM', '달 영어'],
-  ['D', '날'],
-  ['DD', '날 두 자리'],
-  ['ddd', '요일'],
-  ['dddd', '요일 길게'],
-  ['eee', '요일 영어'],
-  ['eeee', '요일 영어 길게'],
-  ['w', '주차'],
+// 함수로 둔다 — 모듈을 읽을 때 한 번 정하면 언어가 바뀌어도 그대로 남는다.
+const dateCodes = (): [code: string, meaning: string][] => [
+  ['YYYY', t('해', 'Year')],
+  ['YY', t('해 두 자리', 'Year, 2 digits')],
+  ['M', t('달', 'Month')],
+  ['MM', t('달 두 자리', 'Month, 2 digits')],
+  ['MMM', t('달 영어 약자', 'Month, short')],
+  ['MMMM', t('달 영어', 'Month, full')],
+  ['D', t('날', 'Day')],
+  ['DD', t('날 두 자리', 'Day, 2 digits')],
+  ['ddd', t('요일', 'Weekday (Korean)')],
+  ['dddd', t('요일 길게', 'Weekday, long (Korean)')],
+  ['eee', t('요일 영어', 'Weekday')],
+  ['eeee', t('요일 영어 길게', 'Weekday, long')],
+  ['w', t('주차', 'Week number')],
 ];
 
-const PAGE_CODES: [code: string, meaning: string, example: string][] = [
-  ['n', '번호', '3'],
-  ['nn', '번호 두 자리', '03'],
-  ['nnn', '번호 세 자리', '003'],
-  ['N', '전체 장 수', '33'],
+const pageCodes = (): [code: string, meaning: string, example: string][] => [
+  ['n', t('번호', 'Number'), '3'],
+  ['nn', t('번호 두 자리', 'Number, 2 digits'), '03'],
+  ['nnn', t('번호 세 자리', 'Number, 3 digits'), '003'],
+  ['N', t('전체 장 수', 'Total pages'), '33'],
 ];
 
 function CodeGuide({ tile, spec }: { tile: FieldTile; spec: FieldDraft }) {
@@ -253,12 +255,12 @@ function CodeGuide({ tile, spec }: { tile: FieldTile; spec: FieldDraft }) {
   const [open, setOpen] = useState(false);
   const rows: [string, string, string][] =
     tile === 'page'
-      ? PAGE_CODES
-      : DATE_CODES.map(([code, meaning]) => [code, meaning, fieldValue({ ...spec, offset: 0, kind: undefined, format: code }, today)]);
+      ? pageCodes()
+      : dateCodes().map(([code, meaning]) => [code, meaning, fieldValue({ ...spec, offset: 0, kind: undefined, format: code }, today)]);
   return (
     <div className="code-guide">
       <button className="ghost code-guide-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
-        형식 코드 {open ? '▴' : '▾'}
+        {t('형식 코드', 'Format codes')} {open ? '▴' : '▾'}
       </button>
       {open && (
         <table>
@@ -271,8 +273,8 @@ function CodeGuide({ tile, spec }: { tile: FieldTile; spec: FieldDraft }) {
               </tr>
             ))}
             <tr>
-              <td className="code">{'{글자}'}</td>
-              <td colSpan={2}>코드와 겹치는 글자는 그대로</td>
+              <td className="code">{t('{글자}', '{text}')}</td>
+              <td colSpan={2}>{t('코드와 겹치는 글자는 그대로', 'Text that clashes with a code stays as typed')}</td>
             </tr>
           </tbody>
         </table>
@@ -298,7 +300,7 @@ function CodeInput({
   };
   return (
     <div className="code-input">
-      <PopRow label="직접 입력">
+      <PopRow label={t('직접 입력', 'Custom')}>
         <input
           type="text"
           value={draft}
@@ -310,7 +312,7 @@ function CodeInput({
           }}
         />
       </PopRow>
-      {draft.trim() !== '' && <div className="code-preview">미리보기 {preview(draft)}</div>}
+      {draft.trim() !== '' && <div className="code-preview">{t('미리보기', 'Preview')} {preview(draft)}</div>}
     </div>
   );
 }

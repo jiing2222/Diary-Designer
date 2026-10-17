@@ -240,7 +240,7 @@ describe('계정 동기화 순서', () => {
       s()
         .works.map((w) => w.name)
         .sort(),
-    ).toEqual(['여기서 고침 (이 기기 사본)', '저기서 고침']);
+    ).toEqual(['여기서 고침 (copy from this device)', '저기서 고침']);
   });
 
   it('여기서 영구 삭제하면 서버엔 지움 표시, 다른 기기는 그걸 받아 지운다', async () => {

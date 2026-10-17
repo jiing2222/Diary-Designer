@@ -14,6 +14,7 @@ import { PaperPreview } from './PaperPreview';
 import { printJob, sheetFaces, sheetSlots, type PrintJob } from './printPreview';
 import { Check, Num, Row } from './PagePanel';
 import { LayoutIcon, MarksIcon, PaperIcon, SidesIcon } from './icons';
+import { t } from '../lang';
 
 /**
  * Print 화면(리뉴얼 6단계, 세부계획 A14 · 디자인.md ‘탭’).
@@ -112,21 +113,21 @@ export function PrintRail() {
   return (
     <>
       <div className="rail-icons">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.id}
-            className={`rail-icon ${open === t.id ? 'on' : ''}`}
-            onClick={() => setOpen(open === t.id ? null : t.id)}
-            data-tip={t.label}
-            aria-label={t.label}
+            key={tab.id}
+            className={`rail-icon ${open === tab.id ? 'on' : ''}`}
+            onClick={() => setOpen(open === tab.id ? null : tab.id)}
+            data-tip={tab.label}
+            aria-label={tab.label}
           >
-            {t.icon}
+            {tab.icon}
           </button>
         ))}
       </div>
       {open && (
         <aside className="rail-panel print-panel">
-          <h2 className="rail-panel-title">{TABS.find((t) => t.id === open)!.label}</h2>
+          <h2 className="rail-panel-title">{TABS.find((tab) => tab.id === open)!.label}</h2>
           {open === 'paper' && <PaperPanel />}
           {open === 'sides' && <SidesPanel />}
           {open === 'layout' && <LayoutPanel />}
@@ -146,8 +147,8 @@ function PaperPanel() {
   return (
     <div className="panel-rows">
       <RangeSection />
-      <h3 className="panel-sub">용지</h3>
-      <Row label="크기">
+      <h3 className="panel-sub">{t('용지', 'Paper')}</h3>
+      <Row label={t('크기', 'Size')}>
         <select value={paper.presetId} onChange={(e) => setPaperPreset(e.target.value)}>
           {PAPER_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -156,42 +157,42 @@ function PaperPanel() {
           ))}
           {paper.presetId === 'custom' && (
             <option value="custom">
-              직접 ({paper.width}×{paper.height})
+              {t('직접', 'Custom')} ({paper.width}×{paper.height})
             </option>
           )}
         </select>
       </Row>
-      <Row label="가로">
+      <Row label={t('가로', 'Width')}>
         <Num value={paper.width} min={50} max={600} step={1} onChange={(width) => patchPaper({ width })} />
       </Row>
-      <Row label="세로">
+      <Row label={t('세로', 'Height')}>
         <Num value={paper.height} min={50} max={600} step={1} onChange={(height) => patchPaper({ height })} />
       </Row>
-      <Row label="방향">
+      <Row label={t('방향', 'Orientation')}>
         <span className="seg">
           <button className={!paper.landscape ? 'on' : ''} onClick={() => patchPaper({ landscape: false })}>
-            세로
+            {t('세로', 'Portrait')}
           </button>
           <button className={paper.landscape ? 'on' : ''} onClick={() => patchPaper({ landscape: true })}>
-            가로
+            {t('가로', 'Landscape')}
           </button>
         </span>
       </Row>
-      <Row label="여백" hint="속지를 놓지 않는 용지 가장자리">
+      <Row label={t('여백', 'Margin')} hint={t('속지를 놓지 않는 용지 가장자리', 'Paper edge kept free of inserts')}>
         <Num value={paper.printMargin} min={0} max={30} onChange={(printMargin) => patchPaper({ printMargin })} />
       </Row>
       <Check
         checked={unprintable.show}
         onChange={(show) => patchUnprintable({ show })}
-        label="인쇄 불가 가장자리 표시"
+        label={t('인쇄 불가 가장자리 표시', 'Show unprintable edge')}
       />
       {unprintable.show && (
-        <Row label="가장자리 폭">
+        <Row label={t('가장자리 폭', 'Edge width')}>
           <Num value={unprintable.width} min={0} max={15} onChange={(width) => patchUnprintable({ width })} />
         </Row>
       )}
       <p className="tool-panel-note">
-        인쇄 대화상자에서 ‘실제 크기(100%)’로 찍어야 mm가 맞아요. Marks의 50mm 눈금으로 확인할 수 있어요.
+        {t('인쇄 대화상자에서 ‘실제 크기(100%)’로 찍어야 mm가 맞아요. Marks의 50mm 눈금으로 확인할 수 있어요.', 'Print at Actual size (100%) in the print dialog so the measurements are right. Check with the 50 mm ruler in Marks.')}
       </p>
     </div>
   );
@@ -205,13 +206,13 @@ function RangeSection() {
   const set = (p: Partial<typeof range>) => patch({ printRange: { ...range, ...p } });
   return (
     <>
-      <h3 className="panel-sub">출력 범위</h3>
+      <h3 className="panel-sub">{t('출력 범위', 'Pages')}</h3>
       <span className="seg">
         <button className={range.mode === 'all' ? 'on' : ''} onClick={() => set({ mode: 'all' })}>
-          전체
+          {t('전체', 'All')}
         </button>
         <button className={range.mode === 'pick' ? 'on' : ''} onClick={() => set({ mode: 'pick' })}>
-          페이지 선택
+          {t('페이지 선택', 'Choose pages')}
         </button>
       </span>
       {range.mode === 'pick' && (
@@ -220,15 +221,18 @@ function RangeSection() {
             className="range-input"
             type="text"
             value={range.text}
-            placeholder="예: 1-5, 8"
+            placeholder={t('예: 1-5, 8', 'e.g. 1-5, 8')}
             onChange={(e) => set({ text: e.target.value })}
           />
           <p className={`tool-panel-note ${job?.rangeError !== null ? 'warn' : ''}`}>
             {job?.rangeError
-              ? `‘${job.rangeError}’을 알아볼 수 없어요. 1-5, 8처럼 써요.`
+              ? t(`‘${job.rangeError}’을 알아볼 수 없어요. 1-5, 8처럼 써요.`, `Can't read “${job.rangeError}”. Write it like 1-5, 8.`)
               : job?.rangeError === ''
-                ? '페이지 번호를 써요(편집 화면의 p.1, p.2…).'
-                : `${job?.pickedCount}페이지 · 속지 ${job?.cards}장${job?.work.duplex ? ' — 양면이라 고른 페이지의 앞·뒤가 함께 나와요' : ''}`}
+                ? t('페이지 번호를 써요(편집 화면의 p.1, p.2…).', 'Enter page numbers (p.1, p.2… in the editor).')
+                : t(
+                `${job?.pickedCount}페이지 · 속지 ${job?.cards}장${job?.work.duplex ? ' — 양면이라 고른 페이지의 앞·뒤가 함께 나와요' : ''}`,
+                `${job?.pickedCount} page(s) · ${job?.cards} insert(s)${job?.work.duplex ? ' (double-sided, so the front and back of each page come together)' : ''}`,
+              )}
           </p>
         </>
       )}
@@ -249,7 +253,7 @@ function CopiesRow() {
   const set = (n: number) => patch({ printCopies: Math.min(999, Math.max(1, Math.floor(n) || 1)) });
   return (
     <>
-      <h3 className="panel-sub">속지마다</h3>
+      <h3 className="panel-sub">{t('속지마다', 'Copies per insert')}</h3>
       <span className="copies-row">
         <input
           className="range-input copies-input"
@@ -258,16 +262,16 @@ function CopiesRow() {
           max={999}
           value={copies}
           onChange={(e) => set(Number(e.target.value))}
-          aria-label="속지마다 몇 부"
+          aria-label={t('속지마다 몇 부', 'Copies per insert')}
         />
-        <span>부</span>
+        <span>{t('부', 'copies')}</span>
         {perSheet > 1 && copies !== perSheet && (
-          <button className="ghost" onClick={() => set(perSheet)} title="용지 한 장을 같은 속지로 가득 채운다">
-            한 장 가득({perSheet}부)
+          <button className="ghost" onClick={() => set(perSheet)} title={t('용지 한 장을 같은 속지로 가득 채운다', 'Fill a whole sheet with the same insert')}>
+            {t(`한 장 가득(${perSheet}부)`, `Fill a sheet (${perSheet})`)}
           </button>
         )}
       </span>
-      {copies > 1 && <p className="tool-panel-note">속지 {job?.cards}장 → 용지 {job?.sheets}장. 같은 속지가 이어서 놓여요.</p>}
+      {copies > 1 && <p className="tool-panel-note">{t(`속지 ${job?.cards}장 → 용지 ${job?.sheets}장. 같은 속지가 이어서 놓여요.`, `${job?.cards} insert(s) → ${job?.sheets} sheet(s). Copies of the same insert sit together.`)}</p>}
     </>
   );
 }
@@ -281,23 +285,23 @@ function SidesPanel() {
   if (!work) return null;
   return (
     <div className="panel-rows">
-      <Row label="속지">
+      <Row label={t('속지', 'Inserts')}>
         <span className="seg">
           <button className={work.duplex ? 'on' : ''} onClick={() => setDuplex(true)}>
-            양면
+            {t('양면', 'Double-sided')}
           </button>
           <button className={!work.duplex ? 'on' : ''} onClick={() => setDuplex(false)}>
-            단면
+            {t('단면', 'Single-sided')}
           </button>
         </span>
       </Row>
       {work.duplex && (
         <>
-          <Check checked={backTurn180} onChange={(v) => patch({ backTurn180: v })} label="뒷면 반 바퀴 돌리기" />
+          <Check checked={backTurn180} onChange={(v) => patch({ backTurn180: v })} label={t('뒷면 반 바퀴 돌리기', 'Rotate backs 180°')} />
           <Check
             checked={blankBackGrid}
             onChange={(v) => patch({ blankBackGrid: v })}
-            label="빈 뒷면에 배경(도트) 찍기"
+            label={t('빈 뒷면에 배경(도트) 찍기', 'Print the background (dots) on blank backs')}
           />
         </>
       )}
@@ -314,30 +318,30 @@ function LayoutPanel() {
   const patch = useStore((s) => s.patch);
   return (
     <div className="panel-rows">
-      <Row label="간격" hint="속지 사이">
+      <Row label={t('간격', 'Gap')} hint={t('속지 사이', 'Between inserts')}>
         <Num value={gap} min={0} max={30} onChange={(v) => patch({ gap: v })} />
       </Row>
-      <Check checked={allowRotate} onChange={(v) => patch({ allowRotate: v })} label="90도 돌려 더 넣기" />
-      <Row label="정렬">
+      <Check checked={allowRotate} onChange={(v) => patch({ allowRotate: v })} label={t('90도 돌려 더 넣기', 'Rotate 90° to fit more')} />
+      <Row label={t('정렬', 'Align')}>
         <span className="seg">
           <button className={align === 'center' ? 'on' : ''} onClick={() => patch({ align: 'center' })}>
-            가운데
+            {t('가운데', 'Center')}
           </button>
           <button className={align === 'topLeft' ? 'on' : ''} onClick={() => patch({ align: 'topLeft' })}>
-            왼쪽 위
+            {t('왼쪽 위', 'Top left')}
           </button>
         </span>
       </Row>
-      <h3 className="panel-sub">고급</h3>
-      <Check checked={cutStack} onChange={(v) => patch({ cutStack: v })} label="자른 뒤 쌓으면 순서대로" />
+      <h3 className="panel-sub">{t('고급', 'Advanced')}</h3>
+      <Check checked={cutStack} onChange={(v) => patch({ cutStack: v })} label={t('자른 뒤 쌓으면 순서대로', 'In order after cutting and stacking')} />
       {cutStack && (
-        <Row label="무더기" hint="몇 장씩 한 무더기로 자를지(0 = 전체)">
+        <Row label={t('무더기', 'Stack size')} hint={t('몇 장씩 한 무더기로 자를지(0 = 전체)', 'How many sheets to cut per stack (0 = all)')}>
           <Num
             value={cutStackGroup}
             min={0}
             max={500}
             step={1}
-            unit="장"
+            unit={t('장', 'sheets')}
             onChange={(v) => patch({ cutStackGroup: v })}
           />
         </Row>
@@ -346,11 +350,12 @@ function LayoutPanel() {
   );
 }
 
-const CROP_MODES: { id: CropMode; label: string }[] = [
-  { id: 'none', label: '없음' },
-  { id: 'mark', label: '모서리 표시' },
-  { id: 'markAll', label: '모든 칸 표시' },
-  { id: 'line', label: '선' },
+// 함수로 둔다 — 모듈을 읽을 때 한 번 정하면 언어가 바뀌어도 그대로 남는다.
+const cropModes = (): { id: CropMode; label: string }[] => [
+  { id: 'none', label: t('없음', 'None') },
+  { id: 'mark', label: t('모서리 표시', 'Corner marks') },
+  { id: 'markAll', label: t('모든 칸 표시', 'Marks on every cell') },
+  { id: 'line', label: t('선', 'Lines') },
 ];
 
 function MarksPanel() {
@@ -362,9 +367,9 @@ function MarksPanel() {
   const patch = useStore((s) => s.patch);
   return (
     <div className="panel-rows">
-      <Row label="절취선">
+      <Row label={t('절취선', 'Crop marks')}>
         <select value={cropMark} onChange={(e) => patch({ cropMark: e.target.value as CropMode })}>
-          {CROP_MODES.map((m) => (
+          {cropModes().map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
             </option>
@@ -372,18 +377,18 @@ function MarksPanel() {
         </select>
       </Row>
       {cropMark !== 'none' && (
-        <Check checked={cropFrontOnly} onChange={(v) => patch({ cropFrontOnly: v })} label="앞면에만" />
+        <Check checked={cropFrontOnly} onChange={(v) => patch({ cropFrontOnly: v })} label={t('앞면에만', 'Fronts only')} />
       )}
-      <Check checked={showRuler} onChange={(v) => patch({ showRuler: v })} label="50mm 검증 눈금" />
+      <Check checked={showRuler} onChange={(v) => patch({ showRuler: v })} label={t('50mm 검증 눈금', '50 mm test ruler')} />
       {duplex && (
         <>
-          <Row label="출력 면">
+          <Row label={t('출력 면', 'Print sides')}>
             <span className="seg">
               {(
                 [
-                  ['both', '둘 다'],
-                  ['front', '앞면만'],
-                  ['back', '뒷면만'],
+                  ['both', t('둘 다', 'Both')],
+                  ['front', t('앞면만', 'Fronts only')],
+                  ['back', t('뒷면만', 'Backs only')],
                 ] as const
               ).map(([id, label]) => (
                 <button key={id} className={printSides === id ? 'on' : ''} onClick={() => patch({ printSides: id })}>
@@ -416,7 +421,7 @@ export function PrintMain() {
   const [view, setView] = useState<'one' | 'all'>('one');
   const [picking, setPicking] = useState(false);
 
-  if (!job) return <p className="muted center">작업을 찾을 수 없어요.</p>;
+  if (!job) return <p className="muted center">{t('작업을 찾을 수 없어요.', 'Work not found.')}</p>;
   const { work, input, slots, sheets, backLayout } = job;
   const at = Math.min(sheet, Math.max(0, sheets - 1));
   const back = work.duplex && side === 'back';
@@ -431,7 +436,7 @@ export function PrintMain() {
     <div className="print">
       <div className="print-bar">
         <button className="ghost print-back" onClick={closePrint}>
-          ← 편집으로
+          {t('← 편집으로', '← Back to editing')}
         </button>
         <span className="print-title">{work.name}</span>
         <span className="print-bar-gap" />
@@ -440,9 +445,9 @@ export function PrintMain() {
           disabled={job.rangeError !== null || sheets === 0}
           title={
             job.rangeError !== null
-              ? '출력 범위를 먼저 고쳐 주세요'
+              ? t('출력 범위를 먼저 고쳐 주세요', 'Fix the page range first')
               : slots === 0
-                ? '속지가 들어가는 용지를 골라 주세요'
+                ? t('속지가 들어가는 용지를 골라 주세요', 'Choose a paper the inserts fit on')
                 : undefined
           }
           onClick={() => setAsking(true)}
@@ -457,7 +462,7 @@ export function PrintMain() {
           <AllSheets picking={picking} />
         ) : sheets === 0 ? (
           <p className="muted center">
-            {slots === 0 ? '이 용지에는 속지가 들어가지 않아요. 용지 크기를 바꿔 주세요.' : '찍을 페이지가 없어요.'}
+            {slots === 0 ? t('이 용지에는 속지가 들어가지 않아요. 용지 크기를 바꿔 주세요.', "The inserts don't fit on this paper. Choose a different paper size.") : t('찍을 페이지가 없어요.', 'No pages to print.')}
           </p>
         ) : (
           <PaperPreview
@@ -483,10 +488,10 @@ export function PrintMain() {
       <div className="print-nav">
         <span className="seg">
           <button className={view === 'one' ? 'on' : ''} onClick={() => setView('one')}>
-            한 장씩
+            {t('한 장씩', 'One sheet')}
           </button>
           <button className={view === 'all' ? 'on' : ''} onClick={() => setView('all')}>
-            모든 장
+            {t('모든 장', 'All sheets')}
           </button>
         </span>
         {view === 'all' ? (
@@ -500,42 +505,45 @@ export function PrintMain() {
                 setPicking(enabled);
               }}
             />
-            눌러서 출력할 페이지 고르기
+            {t('눌러서 출력할 페이지 고르기', 'Click to choose pages to print')}
           </label>
         ) : (
           <>
-            <button className="ghost" disabled={at <= 0} onClick={() => setSheet(at - 1)} aria-label="앞 장">
+            <button className="ghost" disabled={at <= 0} onClick={() => setSheet(at - 1)} aria-label={t('앞 장', 'Previous sheet')}>
               ‹
             </button>
             <span>
-              {sheets === 0 ? 0 : at + 1} / {sheets}장
+              {sheets === 0 ? 0 : at + 1} / {sheets}
             </span>
-            <button className="ghost" disabled={at >= sheets - 1} onClick={() => setSheet(at + 1)} aria-label="다음 장">
+            <button className="ghost" disabled={at >= sheets - 1} onClick={() => setSheet(at + 1)} aria-label={t('다음 장', 'Next sheet')}>
               ›
             </button>
             {work.duplex && (
               <span className="seg">
                 <button className={side === 'front' ? 'on' : ''} onClick={() => setSide('front')}>
-                  앞면
+                  {t('앞면', 'Front')}
                 </button>
                 <button className={side === 'back' ? 'on' : ''} onClick={() => setSide('back')}>
-                  뒷면
+                  {t('뒷면', 'Back')}
                 </button>
               </span>
             )}
             <label className="check">
               <input type="checkbox" checked={guides} onChange={(e) => setGuides(e.target.checked)} />
-              인쇄되지 않는 안내 보기
+              {t('인쇄되지 않는 안내 보기', 'Show non-printing guides')}
             </label>
           </>
         )}
       </div>
 
       <div className="print-foot">
-        {job.pickedCount}페이지 → {paperName} {sheets}장 ({work.duplex ? '양면' : '단면'}) · 속지 {slots}개/장
+        {t(
+          `${job.pickedCount}페이지 → ${paperName} ${sheets}장 (${work.duplex ? t('양면', 'Double-sided') : t('단면', 'Single-sided')}) · 속지 ${slots}개/장`,
+          `${job.pickedCount} page(s) → ${sheets} ${paperName} sheet(s) (${work.duplex ? 'double-sided' : 'single-sided'}) · ${slots} insert(s)/sheet`,
+        )}
         <span className="muted">
           {' '}
-          · {view === 'all' && picking ? '속지를 눌러 출력할 페이지를 골라요' : '속지를 누르면 그 페이지를 고쳐요'}
+          · {view === 'all' && picking ? t('속지를 눌러 출력할 페이지를 골라요', 'Click inserts to choose pages to print') : t('속지를 누르면 그 페이지를 고쳐요', 'Click an insert to edit that page')}
         </span>
       </div>
     </div>
@@ -578,7 +586,7 @@ function AllSheets({ picking }: { picking: boolean }) {
   if (job.sheets === 0)
     return (
       <p className="muted center">
-        {job.slots === 0 ? '이 용지에는 속지가 들어가지 않아요. 용지 크기를 바꿔 주세요.' : '찍을 페이지가 없어요.'}
+        {job.slots === 0 ? t('이 용지에는 속지가 들어가지 않아요. 용지 크기를 바꿔 주세요.', "The inserts don't fit on this paper. Choose a different paper size.") : t('찍을 페이지가 없어요.', 'No pages to print.')}
       </p>
     );
   return (
@@ -586,7 +594,7 @@ function AllSheets({ picking }: { picking: boolean }) {
       {Array.from({ length: job.sheets }, (_, sheet) => {
         const sides = job.work.duplex ? ([false, true] as const) : ([false] as const);
         return (
-          <LazySheet key={sheet} label={`${sheet + 1}장`}>
+          <LazySheet key={sheet} label={t(`${sheet + 1}장`, `Sheet ${sheet + 1}`)}>
             {(visible) =>
               sides.map((back) => {
                 // 설명은 늘 남겨 카드 높이를 유지하고, 화면 밖의 무거운 SVG만 내려놓는다.
@@ -615,7 +623,7 @@ function AllSheets({ picking }: { picking: boolean }) {
                       )}
                     </div>
                     <figcaption>
-                      <b>{back ? '뒤' : '앞'}</b> {names.length > 0 ? names.join(' · ') : '비어 있음'}
+                      <b>{back ? t('뒤', 'Back') : t('앞', 'Front')}</b> {names.length > 0 ? names.join(' · ') : t('비어 있음', 'Empty')}
                     </figcaption>
                   </figure>
                 );
@@ -681,40 +689,40 @@ function ExportDialog({ job, onClose }: { job: PrintJob; onClose: () => void }) 
       downloadPdf(bytes, `${job.work.name}_${sizeName}_${paperName}.pdf`);
       onClose();
     } catch {
-      showToast('PDF를 만들지 못했어요. 다시 해 볼래요?');
+      showToast(t('PDF를 만들지 못했어요. 다시 해 볼래요?', "Couldn't make the PDF. Try again?"));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Modal title="PDF 만들기" onClose={onClose}>
+    <Modal title={t('PDF 만들기', 'Make PDF')} onClose={onClose}>
       <div className="export-dialog">
         <label className="check">
           <input type="checkbox" checked={punch} onChange={(e) => setPunch(e.target.checked)} />
-          타공 표시를 인쇄할까요?
+          {t('타공 표시를 인쇄할까요?', 'Print hole marks?')}
         </label>
         <label className="check">
           <input type="checkbox" checked={grid} onChange={(e) => setGrid(e.target.checked)} />
-          배경 격자(도트·그리드)를 인쇄할까요?
+          {t('배경 격자(도트·그리드)를 인쇄할까요?', 'Print the background grid (dots or grid)?')}
         </label>
         <p className="export-summary">
-          {job.pickedCount}페이지 · {job.sheets}장 (
+          {t(`${job.pickedCount}페이지 · ${job.sheets}장`, `${job.pickedCount} page(s) · ${job.sheets} sheet(s)`)} (
           {job.work.duplex
             ? job.settings.sides === 'both'
-              ? '양면'
+              ? t('양면', 'double-sided')
               : job.settings.sides === 'front'
-                ? '앞면만'
-                : '뒷면만'
-            : '단면'}
+                ? t('앞면만', 'fronts only')
+                : t('뒷면만', 'backs only')
+            : t('단면', 'single-sided')}
           )
         </p>
         <div className="card-dialog-actions">
           <button className="ghost" onClick={onClose} disabled={busy}>
-            취소
+            {t('취소', 'Cancel')}
           </button>
           <button className="primary" onClick={() => void make()} disabled={busy}>
-            {busy ? '만드는 중…' : 'PDF 만들기'}
+            {busy ? t('만드는 중…', 'Making…') : t('PDF 만들기', 'Make PDF')}
           </button>
         </div>
       </div>

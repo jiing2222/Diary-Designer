@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { appLang } from './lang';
+import { appLang, t } from './lang';
 import { useShallow } from 'zustand/react/shallow';
 import { useMemo } from 'react';
 import { INSERT_PRESETS, PAPER_PRESETS, defaultPaperId, findInsertPreset, findPaperPreset } from './core/presets';
@@ -830,7 +830,7 @@ export const useStore = create<Store>((set, get) => ({
       diaryId = d.id;
     }
     const now = new Date().toISOString();
-    const work = newWork({ name: uniqueWorkName(s.works, name?.trim() || '새 작업'), diaryId, now });
+    const work = newWork({ name: uniqueWorkName(s.works, name?.trim() || t('새 작업', 'New work')), diaryId, now });
     const result = openTab(s.tabs, work.id);
     set({
       works: [...s.works, work],
@@ -876,7 +876,7 @@ export const useStore = create<Store>((set, get) => ({
     const copy: Work = {
       ...source,
       id: newId('w'),
-      name: uniqueWorkName(s.works, `${source.name} 사본`),
+      name: uniqueWorkName(s.works, t(`${source.name} 사본`, `${source.name} copy`)),
       createdAt: now,
       updatedAt: now,
       diaryId: targetDiaryId!,
@@ -1098,7 +1098,7 @@ export const useStore = create<Store>((set, get) => ({
     set({
       ...commitItems(s, work, result.items),
       ...setCursor(s, work, { source: null, spread, side: spreads[spread]?.[0] === index ? 'back' : 'front' }),
-      toast: { message: `${result.addedFaces}페이지를 사본으로 가져왔어요. 원래 작업은 그대로예요.`, key: Date.now() },
+      toast: { message: t(`${result.addedFaces}페이지를 사본으로 가져왔어요. 원래 작업은 그대로예요.`, `Imported ${result.addedFaces} page(s) as copies. The original work is unchanged.`), key: Date.now() },
     });
     return true;
   },
@@ -1320,7 +1320,7 @@ export const useStore = create<Store>((set, get) => ({
       if (!box.field) ensureCoverageFont(box.font)
         .then((font) => {
           if (font && hasUndrawableChar(box.text, font)) {
-            useStore.getState().showToast('지금 글꼴로는 안 보이는 글자가 있어요 — 인쇄물에는 X로 나와요.');
+            useStore.getState().showToast(t('지금 글꼴로는 안 보이는 글자가 있어요 — 인쇄물에는 X로 나와요.', "This font can't show some characters. They'll print as X."));
           }
         })
         .catch(() => {});
@@ -1372,14 +1372,14 @@ export const useStore = create<Store>((set, get) => ({
     if (!work) return null;
     const id = newId('pl');
     set((s) => ({
-      savedPalettes: [...s.savedPalettes, { id, name: name.trim() || '팔레트', palette: clonePalette(work.palette) }],
+      savedPalettes: [...s.savedPalettes, { id, name: name.trim() || t('팔레트', 'Palette'), palette: clonePalette(work.palette) }],
     }));
     return id;
   },
 
   createPalette: (name) => {
     const id = newId('pl');
-    set((s) => ({ savedPalettes: [...s.savedPalettes, newSavedPalette(id, name.trim() || '팔레트')] }));
+    set((s) => ({ savedPalettes: [...s.savedPalettes, newSavedPalette(id, name.trim() || t('팔레트', 'Palette'))] }));
     return id;
   },
 
@@ -1404,7 +1404,7 @@ export const useStore = create<Store>((set, get) => ({
 
   saveTextStyle: (name, style) => {
     const id = newId('ts');
-    set((s) => ({ textStyles: [...s.textStyles, { id, name: name.trim() || '스타일', style: pickSavedStyle(style) }] }));
+    set((s) => ({ textStyles: [...s.textStyles, { id, name: name.trim() || t('스타일', 'Style'), style: pickSavedStyle(style) }] }));
     return id;
   },
 

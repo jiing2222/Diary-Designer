@@ -1,4 +1,5 @@
 import { DEFAULT_FONT_URL } from '../core/style';
+import { t } from '../lang';
 
 /**
  * 속지 글꼴 불러오기.
@@ -16,7 +17,7 @@ function load(url: string): Promise<ArrayBuffer> {
   let hit = cache.get(url);
   if (!hit) {
     hit = fetch(url).then((r) => {
-      if (!r.ok) throw new Error(`글꼴을 불러오지 못했습니다 (${r.status})`);
+      if (!r.ok) throw new Error(t(`글꼴을 불러오지 못했습니다 (${r.status})`, `Couldn't load the font (${r.status})`));
       return r.arrayBuffer();
     });
     cache.set(url, hit);

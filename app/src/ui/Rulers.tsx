@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
 import { rulerTicks } from '../core/ruler';
 import type { Mm } from '../core/units';
+import { t } from '../lang';
 
 /** 눈금자의 두께(px). 캔버스가 이만큼 비켜 앉는다(styles.css `.with-rulers`). */
 export const RULER_PX = 18;
@@ -88,7 +89,7 @@ export function Rulers({
           vertical
         />
       </div>
-      <div className="ruler ruler-corner" style={{ width: RULER_PX, height: RULER_PX }} title="단위 mm">
+      <div className="ruler ruler-corner" style={{ width: RULER_PX, height: RULER_PX }} title={t('단위 mm', 'Units: mm')}>
         mm
       </div>
     </>

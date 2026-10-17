@@ -291,7 +291,7 @@ describe('7-1 Projects 정리', () => {
     expect(s().works).toHaveLength(1);
     s().duplicateWork(id);
     s().duplicateWork(id);
-    expect(s().works.map((w) => w.name).sort()).toEqual(['메모', '메모 사본', '메모 사본 2']);
+    expect(s().works.map((w) => w.name).sort()).toEqual(['메모', '메모 copy', '메모 copy 2']);
     expect(s().addFolder('  ')).toBeNull();
   });
 });
@@ -852,7 +852,7 @@ describe('계정에서 받은 것 적용하기 (8-2)', () => {
       { type: 'put', kind: 'work', key: id, data: remote },
     ]);
     expect(s().tabs.active).toBe(`${id}~x`);
-    expect(s().works.map((w) => w.name)).toEqual([expect.stringContaining('(이 기기 사본)'), '다른 기기']);
+    expect(s().works.map((w) => w.name)).toEqual([expect.stringContaining('(copy from this device)'), '다른 기기']);
     expect(s().cursors[id]).toBeUndefined();
   });
 

@@ -112,7 +112,7 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
               key={key}
               className={`color-slot ${editing === key ? 'on' : ''}`}
               style={{ background: palette.base[key] }}
-              title={keyLabel(key)}
+              title={keyLabel(key, t('기본', 'Base'))}
               onClick={() => setEditing(editing === key ? null : key)}
             />
           ))}
@@ -147,7 +147,7 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
       {editing && colorOfKey(palette, editing) !== null && (
         <div className="lib-card color-editor palette-color-editor">
           <div className="color-editor-head">
-            <b>{keyLabel(editing)}</b>
+            <b>{keyLabel(editing, t('기본', 'Base'))}</b>
           </div>
           <ColorDefiner
             key={editing}

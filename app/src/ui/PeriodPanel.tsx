@@ -4,6 +4,7 @@ import { dateKey, MAX_DATED_PAGES, periodSummary, suggestPerPage, todayFrom, typ
 import { addDays, addMonths, type DateDataset } from '../core/dataset';
 import type { DatedItem, PageItem } from '../core/work';
 import { PopRow } from './Popover';
+import { t } from '../lang';
 
 /**
  * 날짜로 펼치기 / 기간 바꾸기(세부계획 A4.6 · A4.8). AutoField 패널 아래에 붙는다.
@@ -21,19 +22,19 @@ export function PeriodPanel() {
   const item = work?.items.find((i) => i.id === face?.itemId);
   if (!item || !face) return null;
   if (item.kind === 'dated' && item.dataset.kind !== 'date') {
-    return <p className="tool-panel-note">옛 달력 양식에서 옮긴 묶음이라 여기서는 기간을 바꿀 수 없어요.</p>;
+    return <p className="tool-panel-note">{t('옛 달력 양식에서 옮긴 묶음이라 여기서는 기간을 바꿀 수 없어요.', "This set came from an old calendar template, so its period can't be changed here.")}</p>;
   }
   if (item.kind === 'dated' && !cursor?.source) {
     const sum = periodSummary(item.dataset, item.boundary);
     return (
       <div className="period-panel">
-        <h3 className="panel-sub">기간</h3>
+        <h3 className="panel-sub">{t('기간', 'Period')}</h3>
         <div className="period-summary">
-          {sum.pages}장 · {short(sum.first)}~{short(sum.last)}
+          {t(`${sum.pages}장`, `${sum.pages} page(s)`)} · {short(sum.first)}~{short(sum.last)}
         </div>
-        <p className="tool-panel-note">기간은 원본 편집에서 바꿔요. 바꿔도 날짜마다 고친 것은 그 날짜에 남아요.</p>
+        <p className="tool-panel-note">{t('기간은 원본 편집에서 바꿔요. 바꿔도 날짜마다 고친 것은 그 날짜에 남아요.', 'Change the period in template editing. Edits you made to individual dates stay with those dates.')}</p>
         <button className="ghost" onClick={() => enterSourceEdit(item.id, face.period?.faceIndex ?? 0)}>
-          원본 편집
+          {t('원본 편집', 'Edit template')}
         </button>
       </div>
     );
@@ -44,10 +45,11 @@ export function PeriodPanel() {
 
 type Step = DateDataset['step'];
 
-const STEPS: { id: Step; label: string }[] = [
-  { id: 'day', label: '하루씩' },
-  { id: 'week', label: '한 주씩' },
-  { id: 'month', label: '한 달씩' },
+// 함수로 둔다 — 모듈을 읽을 때 한 번 정하면 언어가 바뀌어도 그대로 남는다.
+const steps = (): { id: Step; label: string }[] => [
+  { id: 'day', label: t('하루씩', 'Daily') },
+  { id: 'week', label: t('한 주씩', 'Weekly') },
+  { id: 'month', label: t('한 달씩', 'Monthly') },
 ];
 
 function PeriodForm({ item }: { item: PageItem | (DatedItem & { dataset: DateDataset }) }) {
@@ -74,23 +76,23 @@ function PeriodForm({ item }: { item: PageItem | (DatedItem & { dataset: DateDat
 
   return (
     <div className="period-panel">
-      <h3 className="panel-sub">{isPage ? '날짜로 펼치기' : '기간'}</h3>
-      <PopRow label="시작">
+      <h3 className="panel-sub">{isPage ? t('날짜로 펼치기', 'Expand by date') : t('기간', 'Period')}</h3>
+      <PopRow label={t('시작', 'Start')}>
         <input type="date" value={draft.start} onChange={(e) => patch({ start: e.target.value })} />
       </PopRow>
-      <PopRow label="끝">
+      <PopRow label={t('끝', 'End')}>
         <input type="date" value={draft.end} onChange={(e) => patch({ end: e.target.value })} />
       </PopRow>
-      <PopRow label="날짜 간격">
+      <PopRow label={t('날짜 간격', 'Step')}>
         <select value={draft.step} onChange={(e) => patch({ step: e.target.value as Step })}>
-          {STEPS.map((s) => (
+          {steps().map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}
             </option>
           ))}
         </select>
       </PopRow>
-      <PopRow label="한 페이지에">
+      <PopRow label={t('한 페이지에', 'Per page')}>
         <input
           type="number"
           min={1}
@@ -98,14 +100,14 @@ function PeriodForm({ item }: { item: PageItem | (DatedItem & { dataset: DateDat
           value={draft.perPage}
           onChange={(e) => patch({ perPage: Number(e.target.value) })}
         />
-        <span className="unit">개</span>
+        <span className="unit">{t('개', '')}</span>
       </PopRow>
-      <PopRow label="달이 바뀌면">
+      <PopRow label={t('달이 바뀌면', 'When the month changes')}>
         <span className="seg">
           {(
             [
-              ['continue', '이어서'],
-              ['blank', '공백'],
+              ['continue', t('이어서', 'Continue')],
+              ['blank', t('공백', 'Leave blank')],
             ] as [Boundary, string][]
           ).map(([id, label]) => (
             <button key={id} className={draft.boundary === id ? 'on' : ''} onClick={() => patch({ boundary: id })}>
@@ -116,19 +118,19 @@ function PeriodForm({ item }: { item: PageItem | (DatedItem & { dataset: DateDat
       </PopRow>
       <div className="period-summary">
         {!valid
-          ? '날짜를 넣어 주세요.'
+          ? t('날짜를 넣어 주세요.', 'Enter the dates.')
           : tooMany
-            ? `${sum!.pages}장이 넘어요 — 한 번에 ${MAX_DATED_PAGES}장까지 만들 수 있어요.`
+            ? t(`${sum!.pages}장이 넘어요 — 한 번에 ${MAX_DATED_PAGES}장까지 만들 수 있어요.`, `That's ${sum!.pages} pages. You can make up to ${MAX_DATED_PAGES} at once.`)
             : empty
-              ? '이 기간에는 날짜가 없어요.'
-              : `${sum!.pages}장 · ${short(sum!.first)}~${short(sum!.last)}`}
+              ? t('이 기간에는 날짜가 없어요.', 'No dates in this period.')
+              : t(`${sum!.pages}장 · ${short(sum!.first)}~${short(sum!.last)}`, `${sum!.pages} page(s) · ${short(sum!.first)}–${short(sum!.last)}`)}
       </div>
       <button
         className="primary"
         disabled={!valid || tooMany || empty || (!isPage && !changed)}
         onClick={() => setDatedPeriod(item.id, dataset, draft.boundary)}
       >
-        {isPage ? '펼치기' : '기간 바꾸기'}
+        {isPage ? t('펼치기', 'Expand') : t('기간 바꾸기', 'Change period')}
       </button>
     </div>
   );

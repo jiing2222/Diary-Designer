@@ -46,6 +46,7 @@ import { useStore } from '../store';
 import { ColorField } from './ColorControls';
 import { ImagePickerDialog } from './ImagePickerDialog';
 import { Pop, PopRow } from './Popover';
+import { t } from '../lang';
 
 /** 굵기 드롭다운에서 고를 수 있는 값들. 선·도형·표·체크박스가 함께 쓴다. */
 const WIDTHS: Mm[] = [0.1, 0.15, 0.2, 0.3, 0.4, 0.6, 0.8];
@@ -81,7 +82,7 @@ export function LineControls({
       <select
         value={val('width', OBJECT_LINE_WIDTH)}
         onChange={(e) => apply({ width: e.target.value ? Number(e.target.value) : undefined })}
-        title="굵기"
+        title={t('굵기', 'Weight')}
       >
         {mixed('width') && <option value="mixed">—</option>}
         {WIDTHS.map((w) => (
@@ -95,19 +96,19 @@ export function LineControls({
         value={(editing ? lines[0].color : draft?.color) ?? OBJECT_LINE_COLOR}
         mixed={mixed('color')}
         onChange={(color) => apply({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
-        title="색"
+        title={t('색', 'Color')}
       />
 
       <select
         value={val('dash', 'solid')}
         onChange={(e) => apply({ dash: (e.target.value || undefined) as never })}
-        title="모양"
+        title={t('모양', 'Style')}
       >
         {mixed('dash') && <option value="mixed">—</option>}
-        <option value="">실선</option>
-        <option value="dashed">파선</option>
-        <option value="dotted">점선</option>
-        <option value="sketch">손그림</option>
+        <option value="">{t('실선', 'Solid')}</option>
+        <option value="dashed">{t('파선', 'Dashed')}</option>
+        <option value="dotted">{t('점선', 'Dotted')}</option>
+        <option value="sketch">{t('손그림', 'Hand-drawn')}</option>
       </select>
     </>
   );
@@ -157,14 +158,14 @@ export function CalendarControls({
         value={first.color ?? TEXT_COLOR}
         mixed={colorMixed}
         onChange={(color) => apply({ color: color === TEXT_COLOR ? undefined : color })}
-        title="글자 색"
+        title={t('글자 색', 'Text color')}
       />
-      <Pop label="크기·간격" title="글자 크기 배율·줄 간격·자간">
-        <PopRow label="글자 크기">
+      <Pop label={t('크기·간격', 'Size · Spacing')} title={t('글자 크기 배율·줄 간격·자간', 'Text scale, row spacing, letter spacing')}>
+        <PopRow label={t('글자 크기', 'Text size')}>
           <select
             value={sizeMixed ? 'mixed' : sizeScaleOf(first) === 1 ? '' : String(sizeScaleOf(first))}
             onChange={(e) => apply({ sizeScale: e.target.value ? Number(e.target.value) : undefined })}
-            title="상자 크기에서 자동으로 정해지는 크기에 곱하는 배율"
+            title={t('상자 크기에서 자동으로 정해지는 크기에 곱하는 배율', 'Multiplier on the size set by the box')}
           >
             {sizeMixed && <option value="mixed">—</option>}
             {SIZE_SCALES.map((v) => (
@@ -174,11 +175,11 @@ export function CalendarControls({
             ))}
           </select>
         </PopRow>
-        <PopRow label="줄 간격">
+        <PopRow label={t('줄 간격', 'Line spacing')}>
           <select
             value={rowMixed ? 'mixed' : rowScaleOf(first) === 1 ? '' : String(rowScaleOf(first))}
             onChange={(e) => apply({ rowScale: e.target.value ? Number(e.target.value) : undefined })}
-            title="글자 크기는 그대로 두고 제목·요일·날짜 행 사이 간격만"
+            title={t('글자 크기는 그대로 두고 제목·요일·날짜 행 사이 간격만', 'Only the space between title, weekday and date rows; text size stays')}
           >
             {rowMixed && <option value="mixed">—</option>}
             {ROW_SCALES.map((v) => (
@@ -188,11 +189,11 @@ export function CalendarControls({
             ))}
           </select>
         </PopRow>
-        <PopRow label="자간">
+        <PopRow label={t('자간', 'Letter spacing')}>
           <NumField
             value={spacingMixed ? null : letterSpacingOf(first)}
             unit="mm"
-            title="자간"
+            title={t('자간', 'Letter spacing')}
             min={MIN_LETTER_SPACING}
             max={MAX_LETTER_SPACING}
             step={0.1}
@@ -228,50 +229,50 @@ export function CalendarPanelControls({
 
   return (
     <div className="panel-controls">
-      <PopRow label="시작 요일">
+      <PopRow label={t('시작 요일', 'Week starts on')}>
         <select
           value={weekStartMixed ? 'mixed' : weekStartOf(first)}
           onChange={(e) => apply({ weekStart: e.target.value as CalendarStyle['weekStart'] })}
         >
           {weekStartMixed && <option value="mixed">—</option>}
-          <option value="sun">일요일</option>
-          <option value="mon">월요일</option>
+          <option value="sun">{t('일요일', 'Sunday')}</option>
+          <option value="mon">{t('월요일', 'Monday')}</option>
         </select>
       </PopRow>
-      <PopRow label="요일 이름">
+      <PopRow label={t('요일 이름', 'Weekday names')}>
         <select
           value={langMixed ? 'mixed' : weekdayLangOf(first)}
           onChange={(e) => apply({ weekdayLang: e.target.value as CalendarStyle['weekdayLang'] })}
         >
           {langMixed && <option value="mixed">—</option>}
-          <option value="kr">일 월 화</option>
+          <option value="kr">{t('일 월 화', 'Korean (일 월 화)')}</option>
           <option value="en">Sun Mon Tue</option>
           <option value="en-short">S M T</option>
           <option value="hanja">日 月 火</option>
         </select>
       </PopRow>
-      <PopRow label="이전·다음 달">
-        <label className="check" title="이번 달이 아닌 칸에도 그 달 날짜를 보여줄지">
+      <PopRow label={t('이전·다음 달', 'Other months')}>
+        <label className="check" title={t('이번 달이 아닌 칸에도 그 달 날짜를 보여줄지', 'Show dates from the previous and next months')}>
           <input
             ref={adjacentRef}
             type="checkbox"
             checked={!adjacentMixed && showAdjacentOf(first)}
             onChange={(e) => apply({ showAdjacent: e.target.checked })}
           />
-          날짜 보이기
+          {t('날짜 보이기', 'Show dates')}
         </label>
       </PopRow>
-      <PopRow label="제목">
-        <span className="calendar-title-field" title="비워두면 지금 연·월이 자동으로 표시됩니다">
+      <PopRow label={t('제목', 'Title')}>
+        <span className="calendar-title-field" title={t('비워두면 지금 연·월이 자동으로 표시됩니다', 'Leave blank to show the month and year automatically')}>
           <input
             type="text"
             value={titleMixed ? '' : (first.title ?? '')}
-            placeholder={titleMixed ? '여러 값' : '자동(예: 2026년 8월)'}
+            placeholder={titleMixed ? t('여러 값', 'Mixed') : t('자동(예: 2026년 8월)', 'Auto (e.g. August 2026)')}
             onChange={(e) => apply({ title: e.target.value })}
           />
           {!titleMixed && first.title !== undefined && (
-            <button type="button" className="ghost" onClick={() => apply({ title: undefined })} title="자동으로 되돌리기">
-              자동
+            <button type="button" className="ghost" onClick={() => apply({ title: undefined })} title={t('자동으로 되돌리기', 'Back to automatic')}>
+              {t('자동', 'Auto')}
             </button>
           )}
         </span>
@@ -315,7 +316,7 @@ export function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
       <select
         value={strokeWidthMixed ? 'mixed' : strokeWidthOf(first) === OBJECT_LINE_WIDTH ? '' : strokeWidthOf(first)}
         onChange={(e) => styleShape({ strokeWidth: e.target.value ? Number(e.target.value) : undefined })}
-        title="테두리 굵기"
+        title={t('테두리 굵기', 'Border weight')}
       >
         {strokeWidthMixed && <option value="mixed">—</option>}
         {WIDTHS.map((w) => (
@@ -329,22 +330,22 @@ export function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
         value={strokeColorOf(first)}
         mixed={colorMixed}
         onChange={(color) => styleShape({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
-        title="테두리 색"
+        title={t('테두리 색', 'Border color')}
       />
 
       <select
         value={dashMixed ? 'mixed' : strokeDashOf(first) === 'solid' ? '' : strokeDashOf(first)}
         onChange={(e) => styleShape({ dash: (e.target.value || undefined) as ShapeStyle['dash'] })}
-        title="테두리 모양"
+        title={t('테두리 모양', 'Border style')}
       >
         {dashMixed && <option value="mixed">—</option>}
-        <option value="">실선</option>
-        <option value="dashed">파선</option>
-        <option value="dotted">점선</option>
+        <option value="">{t('실선', 'Solid')}</option>
+        <option value="dashed">{t('파선', 'Dashed')}</option>
+        <option value="dotted">{t('점선', 'Dotted')}</option>
       </select>
 
-      <Pop label="모서리·채우기">
-        <PopRow label="모서리">
+      <Pop label={t('모서리·채우기', 'Corners · Fill')}>
+        <PopRow label={t('모서리', 'Corners')}>
           <select
             value={roundnessMixed ? 'mixed' : roundnessOf(first)}
             onChange={(e) =>
@@ -352,15 +353,15 @@ export function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
             }
           >
             {roundnessMixed && <option value="mixed">—</option>}
-            <option value={0}>각짐</option>
-            <option value={1}>둥글기 1</option>
-            <option value={2}>둥글기 2</option>
-            <option value={3}>둥글기 3</option>
-            <option value={4}>원·타원</option>
+            <option value={0}>{t('각짐', 'Square')}</option>
+            <option value={1}>{t('둥글기 1', 'Rounded 1')}</option>
+            <option value={2}>{t('둥글기 2', 'Rounded 2')}</option>
+            <option value={3}>{t('둥글기 3', 'Rounded 3')}</option>
+            <option value={4}>{t('원·타원', 'Circle / ellipse')}</option>
           </select>
         </PopRow>
-        <PopRow label="채우기">
-      <label className="check" title="상자 안을 색으로 채울지">
+        <PopRow label={t('채우기', 'Fill')}>
+      <label className="check" title={t('상자 안을 색으로 채울지', 'Fill the box with color')}>
         <input
           type="checkbox"
           checked={filled}
@@ -372,22 +373,22 @@ export function ShapeControls({ shapes }: { shapes: ShapeObject[] }) {
             )
           }
         />
-        채우기
+        {t('채우기', 'Fill')}
       </label>
         </PopRow>
 
       {filled && (
         <>
-          <PopRow label="채우기 색">
+          <PopRow label={t('채우기 색', 'Fill color')}>
           <ColorField
             value={fillColorOf(first) ?? SHAPE_FILL_COLOR}
             mixed={fillColorMixed}
             onChange={(c) => styleShape({ fillColor: c })}
-            title="채우기 색"
+            title={t('채우기 색', 'Fill color')}
           />
           </PopRow>
-          <PopRow label="불투명도">
-          <label className="opacity-field" title="채우기 투명도">
+          <PopRow label={t('불투명도', 'Opacity')}>
+          <label className="opacity-field" title={t('채우기 투명도', 'Fill opacity')}>
             <input
               type="range"
               min={0}
@@ -440,7 +441,7 @@ export function TableControls({ shapes, lines }: { shapes: ShapeObject[]; lines:
       <select
         value={strokeWidthMixed ? 'mixed' : strokeWidthOf(first) === OBJECT_LINE_WIDTH ? '' : strokeWidthOf(first)}
         onChange={(e) => apply({ strokeWidth: e.target.value ? Number(e.target.value) : undefined })}
-        title="굵기 — 테두리·안쪽 칸 선 둘 다"
+        title={t('굵기 — 테두리·안쪽 칸 선 둘 다', 'Weight: border and inner lines')}
       >
         {strokeWidthMixed && <option value="mixed">—</option>}
         {WIDTHS.map((w) => (
@@ -454,22 +455,22 @@ export function TableControls({ shapes, lines }: { shapes: ShapeObject[]; lines:
         value={strokeColorOf(first)}
         mixed={colorMixed}
         onChange={(color) => apply({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
-        title="색 — 테두리·안쪽 칸 선 둘 다"
+        title={t('색 — 테두리·안쪽 칸 선 둘 다', 'Color: border and inner lines')}
       />
 
       <select
         value={dashMixed ? 'mixed' : strokeDashOf(first) === 'solid' ? '' : strokeDashOf(first)}
         onChange={(e) => apply({ dash: (e.target.value || undefined) as LineStyle['dash'] })}
-        title="모양 — 테두리·안쪽 칸 선 둘 다"
+        title={t('모양 — 테두리·안쪽 칸 선 둘 다', 'Style: border and inner lines')}
       >
         {dashMixed && <option value="mixed">—</option>}
-        <option value="">실선</option>
-        <option value="dashed">파선</option>
-        <option value="dotted">점선</option>
+        <option value="">{t('실선', 'Solid')}</option>
+        <option value="dashed">{t('파선', 'Dashed')}</option>
+        <option value="dotted">{t('점선', 'Dotted')}</option>
       </select>
 
-      <Pop label="모서리" title="테두리 모서리 둥글기 — 안쪽 칸 선은 둥글게 할 수 없다">
-        <PopRow label="테두리 모서리">
+      <Pop label={t('모서리', 'Corners')} title={t('테두리 모서리 둥글기 — 안쪽 칸 선은 둥글게 할 수 없다', "Border corner rounding (inner lines can't be rounded)")}>
+        <PopRow label={t('테두리 모서리', 'Border corners')}>
           <select
             value={roundnessMixed ? 'mixed' : roundnessOf(first)}
             onChange={(e) =>
@@ -477,11 +478,11 @@ export function TableControls({ shapes, lines }: { shapes: ShapeObject[]; lines:
             }
           >
             {roundnessMixed && <option value="mixed">—</option>}
-            <option value={0}>각짐</option>
-            <option value={1}>둥글기 1</option>
-            <option value={2}>둥글기 2</option>
-            <option value={3}>둥글기 3</option>
-            <option value={4}>원·타원</option>
+            <option value={0}>{t('각짐', 'Square')}</option>
+            <option value={1}>{t('둥글기 1', 'Rounded 1')}</option>
+            <option value={2}>{t('둥글기 2', 'Rounded 2')}</option>
+            <option value={3}>{t('둥글기 3', 'Rounded 3')}</option>
+            <option value={4}>{t('원·타원', 'Circle / ellipse')}</option>
           </select>
         </PopRow>
       </Pop>
@@ -490,13 +491,14 @@ export function TableControls({ shapes, lines }: { shapes: ShapeObject[]; lines:
 }
 
 /** 체크박스 아이콘 모양 여섯 가지 — 고르기 그리드의 순서·이름. */
-const CHECKBOX_ICONS: { value: CheckboxIcon; label: string }[] = [
-  { value: 'square', label: '네모' },
-  { value: 'circle', label: '동그라미' },
-  { value: 'triangle', label: '세모' },
-  { value: 'diamond', label: '다이아' },
-  { value: 'star', label: '별' },
-  { value: 'heart', label: '하트' },
+// 함수로 둔다 — 모듈을 읽을 때 한 번 정하면 언어가 바뀌어도 그대로 남는다.
+const checkboxIcons = (): { value: CheckboxIcon; label: string }[] => [
+  { value: 'square', label: t('네모', 'Square') },
+  { value: 'circle', label: t('동그라미', 'Circle') },
+  { value: 'triangle', label: t('세모', 'Triangle') },
+  { value: 'diamond', label: t('다이아', 'Diamond') },
+  { value: 'star', label: t('별', 'Star') },
+  { value: 'heart', label: t('하트', 'Heart') },
 ];
 
 /**
@@ -530,8 +532,8 @@ export function DotsControls({ items }: { items: DotsObject[] }) {
     <>
       <NumField
         value={same((o) => o.cols) ? first.cols : null}
-        unit="열"
-        title="가로 도트 수"
+        unit={t('열', 'cols')}
+        title={t('가로 도트 수', 'Dots across')}
         min={1}
         max={200}
         step={1}
@@ -539,8 +541,8 @@ export function DotsControls({ items }: { items: DotsObject[] }) {
       />
       <NumField
         value={same((o) => o.rows) ? first.rows : null}
-        unit="행"
-        title="세로 도트 수"
+        unit={t('행', 'rows')}
+        title={t('세로 도트 수', 'Dots down')}
         min={1}
         max={200}
         step={1}
@@ -549,7 +551,7 @@ export function DotsControls({ items }: { items: DotsObject[] }) {
       <NumField
         value={same(dotsSizeOf) ? roundMm(dotsSizeOf(first), 2) : null}
         unit="mm"
-        title="도트 지름"
+        title={t('도트 지름', 'Dot diameter')}
         min={0.1}
         max={10}
         step={0.1}
@@ -559,22 +561,22 @@ export function DotsControls({ items }: { items: DotsObject[] }) {
         value={dotsColorOf(first)}
         mixed={!same(dotsColorOf)}
         onChange={(color) => styleDots({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
-        title="도트 색"
+        title={t('도트 색', 'Dot color')}
       />
       {keys.length > 0 && (
         <>
-          <span className="stylebar-note">고른 도트 {keys.length}개</span>
+          <span className="stylebar-note">{t(`고른 도트 ${keys.length}개`, `${keys.length} dot(s) selected`)}</span>
           <NumField
             value={pickedSize === null ? null : roundMm(pickedSize, 2)}
             unit="mm"
-            title="고른 도트의 지름 — 0이면 없음"
+            title={t('고른 도트의 지름 — 0이면 없음', 'Diameter of the selected dots (0 hides them)')}
             min={0}
             max={10}
             step={0.1}
             onChange={(size) => setPickedDotSize(size)}
           />
-          <button className="ghost" onClick={() => setPickedDotSize(undefined)} title="판의 기본 지름으로">
-            기본 지름으로
+          <button className="ghost" onClick={() => setPickedDotSize(undefined)} title={t('판의 기본 지름으로', "Back to the board's default")}>
+            {t('기본 지름으로', 'Default size')}
           </button>
         </>
       )}
@@ -602,7 +604,7 @@ export function CheckboxControls({
       <select
         value={val('strokeWidth', OBJECT_LINE_WIDTH)}
         onChange={(e) => apply({ strokeWidth: e.target.value ? Number(e.target.value) : undefined })}
-        title="테두리 굵기"
+        title={t('테두리 굵기', 'Border weight')}
       >
         {mixed('strokeWidth') && <option value="mixed">—</option>}
         {WIDTHS.map((w) => (
@@ -616,7 +618,7 @@ export function CheckboxControls({
         value={items[0].color ?? OBJECT_LINE_COLOR}
         mixed={mixed('color')}
         onChange={(color) => apply({ color: color === OBJECT_LINE_COLOR ? undefined : color })}
-        title="테두리 색"
+        title={t('테두리 색', 'Border color')}
       />
     </>
   );
@@ -628,7 +630,7 @@ export function CheckboxIconGrid({ items, apply }: { items: CheckboxStyle[]; app
   const currentIcon = mixed ? null : (items[0].icon ?? 'square');
   return (
     <div className="icon-grid">
-      {CHECKBOX_ICONS.map(({ value, label }) => (
+      {checkboxIcons().map(({ value, label }) => (
         <button
           key={value}
           type="button"
@@ -711,7 +713,7 @@ export function ImageControls({ images }: { images: ImageObject[] }) {
       // 방금 등록한 이미지를 바로 씌운다. 등록만 하고 또 고르게 하면 한 번 더 손이 간다.
       styleImage(image.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '이미지를 읽지 못했습니다');
+      setError(e instanceof Error ? e.message : t('이미지를 읽지 못했습니다', "Couldn't read the image"));
     }
   }
 
@@ -745,11 +747,11 @@ export function ImageControls({ images }: { images: ImageObject[] }) {
           }
           styleImage(e.target.value);
         }}
-        title={error ?? '이미지'}
+        title={error ?? t('이미지', 'Image')}
         className={error ? 'has-error' : undefined}
       >
         {mixed && <option value="mixed">—</option>}
-        {!first && <option value="">이미지를 고르세요</option>}
+        {!first && <option value="">{t('이미지를 고르세요', 'Choose an image')}</option>}
         {[
           ...libraryImages(userImages),
           // 목록에서 뺀 것이라도 고른 상자가 쓰고 있으면 보여준다(빈 칸으로 보이지 않게).
@@ -757,10 +759,10 @@ export function ImageControls({ images }: { images: ImageObject[] }) {
         ].map((img) => (
           <option key={img.id} value={img.id}>
             {/* 저장 파일에서 이름만 살아 돌아온 것. 다시 등록해야 보인다. */}
-            {img.url ? imageLabelOf(img) : `${imageLabelOf(img)} (파일 없음)`}
+            {img.url ? imageLabelOf(img) : t(`${imageLabelOf(img)} (파일 없음)`, `${imageLabelOf(img)} (file missing)`)}
           </option>
         ))}
-        <option value={ADD_IMAGE}>이미지 파일 추가…</option>
+        <option value={ADD_IMAGE}>{t('이미지 파일 추가…', 'Add image file…')}</option>
       </select>
 
       <input
@@ -790,34 +792,34 @@ export function ImageControls({ images }: { images: ImageObject[] }) {
       )}
 
       {editing && (
-        <Pop label="크기·회전">
-          <PopRow label="가로">
+        <Pop label={t('크기·회전', 'Size · Rotation')}>
+          <PopRow label={t('가로', 'Width')}>
           <NumField
             value={widthValue}
             unit="mm"
-            title="가로 — 왼쪽 위는 그대로 두고 오른쪽으로 자라거나 줄어듭니다"
+            title={t('가로 — 왼쪽 위는 그대로 두고 오른쪽으로 자라거나 줄어듭니다', 'Width: grows or shrinks to the right; the top-left stays put')}
             min={MIN_BOX_SIZE}
             max={1000}
             step={1}
             onChange={(v) => resizeImages({ width: v })}
           />
           </PopRow>
-          <PopRow label="세로">
+          <PopRow label={t('세로', 'Height')}>
           <NumField
             value={heightValue}
             unit="mm"
-            title="세로 — 왼쪽 위는 그대로 두고 아래로 자라거나 줄어듭니다"
+            title={t('세로 — 왼쪽 위는 그대로 두고 아래로 자라거나 줄어듭니다', 'Height: grows or shrinks downward; the top-left stays put')}
             min={MIN_BOX_SIZE}
             max={1000}
             step={1}
             onChange={(v) => resizeImages({ height: v })}
           />
           </PopRow>
-          <PopRow label="회전">
+          <PopRow label={t('회전', 'Rotation')}>
           <NumField
             value={rotateValue}
-            unit="도"
-            title="회전 — 자유로운 각도로 돌립니다(시계 방향)"
+            unit={t('도', '°')}
+            title={t('회전 — 자유로운 각도로 돌립니다(시계 방향)', 'Rotation: any angle, clockwise')}
             min={-360}
             max={360}
             step={1}
@@ -844,8 +846,8 @@ export function FieldToggle({ texts }: { texts: TextObject[] }) {
   const setField = useStore((s) => s.setField);
   const checkRef = useRef<HTMLInputElement>(null);
 
-  const allOn = texts.every((t) => t.field);
-  const noneOn = texts.every((t) => !t.field);
+  const allOn = texts.every((o) => o.field);
+  const noneOn = texts.every((o) => !o.field);
   const onMixed = !allOn && !noneOn;
 
   useEffect(() => {
@@ -861,7 +863,7 @@ export function FieldToggle({ texts }: { texts: TextObject[] }) {
           checked={allOn}
           onChange={(e) => setField(e.target.checked ? { offset: 0, ...DEFAULT_FIELD_DRAFT } : null)}
         />
-        날짜가 자동으로 채워지는 글자
+        {t('날짜가 자동으로 채워지는 글자', 'Text filled with the date automatically')}
       </label>
     </div>
   );
@@ -939,10 +941,10 @@ export function TextControls({
       <span className="biu-group">
         {(
           [
-            ['bold', 'B', '굵게'],
-            ['italic', 'I', '기울임'],
-            ['underline', 'U', '밑줄'],
-            ['strike', 'S', '취소선'],
+            ['bold', 'B', t('굵게', 'Bold')],
+            ['italic', 'I', t('기울임', 'Italic')],
+            ['underline', 'U', t('밑줄', 'Underline')],
+            ['strike', 'S', t('취소선', 'Strikethrough')],
           ] as const
         ).map(([key, label, title]) => (
           <button
@@ -962,7 +964,7 @@ export function TextControls({
       <NumField
         value={sizePt}
         unit="pt"
-        title="글자 크기"
+        title={t('글자 크기', 'Text size')}
         min={MIN_TEXT_PT}
         max={MAX_TEXT_PT}
         step={0.5}
@@ -975,27 +977,27 @@ export function TextControls({
       <select
         value={val('align', 'left')}
         onChange={(e) => pick({ align: (e.target.value || undefined) as never })}
-        title="가로 정렬"
+        title={t('가로 정렬', 'Horizontal alignment')}
       >
         {mixed('align') && <option value="mixed">—</option>}
-        <option value="">왼쪽</option>
-        <option value="center">가운데</option>
-        <option value="right">오른쪽</option>
+        <option value="">{t('왼쪽', 'Left')}</option>
+        <option value="center">{t('가운데', 'Center')}</option>
+        <option value="right">{t('오른쪽', 'Right')}</option>
       </select>
 
       <ColorField
         value={items[0].color ?? TEXT_COLOR}
         mixed={mixed('color')}
         onChange={(color) => pick({ color: color === TEXT_COLOR ? undefined : color })}
-        title="색"
+        title={t('색', 'Color')}
       />
 
-      <Pop label="간격·배치" title="줄 간격·자간·세로 정렬·회전">
-        <PopRow label="줄 간격">
+      <Pop label={t('간격·배치', 'Spacing · Layout')} title={t('줄 간격·자간·세로 정렬·회전', 'Line spacing, letter spacing, vertical alignment, rotation')}>
+        <PopRow label={t('줄 간격', 'Line spacing')}>
           <NumField
             value={lineMm}
             unit="mm"
-            title="Enter로 나뉜 줄 사이"
+            title={t('Enter로 나뉜 줄 사이', 'Between lines split by Enter')}
             min={MIN_LINE_MM}
             max={MAX_LINE_MM}
             step={0.5}
@@ -1003,12 +1005,12 @@ export function TextControls({
             onChange={(mm) => apply({ lineHeight: mm })}
           />
         </PopRow>
-        <PopRow label="자간">
+        <PopRow label={t('자간', 'Letter spacing')}>
           {/* 줄 간격처럼 직접 치는 칸(세부계획 A4.5 결정). 0을 치면 값을 비워 기본(0)을 따른다. */}
           <NumField
             value={mixed('letterSpacing') ? null : letterSpacingOfText(items[0])}
             unit="mm"
-            title="글자 사이에 더하는 간격(음수면 좁힌다)"
+            title={t('글자 사이에 더하는 간격(음수면 좁힌다)', 'Extra space between letters (negative tightens)')}
             min={MIN_LETTER_SPACING}
             max={MAX_LETTER_SPACING}
             step={0.1}
@@ -1016,29 +1018,29 @@ export function TextControls({
             onChange={(mm) => apply({ letterSpacing: mm === 0 ? undefined : mm })}
           />
         </PopRow>
-        <PopRow label="세로 정렬">
+        <PopRow label={t('세로 정렬', 'Vertical alignment')}>
           <select
             value={val('valign', 'middle')}
             onChange={(e) => pick({ valign: (e.target.value || undefined) as never })}
           >
             {mixed('valign') && <option value="mixed">—</option>}
-            <option value="top">위</option>
-            <option value="">가운데</option>
-            <option value="bottom">아래</option>
+            <option value="top">{t('위', 'Top')}</option>
+            <option value="">{t('가운데', 'Center')}</option>
+            <option value="bottom">{t('아래', 'Bottom')}</option>
           </select>
         </PopRow>
-        <PopRow label="회전">
+        <PopRow label={t('회전', 'Rotation')}>
           <select
             value={mixed('rotate') ? 'mixed' : String(items[0].rotate ?? 0)}
             onChange={(e) =>
               pick({ rotate: e.target.value === '0' ? undefined : (Number(e.target.value) as 90 | 270) })
             }
-            title="타공 방향에 맞춰 세워 쓰는 글자 등에 쓴다"
+            title={t('타공 방향에 맞춰 세워 쓰는 글자 등에 쓴다', 'For text set sideways along the holes, for example')}
           >
             {mixed('rotate') && <option value="mixed">—</option>}
-            <option value="0">없음</option>
-            <option value="90">90도</option>
-            <option value="270">270도</option>
+            <option value="0">{t('없음', 'None')}</option>
+            <option value="90">{t('90도', '90°')}</option>
+            <option value="270">{t('270도', '270°')}</option>
           </select>
         </PopRow>
       </Pop>
@@ -1084,7 +1086,7 @@ function FontPicker({
       // 다만 되살린 경우에는 씌우지 않는다 — 이미 그 글꼴을 쓰던 글자들이 있다.
       if (!orphan) onPick(font.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '글꼴을 읽지 못했습니다');
+      setError(e instanceof Error ? e.message : t('글꼴을 읽지 못했습니다', "Couldn't read the font"));
     }
   }
 
@@ -1101,7 +1103,7 @@ function FontPicker({
           }
           onPick(e.target.value || undefined);
         }}
-        title={error ?? '글꼴'}
+        title={error ?? t('글꼴', 'Font')}
         className={error ? 'has-error' : undefined}
       >
         {value === null && <option value="mixed">—</option>}
@@ -1113,10 +1115,10 @@ function FontPicker({
         ].map((f) => (
           <option key={f.id} value={f.id}>
             {/* 저장 파일에서 이름만 살아 돌아온 것. 지금은 기본 글꼴로 그려진다. */}
-            {hasFont(f.id) ? fontLabelOf(f) : `${fontLabelOf(f)} (파일 없음)`}
+            {hasFont(f.id) ? fontLabelOf(f) : t(`${fontLabelOf(f)} (파일 없음)`, `${fontLabelOf(f)} (file missing)`)}
           </option>
         ))}
-        <option value={ADD_FONT}>글꼴 파일 추가…</option>
+        <option value={ADD_FONT}>{t('글꼴 파일 추가…', 'Add font file…')}</option>
       </select>
 
       <input

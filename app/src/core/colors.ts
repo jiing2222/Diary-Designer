@@ -168,8 +168,8 @@ export function resolveObjectColors<T extends object>(objects: T[], palette: Wor
   });
 }
 
-/** 칸 이름을 사람이 읽는 이름으로 — `base3` → `기본 3`, `A` → `A`. */
-export function keyLabel(key: string): string {
+/** 칸 이름을 사람이 읽는 이름으로 — `base3` → `기본 3`, `A` → `A`. `base`는 ‘기본’ 자리의 말(화면 언어). */
+export function keyLabel(key: string, base = '기본'): string {
   const i = (BASE_KEYS as readonly string[]).indexOf(key);
-  return i >= 0 ? `기본 ${i + 1}` : key;
+  return i >= 0 ? `${base} ${i + 1}` : key;
 }

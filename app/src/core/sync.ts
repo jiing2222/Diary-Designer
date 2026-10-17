@@ -319,7 +319,8 @@ export function removeLocal(s: SyncSnapshot, kind: SyncKind, key: string): SyncS
 }
 
 /** 둘 다 고친 작업의 이 기기 쪽 이름. */
-export const CONFLICT_SUFFIX = ' (이 기기 사본)';
+// 작업 이름에 붙는다(자료라 화면 언어를 따르지 않는다) — 미국 출시라 영어.
+export const CONFLICT_SUFFIX = ' (copy from this device)';
 
 /* ───────────────────────── 이 기기에 적용하기 ───────────────────────── */
 

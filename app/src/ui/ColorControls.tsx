@@ -66,7 +66,7 @@ export function ColorField({
         onClick={() => setOpen((o) => !o)}
         title={mixed ? t(`${title} — 색이 여러 개 섞여 있습니다`, `${title}: mixed colors`) : title}
       >
-        {key && <span className="color-key">{keyLabel(key)}</span>}
+        {key && <span className="color-key">{keyLabel(key, t('기본', 'Base'))}</span>}
       </button>
       {open && palette && (
         <ColorPalettePopover

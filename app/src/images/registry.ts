@@ -16,6 +16,7 @@
 import { idbEntries } from '../storage/idb';
 import type { ImageInfo } from '../core/assets';
 import { dropAssetWrite, queueAssetWrite, readAssetCache, saveAssetFile } from '../storage/assetCache';
+import { t } from '../lang';
 
 const ACCEPTED = ['.png', '.jpg', '.jpeg'];
 export const IMAGE_ACCEPT = ACCEPTED.join(',');
@@ -56,7 +57,7 @@ function readAsDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('이미지를 읽을 수 없습니다'));
+    reader.onerror = () => reject(new Error(t('이미지를 읽을 수 없습니다', "Can't read the image")));
     reader.readAsDataURL(blob);
   });
 }
@@ -110,7 +111,7 @@ export async function registerImage(file: File, reuseId?: string): Promise<UserI
   const name = file.name.replace(/\.[^.]+$/, '');
   const kind = kindOf(file.name);
   if (!kind) {
-    throw new Error(`이미지 파일이 아닙니다 (${ACCEPTED.join(', ')}만 됩니다)`);
+    throw new Error(t(`이미지 파일이 아닙니다 (${ACCEPTED.join(', ')}만 됩니다)`, `Not an image file (only ${ACCEPTED.join(', ')})`));
   }
 
   const buffer = await file.arrayBuffer();

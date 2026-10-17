@@ -170,7 +170,7 @@ describe('이 기기에 적용하기', () => {
       { type: 'put', kind: 'work', key: 'w1', data: w('w1', '저기') },
     ]);
     expect(next.works.map((x) => [x.id, x.name])).toEqual([
-      ['w1~x', '여기 (이 기기 사본)'],
+      ['w1~x', '여기 (copy from this device)'],
       ['w1', '저기'],
     ]);
     expect(applyOps(next, [{ type: 'remove', kind: 'work', key: 'w1' }]).works).toHaveLength(1);

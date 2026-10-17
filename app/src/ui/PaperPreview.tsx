@@ -11,6 +11,7 @@ import type { PaperState, UnprintableSetting } from '../store';
 import type { InsertSetting } from '../core/template';
 import type { Mm } from '../core/units';
 import type { ColorRules } from '../core/colorRules';
+import { t } from '../lang';
 
 /** 칸 하나에 실제로 들어가는 내용. PDF의 SlotContent와 같은 역할이다. */
 export interface PreviewSlotContent {
@@ -103,7 +104,7 @@ export function PaperPreview({
   const rotated = layout.rotated;
 
   return (
-    <svg className="preview" viewBox={`0 0 ${pw} ${ph}`} role="img" aria-label="용지 배치 미리보기">
+    <svg className="preview" viewBox={`0 0 ${pw} ${ph}`} role="img" aria-label={t('용지 배치 미리보기', 'Paper layout preview')}>
       <rect x={0} y={0} width={pw} height={ph} className="paper" />
 
       {mode === 'edit' && paper.printMargin > 0 && (
@@ -210,7 +211,7 @@ export function PaperPreview({
             )}
             {content.overridden && (
               <circle cx={s.x + s.width - 3} cy={s.y + 3} r={1.6} className="override-badge">
-                <title>인쇄하기에서 직접 손봤습니다</title>
+                <title>{t('인쇄하기에서 직접 손봤습니다', 'Adjusted by hand in Print')}</title>
               </circle>
             )}
           </g>
@@ -310,7 +311,7 @@ function Ruler({ paperWidth, paperHeight }: { paperWidth: Mm; paperHeight: Mm })
       <line x1={x0} y1={y0} x2={x0 + length} y2={y0} />
       {ticks}
       <text x={x0} y={y0 - 4.5} fontSize={2.6} stroke="none" fill={RULER_COLOR}>
-        50mm — 인쇄 후 자로 재세요
+        {t('50mm — 인쇄 후 자로 재세요', '50 mm: measure with a ruler after printing')}
       </text>
     </g>
   );
