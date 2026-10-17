@@ -242,7 +242,7 @@ async function syncOnce(): Promise<void> {
 
     await wait(() => saveRecord(user.id, { state, skip: [...skip], asked: rec.asked }));
     useStore.setState({ cloudStatus: failures
-      ? { kind: 'error', text: '일부 글꼴·이미지 파일을 맞추지 못했어요. 다음 동기화에서 다시 시도해요.' }
+      ? { kind: 'error', text: t('일부 글꼴·이미지 파일을 맞추지 못했어요. 다음 동기화에서 다시 시도해요.', "Some font or image files didn't sync. We'll try again next time.") }
       : { kind: 'saved', at: Date.now() } });
   } catch (err) {
     if (err instanceof SessionChanged) return;
