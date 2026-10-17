@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { dateColorOf, mapRuleColors, resolveRuleColors, ruleAppliesTo, weekdayHeaderColorOf } from './colorRules';
 import { HOLIDAY_YEARS, holidayCovered, isHoliday } from './holidays';
 import { defaultWorkPalette } from './colors';
+import { expandWork, newWork, type PageItem } from './work';
 
 const rules = { sunday: '@B', saturday: '@A', holiday: '@C' };
 
@@ -22,6 +23,12 @@ describe('미국 공휴일(규칙으로 계산)', () => {
   });
   it('그리기 전에 색을 바꿔도 나라는 남는다', () => {
     expect(resolveRuleColors({ holiday: '@A', holidays: 'us' }, defaultWorkPalette())?.holidays).toBe('us');
+  });
+    it('따로 색을 지닌 페이지도 공휴일 나라는 작업 것을 따른다', () => {
+    const w = newWork({ name: 'w', diaryId: 'd', now: '' });
+    const page = { ...(w.items[0] as PageItem), colorRules: { holiday: '#f00', holidays: 'kr' as const } };
+    const faces = expandWork({ items: [page], colorRules: { holidays: 'us' } }, { year: 2026, month: 1, day: 1 });
+    expect(faces[0].colorRules).toEqual({ holiday: '#f00', holidays: 'us' });
   });
     it('규칙의 나라를 따른다 — 없으면 한국', () => {
     const rules = { holiday: '#f00' };

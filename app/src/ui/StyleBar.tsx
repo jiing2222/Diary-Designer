@@ -153,7 +153,7 @@ export function StyleBar({
     <div className="stylebar">
       {picked.length > 0 ? (
         <>
-          <span className="picked-count">{picked.length}</span>
+          <span className="picked-count">{t(`${picked.length}개`, `${picked.length}`)}</span>
           {/* 고른 것이 전부 체크박스면 크기 읽기전용 표시 대신 직접 칠 수
               있는 칸을 준다 — 가로세로가 늘 같아서 한 번만 입력하면 된다.
               여럿을 함께 골랐어도 마찬가지다(styleCheckbox가 고른 것

@@ -45,7 +45,7 @@ export function LibraryImages() {
       <div className="library-pane projects-content" {...upload.dropProps}>
         <div className="library-head">
           <h2>
-            {filters.find((f) => f[0] === filter)![1]} <span className="projects-count">{shown.length}</span>
+            {filters.find((f) => f[0] === filter)![1]} <span className="projects-count">{t(`${shown.length}개`, `${shown.length}`)}</span>
           </h2>
           <button className="primary" onClick={upload.pick}>
             {t('+ 이미지 올리기', '+ Upload image')}

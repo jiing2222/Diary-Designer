@@ -47,6 +47,10 @@ core/text.ts   sizeOf · alignOf · valignOf · lineHeightOf · lineBaselines ·
 키가 아예 없어서 나중에 기본값을 바꾸면 전부 같이 따라온다. `cleanStyle()`이
 `undefined` 키를 걷어내는 이유다. 색·굵기 기본값은 전부 `core/style.ts`에 있다.
 
+예외: **만든 사람에 따라 기본이 다른 값**은 만들 때 적어 둔다 — 새 달력의 요일 언어(`weekdayLang`)와
+새 작업의 공휴일 나라(`colorRules.holidays`)는 앱 언어(src/lang: 일반 = 영어·미국, 개발자 계정 = 한국어·한국)로
+정해 저장한다. 비워 두면 그 뒤 다른 계정으로 열 때 말·나라가 바뀌어 버린다. 키가 없는 옛 자료는 한국어·한국이다.
+
 속성 막대에는 `기본`이라는 선택지를 두지 않는다. 목록에서 기본값에 해당하는
 항목의 value가 빈 문자열이라 그냥 처음부터 골라져 있다.
 

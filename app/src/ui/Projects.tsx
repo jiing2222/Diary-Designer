@@ -113,7 +113,7 @@ export function Projects() {
       <div className="library-pane projects-content">
         <div className="library-head">
           <h2>
-            {title} <span className="projects-count">{shown.length}</span>
+            {title} <span className="projects-count">{t(`${shown.length}개`, `${shown.length}`)}</span>
           </h2>
           {/*
             작업 파일(.rings) — 다른 사람에게 보내거나 백업한다. 저장은 **지금 보이는 목록**(폴더·다이어리·검색을

@@ -144,7 +144,7 @@ export function FieldSettings({
         (picked ? (
           <PopRow label={t('날짜', 'Date')}>
             <span className="numfield" title={t('이 페이지에서 몇째 날짜를 쓸지', 'Which date on this page to use')}>
-              {t('이 페이지의', 'Date')}
+              {t('이 페이지의', 'Day')}
               <input
                 type="number"
                 min={1}
@@ -153,7 +153,7 @@ export function FieldSettings({
                 placeholder={offsetMixed ? '—' : undefined}
                 onChange={(e) => apply({ offset: Math.max(1, Math.round(Number(e.target.value) || 1)) - 1 })}
               />
-              {t('번째', 'on this page')}
+              {t('번째', 'of this page')}
             </span>
           </PopRow>
         ) : (
@@ -174,7 +174,7 @@ function NextFieldRow() {
     <>
       <PopRow label={t('날짜', 'Date')}>
         <span className="numfield" title={t('다음에 놓을 칸이 이 페이지에서 몇째 날짜를 쓸지', 'Which date on this page the next field uses')}>
-          {t('이 페이지의', 'Date')}
+          {t('이 페이지의', 'Day')}
           <input
             type="number"
             min={1}
@@ -182,7 +182,7 @@ function NextFieldRow() {
             value={next.offset + 1}
             onChange={(e) => setNext({ offset: Math.max(1, Math.round(Number(e.target.value) || 1)) - 1 })}
           />
-          {t('번째', 'on this page')}
+          {t('번째', 'of this page')}
         </span>
       </PopRow>
       <label className="field-toggle">
@@ -205,7 +205,7 @@ export function MoonPanel({ moons, apply }: { moons: MoonObject[]; apply: (patch
       {first ? (
         <PopRow label={t('날짜', 'Date')}>
           <span className="numfield" title={t('이 페이지에서 몇째 날짜의 달인지', "Which date's month on this page")}>
-            {t('이 페이지의', 'Date')}
+            {t('이 페이지의', 'Day')}
             <input
               type="number"
               min={1}
@@ -214,7 +214,7 @@ export function MoonPanel({ moons, apply }: { moons: MoonObject[]; apply: (patch
               placeholder={offsetMixed ? '—' : undefined}
               onChange={(e) => apply({ offset: Math.max(1, Math.round(Number(e.target.value) || 1)) - 1 })}
             />
-            {t('번째', 'on this page')}
+            {t('번째', 'of this page')}
           </span>
         </PopRow>
       ) : (

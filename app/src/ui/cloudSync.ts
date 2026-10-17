@@ -245,7 +245,11 @@ async function syncOnce(): Promise<void> {
       ? { kind: 'error', text: t('일부 글꼴·이미지 파일을 맞추지 못했어요. 다음 동기화에서 다시 시도해요.', "Some font or image files didn't sync. We'll try again next time.") }
       : { kind: 'saved', at: Date.now() } });
   } catch (err) {
-    if (err instanceof SessionChanged) return;
+    if (err instanceof SessionChanged) {
+      // 로그아웃 알림 없이 계정이 사라졌으면(토큰 만료) ‘맞추는 중’에 멈춰 있지 않게.
+      if (!currentUser()) useStore.setState({ cloudStatus: { kind: 'local' } });
+      return;
+    }
     if (err instanceof AskCancelled) {
       useStore.setState({ cloudStatus: { kind: 'local' } });
       return;

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { LIBRARY_TAB } from '../core/workspace';
 
 /**
  * 앱 안의 이동을 브라우저 방문 기록에 남긴다(2026-10-15 사용자 요청).
@@ -29,7 +30,7 @@ const keyOf = (n: NavState) => `${n.screen}|${n.tab}|${n.section}|${n.printing}`
  * 만드는 순간 등)은 화면이 같으므로 지금 칸만 고친다 — 안 그러면 뒤로가기를 한 번 더 눌러야 했다.
  */
 const viewOf = (n: NavState) =>
-  n.screen !== 'tabs' ? n.screen : n.tab === 'library' ? `library|${n.section}` : `${n.tab}|${n.printing}`;
+  n.screen !== 'tabs' ? n.screen : n.tab === LIBRARY_TAB ? `library|${n.section}` : `${n.tab}|${n.printing}`;
 
 /**
  * `nav`는 지금 화면, `apply`는 기록에서 꺼낸 화면으로 되돌리는 일. 앱이 자료를 다 읽은 뒤(`ready`)부터 기록한다 —

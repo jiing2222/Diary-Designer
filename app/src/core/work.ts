@@ -220,10 +220,21 @@ function datedEditable(source: Face, dates: (CalendarDate | null)[], override: F
  * `today`는 날짜 묶음이 아닌 페이지의 자동 필드가 보여줄 날짜다(기간을 정하기 전엔
  * 오늘 날짜로 보인다). 함수를 순수하게 두려고 바깥에서 받는다.
  */
+/**
+ * 페이지가 따로 지닌 색 규칙(원래 색 그대로 가져온 페이지) — 색은 그 페이지 것, **공휴일 나라는 작업 것**.
+ * 나라는 작업 하나에 하나다: 미국 작업에 옛 한국 작업의 페이지를 가져와도 미국 공휴일로 칠한다.
+ */
+function ownRules(own: ColorRules | undefined, workRules: ColorRules | undefined): ColorRules | undefined {
+  if (!own) return undefined;
+  const { holidays: _theirs, ...colors } = own;
+  return workRules?.holidays ? { ...colors, holidays: workRules.holidays } : colors;
+}
+
 export function expandWork(work: Pick<Work, 'items'> & Partial<Pick<Work, 'colorRules'>>, today: CalendarDate): ResolvedFace[] {
   const out: ResolvedFace[] = [];
   for (const item of work.items) {
-    const rules = item.colorRules ?? work.colorRules;
+    const own = ownRules(item.colorRules, work.colorRules);
+    const rules = own ?? work.colorRules;
     if (item.kind === 'page') {
       const period = todayPeriod(today, item.face.objects);
       out.push({
@@ -234,7 +245,7 @@ export function expandWork(work: Pick<Work, 'items'> & Partial<Pick<Work, 'color
         objects: resolveFieldsWithDates(item.face.objects, period.dates, undefined, rules),
         fieldIds: fieldIdsOf(item.face.objects),
         month: period.month,
-        colorRules: item.colorRules,
+        colorRules: own,
       });
       continue;
     }
@@ -259,7 +270,7 @@ export function expandWork(work: Pick<Work, 'items'> & Partial<Pick<Work, 'color
           ),
           fieldIds: fieldIdsOf(face.objects, override),
           month: period.month,
-          colorRules: item.colorRules,
+          colorRules: own,
         });
       });
     }
@@ -480,10 +491,10 @@ export function sourcePreview(item: DatedItem, faceIndex: number, rules?: ColorR
     itemId: item.id,
     faceId: face.id,
     background: face.background,
-    objects: resolveFieldsWithDates(face.objects, dates, undefined, item.colorRules ?? rules),
+    objects: resolveFieldsWithDates(face.objects, dates, undefined, ownRules(item.colorRules, rules) ?? rules),
     fieldIds: fieldIdsOf(face.objects),
     month: first?.month ?? { year: 1970, month: 1 },
-    colorRules: item.colorRules,
+    colorRules: ownRules(item.colorRules, rules),
   };
   // 원본에는 순서가 없다 — 번호 칸은 시작 번호로 보인다.
   fillPageNumbers([preview]);

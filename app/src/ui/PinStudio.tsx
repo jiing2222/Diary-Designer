@@ -128,8 +128,10 @@ function PinSetButton() {
       const id = s.diaries.find((d) => d.presetId === plan.presetId)?.id ?? s.addDiary(plan.presetId, findInsertPreset(plan.presetId)?.name ?? plan.presetId);
       const diary = useStore.getState().diaries.find((d) => d.id === id)!;
       const byName = new Map(templatesFor(diary).map((t) => [t.name, t]));
-      return workOf(plan.board, diary, plan.pages.map((p) => byName.get(p.template)!).filter(Boolean), now);
-    });
+      const templates = plan.pages.flatMap((p) => byName.get(p.template) ?? []);
+      // 격자가 너무 작아 양식을 못 그리면 빈 작업을 만들지 않는다.
+      return templates.length > 0 ? [workOf(plan.board, diary, templates, now)] : [];
+    }).flat();
     useStore.getState().addWorks(works);
   };
   return <button className="ghost" onClick={make}>핀 세트 40장 넣기</button>;
