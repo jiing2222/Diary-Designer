@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PROJECT_VIEW, daysLeft, expiredTrash, isTrashed, outsideObjects, projectsFor, removeFolderFrom, restoreWork, trashWork } from './library';
+import { DEFAULT_PROJECT_VIEW, daysLeft, expiredTrash, isTrashed, outsideObjects, projectsFor, removeFolderFrom, restoreWork, trashWork, rangeIds } from './library';
 import { newFace, newPage, newWork, type DatedItem } from './work';
 import type { DiaryObject } from './objects';
 
@@ -93,5 +93,18 @@ describe('다이어리를 바꾸면 밖으로 나가는 객체', () => {
     // M5(80mm 폭)로 바꾸면 85·85·90mm까지 가는 선 셋이 걸친다.
     expect(outsideObjects({ items: [page, dated] }, { width: 80, height: 125 })).toBe(3);
     expect(outsideObjects({ items: [page, dated] }, { width: 148, height: 210 })).toBe(0);
+  });
+});
+
+describe('Shift로 범위 고르기', () => {
+  const order = ['a', 'b', 'c', 'd', 'e'];
+  it('양 끝을 포함하고 방향은 상관없다', () => {
+    expect(rangeIds(order, 'b', 'd')).toEqual(['b', 'c', 'd']);
+    expect(rangeIds(order, 'd', 'b')).toEqual(['b', 'c', 'd']);
+  });
+  it('시작점이 없거나 목록에 없으면 누른 것 하나', () => {
+    expect(rangeIds(order, null, 'c')).toEqual(['c']);
+    expect(rangeIds(order, 'zz', 'c')).toEqual(['c']);
+    expect(rangeIds(order, 'a', 'zz')).toEqual([]);
   });
 });

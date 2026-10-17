@@ -5491,6 +5491,38 @@ button.diary-chip.on {
 .work-preview {
   position: relative;
 }
+/* 여러 작업 고르기 — 체크는 마우스를 올리거나 하나라도 골랐을 때만 보인다(평소엔 깔끔하게). */
+.work-pick {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  opacity: 0;
+}
+.work-card:hover .work-pick,
+.work-card.picking .work-pick,
+.work-pick:focus-visible {
+  opacity: 1;
+}
+.work-card.picked .work-thumb {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  background: var(--accent-subtle);
+}
+/* 작업 카드를 끌어 폴더 칸 위에 올리면 */
+.project-filter.drop-over {
+  background: var(--accent-subtle);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.bulk-bar {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .work-preview .work-thumb {
   width: 100%;
   color: var(--ink);

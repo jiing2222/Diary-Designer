@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { facesOf, useStore } from '../store';
-import { DEFAULT_PROJECT_VIEW, isTrashed, projectsFor, type ProjectSort } from '../core/library';
+import { DEFAULT_PROJECT_VIEW, isTrashed, projectsFor, rangeIds, type ProjectSort } from '../core/library';
 import { diarySizeLabel } from '../core/diary';
 import { resolveRuleColors } from '../core/colorRules';
 import { resolveObjectColors } from '../core/colors';
@@ -13,6 +13,45 @@ import { t } from '../lang';
 type ActionKind = 'folder-new' | 'folder-name' | 'folder-remove' | 'menu' | 'name' | 'move' | 'copy-diary';
 type Action = { kind: ActionKind; id?: string };
 
+/** 끌어다 놓는 작업 id들(JSON) — 폴더 칸이 이 종류만 받는다. */
+const DRAG_TYPE = 'application/x-rings-works';
+
+/** 폴더 칸(분류 없음 포함)에 작업을 끌어다 놓는다. 놓을 수 있는 동안 강조한다. */
+function useFolderDrop(folderId: string | null) {
+  const moveWorkToFolder = useStore((s) => s.moveWorkToFolder);
+  const showToast = useStore((s) => s.showToast);
+  const [over, setOver] = useState(false);
+  return {
+    className: over ? 'drop-over' : '',
+    onDragOver: (e: React.DragEvent) => {
+      if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setOver(true);
+    },
+    onDragLeave: () => setOver(false),
+    onDrop: (e: React.DragEvent) => {
+      setOver(false);
+      const raw = e.dataTransfer.getData(DRAG_TYPE);
+      if (!raw) return;
+      e.preventDefault();
+      const ids = JSON.parse(raw) as string[];
+      ids.forEach((id) => moveWorkToFolder(id, folderId));
+      showToast(t(`작업 ${ids.length}개를 옮겼어요.`, `Moved ${ids.length} work(s).`));
+    },
+  };
+}
+
+/** 폴더 칸 — 누르면 그 폴더만 보고, 작업 카드를 끌어다 놓으면 그 폴더로 옮긴다. */
+function FolderFilter({ folderId, on, onClick, children }: { folderId: string | null; on: boolean; onClick: () => void; children: React.ReactNode }) {
+  const { className, ...drop } = useFolderDrop(folderId);
+  return (
+    <button {...drop} className={`project-filter ${on ? 'on' : ''} ${className}`} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
 /** Projects: 폴더는 정리를, 다이어리는 종이 치수를 맡는다(세부계획 B2). */
 export function Projects() {
   const works = useStore((s) => s.works);
@@ -23,9 +62,19 @@ export function Projects() {
   const startNewWork = useStore((s) => s.startNewWork);
   const [action, setAction] = useState<Action | null>(null);
   const showToast = useStore((s) => s.showToast);
+  // 고른 작업 — 이 화면에만 둔다. 지금 보이는 것만 센다(폴더·검색을 바꾸면 안 보이는 것은 저절로 빠진다).
+  const [picked, setPicked] = useState<string[]>([]);
+  const anchor = useRef<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const live = useMemo(() => works.filter((w) => !isTrashed(w)), [works]);
   const shown = useMemo(() => projectsFor(works, view), [works, view]);
+  const pickedShown = shown.filter((w) => picked.includes(w.id)).map((w) => w.id);
+  const togglePick = (id: string, range: boolean) => {
+    const order = shown.map((w) => w.id);
+    if (range) setPicked([...new Set([...pickedShown, ...rangeIds(order, anchor.current, id)])]);
+    else setPicked(pickedShown.includes(id) ? pickedShown.filter((x) => x !== id) : [...pickedShown, id]);
+    anchor.current = id;
+  };
   const setView = (p: Partial<typeof view>) => patch({ projectView: { ...view, ...p } });
   const folder = folders.find((f) => f.id === view.folderId);
   const title = view.folderId === null ? t('분류 없음', 'Unfiled') : (folder?.name ?? 'Projects');
@@ -41,13 +90,10 @@ export function Projects() {
           <span>{t('모든 작업', 'All works')}</span>
           <span className="filter-count">{live.length}</span>
         </button>
-        <button
-          className={`project-filter ${view.folderId === null ? 'on' : ''}`}
-          onClick={() => setView({ folderId: null })}
-        >
+        <FolderFilter folderId={null} on={view.folderId === null} onClick={() => setView({ folderId: null })}>
           <span>{t('분류 없음', 'Unfiled')}</span>
           <span className="filter-count">{live.filter((w) => !w.folderId).length}</span>
-        </button>
+        </FolderFilter>
         <div className="projects-panel-heading">
           <h3>{t('폴더', 'Folders')}</h3>
           <button
@@ -61,13 +107,10 @@ export function Projects() {
         </div>
         {folders.map((f) => (
           <div className="project-folder" key={f.id}>
-            <button
-              className={`project-filter ${view.folderId === f.id ? 'on' : ''}`}
-              onClick={() => setView({ folderId: f.id })}
-            >
+            <FolderFilter folderId={f.id} on={view.folderId === f.id} onClick={() => setView({ folderId: f.id })}>
               <span>{f.name}</span>
               <span className="filter-count">{live.filter((w) => w.folderId === f.id).length}</span>
-            </button>
+            </FolderFilter>
             <span className="folder-actions">
               <button
                 className="ghost"
@@ -149,6 +192,9 @@ export function Projects() {
             {t('+ 새 작업', '+ New work')}
           </button>
         </div>
+        {pickedShown.length > 0 ? (
+          <BulkBar ids={pickedShown} allShown={shown.map((w) => w.id)} onPick={setPicked} title={title} />
+        ) : (
         <div className="projects-toolbar">
           <input
             type="search"
@@ -167,10 +213,19 @@ export function Projects() {
             <option value="name">{t('이름순', 'Name')}</option>
           </select>
         </div>
+        )}
         {shown.length > 0 ? (
           <div className="work-grid">
             {shown.map((w) => (
-              <WorkCard key={w.id} work={w} onAction={setAction} />
+              <WorkCard
+                key={w.id}
+                work={w}
+                onAction={setAction}
+                picked={pickedShown.includes(w.id)}
+                picking={pickedShown.length > 0}
+                onPick={(range) => togglePick(w.id, range)}
+                dragIds={pickedShown.includes(w.id) ? pickedShown : [w.id]}
+              />
             ))}
           </div>
         ) : (
@@ -205,8 +260,91 @@ export function Projects() {
   );
 }
 
+/**
+ * 고른 작업들에 한 번에 — 폴더로 옮기기·파일로 저장·휴지통으로. 지우기는 영구 삭제가 아니라 휴지통이라
+ * 30일 안에는 되살릴 수 있다(확인 창을 두지 않는다).
+ */
+function BulkBar({ ids, allShown, onPick, title }: { ids: string[]; allShown: string[]; onPick: (ids: string[]) => void; title: string }) {
+  const folders = useStore((s) => s.folders);
+  const moveWorkToFolder = useStore((s) => s.moveWorkToFolder);
+  const trashWorkById = useStore((s) => s.trashWorkById);
+  const showToast = useStore((s) => s.showToast);
+  const all = ids.length === allShown.length;
+  return (
+    <div className="projects-toolbar bulk-bar" role="toolbar" aria-label={t('고른 작업', 'Selected works')}>
+      <b>{t(`${ids.length}개 고름`, `${ids.length} selected`)}</b>
+      <button className="ghost" onClick={() => onPick(all ? [] : allShown)}>
+        {all ? t('모두 풀기', 'Deselect all') : t('모두 고르기', 'Select all')}
+      </button>
+      <select
+        aria-label={t('폴더로 옮기기', 'Move to folder')}
+        value=""
+        onChange={(e) => {
+          const to = e.target.value === '__none' ? null : e.target.value;
+          ids.forEach((id) => moveWorkToFolder(id, to));
+          showToast(t(`작업 ${ids.length}개를 옮겼어요.`, `Moved ${ids.length} work(s).`));
+          onPick([]);
+        }}
+      >
+        <option value="" disabled>
+          {t('폴더로 옮기기…', 'Move to folder…')}
+        </option>
+        <option value="__none">{t('분류 없음', 'Unfiled')}</option>
+        {folders.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.name}
+          </option>
+        ))}
+      </select>
+      <button
+        className="ghost"
+        onClick={() => {
+          const n = saveWorksToFile(ids, title === 'Projects' ? t('Rings 작업', 'Rings works') : title);
+          showToast(t(`작업 ${n}개를 파일로 저장했어요.`, `Saved ${n} work(s) to a file.`));
+        }}
+      >
+        {t('파일로 저장', 'Save to file')}
+      </button>
+      <button
+        className="ghost danger"
+        onClick={() => {
+          ids.forEach((id) => trashWorkById(id));
+          showToast(
+            t(
+              `작업 ${ids.length}개를 휴지통으로 옮겼어요. 30일 안에 되살릴 수 있어요.`,
+              `Moved ${ids.length} work(s) to the trash. You can restore them within 30 days.`,
+            ),
+          );
+          onPick([]);
+        }}
+      >
+        {t('휴지통으로', 'Move to trash')}
+      </button>
+      <button className="ghost" onClick={() => onPick([])} aria-label={t('고르기 그만', 'Clear selection')}>
+        ×
+      </button>
+    </div>
+  );
+}
+
 /** 작업 카드에는 이름과 다이어리 색 점, 앞 두 페이지를 둔다. 정리는 ⋯에서 한다. */
-function WorkCard({ work, onAction }: { work: Work; onAction: (a: Action) => void }) {
+function WorkCard({
+  work,
+  onAction,
+  picked,
+  picking,
+  onPick,
+  dragIds,
+}: {
+  work: Work;
+  onAction: (a: Action) => void;
+  picked: boolean;
+  /** 하나라도 골랐으면 카드를 누르는 것이 열기가 아니라 고르기다. */
+  picking: boolean;
+  onPick: (range: boolean) => void;
+  /** 이 카드를 끌면 함께 옮길 작업들(고른 카드면 고른 것 전부). */
+  dragIds: string[];
+}) {
   const openWork = useStore((s) => s.openWork);
   const openPrint = useStore((s) => s.openPrint);
   const diary = useStore((s) => s.diaries.find((d) => d.id === work.diaryId));
@@ -216,9 +354,29 @@ function WorkCard({ work, onAction }: { work: Work; onAction: (a: Action) => voi
   const diaryInfo = diary ? `${diary.name} · ${diary.width}×${diary.height}mm` : '';
 
   return (
-    <article className="work-card" aria-label={work.name}>
+    <article
+      className={`work-card ${picked ? 'picked' : ''} ${picking ? 'picking' : ''}`}
+      aria-label={work.name}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(dragIds));
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+    >
       <div className="work-preview">
-        <button className="work-thumb" onClick={() => openWork(work.id)} aria-label={t(`${work.name} 열기`, `Open ${work.name}`)}>
+        <input
+          type="checkbox"
+          className="work-pick"
+          checked={picked}
+          aria-label={t(`${work.name} 고르기`, `Select ${work.name}`)}
+          onChange={() => {}}
+          onClick={(e) => onPick(e.shiftKey)}
+        />
+        <button
+          className="work-thumb"
+          onClick={(e) => (picking ? onPick(e.shiftKey) : openWork(work.id))}
+          aria-label={picking ? t(`${work.name} 고르기`, `Select ${work.name}`) : t(`${work.name} 열기`, `Open ${work.name}`)}
+        >
           {diary &&
             faces.slice(0, 2).map((f) => (
               <svg key={f.key} viewBox={`0 0 ${diary.width} ${diary.height}`} className="work-thumb-face">

@@ -113,3 +113,15 @@ export function removeFolderFrom(works: Work[], folderId: string): Work[] {
     return rest;
   });
 }
+
+/**
+ * Shift로 여러 개 고르기 — 보이는 순서(`order`)에서 `from`부터 `to`까지(양 끝 포함, 방향 상관없이).
+ * `from`이 없거나 목록에 없으면(폴더를 바꾼 뒤 등) `to` 하나만.
+ */
+export function rangeIds(order: string[], from: string | null, to: string): string[] {
+  const a = from === null ? -1 : order.indexOf(from);
+  const b = order.indexOf(to);
+  if (b < 0) return [];
+  if (a < 0) return [to];
+  return order.slice(Math.min(a, b), Math.max(a, b) + 1);
+}

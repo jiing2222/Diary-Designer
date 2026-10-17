@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from '../store';
-import { daysLeft, isTrashed } from '../core/library';
+import { daysLeft, isTrashed, rangeIds } from '../core/library';
 import { LibraryFonts, LibraryImages } from './LibraryAssets';
 import { LibraryColors } from './LibraryColors';
 import { Projects } from './Projects';
@@ -56,40 +56,71 @@ function Trash() {
   const restore = useStore((s) => s.restoreWorkById);
   const destroy = useStore((s) => s.deleteWorkForever);
   const [now] = useState(() => new Date().toISOString());
+  // 고른 것 — 있으면 머리줄 단추가 ‘고른 것’에 대해 동작한다. 없으면 전부(휴지통 비우기).
+  const [picked, setPicked] = useState<string[]>([]);
+  const anchor = useRef<string | null>(null);
   const trashed = works.filter(isTrashed);
+  const order = trashed.map((w) => w.id);
+  const chosen = order.filter((id) => picked.includes(id));
+  const pick = (id: string, range: boolean) => {
+    setPicked(range ? [...new Set([...chosen, ...rangeIds(order, anchor.current, id)])] : chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]);
+    anchor.current = id;
+  };
+  const destroyAll = (ids: string[]) => {
+    if (window.confirm(t(`작업 ${ids.length}개를 완전히 지울까요? 되돌릴 수 없어요.`, `Permanently delete ${ids.length} work(s)? This can't be undone.`))) {
+      ids.forEach((id) => destroy(id));
+      setPicked([]);
+    }
+  };
   return (
     <div className="library-pane">
       <div className="library-head">
         <h2>Trash</h2>
-        {trashed.length > 0 && (
-          <button
-            className="ghost danger"
-            onClick={() => {
-              if (window.confirm(t(`휴지통의 작업 ${trashed.length}개를 완전히 지울까요? 되돌릴 수 없어요.`, `Permanently delete ${trashed.length} work(s) in the trash? This can't be undone.`))) {
-                trashed.forEach((w) => destroy(w.id));
-              }
-            }}
-          >
-            {t('휴지통 비우기', 'Empty trash')}
-          </button>
+        {chosen.length > 0 ? (
+          <span className="bulk-bar">
+            <b>{t(`${chosen.length}개 고름`, `${chosen.length} selected`)}</b>
+            <button
+              className="ghost"
+              onClick={() => {
+                chosen.forEach((id) => restore(id));
+                setPicked([]);
+              }}
+            >
+              {t('되살리기', 'Restore')}
+            </button>
+            <button className="ghost danger" onClick={() => destroyAll(chosen)}>
+              {t('영구 삭제', 'Delete forever')}
+            </button>
+            <button className="ghost" onClick={() => setPicked([])} aria-label={t('고르기 그만', 'Clear selection')}>
+              ×
+            </button>
+          </span>
+        ) : (
+          trashed.length > 0 && (
+            <button className="ghost danger" onClick={() => destroyAll(order)}>
+              {t('휴지통 비우기', 'Empty trash')}
+            </button>
+          )
         )}
       </div>
       {trashed.length === 0 && <div className="empty-card">{t('휴지통이 비어 있어요.', 'The trash is empty.')}</div>}
-      {/* 한 줄이 한 카드 — 이름, 남은 날(작은 태그), 오른쪽 끝에 단추들(2026-10-13 디자인 정리). */}
+      {/* 한 줄이 한 카드 — 고르기, 이름, 남은 날(작은 태그), 오른쪽 끝에 단추들(2026-10-13 디자인 정리). */}
       {trashed.map((w) => (
         <div key={w.id} className="trash-row">
+          <input
+            type="checkbox"
+            checked={chosen.includes(w.id)}
+            aria-label={t(`${w.name} 고르기`, `Select ${w.name}`)}
+            onChange={() => {}}
+            onClick={(e) => pick(w.id, e.shiftKey)}
+          />
           <span className="trash-name">{w.name}</span>
           <span className="tag">{t(`${daysLeft(w, now)}일 남음`, `${daysLeft(w, now)} days left`)}</span>
           <span className="trash-actions">
             <button className="ghost" onClick={() => restore(w.id)}>
               {t('되살리기', 'Restore')}
             </button>
-            <button
-              className="ghost danger"
-              onClick={() => {
-                if (window.confirm(t(`‘${w.name}’을(를) 완전히 지울까요? 되돌릴 수 없어요.`, `Permanently delete “${w.name}”? This can't be undone.`))) destroy(w.id);
-              }}
-            >
+            <button className="ghost danger" onClick={() => destroyAll([w.id])}>
               {t('영구 삭제', 'Delete forever')}
             </button>
           </span>
