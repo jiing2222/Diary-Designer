@@ -5,6 +5,7 @@ import { IMAGE_ACCEPT, hasImage, imageLabelOf, registerImage, type UserImage } f
 import { imagesInUse, libraryFonts, libraryImages, reusableIdFor, worksUsingAsset } from '../core/assets';
 import { DEFAULT_FONT_FAMILY } from '../core/style';
 import { removeAssetWithConfirm } from './removeAsset';
+import { t } from '../lang';
 
 /**
  * Library → Images · Fonts(리뉴얼 7-3, 세부계획 B ‘Library 화면 시안’).
@@ -25,14 +26,14 @@ export function LibraryImages() {
   const used = useMemo(() => imagesInUse(works), [works]);
   const shown = listed.filter((i) => filter === 'all' || used.has(i.id) === (filter === 'used'));
   const filters: [ImageFilter, string, number][] = [
-    ['all', '모든 이미지', listed.length],
-    ['used', '사용 중', listed.filter((i) => used.has(i.id)).length],
-    ['unused', '안 쓰는 것', listed.filter((i) => !used.has(i.id)).length],
+    ['all', t('모든 이미지', 'All images'), listed.length],
+    ['used', t('사용 중', 'In use'), listed.filter((i) => used.has(i.id)).length],
+    ['unused', t('안 쓰는 것', 'Unused'), listed.filter((i) => !used.has(i.id)).length],
   ];
 
   return (
     <div className="library-projects">
-      <aside className="projects-panel" aria-label="이미지 고르기">
+      <aside className="projects-panel" aria-label={t('이미지 고르기', 'Choose an image')}>
         <h2>Images</h2>
         {filters.map(([id, label, count]) => (
           <button key={id} className={`project-filter ${filter === id ? 'on' : ''}`} onClick={() => setFilter(id)}>
@@ -44,18 +45,18 @@ export function LibraryImages() {
       <div className="library-pane projects-content" {...upload.dropProps}>
         <div className="library-head">
           <h2>
-            {filters.find((f) => f[0] === filter)![1]} <span className="projects-count">{shown.length}개</span>
+            {filters.find((f) => f[0] === filter)![1]} <span className="projects-count">{shown.length}</span>
           </h2>
           <button className="primary" onClick={upload.pick}>
-            + 이미지 올리기
+            {t('+ 이미지 올리기', '+ Upload image')}
           </button>
         </div>
         {upload.error && <p className="modal-note warn">{upload.error}</p>}
         {shown.length === 0 ? (
           <div className="empty-card">
             {filter === 'all'
-              ? '아직 올린 이미지가 없어요. 파일을 여기로 끌어다 놓아도 돼요.'
-              : '해당하는 이미지가 없어요.'}
+              ? t('아직 올린 이미지가 없어요. 파일을 여기로 끌어다 놓아도 돼요.', 'No images yet. You can also drop files here.')
+              : t('해당하는 이미지가 없어요.', 'No matching images.')}
           </div>
         ) : (
           <div className="design-grid asset-grid">
@@ -79,57 +80,57 @@ function ImageTile({ image }: { image: UserImage }) {
         {image.url ? (
           <img src={image.url} alt={imageLabelOf(image)} />
         ) : (
-          <span className="asset-missing" title="같은 이름의 파일을 다시 올리면 되살아나요">
-            ⚠ 파일 없음
+          <span className="asset-missing" title={t('같은 이름의 파일을 다시 올리면 되살아나요', 'Upload a file with the same name to restore it')}>
+            {t('⚠ 파일 없음', '⚠ File missing')}
           </span>
         )}
       </div>
       <AssetName label={imageLabelOf(image)} onRename={(v) => useStore.getState().renameUserImage(image.id, v)} />
       <div className="asset-meta">
-        <span className="muted">{count > 0 ? `작업 ${count}개` : '안 씀'}</span>
+        <span className="muted">{count > 0 ? t(`작업 ${count}개`, `${count} work(s)`) : t('안 씀', 'Unused')}</span>
         <RemoveButton kind="image" id={image.id} label={imageLabelOf(image)} />
       </div>
     </div>
   );
 }
 
-const DEFAULT_SAMPLE = '가나다라 Aa 1234';
+const defaultSample = () => t('가나다라 Aa 1234', 'Aa Bb Cc 1234');
 
 export function LibraryFonts() {
   const userFonts = useStore((s) => s.userFonts);
   const [which, setWhich] = useState<'mine' | 'builtin'>('mine');
-  const [sample, setSample] = useState(DEFAULT_SAMPLE);
+  const [sample, setSample] = useState(defaultSample);
   const upload = useUpload('font');
   const listed = libraryFonts(userFonts);
-  const text = sample.trim() || DEFAULT_SAMPLE;
+  const text = sample.trim() || defaultSample();
 
   return (
     <div className="library-projects">
-      <aside className="projects-panel" aria-label="글꼴 고르기">
+      <aside className="projects-panel" aria-label={t('글꼴 고르기', 'Choose a font')}>
         <h2>Fonts</h2>
         <button className={`project-filter ${which === 'mine' ? 'on' : ''}`} onClick={() => setWhich('mine')}>
-          <span className="filter-name">등록한 글꼴</span>
+          <span className="filter-name">{t('등록한 글꼴', 'My fonts')}</span>
           <span className="filter-count">{listed.length}</span>
         </button>
         <button className={`project-filter ${which === 'builtin' ? 'on' : ''}`} onClick={() => setWhich('builtin')}>
-          <span className="filter-name">기본 글꼴</span>
+          <span className="filter-name">{t('기본 글꼴', 'Built-in fonts')}</span>
           <span className="filter-count">1</span>
         </button>
       </aside>
       <div className="library-pane projects-content" {...(which === 'mine' ? upload.dropProps : {})}>
         <div className="library-head">
-          <h2>{which === 'mine' ? '등록한 글꼴' : '기본 글꼴'}</h2>
+          <h2>{which === 'mine' ? t('등록한 글꼴', 'My fonts') : t('기본 글꼴', 'Built-in fonts')}</h2>
           {which === 'mine' && (
             <button className="primary" onClick={upload.pick}>
-              + 글꼴 올리기
+              {t('+ 글꼴 올리기', '+ Upload font')}
             </button>
           )}
         </div>
         <label className="lib-field">
-          <span>견본 글자</span>
+          <span>{t('견본 글자', 'Sample text')}</span>
           <input
             className="lib-input"
-            placeholder={DEFAULT_SAMPLE}
+            placeholder={defaultSample()}
             value={sample}
             maxLength={60}
             onChange={(e) => setSample(e.target.value)}
@@ -146,7 +147,7 @@ export function LibraryFonts() {
           <>
             {upload.error && <p className="modal-note warn">{upload.error}</p>}
             {listed.length === 0 ? (
-              <div className="empty-card">아직 등록한 글꼴이 없어요. TTF·OTF 파일을 여기로 끌어다 놓아도 돼요.</div>
+              <div className="empty-card">{t('아직 등록한 글꼴이 없어요. TTF·OTF 파일을 여기로 끌어다 놓아도 돼요.', 'No fonts yet. You can also drop TTF or OTF files here.')}</div>
             ) : (
               <div className="font-list">
                 {listed.map((f) => (
@@ -171,8 +172,8 @@ function FontLine({ font, sample }: { font: UserFont; sample: string }) {
       <button
         className={`font-fav ${font.favorite ? 'on' : ''}`}
         onClick={() => useStore.getState().toggleFontFavorite(font.id)}
-        aria-label={font.favorite ? '즐겨찾기 풀기' : '즐겨찾기'}
-        title={font.favorite ? '즐겨찾기 풀기' : '즐겨찾기'}
+        aria-label={font.favorite ? t('즐겨찾기 풀기', 'Remove from favorites') : t('즐겨찾기', 'Favorite')}
+        title={font.favorite ? t('즐겨찾기 풀기', 'Remove from favorites') : t('즐겨찾기', 'Favorite')}
       >
         {font.favorite ? '★' : '☆'}
       </button>
@@ -181,12 +182,12 @@ function FontLine({ font, sample }: { font: UserFont; sample: string }) {
         {loaded ? (
           sample
         ) : (
-          <span className="asset-warn" title="이 기기에 파일이 없어요 — 같은 이름의 파일을 다시 올리면 되살아나요">
-            ⚠ 이 기기에 파일 없음
+          <span className="asset-warn" title={t('이 기기에 파일이 없어요 — 같은 이름의 파일을 다시 올리면 되살아나요', "The file isn't on this device. Upload a file with the same name to restore it")}>
+            {t('⚠ 이 기기에 파일 없음', '⚠ Not on this device')}
           </span>
         )}
       </span>
-      <span className="muted">{count > 0 ? `작업 ${count}개` : '안 씀'}</span>
+      <span className="muted">{count > 0 ? t(`작업 ${count}개`, `${count} work(s)`) : t('안 씀', 'Unused')}</span>
       <RemoveButton kind="font" id={font.id} label={fontLabelOf(font)} />
     </div>
   );
@@ -219,7 +220,7 @@ function AssetName({ label, onRename }: { label: string; onRename: (label: strin
       type="button"
       className="design-name"
       onDoubleClick={() => setEditing(true)}
-      title={`${label} — 두 번 눌러 이름 바꾸기`}
+      title={t(`${label} — 두 번 눌러 이름 바꾸기`, `${label}: double-click to rename`)}
     >
       {label}
     </button>
@@ -230,7 +231,7 @@ function AssetName({ label, onRename }: { label: string; onRename: (label: strin
 function RemoveButton({ kind, id, label }: { kind: 'image' | 'font'; id: string; label: string }) {
   return (
     <button className="ghost danger asset-remove" onClick={() => removeAssetWithConfirm(kind, id, label)}>
-      지우기
+      {t('지우기', 'Delete')}
     </button>
   );
 }
@@ -253,7 +254,7 @@ function useUpload(kind: 'image' | 'font') {
         if (kind === 'image') s.addUserImage(await registerImage(file, reusableIdFor(s.userImages, name, hasImage)));
         else s.addUserFont(await registerFont(file, reusableIdFor(s.userFonts, name, hasFont)));
       } catch (e) {
-        failed.push(`${file.name}: ${e instanceof Error ? e.message : '읽지 못했어요'}`);
+        failed.push(`${file.name}: ${e instanceof Error ? e.message : t('읽지 못했어요', "couldn't read it")}`);
       }
     }
     if (failed.length > 0) setError(failed.join(' · '));

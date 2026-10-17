@@ -3,6 +3,7 @@ import { libraryImages } from '../core/assets';
 import { useStore } from '../store';
 import { removeAssetWithConfirm } from './removeAsset';
 import { Modal } from './Modal';
+import { t } from '../lang';
 
 /**
  * 이미지 썸네일 그리드 — 빈 이미지 상자를 더블클릭했을 때 뜨는 고르기
@@ -36,7 +37,7 @@ export function ImageThumbGrid({ images, onPick }: { images: UserImage[]; onPick
               e.stopPropagation();
               removeAssetWithConfirm('image', img.id, imageLabelOf(img));
             }}
-            title="Library에서 지우기 — 쓰는 중이면 목록에서만 빠지고 작업에는 남아요"
+            title={t('Library에서 지우기 — 쓰는 중이면 목록에서만 빠지고 작업에는 남아요', "Remove from Library. If it's in use, it stays in your works")}
           >
             ×
           </button>
@@ -73,14 +74,14 @@ export function ImagePickerDialog({
   const usable = libraryImages(userImages).filter((i) => i.url);
 
   return (
-    <Modal title="이미지 고르기" onClose={onClose}>
+    <Modal title={t('이미지 고르기', 'Choose an image')} onClose={onClose}>
       {usable.length === 0 ? (
-        <p className="modal-note">아직 올린 이미지가 없어요. 파일을 불러오면 Library에 남아 다음부터 여기 떠요.</p>
+        <p className="modal-note">{t('아직 올린 이미지가 없어요. 파일을 불러오면 Library에 남아 다음부터 여기 떠요.', 'No images yet. Images you open are kept in the Library and show up here next time.')}</p>
       ) : (
         <ImageThumbGrid images={usable} onPick={onPick} />
       )}
       <button className="ghost" onClick={onAddFile}>
-        파일 불러오기…
+        {t('파일 불러오기…', 'Open file…')}
       </button>
     </Modal>
   );

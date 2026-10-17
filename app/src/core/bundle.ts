@@ -76,20 +76,23 @@ export function bundleWorks(
   };
 }
 
+/** 읽지 못한 이유 — 문구는 화면(ui/fileIO)이 언어에 맞게 붙인다. */
+export type ReadError = 'not-rings' | 'newer' | 'broken';
+
 /** 글자를 작업 파일로. 다른 파일이거나 더 새 판이면 이유를 돌려준다. 화면이 죽지 않을 만큼만 본다. */
-export function readFile(text: string): { ok: RingsFile } | { error: string } {
+export function readFile(text: string): { ok: RingsFile } | { error: ReadError } {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch {
-    return { error: 'Rings 작업 파일이 아니에요.' };
+    return { error: 'not-rings' };
   }
   const f = raw as Partial<RingsFile> | null;
-  if (!f || f.format !== FILE_FORMAT) return { error: 'Rings 작업 파일이 아니에요.' };
+  if (!f || f.format !== FILE_FORMAT) return { error: 'not-rings' };
   if (typeof f.version !== 'number' || f.version > FILE_VERSION) {
-    return { error: '더 새 버전의 Rings에서 저장한 파일이에요. 앱을 새로 고친 뒤 다시 열어 주세요.' };
+    return { error: 'newer' };
   }
-  if (!Array.isArray(f.works) || !Array.isArray(f.diaries)) return { error: '파일이 손상됐어요.' };
+  if (!Array.isArray(f.works) || !Array.isArray(f.diaries)) return { error: 'broken' };
   return {
     ok: {
       format: FILE_FORMAT,

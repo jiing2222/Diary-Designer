@@ -15,6 +15,7 @@
  */
 
 import PocketBase, { type RecordModel } from 'pocketbase';
+import { t } from '../lang';
 
 /** 서버 주소. 빌드할 때 정한다(.env의 VITE_PB_URL). 비어 있으면 로컬 전용. */
 const URL = (import.meta.env.VITE_PB_URL ?? '').trim();
@@ -92,7 +93,7 @@ async function checkSession(): Promise<CloudUser | null> {
 }
 
 export async function signIn(email: string, password: string): Promise<CloudUser> {
-  if (!pb) throw new Error('서버가 설정되지 않았습니다.');
+  if (!pb) throw new Error(t('서버가 설정되지 않았습니다.', 'No server is set up.'));
   const auth = await pb.collection('users').authWithPassword(email.trim(), password);
   return userOf(auth.record)!;
 }
@@ -104,7 +105,7 @@ export async function signIn(email: string, password: string): Promise<CloudUser
  * 치게 만든다 — 그럴 이유가 없다.
  */
 export async function signUp(email: string, password: string): Promise<CloudUser> {
-  if (!pb) throw new Error('서버가 설정되지 않았습니다.');
+  if (!pb) throw new Error(t('서버가 설정되지 않았습니다.', 'No server is set up.'));
   await pb.collection('users').create({ email: email.trim(), password, passwordConfirm: password });
   return signIn(email, password);
 }
@@ -115,7 +116,7 @@ export async function signUp(email: string, password: string): Promise<CloudUser
  */
 export async function changePassword(oldPassword: string, password: string): Promise<void> {
   const user = currentUser();
-  if (!pb || !user) throw new Error('로그인이 필요합니다.');
+  if (!pb || !user) throw new Error(t('로그인이 필요합니다.', 'Please sign in.'));
   await pb.collection('users').update(user.id, { oldPassword, password, passwordConfirm: password });
   await signIn(user.email, password);
 }
@@ -127,7 +128,7 @@ export async function changePassword(oldPassword: string, password: string): Pro
  */
 export async function deleteAccount(password: string): Promise<void> {
   const user = currentUser();
-  if (!pb || !user) throw new Error('로그인이 필요합니다.');
+  if (!pb || !user) throw new Error(t('로그인이 필요합니다.', 'Please sign in.'));
   await pb.collection('users').authWithPassword(user.email, password);
   await pb.collection('users').delete(user.id);
   pb.authStore.clear();
@@ -158,12 +159,12 @@ export function authed(): { pb: PocketBase; userId: string } | null {
 export function cloudErrorText(err: unknown, action: 'signIn' | 'signUp' | 'account' = 'signIn'): string {
   const status = (err as { status?: number })?.status;
   if (status === 400) {
-    if (action === 'signUp') return '가입하지 못했어요. 이메일이 이미 등록됐는지, 비밀번호가 8자 이상인지 확인해 주세요.';
-    if (action === 'account') return '변경하지 못했어요. 현재 비밀번호와 입력한 내용을 확인해 주세요.';
-    return '이메일 또는 비밀번호가 맞지 않습니다.';
+    if (action === 'signUp') return t('가입하지 못했어요. 이메일이 이미 등록됐는지, 비밀번호가 8자 이상인지 확인해 주세요.', "Couldn't sign up. Check that the email isn't already registered and the password has at least 8 characters.");
+    if (action === 'account') return t('변경하지 못했어요. 현재 비밀번호와 입력한 내용을 확인해 주세요.', "Couldn't make the change. Check your current password and what you entered.");
+    return t('이메일 또는 비밀번호가 맞지 않습니다.', 'Wrong email or password.');
   }
-  if (status === 403) return '권한이 없습니다. 다시 로그인해 보세요.';
-  if (status === 404) return '서버에서 찾을 수 없습니다.';
-  if (status === 0 || status === undefined) return '서버에 연결하지 못했습니다.';
-  return '서버 오류가 났습니다. 잠시 뒤 다시 시도해 주세요.';
+  if (status === 403) return t('권한이 없습니다. 다시 로그인해 보세요.', 'Not allowed. Try signing in again.');
+  if (status === 404) return t('서버에서 찾을 수 없습니다.', 'Not found on the server.');
+  if (status === 0 || status === undefined) return t('서버에 연결하지 못했습니다.', "Couldn't reach the server.");
+  return t('서버 오류가 났습니다. 잠시 뒤 다시 시도해 주세요.', 'Server error. Please try again in a moment.');
 }

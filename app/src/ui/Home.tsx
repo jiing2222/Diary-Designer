@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { t } from '../lang';
 
 /**
  * 토성 홈(리뉴얼, design/리뉴얼/디자인.md ‘토성 홈 그림 (4차 스케치)’).
@@ -49,7 +50,7 @@ export function Home({ onCreate, onLibrary, onLearn }: { onCreate: () => void; o
 
   return (
     <div className="home">
-      <svg className="home-saturn" viewBox="0 0 680 400" role="img" aria-label="Rings 홈">
+      <svg className="home-saturn" viewBox="0 0 680 400" role="img" aria-label={t('Rings 홈', 'Rings home')}>
         <defs>
           <clipPath id="home-planet-clip">
             <circle cx="340" cy="205" r="92" />

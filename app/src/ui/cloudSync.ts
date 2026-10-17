@@ -18,6 +18,7 @@ import { adoptFont, fontBytes, hasFont, rekeyFont, reserveIds } from '../fonts/r
 import { adoptImage, hasImage, imageBytes, imageKind, rekeyImage, reserveImageIds } from '../images/registry';
 import { v2Get, v2Put } from '../storage/v2';
 import { flushAutosave } from './persist';
+import { t } from '../lang';
 
 /**
  * 계정 동기화의 순서(리뉴얼 8-2) — ui/persist가 이 기기 저장을 맡듯, 이것이 계정과 맞추기를 맡는다.
@@ -201,7 +202,7 @@ async function syncOnce(): Promise<void> {
       return;
     }
     // 400은 서버가 받은 자료를 거절한 것 — 로그인 오류 문구(cloudErrorText의 기본)와 구분한다.
-    const text = (err as { status?: number })?.status === 400 ? '서버가 자료를 받지 못했어요.' : cloudErrorText(err);
+    const text = (err as { status?: number })?.status === 400 ? t('서버가 자료를 받지 못했어요.', "The server didn't accept the data.") : cloudErrorText(err);
     useStore.setState({ cloudStatus: { kind: 'error', text } });
   }
 }

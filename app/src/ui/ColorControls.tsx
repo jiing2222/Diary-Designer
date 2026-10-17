@@ -4,11 +4,13 @@ import { OBJECT_LINE_COLOR, TEXT_COLOR } from '../core/style';
 import { strokeColorOf } from '../core/shape';
 import { BASE_KEYS, keyLabel, keyOfRef, nextPointKey, refOf, resolveColor, type WorkPalette } from '../core/colors';
 import { usePalette, useStore } from '../store';
+import { t } from '../lang';
 
 /** `#3a3a3a` 같은 6자리 16진 색 코드인지. 저장되는 값이 늘 6자리라 맞춰둔다. */
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
-const BASE_LABELS = ['아주 연하게', '연하게', '중간', '진하게', '검정'];
+// 함수로 둔다 — 모듈을 읽을 때 한 번 정하면 로그인으로 언어가 바뀌어도 그대로 남는다.
+const baseLabels = () => [t('아주 연하게', 'Lightest'), t('연하게', 'Light'), t('중간', 'Medium'), t('진하게', 'Dark'), t('검정', 'Black')];
 
 /**
  * 색 하나를 고르는 칸(리뉴얼, 세부계획 A13).
@@ -62,7 +64,7 @@ export function ColorField({
         className="color-swatch"
         style={{ background: shown }}
         onClick={() => setOpen((o) => !o)}
-        title={mixed ? `${title} — 색이 여러 개 섞여 있습니다` : title}
+        title={mixed ? t(`${title} — 색이 여러 개 섞여 있습니다`, `${title}: mixed colors`) : title}
       >
         {key && <span className="color-key">{keyLabel(key)}</span>}
       </button>
@@ -98,7 +100,7 @@ function ColorPalettePopover({ palette, onPick }: { palette: WorkPalette; onPick
             type="button"
             className="color-swatch-sm"
             style={{ background: palette.base[key] }}
-            title={`기본 ${i + 1} · ${BASE_LABELS[i]}`}
+            title={t(`기본 ${i + 1} · ${baseLabels()[i]}`, `Base ${i + 1} · ${baseLabels()[i]}`)}
             onClick={() => onPick(refOf(key))}
           />
         ))}
@@ -110,7 +112,7 @@ function ColorPalettePopover({ palette, onPick }: { palette: WorkPalette; onPick
             type="button"
             className="color-swatch-sm keyed"
             style={{ background: p.color }}
-            title={`포인트 ${p.key}`}
+            title={t(`포인트 ${p.key}`, `Accent ${p.key}`)}
             onClick={() => onPick(refOf(p.key))}
           >
             <span className="color-key">{p.key}</span>
@@ -127,7 +129,7 @@ function ColorPalettePopover({ palette, onPick }: { palette: WorkPalette; onPick
             }}
           />
         ) : (
-          <button type="button" className="color-swatch-sm add" title="포인트 색 추가" onClick={() => setDefining('point')}>
+          <button type="button" className="color-swatch-sm add" title={t('포인트 색 추가', 'Add accent color')} onClick={() => setDefining('point')}>
             +
           </button>
         )}
@@ -137,7 +139,7 @@ function ColorPalettePopover({ palette, onPick }: { palette: WorkPalette; onPick
           <ColorDefiner onCommit={(c) => onPick(c)} />
         ) : (
           <button type="button" className="ghost color-direct" onClick={() => setDefining('direct')}>
-            직접 고르기 (팔레트와 연결 안 됨)
+            {t('직접 고르기 (팔레트와 연결 안 됨)', 'Custom (not linked to the palette)')}
           </button>
         )}
       </div>
@@ -165,7 +167,7 @@ export function ColorDefiner({ onCommit, initial, live = false }: { onCommit: (c
           setDraft(e.target.value);
           onCommit(e.target.value);
         }}
-        title="색상환에서 고르기"
+        title={t('색상환에서 고르기', 'Pick from the color wheel')}
       />
       <input
         type="text"
@@ -184,7 +186,7 @@ export function ColorDefiner({ onCommit, initial, live = false }: { onCommit: (c
           }
         }}
         spellCheck={false}
-        title="16진 코드"
+        title={t('16진 코드', 'Hex code')}
         autoFocus
       />
     </span>
@@ -225,7 +227,7 @@ export function MixedColorControls({
         if (shapes.length > 0) styleShape({ color });
         if (texts.length > 0) styleText({ color });
       }}
-      title="색 — 고른 선·표·글자 전부에 적용됩니다"
+      title={t('색 — 고른 선·표·글자 전부에 적용됩니다', 'Color: applies to all selected lines, tables and text')}
     />
   );
 }

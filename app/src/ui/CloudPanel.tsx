@@ -25,6 +25,7 @@ import {
   refreshSession,
   type CloudUser,
 } from '../cloud/client';
+import { t } from '../lang';
 
 /** 지금 동기화가 어디까지 갔는지. ui/cloudSync가 정하고(store의 cloudStatus) 여기서 보여주기만 한다. */
 export type SyncState =
@@ -36,11 +37,14 @@ export type SyncState =
 function statusText(sync: SyncState): string {
   switch (sync.kind) {
     case 'local':
-      return '이 기기에 저장';
+      return t('이 기기에 저장', 'Saved on this device');
     case 'syncing':
-      return '계정과 맞추는 중…';
+      return t('계정과 맞추는 중…', 'Syncing…');
     case 'saved':
-      return `${sync.at.getHours()}시 ${String(sync.at.getMinutes()).padStart(2, '0')}분에 저장됨`;
+      return t(
+        `${sync.at.getHours()}시 ${String(sync.at.getMinutes()).padStart(2, '0')}분에 저장됨`,
+        `Saved at ${sync.at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+      );
     case 'error':
       return sync.text;
   }
@@ -95,10 +99,10 @@ export function CloudPanel() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        title={user ? `${user.email} 계정` : '계정 로그인'}
+        title={user ? t(`${user.email} 계정`, `Signed in as ${user.email}`) : t('계정 로그인', 'Sign in')}
       >
         <span className={`cloud-dot ${user ? sync.kind : 'out'}`} aria-hidden="true" />
-        {checking ? '계정 확인 중…' : user ? '계정' : '로그인'}
+        {checking ? t('계정 확인 중…', 'Checking account…') : user ? t('계정', 'Account') : t('로그인', 'Sign in')}
       </button>
 
       {user && sync.kind !== 'local' && (
@@ -108,10 +112,10 @@ export function CloudPanel() {
       )}
 
       {open && (
-        <div className="popover popover-below cloud-pop" role="dialog" aria-label="계정">
-          <h2>계정</h2>
+        <div className="popover popover-below cloud-pop" role="dialog" aria-label={t('계정', 'Account')}>
+          <h2>{t('계정', 'Account')}</h2>
           <div className="popover-body">
-            {sessionError && <p className="cloud-error" role="alert">계정을 확인하지 못했어요. 로컬 작업은 계속할 수 있어요. {sessionError}</p>}
+            {sessionError && <p className="cloud-error" role="alert">{t("계정을 확인하지 못했어요. 로컬 작업은 계속할 수 있어요.", "Couldn't check your account. You can keep working on this device.")} {sessionError}</p>}
             {user ? (
               <SignedIn
                 user={user}
@@ -145,16 +149,16 @@ function SignedIn({
       <p className="cloud-email">{user.email}</p>
       <p className="note">
         {sync.kind === 'local'
-          ? '작업은 지금 이 기기에 저장됩니다.'
-          : '작업이 계정에도 저장됩니다. 다른 기기에서 같은 계정으로 로그인하면 이어서 할 수 있습니다.'}
+          ? t('작업은 지금 이 기기에 저장됩니다.', 'Your works are saved on this device.')
+          : t('작업이 계정에도 저장됩니다. 다른 기기에서 같은 계정으로 로그인하면 이어서 할 수 있습니다.', 'Your works are also saved to your account. Sign in on another device to pick up where you left off.')}
       </p>
       {sync.kind !== 'local' && (
-        <p className="note">글꼴·이미지 파일도 함께 올라가요. 다른 기기에서는 처음 맞출 때 받아 와요.</p>
+        <p className="note">{t('글꼴·이미지 파일도 함께 올라가요. 다른 기기에서는 처음 맞출 때 받아 와요.', 'Font and image files are uploaded too. Other devices download them on their first sync.')}</p>
       )}
       {sync.kind === 'error' && <p className="cloud-error">{sync.text}</p>}
       <AccountForm onDeleted={onSignOut} />
       <button className="ghost" onClick={onSignOut}>
-        로그아웃
+        {t('로그아웃', 'Sign out')}
       </button>
     </div>
   );
@@ -182,7 +186,7 @@ function AccountForm({ onDeleted }: { onDeleted: () => void }) {
     try {
       if (mode === 'password') {
         await changePassword(current, next);
-        setMsg({ ok: true, text: '비밀번호를 바꿨습니다.' });
+        setMsg({ ok: true, text: t('비밀번호를 바꿨습니다.', 'Password changed.') });
         setMode('closed');
       } else {
         await deleteAccount(current);
@@ -199,10 +203,10 @@ function AccountForm({ onDeleted }: { onDeleted: () => void }) {
     return (
       <div className="cloud-actions">
         <button className="ghost" onClick={() => open('password')}>
-          비밀번호 변경
+          {t('비밀번호 변경', 'Change password')}
         </button>
         <button className="ghost danger" onClick={() => open('delete')}>
-          탈퇴
+          {t('탈퇴', 'Delete account')}
         </button>
         {msg && <p className={msg.ok ? 'note' : 'cloud-error'}>{msg.text}</p>}
       </div>
@@ -212,7 +216,7 @@ function AccountForm({ onDeleted }: { onDeleted: () => void }) {
   return (
     <form className="cloud-form" onSubmit={(e) => void submit(e)}>
       <label className="cloud-field">
-        <span>현재 비밀번호</span>
+        <span>{t('현재 비밀번호', 'Current password')}</span>
         <input
           type="password"
           value={current}
@@ -224,7 +228,7 @@ function AccountForm({ onDeleted }: { onDeleted: () => void }) {
       </label>
       {mode === 'password' && (
         <label className="cloud-field">
-          <span>새 비밀번호</span>
+          <span>{t('새 비밀번호', 'New password')}</span>
           <input
             type="password"
             value={next}
@@ -236,14 +240,14 @@ function AccountForm({ onDeleted }: { onDeleted: () => void }) {
           />
         </label>
       )}
-      {mode === 'delete' && <p className="cloud-error">계정과 서버에 저장된 자료가 모두 지워집니다. 이 기기에 저장된 작업은 남습니다.</p>}
+      {mode === 'delete' && <p className="cloud-error">{t('계정과 서버에 저장된 자료가 모두 지워집니다. 이 기기에 저장된 작업은 남습니다.', 'Your account and everything saved on the server will be deleted. Works saved on this device stay.')}</p>}
       {msg && <p className="cloud-error" role="alert">{msg.text}</p>}
       <div className="cloud-actions">
         <button type="submit" disabled={busy} className={mode === 'delete' ? 'danger' : undefined}>
-          {busy ? '잠시만요…' : mode === 'password' ? '바꾸기' : '탈퇴하기'}
+          {busy ? t('잠시만요…', 'One moment…') : mode === 'password' ? t('바꾸기', 'Change') : t('탈퇴하기', 'Delete account')}
         </button>
         <button type="button" className="ghost" disabled={busy} onClick={() => open('closed')}>
-          취소
+          {t('취소', 'Cancel')}
         </button>
       </div>
     </form>
@@ -275,11 +279,11 @@ function SignInForm({ onDone }: { onDone: () => void }) {
   return (
     <form className="cloud-form" onSubmit={(e) => void submit(e)}>
       <p className="note">
-        계정을 만들거나 로그인할 수 있어요. 작업은 지금 이 기기에 저장됩니다.
+        {t('계정을 만들거나 로그인할 수 있어요. 작업은 지금 이 기기에 저장됩니다.', 'Create an account or sign in. Your works are saved on this device for now.')}
       </p>
 
       <label className="cloud-field">
-        <span>이메일</span>
+        <span>{t('이메일', 'Email')}</span>
         <input
           type="email"
           value={email}
@@ -291,7 +295,7 @@ function SignInForm({ onDone }: { onDone: () => void }) {
       </label>
 
       <label className="cloud-field">
-        <span>비밀번호</span>
+        <span>{t('비밀번호', 'Password')}</span>
         <input
           type="password"
           value={password}
@@ -308,7 +312,7 @@ function SignInForm({ onDone }: { onDone: () => void }) {
 
       <div className="cloud-actions">
         <button type="submit" disabled={busy}>
-          {busy ? '잠시만요…' : mode === 'up' ? '가입하고 시작' : '로그인'}
+          {busy ? t('잠시만요…', 'One moment…') : mode === 'up' ? t('가입하고 시작', 'Sign up') : t('로그인', 'Sign in')}
         </button>
         <button
           type="button"
@@ -319,7 +323,7 @@ function SignInForm({ onDone }: { onDone: () => void }) {
             setError(null);
           }}
         >
-          {mode === 'in' ? '처음이신가요? 가입' : '이미 계정이 있어요'}
+          {mode === 'in' ? t('처음이신가요? 가입', 'New here? Sign up') : t('이미 계정이 있어요', 'I already have an account')}
         </button>
       </div>
     </form>

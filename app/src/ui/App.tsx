@@ -16,6 +16,7 @@ import { Onboarding } from './Onboarding';
 import { Toast } from './Toast';
 import { LearnIcon, RingsLogo } from './icons';
 import { CloudPanel } from './CloudPanel';
+import { t, useLang } from '../lang';
 
 /**
  * 앱 틀(리뉴얼, design/리뉴얼/디자인.md ‘앱 틀’·‘탭’).
@@ -37,6 +38,12 @@ export function App() {
   const tabs = useStore((s) => s.tabs);
   const startNewWork = useStore((s) => s.startNewWork);
   const activateTab = useStore((s) => s.activateTab);
+  // 언어가 바뀌면(개발자 계정 로그인·로그아웃) 여기서부터 통째로 다시 그린다 — 모든 글자가 t()로 그때 언어를 읽는다.
+  const lang = useLang();
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.title = t('Rings — 시스템 다이어리 속지 만들기', 'Rings — Make your own planner inserts');
+  }, [lang]);
 
   useEffect(() => {
     let stop: (() => void) | null = null;
@@ -48,7 +55,12 @@ export function App() {
       // 계정 동기화는 이 기기 자료를 다 읽은 뒤에 시작한다(빈 상태를 서버와 맞추지 않게).
       stopSync = startCloudSync();
       if (skippedNotebooks.length > 0) {
-        setNotice(`노트 ${skippedNotebooks.length}개(${skippedNotebooks.join(', ')})는 새 버전으로 옮기지 않았어요. 옛 버전에는 그대로 있어요.`);
+        setNotice(
+          t(
+            `노트 ${skippedNotebooks.length}개(${skippedNotebooks.join(', ')})는 새 버전으로 옮기지 않았어요. 옛 버전에는 그대로 있어요.`,
+            `${skippedNotebooks.length} notebook(s) (${skippedNotebooks.join(', ')}) weren't moved to the new version. They're still in the old one.`,
+          ),
+        );
       }
     }).catch(() => {
       if (alive) setBootError(true);
@@ -65,7 +77,7 @@ export function App() {
     if (ready && tabs.active !== LIBRARY_TAB) setScreen('tabs');
   }, [ready, tabs.active, tabs.open.length]);
 
-  if (bootError) return <div className="app-loading"><p>저장한 작업을 읽지 못했어요.</p><button className="primary" onClick={() => window.location.reload()}>다시 열기</button></div>;
+  if (bootError) return <div className="app-loading"><p>{t('저장한 작업을 읽지 못했어요.', "Couldn't load your saved work.")}</p><button className="primary" onClick={() => window.location.reload()}>{t('다시 열기', 'Reload')}</button></div>;
   if (!ready) return <div className="app-loading">Rings</div>;
 
   const onLibrary = screen === 'tabs' && tabs.active === LIBRARY_TAB;
@@ -138,10 +150,10 @@ export function App() {
       <Onboarding />
       <SyncAsk />
       {notice && (
-        <Modal title="옮기기 안내" onClose={() => setNotice(null)}>
+        <Modal title={t('옮기기 안내', 'About the update')} onClose={() => setNotice(null)}>
           <p className="modal-note">{notice}</p>
           <button className="primary" onClick={() => setNotice(null)}>
-            확인
+            {t('확인', 'OK')}
           </button>
         </Modal>
       )}
@@ -154,7 +166,7 @@ export function App() {
 function EditorArea() {
   const work = useActiveWork();
   const printing = useCursor()?.printing ?? false;
-  if (!work) return <p className="muted center">열린 작업이 없어요.</p>;
+  if (!work) return <p className="muted center">{t('열린 작업이 없어요.', 'No work is open.')}</p>;
   // 작업 탭 안에서 편집 ↔ Print가 바뀐다(세부계획 A14 결정 2026-10-06).
   return printing ? <PrintMain key={work.id} /> : <Editor key={work.id} />;
 }
@@ -183,13 +195,13 @@ function TabBar({ onLibrary, libraryOn, onNew }: { onLibrary: () => void; librar
             <button className="tab-name" onClick={() => activateTab(id)} title={work.name}>
               {work.name}
             </button>
-            <button className="tab-close" onClick={() => closeWorkTab(id)} title="탭 닫기" aria-label={`${work.name} 탭 닫기`}>
+            <button className="tab-close" onClick={() => closeWorkTab(id)} title={t('탭 닫기', 'Close tab')} aria-label={t(`${work.name} 탭 닫기`, `Close ${work.name}`)}>
               ×
             </button>
           </span>
         );
       })}
-      <button className="tab add" onClick={onNew} title="새 작업">
+      <button className="tab add" onClick={onNew} title={t('새 작업', 'New work')}>
         +
       </button>
     </div>
@@ -201,10 +213,10 @@ function SaveState() {
   const saveStatus = useStore((s) => s.saveStatus);
   return (
     <>
-      <span className={`save-state ${saveStatus === 'error' ? 'error' : ''}`} role="status" aria-live="polite" title="이 브라우저에 저장돼요">
-        {saveStatus === 'saved' ? '☁ 저장됨' : saveStatus === 'error' ? '저장 실패' : '저장 중…'}
+      <span className={`save-state ${saveStatus === 'error' ? 'error' : ''}`} role="status" aria-live="polite" title={t('이 브라우저에 저장돼요', 'Saved in this browser')}>
+        {saveStatus === 'saved' ? t('☁ 저장됨', '☁ Saved') : saveStatus === 'error' ? t('저장 실패', 'Save failed') : t('저장 중…', 'Saving…')}
       </span>
-      {saveStatus === 'error' && <button className="ghost" onClick={() => void flushAutosave()}>다시 저장</button>}
+      {saveStatus === 'error' && <button className="ghost" onClick={() => void flushAutosave()}>{t('다시 저장', 'Try again')}</button>}
     </>
   );
 }
@@ -221,9 +233,9 @@ function WorkStatus({ onManageDiaries }: { onManageDiaries: () => void }) {
     <>
       <button
         className="ghost work-title"
-        title="이름 바꾸기"
+        title={t('이름 바꾸기', 'Rename')}
         onClick={() => {
-          const name = window.prompt('작업 이름', work.name);
+          const name = window.prompt(t('작업 이름', 'Work name'), work.name);
           if (name) renameWork(work.id, name);
         }}
       >
@@ -232,7 +244,7 @@ function WorkStatus({ onManageDiaries }: { onManageDiaries: () => void }) {
       <SaveState />
       {diary && <DiaryChip work={work} diary={diary} onManage={onManageDiaries} />}
       {!printing && (
-        <button className="primary print-btn" onClick={() => openPrint()} title="종이에 어떻게 찍을지 정하고 PDF로">
+        <button className="primary print-btn" onClick={() => openPrint()} title={t('종이에 어떻게 찍을지 정하고 PDF로', 'Set up the paper and export a PDF')}>
           Print
         </button>
       )}
@@ -277,16 +289,19 @@ function PendingOpen() {
   if (!pending) return null;
   const victim = works.find((w) => w.id === pending.victim);
   return (
-    <Modal title="탭이 꽉 찼어요" onClose={() => resolve(false)}>
+    <Modal title={t('탭이 꽉 찼어요', 'Too many tabs')} onClose={() => resolve(false)}>
       <p className="modal-note">
-        작업 탭은 10개까지 열 수 있어요. 가장 오래 안 본 ‘{victim?.name ?? ''}’ 탭을 닫고 열까요?
+        {t(
+          `작업 탭은 10개까지 열 수 있어요. 가장 오래 안 본 ‘${victim?.name ?? ''}’ 탭을 닫고 열까요?`,
+          `You can have up to 10 work tabs open. Close “${victim?.name ?? ''}”, the one you haven't looked at longest, and open this one?`,
+        )}
       </p>
       <div className="card-dialog-actions">
         <button className="ghost" onClick={() => resolve(false)}>
-          취소
+          {t('취소', 'Cancel')}
         </button>
         <button className="primary" onClick={() => resolve(true)}>
-          닫고 열기
+          {t('닫고 열기', 'Close and open')}
         </button>
       </div>
     </Modal>

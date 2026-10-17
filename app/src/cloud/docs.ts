@@ -8,6 +8,7 @@
 
 import { authed } from './client';
 import type { RemoteDoc, SyncKind } from '../core/sync';
+import { t } from '../lang';
 
 const COLLECTION = 'rings_docs';
 
@@ -33,7 +34,7 @@ const docOf = (r: Row): RemoteDoc => ({
 
 function session() {
   const a = authed();
-  if (!a) throw new Error('로그인하지 않았어요.');
+  if (!a) throw new Error(t('로그인하지 않았어요.', "You're not signed in."));
   return { pb: a.pb, user: a.userId, col: a.pb.collection(COLLECTION) };
 }
 
@@ -106,10 +107,10 @@ export async function putFile(
 /** 칸의 파일을 받는다. 보호된 파일이라 본인 토큰을 붙인다. */
 export async function getFile(doc: RemoteDoc): Promise<ArrayBuffer> {
   const { pb } = session();
-  if (!doc.file) throw new Error('파일이 없어요.');
+  if (!doc.file) throw new Error(t('파일이 없어요.', 'No file.'));
   const token = await pb.files.getToken({ requestKey: null });
   const url = pb.files.getURL({ id: doc.id, collectionName: COLLECTION }, doc.file, { token });
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`파일을 받지 못했어요(${res.status}).`);
+  if (!res.ok) throw new Error(t(`파일을 받지 못했어요(${res.status}).`, `Couldn't download the file (${res.status}).`));
   return res.arrayBuffer();
 }

@@ -4,6 +4,7 @@ import { diarySizeLabel, type Diary } from '../core/diary';
 import { outsideObjects } from '../core/library';
 import type { Work } from '../core/work';
 import { Modal } from './Modal';
+import { t } from '../lang';
 
 /**
  * 편집기 위 막대의 다이어리 칩(리뉴얼 7-2, 세부계획 B).
@@ -48,7 +49,7 @@ export function DiaryChip({ work, diary, onManage }: { work: Work; diary: Diary;
       </button>
       {open && (
         <div className="popover popover-below diary-chip-pop">
-          <h2>다이어리</h2>
+          <h2>{t('다이어리', 'Diary')}</h2>
           {diaries.map((d) => (
             <button
               key={d.id}
@@ -63,7 +64,7 @@ export function DiaryChip({ work, diary, onManage }: { work: Work; diary: Diary;
               <span className="muted">
                 {d.width}×{d.height}
               </span>
-              {d.id === diary.id && <span aria-label="지금 쓰는 다이어리">✓</span>}
+              {d.id === diary.id && <span aria-label={t('지금 쓰는 다이어리', 'Current diary')}>✓</span>}
             </button>
           ))}
           <button
@@ -73,7 +74,7 @@ export function DiaryChip({ work, diary, onManage }: { work: Work; diary: Diary;
               onManage();
             }}
           >
-            Library에서 관리 →
+            {t('Library에서 관리 →', 'Manage in Library →')}
           </button>
         </div>
       )}
@@ -89,7 +90,7 @@ function ChangeDiaryDialog({ work, from, to, onClose }: { work: Work; from: Diar
     const id = s.duplicateWork(work.id, to.id);
     if (id) {
       s.openWork(id);
-      s.showToast(`‘${to.name}’ 사본을 열었어요. 원본은 그대로예요.`);
+      s.showToast(t(`‘${to.name}’ 사본을 열었어요. 원본은 그대로예요.`, `Opened a copy for “${to.name}”. The original is unchanged.`));
     }
     onClose();
   };
@@ -99,25 +100,27 @@ function ChangeDiaryDialog({ work, from, to, onClose }: { work: Work; from: Diar
   };
 
   return (
-    <Modal title="기존 작업을 남길까요?" onClose={onClose}>
+    <Modal title={t('기존 작업을 남길까요?', 'Keep the original?')} onClose={onClose}>
       <p className="modal-note">
-        ‘{work.name}’의 다이어리를 <b>{from.name}</b>({from.width}×{from.height}mm)에서 <b>{to.name}</b>({to.width}×
-        {to.height}mm)로 바꿔요. 내용은 같은 위치에 그대로 있고 크기에 맞춰 줄이지 않아요.
+        {t(
+          `‘${work.name}’의 다이어리를 ${from.name}(${from.width}×${from.height}mm)에서 ${to.name}(${to.width}×${to.height}mm)로 바꿔요. 내용은 같은 위치에 그대로 있고 크기에 맞춰 줄이지 않아요.`,
+          `Change the diary of “${work.name}” from ${from.name} (${from.width}×${from.height} mm) to ${to.name} (${to.width}×${to.height} mm). Everything stays where it is and isn't scaled to the new size.`,
+        )}
       </p>
       {outside > 0 && (
         <p className="modal-note diary-change-warn">
-          새 크기 밖으로 걸치는 요소가 {outside}개 있어요. 바꾼 뒤 배치를 확인해 주세요.
+          {t(`새 크기 밖으로 걸치는 요소가 ${outside}개 있어요. 바꾼 뒤 배치를 확인해 주세요.`, `${outside} item(s) will stick out of the new size. Check the layout after changing.`)}
         </p>
       )}
       <div className="card-dialog-actions">
         <button className="ghost" onClick={onClose}>
-          취소
+          {t('취소', 'Cancel')}
         </button>
         <button className="ghost" onClick={change}>
-          이 작업을 바꾸기
+          {t('이 작업을 바꾸기', 'Change this work')}
         </button>
         <button className="primary" onClick={copy} autoFocus>
-          사본으로 저장
+          {t('사본으로 저장', 'Save as a copy')}
         </button>
       </div>
     </Modal>

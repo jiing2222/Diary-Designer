@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { Modal } from './Modal';
 import { DiaryPicker } from './Diaries';
+import { findInsertPreset } from '../core/presets';
+import { t } from '../lang';
 
 /**
  * 첫 다이어리 온보딩(리뉴얼 7-2, 기본계획 7장 ‘규격 대신 내 다이어리’).
@@ -24,41 +26,45 @@ export function Onboarding() {
   const close = () => done(null);
 
   return (
-    <Modal title={unsure ? '속지 크기 재는 법' : '어떤 다이어리를 쓰세요?'} onClose={close} size="large">
+    <Modal title={unsure ? t('속지 크기 재는 법', 'How to measure your inserts') : t('어떤 다이어리를 쓰세요?', 'Which planner do you use?')} onClose={close} size="large">
       {unsure ? (
         <div className="onboarding-help">
           <ol>
             <li>
-              속지 한 장을 꺼내 <b>가로·세로</b>를 자로 재요(mm, 0.5mm까지).
+              {t('속지 한 장을 꺼내 가로·세로를 자로 재요(mm, 0.5mm까지).', 'Take out one insert and measure its width and height with a ruler (mm, to 0.5 mm).')}
             </li>
-            <li>구멍 수를 세요 — 6개면 A5·A6·Personal·Pocket, 5개면 Mini, 3개면 Micro 쪽이에요.</li>
-            <li>앞 화면에서 가까운 규격을 고르고 잰 크기를 넣으면, ±10mm 안의 규격을 찾아 알려줘요.</li>
+            <li>{t('구멍 수를 세요 — 6개면 A5·A6·Personal·Pocket, 5개면 Mini, 3개면 Micro 쪽이에요.', 'Count the holes: 6 means A5, A6, Personal or Pocket; 5 means Mini; 3 means Micro.')}</li>
+            <li>{t('앞 화면에서 가까운 규격을 고르고 잰 크기를 넣으면, ±10mm 안의 규격을 찾아 알려줘요.', "Pick the closest size on the previous screen and enter your measurements. We'll find the size within ±10 mm.")}</li>
           </ol>
           <p className="tool-panel-note">
-            재기 어려우면 가장 흔한 Pocket(M6)으로 시작해도 돼요. 나중에 Library → Diaries에서 크기를 고치거나 다른 다이어리를
-            더할 수 있어요.
+            {t(
+              '재기 어려우면 가장 흔한 Pocket(M6)으로 시작해도 돼요. 나중에 Library → Diaries에서 크기를 고치거나 다른 다이어리를 더할 수 있어요.',
+              'If measuring is tricky, start with Pocket (M6), the most common size. You can change it or add planners later in Library → Diaries.',
+            )}
           </p>
           <div className="card-dialog-actions">
             <button className="ghost" onClick={() => setUnsure(false)}>
-              재 볼게요
+              {t('재 볼게요', "I'll measure")}
             </button>
-            <button className="primary" onClick={() => done({ presetId: 'M6', name: 'M6 (미니6)' })}>
-              M6로 시작
+            <button className="primary" onClick={() => done({ presetId: 'M6', name: findInsertPreset('M6')!.name })}>
+              {t('Pocket(M6)으로 시작', 'Start with Pocket (M6)')}
             </button>
           </div>
         </div>
       ) : (
         <div className="onboarding">
           <p className="modal-note">
-            처음 한 번만 물어봐요. 고른 다이어리가 <b>기본 다이어리</b>가 되어 새 작업이 이 크기로 시작해요. 같은
-            규격이라도 바인더마다 실측이 다르면 고쳐 주세요.
+            {t(
+              '처음 한 번만 물어봐요. 고른 다이어리가 기본 다이어리가 되어 새 작업이 이 크기로 시작해요. 같은 규격이라도 바인더마다 실측이 다르면 고쳐 주세요.',
+              "We only ask once. The planner you pick becomes your default, and new works start at its size. Binders vary, so adjust the measurements if yours differ.",
+            )}
           </p>
           <DiaryPicker
-            submitLabel="등록하고 시작"
+            submitLabel={t('등록하고 시작', 'Save and start')}
             onSubmit={(presetId, name, size) => done({ presetId, name, size })}
           />
           <button className="ghost onboarding-unsure" onClick={() => setUnsure(true)}>
-            잘 모르겠어요
+            {t('잘 모르겠어요', "I'm not sure")}
           </button>
         </div>
       )}

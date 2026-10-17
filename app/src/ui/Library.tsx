@@ -8,6 +8,7 @@ import { Diaries } from './Diaries';
 import { DiaryIcon, FontsIcon, ImageIcon, PaletteIcon, ProjectsIcon, TrashIcon } from './icons';
 import { PinStudio } from './PinStudio';
 import { useIsDeveloper } from './developer';
+import { t } from '../lang';
 
 /**
  * Library 탭(리뉴얼, 세부계획 B). 맨 앞에 고정된 탭이다(디자인.md ‘탭’).
@@ -30,7 +31,7 @@ export function LibraryMain({ section }: { section: LibrarySection }) {
   if (section === 'trash') return <Trash />;
   if (section === 'images') return <LibraryImages />;
   if (section === 'fonts') return <LibraryFonts />;
-  if (section === 'learn') return <Soon title="Learn" note="앱 사용법, 인쇄 팁, 다이어리 종이 이야기를 준비하고 있어요." />;
+  if (section === 'learn') return <Soon title="Learn" note={t('앱 사용법, 인쇄 팁, 다이어리 종이 이야기를 준비하고 있어요.', 'How-tos, printing tips and stories about planner paper are coming soon.')} />;
   if (section === 'diaries') return <Diaries />;
   if (section === 'pins') return <DeveloperOnly />;
   return <LibraryColors />;
@@ -38,7 +39,7 @@ export function LibraryMain({ section }: { section: LibrarySection }) {
 
 /** 개발자 계정이 아니면(로그아웃 등) Pins 자리를 비운다 — 레일에서 빠져도 이 자리에 머물러 있을 수 있다. */
 function DeveloperOnly() {
-  return useIsDeveloper() ? <PinStudio /> : <Soon title="Pins" note="개발자 계정으로 로그인하면 보여요." />;
+  return useIsDeveloper() ? <PinStudio /> : <Soon title="Pins" note={t('개발자 계정으로 로그인하면 보여요.', 'Sign in with a developer account to see this.')} />;
 }
 
 function Soon({ title, note }: { title: string; note: string }) {
@@ -64,32 +65,32 @@ function Trash() {
           <button
             className="ghost danger"
             onClick={() => {
-              if (window.confirm(`휴지통의 작업 ${trashed.length}개를 완전히 지울까요? 되돌릴 수 없어요.`)) {
+              if (window.confirm(t(`휴지통의 작업 ${trashed.length}개를 완전히 지울까요? 되돌릴 수 없어요.`, `Permanently delete ${trashed.length} work(s) in the trash? This can't be undone.`))) {
                 trashed.forEach((w) => destroy(w.id));
               }
             }}
           >
-            휴지통 비우기
+            {t('휴지통 비우기', 'Empty trash')}
           </button>
         )}
       </div>
-      {trashed.length === 0 && <div className="empty-card">휴지통이 비어 있어요.</div>}
+      {trashed.length === 0 && <div className="empty-card">{t('휴지통이 비어 있어요.', 'The trash is empty.')}</div>}
       {/* 한 줄이 한 카드 — 이름, 남은 날(작은 태그), 오른쪽 끝에 단추들(2026-10-13 디자인 정리). */}
       {trashed.map((w) => (
         <div key={w.id} className="trash-row">
           <span className="trash-name">{w.name}</span>
-          <span className="tag">{daysLeft(w, now)}일 남음</span>
+          <span className="tag">{t(`${daysLeft(w, now)}일 남음`, `${daysLeft(w, now)} days left`)}</span>
           <span className="trash-actions">
             <button className="ghost" onClick={() => restore(w.id)}>
-              되살리기
+              {t('되살리기', 'Restore')}
             </button>
             <button
               className="ghost danger"
               onClick={() => {
-                if (window.confirm(`‘${w.name}’을(를) 완전히 지울까요? 되돌릴 수 없어요.`)) destroy(w.id);
+                if (window.confirm(t(`‘${w.name}’을(를) 완전히 지울까요? 되돌릴 수 없어요.`, `Permanently delete “${w.name}”? This can't be undone.`))) destroy(w.id);
               }}
             >
-              영구 삭제
+              {t('영구 삭제', 'Delete forever')}
             </button>
           </span>
         </div>

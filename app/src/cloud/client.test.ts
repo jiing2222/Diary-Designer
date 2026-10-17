@@ -34,7 +34,7 @@ describe('리뉴얼 계정 연결', () => {
     expect(c.cloudEnabled).toBe(false);
     expect(c.currentUser()).toBeNull();
     expect(await c.refreshSession()).toBeNull();
-    await expect(c.signIn(user.email, 'password')).rejects.toThrow('서버가 설정되지');
+    await expect(c.signIn(user.email, 'password')).rejects.toThrow('No server');
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -160,9 +160,9 @@ describe('리뉴얼 계정 연결', () => {
 
   it('가입·계정 변경·연결 실패를 로그인 오류와 구분한다', async () => {
     const c = await import('./client');
-    expect(c.cloudErrorText({ status: 400 }, 'signUp')).toContain('가입하지');
-    expect(c.cloudErrorText({ status: 400 }, 'account')).toContain('변경하지');
-    expect(c.cloudErrorText({ status: 400 })).toContain('맞지');
-    expect(c.cloudErrorText({ status: 0 })).toContain('연결하지');
+    expect(c.cloudErrorText({ status: 400 }, 'signUp')).toContain("Couldn't sign up");
+    expect(c.cloudErrorText({ status: 400 }, 'account')).toContain("Couldn't make the change");
+    expect(c.cloudErrorText({ status: 400 })).toContain('Wrong email or password');
+    expect(c.cloudErrorText({ status: 0 })).toContain("Couldn't reach");
   });
 });

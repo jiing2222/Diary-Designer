@@ -7,6 +7,7 @@ import { findInsertPreset } from '../core/presets';
 import type { Mm } from '../core/units';
 import { PunchGuide } from './PunchGuide';
 import { Num, Row } from './PagePanel';
+import { t } from '../lang';
 
 /**
  * Library → Diaries(리뉴얼 7-2, 세부계획 B ‘Library 화면 시안’ · 기본계획 7장).
@@ -26,7 +27,7 @@ export function Diaries() {
 
   return (
     <div className="library-projects">
-      <aside className="projects-panel" aria-label="다이어리 목록">
+      <aside className="projects-panel" aria-label={t('다이어리 목록', 'Diaries')}>
         <h2>Diaries</h2>
         {diaries.map((d) => (
           <button
@@ -43,15 +44,15 @@ export function Diaries() {
           </button>
         ))}
         <button className={`project-filter ${adding ? 'on' : ''}`} onClick={() => setPicked('new')}>
-          + 다이어리 추가
+          {t('+ 다이어리 추가', '+ Add diary')}
         </button>
       </aside>
       <div className="library-pane projects-content">
         {adding ? (
           <>
-            <h2>다이어리 추가</h2>
+            <h2>{t('다이어리 추가', 'Add diary')}</h2>
             <DiaryPicker
-              submitLabel="추가"
+              submitLabel={t('추가', 'Add')}
               onSubmit={(presetId, name, size) => setPicked(addDiary(presetId, name, size))}
             />
           </>
@@ -115,7 +116,7 @@ export function DiaryPicker({
           </button>
         ))}
       </div>
-      <Row label="이름">
+      <Row label={t('이름', 'Name')}>
         <input
           className="diary-name-input"
           value={name}
@@ -126,13 +127,13 @@ export function DiaryPicker({
           }}
         />
       </Row>
-      <Row label="가로" hint="자로 잰 속지 가로">
+      <Row label={t('가로', 'Width')} hint={t('자로 잰 속지 가로', 'Measured insert width')}>
         <Num value={width} min={30} max={400} step={0.5} onChange={setWidth} />
       </Row>
-      <Row label="세로" hint="자로 잰 속지 세로">
+      <Row label={t('세로', 'Height')} hint={t('자로 잰 속지 세로', 'Measured insert height')}>
         <Num value={height} min={30} max={400} step={0.5} onChange={setHeight} />
       </Row>
-      <p className="tool-panel-note">인식한 규격: {diarySizeLabel({ width, height })}</p>
+      <p className="tool-panel-note">{t('인식한 규격', 'Detected size')}: {diarySizeLabel({ width, height })}</p>
       <button className="primary" type="submit" disabled={!name.trim()}>
         {submitLabel}
       </button>
@@ -160,21 +161,22 @@ function DiaryEditor({ diary }: { diary: Diary }) {
             <span className="diary-dot" style={{ background: diary.color }} /> {diary.name}
           </h2>
           {diary.id === defaultId ? (
-            <span className="tag accent">★ 기본 다이어리</span>
+            <span className="tag accent">{t('★ 기본 다이어리', '★ Default diary')}</span>
           ) : (
             <button className="ghost" onClick={() => setDefault(diary.id)}>
-              기본으로 정하기
+              {t('기본으로 정하기', 'Make default')}
             </button>
           )}
         </div>
         <p className="lib-meta">
-          이 다이어리로 만든 작업 {used}개{diary.id === defaultId ? ' · 새 작업은 이 다이어리로 시작해요' : ''}
+          {t(`이 다이어리로 만든 작업 ${used}개`, `${used} work(s) use this diary`)}
+          {diary.id === defaultId ? t(' · 새 작업은 이 다이어리로 시작해요', ' · New works start with this diary') : ''}
         </p>
 
         {/* 묶음마다 둥근 면(lib-card) — 한 판에 늘어서 있으면 어디까지가 한 설정인지 안 보였다(2026-10-13). */}
         <section className="lib-card">
-          <h3 className="lib-card-title">이름 · 색</h3>
-          <Row label="이름">
+          <h3 className="lib-card-title">{t('이름 · 색', 'Name · Color')}</h3>
+          <Row label={t('이름', 'Name')}>
             <input
               className="diary-name-input"
               value={name}
@@ -190,7 +192,7 @@ function DiaryEditor({ diary }: { diary: Diary }) {
               }}
             />
           </Row>
-          <Row label="색" hint="작업 카드의 색 점">
+          <Row label={t('색', 'Color')} hint={t('작업 카드의 색 점', 'Color dot on work cards')}>
             <span className="diary-colors">
               {DIARY_COLORS.map((c) => (
                 <button
@@ -198,7 +200,7 @@ function DiaryEditor({ diary }: { diary: Diary }) {
                   className={`diary-color ${diary.color === c ? 'on' : ''}`}
                   style={{ background: c }}
                   onClick={() => patchDiary(diary.id, { color: c })}
-                  aria-label={`색 ${c}`}
+                  aria-label={t(`색 ${c}`, `Color ${c}`)}
                 />
               ))}
             </span>
@@ -206,8 +208,8 @@ function DiaryEditor({ diary }: { diary: Diary }) {
         </section>
 
         <section className="lib-card">
-          <h3 className="lib-card-title">크기</h3>
-          <Row label="가로">
+          <h3 className="lib-card-title">{t('크기', 'Size')}</h3>
+          <Row label={t('가로', 'Width')}>
             <Num
               value={diary.width}
               min={30}
@@ -216,7 +218,7 @@ function DiaryEditor({ diary }: { diary: Diary }) {
               onChange={(width) => patchDiary(diary.id, { width })}
             />
           </Row>
-          <Row label="세로">
+          <Row label={t('세로', 'Height')}>
             <Num
               value={diary.height}
               min={30}
@@ -226,24 +228,28 @@ function DiaryEditor({ diary }: { diary: Diary }) {
             />
           </Row>
           <p className="tool-panel-note">
-            인식한 규격: {diarySizeLabel(diary)}
-            {used > 0 && ` · 크기를 바꾸면 이 다이어리를 쓰는 작업 ${used}개의 속지가 함께 바뀌어요.`}
+            {t('인식한 규격', 'Detected size')}: {diarySizeLabel(diary)}
+            {used > 0 &&
+              t(
+                ` · 크기를 바꾸면 이 다이어리를 쓰는 작업 ${used}개의 속지가 함께 바뀌어요.`,
+                ` · Changing the size also changes the inserts of the ${used} work(s) using this diary.`,
+              )}
           </p>
         </section>
 
         <section className="lib-card">
-          <h3 className="lib-card-title">구멍</h3>
-          <Row label="구멍 수">
+          <h3 className="lib-card-title">{t('구멍', 'Holes')}</h3>
+          <Row label={t('구멍 수', 'Number of holes')}>
             <Num
               value={punch.holeCount}
               min={1}
               max={30}
               step={1}
-              unit="개"
+              unit={t('개', '')}
               onChange={(holeCount) => patchPunch(diary.id, { holeCount })}
             />
           </Row>
-          <Row label="배치">
+          <Row label={t('배치', 'Layout')}>
             <select
               value={punch.groupGap === null ? 'even' : 'grouped'}
               onChange={(e) =>
@@ -252,23 +258,23 @@ function DiaryEditor({ diary }: { diary: Diary }) {
                 })
               }
             >
-              <option value="even">균등 간격</option>
+              <option value="even">{t('균등 간격', 'Evenly spaced')}</option>
               <option value="grouped">
-                묶음 ({Math.ceil(punch.holeCount / 2)} + {Math.floor(punch.holeCount / 2)})
+                {t('묶음', 'Grouped')} ({Math.ceil(punch.holeCount / 2)} + {Math.floor(punch.holeCount / 2)})
               </option>
             </select>
           </Row>
           {punch.groupGap !== null && (
-            <Row label="묶음 간격" hint="두 묶음 사이의 중심 간격">
+            <Row label={t('묶음 간격', 'Group gap')} hint={t('두 묶음 사이의 중심 간격', 'Center distance between the two groups')}>
               <Num value={punch.groupGap} onChange={(groupGap) => patchPunch(diary.id, { groupGap })} />
             </Row>
           )}
           <details className="diary-fine">
-            <summary>구멍 위치 미세 조정</summary>
-            <Row label="안전영역" hint="구멍 쪽에 아무것도 놓지 않는 폭">
+            <summary>{t('구멍 위치 미세 조정', 'Fine-tune hole position')}</summary>
+            <Row label={t('안전영역', 'Safe zone')} hint={t('구멍 쪽에 아무것도 놓지 않는 폭', 'Width kept clear on the hole side')}>
               <Num value={punch.safeZoneWidth} onChange={(safeZoneWidth) => patchPunch(diary.id, { safeZoneWidth })} />
             </Row>
-            <Row label="구멍 지름">
+            <Row label={t('구멍 지름', 'Hole diameter')}>
               <Num
                 value={punch.markSize}
                 min={3}
@@ -277,7 +283,7 @@ function DiaryEditor({ diary }: { diary: Diary }) {
                 onChange={(markSize) => patchPunch(diary.id, { markSize })}
               />
             </Row>
-            <Row label="가장자리~구멍" hint="속지 가장자리에서 구멍 가장자리까지">
+            <Row label={t('가장자리~구멍', 'Edge to hole')} hint={t('속지 가장자리에서 구멍 가장자리까지', 'From the insert edge to the hole edge')}>
               <Num
                 value={punch.edgeToHole}
                 min={0}
@@ -286,7 +292,7 @@ function DiaryEditor({ diary }: { diary: Diary }) {
                 onChange={(edgeToHole) => patchPunch(diary.id, { edgeToHole })}
               />
             </Row>
-            <Row label="위아래 밀기" hint="구멍 묶음 전체를 위(−)·아래(+)로">
+            <Row label={t('위아래 밀기', 'Shift up/down')} hint={t('구멍 묶음 전체를 위(−)·아래(+)로', 'Move all holes up (−) or down (+)')}>
               <Num
                 value={punch.offsetY}
                 min={-20}
@@ -302,18 +308,18 @@ function DiaryEditor({ diary }: { diary: Diary }) {
           <button
             className="ghost danger"
             disabled={used > 0}
-            title={used > 0 ? `작업 ${used}개가 쓰고 있어요(휴지통 포함)` : undefined}
+            title={used > 0 ? t(`작업 ${used}개가 쓰고 있어요(휴지통 포함)`, `Used by ${used} work(s), including the trash`) : undefined}
             onClick={() => {
-              if (window.confirm(`‘${diary.name}’ 다이어리를 지울까요?`)) removeDiary(diary.id);
+              if (window.confirm(t(`‘${diary.name}’ 다이어리를 지울까요?`, `Delete the diary “${diary.name}”?`))) removeDiary(diary.id);
             }}
           >
-            다이어리 지우기
-          </button>
-          {used > 0 && <span className="lib-meta">쓰는 작업이 없어야 지울 수 있어요(휴지통 포함).</span>}
+              {t('다이어리 지우기', 'Delete diary')}
+</button>
+          {used > 0 && <span className="lib-meta">{t('쓰는 작업이 없어야 지울 수 있어요(휴지통 포함).', 'You can delete it once no work uses it, including the trash.')}</span>}
         </div>
       </div>
 
-      <figure className="diary-preview" aria-label="속지와 구멍 미리보기">
+      <figure className="diary-preview" aria-label={t('속지와 구멍 미리보기', 'Insert and hole preview')}>
         <svg viewBox={`-2 -2 ${diary.width + 4} ${diary.height + 4}`}>
           <rect width={diary.width} height={diary.height} className="sheet-bg" />
           <PunchGuide width={diary.width} height={diary.height} punch={{ ...punch, show: true }} />

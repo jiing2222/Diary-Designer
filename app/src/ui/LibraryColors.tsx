@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { BASE_KEYS, DEFAULT_BASE, addPoint, colorOfKey, keyLabel, nextPointKey, setKeyColor } from '../core/colors';
 import type { SavedPalette } from '../core/palettes';
 import { ColorDefiner } from './ColorControls';
+import { t } from '../lang';
 
 /**
  * Library → Colors(리뉴얼 7-4, 세부계획 B ‘Library 화면 시안’ · A13).
@@ -18,7 +19,7 @@ export function LibraryColors() {
 
   return (
     <div className="library-projects">
-      <aside className="projects-panel" aria-label="팔레트 목록">
+      <aside className="projects-panel" aria-label={t('팔레트 목록', 'Palettes')}>
         <h2>Colors</h2>
         {palettes.map((p) => (
           <button
@@ -34,9 +35,9 @@ export function LibraryColors() {
         ))}
         <button
           className="project-filter"
-          onClick={() => setPicked(useStore.getState().createPalette(`팔레트 ${palettes.length + 1}`))}
+          onClick={() => setPicked(useStore.getState().createPalette(t(`팔레트 ${palettes.length + 1}`, `Palette ${palettes.length + 1}`)))}
         >
-          + 팔레트 만들기
+          {t('+ 팔레트 만들기', '+ New palette')}
         </button>
       </aside>
       <div className="library-pane projects-content">
@@ -78,7 +79,7 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
       <div className="library-head">
         <input
           className="diary-name-input palette-name"
-          aria-label="팔레트 이름"
+          aria-label={t('팔레트 이름', 'Palette name')}
           value={name}
           maxLength={40}
           onChange={(e) => setName(e.target.value)}
@@ -95,16 +96,16 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
         <button
           className="ghost danger"
           onClick={() => {
-            if (window.confirm(`‘${saved.name}’ 팔레트를 지울까요? 이미 불러온 작업의 색은 그대로예요.`))
+            if (window.confirm(t(`‘${saved.name}’ 팔레트를 지울까요? 이미 불러온 작업의 색은 그대로예요.`, `Delete the palette “${saved.name}”? Works that already use its colors keep them.`)))
               remove(saved.id);
           }}
         >
-          팔레트 지우기
+          {t('팔레트 지우기', 'Delete palette')}
         </button>
       </div>
 
       <section className="lib-card">
-        <div className="colors-label">기본</div>
+        <div className="colors-label">{t('기본', 'Base')}</div>
         <div className="colors-row">
           {BASE_KEYS.map((key) => (
             <button
@@ -123,7 +124,7 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
               <button
                 className={`color-slot round ${editing === p.key ? 'on' : ''}`}
                 style={{ background: p.color }}
-                title={`포인트 ${p.key}`}
+                title={t(`포인트 ${p.key}`, `Accent ${p.key}`)}
                 onClick={() => setEditing(editing === p.key ? null : p.key)}
               />
               <span className="color-point-key">{p.key}</span>
@@ -131,7 +132,7 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
           ))}
           <button
             className="color-slot round add"
-            title="포인트 색 추가"
+            title={t('포인트 색 추가', 'Add accent color')}
             onClick={() => {
               const key = nextPointKey(palette.points);
               patch(saved.id, { palette: addPoint(palette, '#8ea8c6') });
@@ -160,7 +161,7 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
                 className="ghost"
                 onClick={() => setColor(editing, DEFAULT_BASE[editing as keyof typeof DEFAULT_BASE])}
               >
-                기본값으로 되돌리기
+                {t('기본값으로 되돌리기', 'Reset to default')}
               </button>
             ) : (
               <button
@@ -170,11 +171,11 @@ function PaletteEditor({ saved }: { saved: SavedPalette }) {
                   setEditing(null);
                 }}
               >
-                {editing} 지우기
+                {t(`${editing} 지우기`, `Delete ${editing}`)}
               </button>
             )}
             <button className="primary" onClick={() => setEditing(null)}>
-              닫기
+              {t('닫기', 'Close')}
             </button>
           </div>
         </div>

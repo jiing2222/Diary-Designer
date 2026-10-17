@@ -8,6 +8,7 @@ import type { Work } from '../core/work';
 import { InsertView } from './InsertView';
 import { Modal } from './Modal';
 import { loadWorksFromFile, saveWorksToFile } from './fileIO';
+import { t } from '../lang';
 
 type ActionKind = 'folder-new' | 'folder-name' | 'folder-remove' | 'menu' | 'name' | 'move' | 'copy-diary';
 type Action = { kind: ActionKind; id?: string };
@@ -27,32 +28,32 @@ export function Projects() {
   const shown = useMemo(() => projectsFor(works, view), [works, view]);
   const setView = (p: Partial<typeof view>) => patch({ projectView: { ...view, ...p } });
   const folder = folders.find((f) => f.id === view.folderId);
-  const title = view.folderId === null ? '분류 없음' : (folder?.name ?? 'Projects');
+  const title = view.folderId === null ? t('분류 없음', 'Unfiled') : (folder?.name ?? 'Projects');
 
   return (
     <div className="library-projects">
-      <aside className="projects-panel" aria-label="작업 필터">
+      <aside className="projects-panel" aria-label={t('작업 필터', 'Filter works')}>
         <h2>Projects</h2>
         <button
           className={`project-filter ${view.folderId === undefined ? 'on' : ''}`}
           onClick={() => setView({ folderId: undefined })}
         >
-          <span>모든 작업</span>
+          <span>{t('모든 작업', 'All works')}</span>
           <span className="filter-count">{live.length}</span>
         </button>
         <button
           className={`project-filter ${view.folderId === null ? 'on' : ''}`}
           onClick={() => setView({ folderId: null })}
         >
-          <span>분류 없음</span>
+          <span>{t('분류 없음', 'Unfiled')}</span>
           <span className="filter-count">{live.filter((w) => !w.folderId).length}</span>
         </button>
         <div className="projects-panel-heading">
-          <h3>폴더</h3>
+          <h3>{t('폴더', 'Folders')}</h3>
           <button
             className="ghost"
-            aria-label="폴더 만들기"
-            title="폴더 만들기"
+            aria-label={t('폴더 만들기', 'New folder')}
+            title={t('폴더 만들기', 'New folder')}
             onClick={() => setAction({ kind: 'folder-new' })}
           >
             +
@@ -70,16 +71,16 @@ export function Projects() {
             <span className="folder-actions">
               <button
                 className="ghost"
-                aria-label={`${f.name} 폴더 이름 바꾸기`}
-                title="이름 바꾸기"
+                aria-label={t(`${f.name} 폴더 이름 바꾸기`, `Rename folder ${f.name}`)}
+                title={t('이름 바꾸기', 'Rename')}
                 onClick={() => setAction({ kind: 'folder-name', id: f.id })}
               >
                 ✎
               </button>
               <button
                 className="ghost"
-                aria-label={`${f.name} 폴더 삭제`}
-                title="폴더 삭제"
+                aria-label={t(`${f.name} 폴더 삭제`, `Delete folder ${f.name}`)}
+                title={t('폴더 삭제', 'Delete folder')}
                 onClick={() => setAction({ kind: 'folder-remove', id: f.id })}
               >
                 ×
@@ -87,12 +88,12 @@ export function Projects() {
             </span>
           </div>
         ))}
-        <h3 className="projects-panel-heading">다이어리</h3>
+        <h3 className="projects-panel-heading">{t('다이어리', 'Diaries')}</h3>
         <button
           className={`project-filter ${view.diaryId === null ? 'on' : ''}`}
           onClick={() => setView({ diaryId: null })}
         >
-          모든 다이어리
+          {t('모든 다이어리', 'All diaries')}
         </button>
         {diaries.map((d) => (
           <button
@@ -112,7 +113,7 @@ export function Projects() {
       <div className="library-pane projects-content">
         <div className="library-head">
           <h2>
-            {title} <span className="projects-count">{shown.length}개</span>
+            {title} <span className="projects-count">{shown.length}</span>
           </h2>
           {/*
             작업 파일(.rings) — 다른 사람에게 보내거나 백업한다. 저장은 **지금 보이는 목록**(폴더·다이어리·검색을
@@ -120,17 +121,17 @@ export function Projects() {
           */}
           <span className="projects-file">
             <button className="ghost" onClick={() => fileInput.current?.click()}>
-              파일 불러오기
+              {t('파일 불러오기', 'Open file')}
             </button>
             <button
               className="ghost"
               disabled={shown.length === 0}
               onClick={() => {
-                const n = saveWorksToFile(shown.map((w) => w.id), title === 'Projects' ? 'Rings 작업' : title);
-                showToast(n ? `작업 ${n}개를 파일로 저장했어요.` : '저장할 작업이 없어요.');
+                const n = saveWorksToFile(shown.map((w) => w.id), title === 'Projects' ? t('Rings 작업', 'Rings works') : title);
+                showToast(n ? t(`작업 ${n}개를 파일로 저장했어요.`, `Saved ${n} work(s) to a file.`) : t('저장할 작업이 없어요.', 'Nothing to save.'));
               }}
             >
-              목록을 파일로 저장
+              {t('목록을 파일로 저장', 'Save list to file')}
             </button>
             <input
               ref={fileInput}
@@ -145,25 +146,25 @@ export function Projects() {
             />
           </span>
           <button className="primary" onClick={() => startNewWork()}>
-            + 새 작업
+            {t('+ 새 작업', '+ New work')}
           </button>
         </div>
         <div className="projects-toolbar">
           <input
             type="search"
-            aria-label="작업 검색"
-            placeholder="작업 이름 검색"
+            aria-label={t('작업 검색', 'Search works')}
+            placeholder={t('작업 이름 검색', 'Search by name')}
             value={view.query}
             onChange={(e) => setView({ query: e.target.value })}
           />
           <select
-            aria-label="작업 정렬"
+            aria-label={t('작업 정렬', 'Sort works')}
             value={view.sort}
             onChange={(e) => setView({ sort: e.target.value as ProjectSort })}
           >
-            <option value="updated">최근 수정순</option>
-            <option value="created">최근 만든순</option>
-            <option value="name">이름순</option>
+            <option value="updated">{t('최근 수정순', 'Last edited')}</option>
+            <option value="created">{t('최근 만든순', 'Newest')}</option>
+            <option value="name">{t('이름순', 'Name')}</option>
           </select>
         </div>
         {shown.length > 0 ? (
@@ -176,17 +177,17 @@ export function Projects() {
           <div className="projects-empty">
             <p className="muted">
               {live.length === 0
-                ? '아직 작업이 없어요. 새 작업으로 시작해요.'
+                ? t('아직 작업이 없어요. 새 작업으로 시작해요.', 'No works yet. Start with a new one.')
                 : folder && !view.query.trim() && view.diaryId === null
-                  ? '아직 이 폴더에 작업이 없어요. 작업 메뉴에서 폴더로 옮길 수 있어요.'
-                  : '조건에 맞는 작업이 없어요.'}
+                  ? t('아직 이 폴더에 작업이 없어요. 작업 메뉴에서 폴더로 옮길 수 있어요.', 'This folder is empty. Move works here from their ⋯ menu.')
+                  : t('조건에 맞는 작업이 없어요.', 'No works match.')}
             </p>
             {live.length > 0 && (
               <button
                 className="ghost"
                 onClick={() => patch({ projectView: { ...DEFAULT_PROJECT_VIEW, sort: view.sort } })}
               >
-                모든 작업 보기
+                {t('모든 작업 보기', 'Show all works')}
               </button>
             )}
           </div>
@@ -217,7 +218,7 @@ function WorkCard({ work, onAction }: { work: Work; onAction: (a: Action) => voi
   return (
     <article className="work-card" aria-label={work.name}>
       <div className="work-preview">
-        <button className="work-thumb" onClick={() => openWork(work.id)} aria-label={`${work.name} 열기`}>
+        <button className="work-thumb" onClick={() => openWork(work.id)} aria-label={t(`${work.name} 열기`, `Open ${work.name}`)}>
           {diary &&
             faces.slice(0, 2).map((f) => (
               <svg key={f.key} viewBox={`0 0 ${diary.width} ${diary.height}`} className="work-thumb-face">
@@ -236,11 +237,11 @@ function WorkCard({ work, onAction }: { work: Work; onAction: (a: Action) => voi
                 />
               </svg>
             ))}
-          <span className="work-pages">{faces.length}페이지</span>
+          <span className="work-pages">{t(`${faces.length}페이지`, faces.length === 1 ? '1 page' : `${faces.length} pages`)}</span>
         </button>
         <div className="work-actions">
-          <button className="ghost" onClick={() => openWork(work.id)} aria-label={`${work.name} 편집`}>
-            열기
+          <button className="ghost" onClick={() => openWork(work.id)} aria-label={t(`${work.name} 편집`, `Edit ${work.name}`)}>
+            {t('열기', 'Open')}
           </button>
           <button className="ghost work-print" onClick={() => openPrint(work.id)} aria-label={`${work.name} Print`}>
             Print
@@ -248,7 +249,7 @@ function WorkCard({ work, onAction }: { work: Work; onAction: (a: Action) => voi
           <button
             className="ghost"
             onClick={() => onAction({ kind: 'menu', id: work.id })}
-            aria-label={`${work.name} 작업 메뉴`}
+            aria-label={t(`${work.name} 작업 메뉴`, `${work.name} menu`)}
           >
             ⋯
           </button>
@@ -261,7 +262,7 @@ function WorkCard({ work, onAction }: { work: Work; onAction: (a: Action) => voi
               className="diary-dot diary-dot-button"
               style={{ background: diary.color }}
               title={diaryInfo}
-              aria-label={`${diary.name} 다이어리 정보`}
+              aria-label={t(`${diary.name} 다이어리 정보`, `${diary.name} diary info`)}
               aria-expanded={diaryOpen}
               onClick={() => setDiaryOpen((v) => !v)}
               onBlur={() => setDiaryOpen(false)}
@@ -306,13 +307,13 @@ function ProjectDialog({
     action.kind === 'move' ? (work?.folderId ?? '') : (diaries.find((d) => d.id !== work?.diaryId)?.id ?? ''),
   );
   const title: Record<ActionKind, string> = {
-    'folder-new': '폴더 만들기',
-    'folder-name': '폴더 이름 바꾸기',
-    'folder-remove': '폴더 삭제',
-    menu: work?.name ?? '작업',
-    name: '작업 이름 바꾸기',
-    move: '폴더로 이동',
-    'copy-diary': '다른 다이어리로 복제',
+    'folder-new': t('폴더 만들기', 'New folder'),
+    'folder-name': t('폴더 이름 바꾸기', 'Rename folder'),
+    'folder-remove': t('폴더 삭제', 'Delete folder'),
+    menu: work?.name ?? t('작업', 'Work'),
+    name: t('작업 이름 바꾸기', 'Rename work'),
+    move: t('폴더로 이동', 'Move to folder'),
+    'copy-diary': t('다른 다이어리로 복제', 'Copy to another diary'),
   };
 
   const save = () => {
@@ -327,7 +328,7 @@ function ProjectDialog({
       const id = s.duplicateWork(work.id, choice);
       if (id) {
         s.openWork(id);
-        s.showToast('사본을 만들었어요. 페이지 배치를 확인해 주세요.');
+        s.showToast(t('사본을 만들었어요. 페이지 배치를 확인해 주세요.', 'Copy made. Check how the pages fit.'));
       }
     }
     onClose();
@@ -338,23 +339,23 @@ function ProjectDialog({
       {action.kind === 'menu' && work ? (
         <div className="project-menu">
           <button className="ghost" onClick={() => onAction({ kind: 'name', id: work.id })}>
-            이름 바꾸기
+            {t('이름 바꾸기', 'Rename')}
           </button>
           <button
             className="ghost"
             onClick={() => {
               s.duplicateWork(work.id);
-              s.showToast('사본을 만들었어요.');
+              s.showToast(t('사본을 만들었어요.', 'Copy made.'));
               onClose();
             }}
           >
-            복제
+            {t('복제', 'Duplicate')}
           </button>
           <button className="ghost" onClick={() => onAction({ kind: 'copy-diary', id: work.id })}>
-            다른 다이어리로 복제
+            {t('다른 다이어리로 복제', 'Copy to another diary')}
           </button>
           <button className="ghost" onClick={() => onAction({ kind: 'move', id: work.id })}>
-            폴더로 이동
+            {t('폴더로 이동', 'Move to folder')}
           </button>
           <button
             className="ghost"
@@ -363,7 +364,7 @@ function ProjectDialog({
               onClose();
             }}
           >
-            파일로 저장
+            {t('파일로 저장', 'Save to file')}
           </button>
           <button
             className="ghost danger"
@@ -372,7 +373,7 @@ function ProjectDialog({
               onClose();
             }}
           >
-            휴지통으로
+            {t('휴지통으로', 'Move to trash')}
           </button>
         </div>
       ) : (
@@ -385,14 +386,16 @@ function ProjectDialog({
         >
           {action.kind === 'folder-remove' ? (
             <p>
-              ‘{folder?.name}’ 폴더를 지워요. 그 안의 작업 {works.filter((w) => w.folderId === folder?.id).length}개는
-              ‘분류 없음’으로 옮겨지며 그대로 남아요.
+              {t(
+                `‘${folder?.name}’ 폴더를 지워요. 그 안의 작업 ${works.filter((w) => w.folderId === folder?.id).length}개는 ‘분류 없음’으로 옮겨지며 그대로 남아요.`,
+                `Delete the folder “${folder?.name}”. Its ${works.filter((w) => w.folderId === folder?.id).length} work(s) move to Unfiled and stay as they are.`,
+              )}
             </p>
           ) : action.kind === 'move' ? (
             <label>
-              이동할 폴더
+              {t('이동할 폴더', 'Folder')}
               <select value={choice} onChange={(e) => setChoice(e.target.value)}>
-                <option value="">분류 없음</option>
+                <option value="">{t('분류 없음', 'Unfiled')}</option>
                 {folders.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -403,9 +406,9 @@ function ProjectDialog({
           ) : action.kind === 'copy-diary' ? (
             <>
               <label>
-                사본의 다이어리
+                {t('사본의 다이어리', 'Diary for the copy')}
                 <select value={choice} onChange={(e) => setChoice(e.target.value)} disabled={!choice}>
-                  {!choice && <option value="">다른 다이어리가 없어요</option>}
+                  {!choice && <option value="">{t('다른 다이어리가 없어요', 'No other diary')}</option>}
                   {diaries
                     .filter((d) => d.id !== work?.diaryId)
                     .map((d) => (
@@ -416,19 +419,21 @@ function ProjectDialog({
                 </select>
               </label>
               <p className="modal-note">
-                원본은 그대로 남아요. 내용은 같은 위치에 복사되므로 크기가 달라지면 배치가 어긋날 수 있어요. 복제 후
-                확인해 주세요.
+                {t(
+                  '원본은 그대로 남아요. 내용은 같은 위치에 복사되므로 크기가 달라지면 배치가 어긋날 수 있어요. 복제 후 확인해 주세요.',
+                  'The original stays as it is. Everything is copied to the same position, so things may not fit if the size differs. Check after copying.',
+                )}
               </p>
             </>
           ) : (
             <label>
-              이름
+              {t('이름', 'Name')}
               <input autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
             </label>
           )}
           <div className="project-form-actions">
             <button type="button" className="ghost" onClick={onClose}>
-              취소
+              {t('취소', 'Cancel')}
             </button>
             <button
               type="submit"
@@ -440,12 +445,12 @@ function ProjectDialog({
               }
             >
               {action.kind === 'folder-remove'
-                ? '폴더만 삭제'
+                ? t('폴더만 삭제', 'Delete folder only')
                 : action.kind === 'copy-diary'
-                  ? '복제하고 열기'
+                  ? t('복제하고 열기', 'Copy and open')
                   : action.kind === 'move'
-                    ? '이동'
-                    : '저장'}
+                    ? t('이동', 'Move')
+                    : t('저장', 'Save')}
             </button>
           </div>
         </form>

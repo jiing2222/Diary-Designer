@@ -5,6 +5,8 @@ import { ensureIdCounterAbove } from '../core/objects';
 import { adoptFont, fontBytes, reserveIds } from '../fonts/registry';
 import { adoptImage, imageBytes, imageKind, reserveImageIds } from '../images/registry';
 import { migrateSnapshot } from '../storage/v2';
+import { t } from '../lang';
+import type { ReadError } from '../core/bundle';
 
 /**
  * 작업 파일(.rings) 저장·불러오기의 바깥 일 — 파일 바이트를 base64로, 내려받기, 받은 글꼴·이미지 등록.
@@ -68,7 +70,7 @@ export async function loadWorksFromFile(file: File): Promise<string> {
   const text = await file.text();
   const read = readFile(text);
   const data = 'ok' in read ? read.ok : legacyFile(text);
-  if (!data) return 'error' in read ? read.error : '파일을 읽지 못했어요.';
+  if (!data) return 'error' in read ? readErrorText(read.error) : t('파일을 읽지 못했어요.', "Couldn't read the file.");
 
   const s = useStore.getState();
   const plan = planImport(syncSnapshotOf(s), data);
@@ -94,5 +96,16 @@ export async function loadWorksFromFile(file: File): Promise<string> {
     ...plan.diaries.map((d) => ({ type: 'put' as const, kind: 'diary' as const, key: d.id, data: d })),
     ...plan.works.map((w) => ({ type: 'put' as const, kind: 'work' as const, key: w.id, data: w })),
   ]);
-  return `작업 ${plan.works.length}개를 불러왔어요.`;
+  return t(`작업 ${plan.works.length}개를 불러왔어요.`, `Opened ${plan.works.length} work(s).`);
+}
+
+function readErrorText(e: ReadError): string {
+  if (e === 'newer') {
+    return t(
+      '더 새 버전의 Rings에서 저장한 파일이에요. 앱을 새로 고친 뒤 다시 열어 주세요.',
+      'This file was saved by a newer version of Rings. Reload the app and try again.',
+    );
+  }
+  if (e === 'broken') return t('파일이 손상됐어요.', 'The file is damaged.');
+  return t('Rings 작업 파일이 아니에요.', "This isn't a Rings file.");
 }
