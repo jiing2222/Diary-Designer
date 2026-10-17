@@ -117,11 +117,12 @@ export function pinText(
   const board = known?.board ?? PIN_BOARDS.pocket;
   const dims = `${diary.width} x ${diary.height} mm / ${inches(diary.width)} x ${inches(diary.height)} in`;
   const suffix = pageCount > 1 ? ` – Page ${page}` : '';
-  const what = kind ? `${kind} ` : '';
+  // 'Meal Planner'처럼 이미 Planner로 끝나는 양식이면 한 번만 — "Meal Planner Planner Insert"가 되지 않게.
+  const what = kind ? (/planner$/i.test(kind) ? `${kind} ` : `${kind} Planner `) : 'Planner ';
   return {
-    title: `${size} ${what}Planner Insert${suffix}`,
+    title: `${size} ${what}Insert${suffix}`,
     description:
-      `Printable ${size} ${what.toLowerCase()}planner insert (${dims}) for ${diary.holeCount}-ring binders. ` +
+      `Printable ${size} ${what.toLowerCase()}insert (${dims}) for ${diary.holeCount}-ring binders. ` +
       'Designed with Rings: a dot grid editor with punch holes that line up and double-sided pages that print the right way around. Launching soon.',
     board,
     sizeLine: `${size} · ${dims}`,

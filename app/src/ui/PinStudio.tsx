@@ -23,11 +23,14 @@ import { InsertView } from './InsertView';
 
 const W = 1000;
 const H = 1500;
-const BG = '#f3efe7';
+const BG = '#ffffff';
 const INK = '#2e2723';
-const SUB = '#6b6158';
+const SUB = '#8a8178';
+/** 종이 테두리·구멍 테두리·크기 배지 — 흰 바탕에서 종이가 보일 만큼만. */
+const LINE = '#e4e0d9';
+const BADGE = '#f5f3ef';
 /** 속지가 앉는 자리(px). */
-const AREA = { x: 90, y: 230, w: 820, h: 1060 };
+const AREA = { x: 120, y: 290, w: 760, h: 1020 };
 /** 한 작업에서 미리 그리는 최대 면 수 — 날짜 페이지 365장을 한꺼번에 그리면 화면이 멈춘다. */
 const MAX_FACES = 24;
 
@@ -172,13 +175,17 @@ function PinCard({ work, diary, face, index, count }: { work: Work; diary: Diary
     <div className="pin-card">
       <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="pin-preview" xmlns="http://www.w3.org/2000/svg">
         <rect width={W} height={H} fill={BG} />
+        <text x={W / 2} y={lines.length === 1 ? 130 : 105} textAnchor="middle" fontSize="22" letterSpacing="5" fontFamily="Pretendard" fill={SUB}>
+          PRINTABLE PLANNER INSERT
+        </text>
         {lines.map((l, i) => (
-          <text key={i} x={W / 2} y={lines.length === 1 ? 140 : 110 + i * 68} textAnchor="middle" fontSize="56" fontWeight="700" fontFamily="Pretendard" fill={INK}>
+          <text key={i} x={W / 2} y={(lines.length === 1 ? 200 : 170) + i * 58} textAnchor="middle" fontSize="48" fontFamily="Pretendard" fill={INK}>
             {l}
           </text>
         ))}
-        {/* 종이가 바탕에서 뜨도록 살짝 어긋난 그림자 한 장 — 필터 없이(그림으로 옮길 때 안전하다). */}
-        <rect x={ix + 6} y={iy + 8} width={iw} height={ih} fill="#000" fillOpacity="0.07" />
+        {/* 흰 바탕에서 종이가 뜨도록 옅은 그림자 두 겹 — 필터 없이(그림으로 옮길 때 안전하다). */}
+        <rect x={ix} y={iy + 14} width={iw} height={ih} fill="#000" fillOpacity="0.035" />
+        <rect x={ix} y={iy + 4} width={iw} height={ih} fill="#000" fillOpacity="0.05" />
         <svg x={ix} y={iy} width={iw} height={ih} viewBox={`0 0 ${diary.width} ${diary.height}`}>
           <rect width={diary.width} height={diary.height} fill="#fff" />
           <InsertView
@@ -194,14 +201,16 @@ function PinCard({ work, diary, face, index, count }: { work: Work; diary: Diary
               rules: face.colorRules ?? resolveRuleColors(work.colorRules, work.palette),
             }}
           />
-          {/* 링 바인더 속지라는 것을 한눈에 — 실제 구멍 자리·지름(다이어리의 타공 설정) 그대로 뚫는다. */}
+          {/* 링 바인더 속지라는 것을 한눈에 — 실제 구멍 자리·지름 그대로. 바탕이 흰색이라 테두리로 보인다. */}
           {holeMarks(diary.width, diary.height, diary.punch, mirror).map((h, i) => (
-            <circle key={i} cx={h.cx} cy={h.cy} r={h.r} fill={BG} />
+            <circle key={i} cx={h.cx} cy={h.cy} r={h.r} fill={BG} stroke={LINE} strokeWidth={diary.width / iw * 2} />
           ))}
         </svg>
-        <rect x={ix} y={iy} width={iw} height={ih} fill="none" stroke="#d9d4cb" strokeWidth="2" />
-        <text x={W / 2} y={1365} textAnchor="middle" fontSize="30" fontFamily="Pretendard" fill={SUB}>{auto.sizeLine}</text>
-        <text x={W / 2} y={1430} textAnchor="middle" fontSize="30" fontWeight="700" fontFamily="Pretendard" fill={INK}>Rings</text>
+        <rect x={ix} y={iy} width={iw} height={ih} fill="none" stroke={LINE} strokeWidth="2" />
+        {/* 크기 배지 — 글자 수로 폭을 어림한다(Pretendard 24px ≈ 글자당 12.5px). */}
+        <rect x={W / 2 - (auto.sizeLine.length * 12.5 + 56) / 2} y={1352} width={auto.sizeLine.length * 12.5 + 56} height={52} rx={26} fill={BADGE} />
+        <text x={W / 2} y={1386} textAnchor="middle" fontSize="24" fontFamily="Pretendard" fill={SUB}>{auto.sizeLine}</text>
+        <text x={W / 2} y={1460} textAnchor="middle" fontSize="26" fontWeight="700" letterSpacing="2" fontFamily="Pretendard" fill={INK}>Rings</text>
       </svg>
       <input className="pin-title" value={title} onChange={(e) => setTitle(e.target.value)} aria-label="핀 제목" />
       <p className="muted pin-board">보드: {auto.board}</p>

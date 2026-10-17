@@ -14,6 +14,7 @@ describe('핀 글', () => {
     const t = pinText({ presetId: 'A5', width: 148, height: 210, holeCount: 6 }, 1, 1, 'Habit Tracker');
     expect(t.title).toBe('A5 Habit Tracker Planner Insert');
     expect(t.description).toContain('Printable A5 habit tracker planner insert');
+    expect(pinText({ presetId: 'A5', width: 148, height: 210, holeCount: 6 }, 1, 1, 'Meal Planner').title).toBe('A5 Meal Planner Insert');
   });
 
   it('여러 면이면 페이지 번호를 붙이고, 모르는 규격은 크기로 부른다', () => {
