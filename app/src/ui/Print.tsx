@@ -90,6 +90,14 @@ function usePrintSettings(): WorkPrintSettings {
 }
 
 /** 이번 인쇄의 재료 — PDF와 미리보기가 같이 쓴다. */
+/** 어느 면을 찍는지 — 양면이어도 ‘앞면만’·‘뒷면만’이면 그렇게 적는다(아래 요약 줄과 PDF 창이 같이 쓴다). */
+function sidesLabel(job: PrintJob): string {
+  if (!job.work.duplex) return t('단면', 'single-sided');
+  if (job.settings.sides === 'front') return t('앞면만', 'fronts only');
+  if (job.settings.sides === 'back') return t('뒷면만', 'backs only');
+  return t('양면', 'double-sided');
+}
+
 function usePrintJob(ignoreRange = false) {
   const work = useActiveWork();
   const diary = useActiveDiary();
@@ -538,8 +546,8 @@ export function PrintMain() {
 
       <div className="print-foot">
         {t(
-          `${job.pickedCount}페이지 → ${paperName} ${sheets}장 (${work.duplex ? t('양면', 'Double-sided') : t('단면', 'Single-sided')}) · 속지 ${slots}개/장`,
-          `${job.pickedCount} page(s) → ${sheets} ${paperName} sheet(s) (${work.duplex ? 'double-sided' : 'single-sided'}) · ${slots} insert(s)/sheet`,
+          `${job.pickedCount}페이지 → ${paperName} ${sheets}장 (${sidesLabel(job)}) · 속지 ${slots}개/장`,
+          `${job.pickedCount} page(s) → ${sheets} ${paperName} sheet(s) (${sidesLabel(job)}) · ${slots} insert(s)/sheet`,
         )}
         <span className="muted">
           {' '}
@@ -708,13 +716,7 @@ function ExportDialog({ job, onClose }: { job: PrintJob; onClose: () => void }) 
         </label>
         <p className="export-summary">
           {t(`${job.pickedCount}페이지 · ${job.sheets}장`, `${job.pickedCount} page(s) · ${job.sheets} sheet(s)`)} (
-          {job.work.duplex
-            ? job.settings.sides === 'both'
-              ? t('양면', 'double-sided')
-              : job.settings.sides === 'front'
-                ? t('앞면만', 'fronts only')
-                : t('뒷면만', 'backs only')
-            : t('단면', 'single-sided')}
+          {sidesLabel(job)}
           )
         </p>
         <div className="card-dialog-actions">

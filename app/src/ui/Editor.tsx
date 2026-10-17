@@ -341,6 +341,23 @@ export function Editor() {
         e.shiftKey ? redo() : undo();
         return;
       }
+      // 윈도우의 다시 실행(Ctrl+Y), 전체 선택(⌘A — 잠근 것은 빼고), 잘라내기(⌘X = 복사 후 지우기).
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        redo();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        select(objects.filter((o) => !isLocked(o)).map((o) => o.id));
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        copySelected();
+        deleteSelected();
+        return;
+      }
       // 아래 도구 단축키 분기(맨 아래, e.metaKey||e.ctrlKey면 return)보다 먼저
       // 잡아야 한다 — 안 그러면 ⌘V가 그 분기에서 조용히 삼켜진다(그 분기의
       // 주석 참고).
@@ -424,6 +441,7 @@ export function Editor() {
     moveSelected,
     selectedIds,
     grid.spacing,
+    objects,
   ]);
 
   /**

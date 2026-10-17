@@ -150,7 +150,7 @@ function SignedIn({
       <p className="note">
         {sync.kind === 'local'
           ? t('작업은 지금 이 기기에 저장됩니다.', 'Your works are saved on this device.')
-          : t('작업이 계정에도 저장됩니다. 다른 기기에서 같은 계정으로 로그인하면 이어서 할 수 있습니다.', 'Your works are also saved to your account. Sign in on another device to pick up where you left off.')}
+          : t('계정과 맞춘 작업은 계정에도 저장돼요. 다른 기기에서 같은 계정으로 로그인하면 이어서 할 수 있어요.', 'Works synced with this account are saved there too. Sign in on another device to pick up where you left off.')}
       </p>
       {sync.kind !== 'local' && (
         <p className="note">{t('글꼴·이미지 파일도 함께 올라가요. 다른 기기에서는 처음 맞출 때 받아 와요.', 'Font and image files are uploaded too. Other devices download them on their first sync.')}</p>
